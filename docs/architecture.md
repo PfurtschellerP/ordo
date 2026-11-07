@@ -1,6 +1,6 @@
 # ORDO — Architecture
 
-> Status: **Draft v0.4** · 2026-11-08 · Based on [requirements.md](requirements.md)
+> Status: **Draft v0.5** · 2026-11-08 · Based on [requirements.md](requirements.md)
 
 ## 1. Architecture drivers
 
@@ -137,7 +137,7 @@ wire and in storage it is **CBOR**.
   readable by the server, so it can order, route and check permissions.
 - Identifiers are **globally unique and qualified with their server**, and every event
   is **signed**, from day one, so that installations can federate later without
-  migrating data (§11).
+  migrating data (§12).
 - The **payload** of protected compartments is encrypted with that compartment's key
   (§5).
 - The current state is a **projection** of the events, built per module.
@@ -146,7 +146,7 @@ wire and in storage it is **CBOR**.
 
 - Each event carries a **hybrid logical clock** (HLC): close to real time but
   consistently ordered even when device clocks differ.
-- The incident's **home server** (§11) assigns a **sequence number** per incident and
+- The incident's **home server** (§12) assigns a **sequence number** per incident and
   compartment. Clients replay
   their unconfirmed local events on top of it.
 
@@ -359,7 +359,7 @@ flowchart TB
 | Serialisation | **serde** + **CBOR**; JSON for export | Compact and evolvable | postcard |
 | Cryptography | **RustCrypto** / **ring**: XChaCha20-Poly1305, X25519, BLAKE3, Argon2id | Audited, pure Rust or well-reviewed | libsodium bindings |
 | Auth | Local accounts + **OpenID Connect** | Simple for volunteers, SSO for agencies | — |
-| PDF | **Typst** as a library | Pure Rust; templates as data | HTML-to-PDF |
+| PDF | **Typst ≥ 0.14** as a library | Pure Rust; templates as data; tagged PDFs and PDF/UA-1 for accessibility | HTML-to-PDF |
 | Health data exchange | **HL7 FHIR** (later, adapter) | Standard for hospital interfaces | — |
 | Packaging | **Single static binary** (musl, x86_64/aarch64); container optional | One-command install | — |
 
@@ -374,13 +374,99 @@ flowchart TB
 - **Measured in CI:** benchmarks for projections, sync and encryption; budgets checked
   on the reference tablet.
 
-## 10. Deployment and operations
+## 10. Design system and accessibility
+
+Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces (requirements §5.8).
+The design system is the main tool to get there: if the shared components are
+accessible, every module built from them is too.
+
+### 10.1 Why the UI technology matters
+
+Leptos renders **real HTML elements** into the page. Screen readers, keyboard
+navigation, browser zoom and operating-system contrast settings therefore work as on
+any good website. UI frameworks that paint everything onto a canvas would make most of
+this impossible; this rules them out for ORDO.
+
+The one canvas ORDO needs is the **map** (MapLibre). It gets an accessible companion:
+every map object also appears in a list view with the same actions (A11Y-5), and map
+objects can be reached by keyboard.
+
+### 10.2 Building blocks (open source)
+
+| Area | Choice | Licence | Why |
+|---|---|---|---|
+| Token format | **W3C Design Tokens format (DTCG 2025.10)**, JSON | open specification | Tool-independent standard; also read by Style Dictionary, Tokens Studio (Figma) and Terrazzo, so designers can work with their own tools |
+| Token build | Small Rust tool **`ordo-tokens`**: DTCG → CSS custom properties (+ Rust constants), with contrast checks | AGPL-3.0 | Keeps the build Rust-only; because the format is standard, Style Dictionary can be used instead at any time |
+| Typeface | **Atkinson Hyperlegible Next** and **Mono** (Braille Institute) | SIL OFL 1.1 | Designed for low-vision readers; clearly distinguishes 0/O and 1/l/I — important for call signs and triage tag numbers |
+| Icons | **Lucide** | ISC | Large, consistent, actively maintained set. Tactical symbols (DV 102) come from the profiles, not from the icon set |
+| Components | Own components in **`ordo-ui`**, built to the **WAI-ARIA Authoring Practices**. Headless Leptos libraries (e.g. RustForWeb's Radix port, Leptix) are evaluated in the prototype and adopted only if maintained and passing our tests | AGPL-3.0 | The Rust UI ecosystem is young; accessibility must not depend on an unmaintained crate |
+| Styling | Plain CSS: custom properties for tokens, cascade layers, no CSS framework | — | Small and fast; themes are just different property values |
+| Automated tests | **axe-core** run by **Playwright** in CI | MPL-2.0 / Apache-2.0 | Catches a large share of WCAG errors on every change |
+| Manual tests | NVDA, Orca, VoiceOver, TalkBack per release; expert audit (e.g. BITV-Test) before the first release for public bodies | — | Automated checks find only part of the problems |
+| Documents | **Typst ≥ 0.14**: tagged PDFs by default, PDF/UA-1 export | Apache-2.0 | EN 301 549 clause 10 (documents) |
+
+### 10.3 Tokens and themes
+
+```mermaid
+flowchart LR
+  P["Primitive tokens<br/>colour.red.600, space.4, font.size.3"] --> S["Semantic tokens<br/>surface.default, text.primary,<br/>action.primary, safety.triage.immediate"]
+  S --> C["Component tokens<br/>button.background, triageBadge.immediate.border"]
+  T1["Theme: day"] -. overrides .-> S
+  T2["Theme: night"] -. overrides .-> S
+  T3["Theme: high contrast"] -. overrides .-> S
+  T4["Organisation theme<br/>(branding)"] -. overrides .-> S
+```
+
+- **Primitive** tokens are raw values (colours, spacing, sizes). **Semantic** tokens give
+  them a meaning (`text.primary`, `action.danger`). **Component** tokens bind meanings to
+  parts of components.
+- **Themes override semantic tokens only.** ORDO ships *day*, *night* and *high
+  contrast*. An organisation theme is one more layer on top, like profile layers (§15.3).
+- **Safety tokens are protected.** Tokens under `safety.*` (triage categories, alarms,
+  unit-status meaning) keep their hue in every theme, and organisation themes can't
+  change them. Their *lightness* may differ between day and night so that contrast
+  holds in both.
+- **Checked automatically:** `ordo-tokens` computes the contrast of every text/background
+  and control/background pair defined in the system, for every theme, and fails the build
+  below WCAG thresholds (4.5:1 text, 3:1 large text and UI parts). An organisation theme
+  that fails is rejected when it is loaded.
+- **Operating-system settings are respected:** `prefers-color-scheme` picks day or night,
+  `prefers-contrast: more` picks high contrast, `forced-colors` (Windows contrast themes)
+  falls back to system colours, `prefers-reduced-motion` turns off animation.
+- The user can always override the choice in the app (e.g. force night mode in the
+  command vehicle).
+
+### 10.4 Rules every component follows
+
+- Native HTML elements first (`button`, `input`, `table`, `dialog`); ARIA only where HTML
+  has no equivalent.
+- Visible focus indicator in every theme; logical focus order; focus moves sensibly
+  after dialogs and actions.
+- Every control has a visible label; error messages are text, linked to the field.
+- Touch targets ≥ 12 mm (about 46 CSS px), well above the WCAG 2.5.8 minimum.
+- **Colour plus text plus shape** for all status information. Example: a triage badge
+  shows the colour, the label from the profile ("SK I") and a distinct shape per
+  category.
+- Live regions announce important changes (new patient in UHS, alarm) to screen-reader
+  users without moving focus.
+- Alarms: visual + sound + vibration, never flashing more than three times per second.
+- Layouts reflow down to 320 CSS px and work at 200 % text size.
+- All user-visible text comes from translation files (Fluent), with `lang` set
+  correctly, including for patient-facing texts in other languages.
+
+### 10.5 Design-system documentation
+
+A component gallery (built with ORDO itself, served by `ordo serve --gallery`) shows
+every component in every theme, with usage and accessibility notes. It is also the page
+the automated accessibility tests run against.
+
+## 11. Deployment and operations
 
 ORDO stays **one program** (a modular monolith), but is built from the start to run
 well in containers and orchestrators. Small setups get one file; large setups get the
 same program, scaled out.
 
-### 10.1 Cloud-ready by design
+### 11.1 Cloud-ready by design
 
 | Principle | How ORDO does it |
 |---|---|
@@ -394,14 +480,14 @@ same program, scaled out.
 | Files | Map tiles, attachments, backups: local directory **or** S3-compatible object storage |
 | Secrets | Environment or mounted files (Docker / Kubernetes secrets); external key management later |
 
-### 10.2 Container image
+### 11.2 Container image
 
 - Static binary in a minimal image (`scratch` / distroless): no shell, non-root,
   read-only file system, roughly 20–30 MB.
 - Multi-architecture: `linux/amd64` and `linux/arm64` (Raspberry Pi, ARM servers).
 - Published with every release, signed (cosign), with a software bill of materials.
 
-### 10.3 Deployment options
+### 11.3 Deployment options
 
 | Option | Setup | Typical use |
 |---|---|---|
@@ -411,7 +497,7 @@ same program, scaled out.
 | **Kubernetes** (Helm, later) | Several ORDO replicas + PostgreSQL (e.g. CloudNativePG) + ingress + object storage | Hosted service, large regions |
 | **Edge** (later) | Same binary on a mini PC in the command vehicle | Scenes without internet |
 
-### 10.4 Scaling out
+### 11.4 Scaling out
 
 - **SQLite mode:** exactly one instance, by design.
 - **PostgreSQL mode:** any number of stateless instances behind a load balancer.
@@ -426,13 +512,13 @@ same program, scaled out.
 
 Every record carries an `organisation_id` from day one (multi-tenancy).
 
-## 11. Federation
+## 12. Federation
 
 **Goal:** ORDO installations run by different organisations work together on the same
 incident, without a central server — in the spirit of Matrix, but focused on what
 emergency services need.
 
-### 11.1 Why not build directly on Matrix?
+### 12.1 Why not build directly on Matrix?
 
 Matrix is a serious option: proven, federated, end-to-end encrypted, with Rust server
 implementations; in Germany it is the basis of the health sector's TI-Messenger and of
@@ -450,7 +536,7 @@ ideas (server identity via domain names, signed events, open specification). Plu
 **Matrix adapter** later for messaging with TI-Messenger, BwMessenger or Element — where
 Matrix is strongest.
 
-### 11.2 Model
+### 12.2 Model
 
 ```mermaid
 flowchart LR
@@ -485,7 +571,7 @@ flowchart LR
   and roles may cross. Compartment keys are given only to partner servers that host
   authorised users; `med.clinical` normally stays with medical organisations.
 
-### 11.3 Now vs later
+### 12.3 Now vs later
 
 | Built now (cheap, avoids migrations later) | Built later (phase 4) |
 |---|---|
@@ -494,7 +580,7 @@ flowchart LR
 | "Home" concept in the sync protocol | Server-to-server endpoints |
 | Sync protocol that doesn't distinguish device vs server peers | Home handover; conformance tests |
 
-## 12. Open specifications
+## 13. Open specifications
 
 All of ORDO's interfaces are published as **open, versioned specifications**,
 separate from the code — like the Matrix specification — so other systems, including
@@ -517,7 +603,7 @@ commercial control-centre or hospital software, can talk to ORDO.
   conformance suite. Permissive on purpose: anyone may implement the interfaces, while
   ORDO's own code stays AGPL.
 
-## 13. Security
+## 14. Security
 
 - **Transport:** TLS everywhere (rustls); ACME / Let's Encrypt or local certificates.
 - **Compartments:** separate access rules, sync scope, keys and retention (§5).
@@ -531,12 +617,12 @@ commercial control-centre or hospital software, can talk to ORDO.
 - **Memory safety:** no `unsafe` in ORDO's own code except reviewed FFI; `cargo audit`
   and `cargo deny` in CI.
 
-## 14. Regional profiles
+## 15. Regional profiles
 
 Everything country- or organisation-specific is **configuration data**, packaged as a
 profile. Core, modules and packages contain no regional data (I18N-4).
 
-### 14.1 Profile packages
+### 15.1 Profile packages
 
 ```
 profiles/de/
@@ -576,7 +662,7 @@ colour = "red"
 meaning = "immediate"      # core meaning used by the software
 ```
 
-### 14.2 Catalogues are the extension points
+### 15.2 Catalogues are the extension points
 
 Each catalogue type is defined (schema + meaning) by the module that uses it. A new
 module brings its own catalogue types; the loader doesn't change.
@@ -599,7 +685,7 @@ module brings its own catalogue types; the loader doesn't change.
 The software works with the core meaning (`immediate`); users see the regional label
 ("SK I", "T1", "P1", …). That is what lets one codebase serve many countries.
 
-### 14.3 Layering
+### 15.3 Layering
 
 ```
 de  →  de-by (Bavaria)  →  org: e.g. a local medical service
@@ -612,7 +698,7 @@ de  →  de-by (Bavaria)  →  org: e.g. a local medical service
   record the hash they started with.
 - `ordo profile validate` / `ordo profile resolve` check profiles locally and in CI.
 
-### 14.4 First profile: Germany (DE)
+### 15.4 First profile: Germany (DE)
 
 | Item | DE profile |
 |---|---|
@@ -625,7 +711,7 @@ de  →  de-by (Bavaria)  →  org: e.g. a local medical service
 | Patient record | Based on DIVI MIND |
 | Language | German (English UI available) |
 
-## 15. Repository structure
+## 16. Repository structure
 
 ```
 ordo/
@@ -637,8 +723,10 @@ ordo/
 │   ├── ordo-store/            # SQLite (native/WASM), PostgreSQL
 │   ├── ordo-profiles/         # profile format, loader, layering, validation
 │   ├── ordo-contracts/        # connector contracts (versioned)
-│   ├── ordo-app/              # Leptos shell, workspaces, design system
-│   ├── ordo-map/              # MapLibre bindings
+│   ├── ordo-app/              # Leptos shell, workspaces
+│   ├── ordo-ui/               # design system: accessible components
+│   ├── ordo-tokens/           # DTCG tokens → CSS, contrast checks
+│   ├── ordo-map/              # MapLibre bindings + accessible list view
 │   └── ordo-server/           # axum server, CLI
 ├── modules/                   # shared modules
 │   ├── incidents/ units/ command/ tasks/ map/ log/ org/
@@ -649,6 +737,10 @@ ordo/
 ├── adapters/                  # alerting, OIDC, FHIR, IVENA, EMSI, …
 ├── profiles/
 │   └── de/                    # data only
+├── design/
+│   ├── tokens/                # primitive, semantic, component tokens (DTCG JSON)
+│   ├── themes/                # day, night, high-contrast (DTCG JSON)
+│   └── assets/                # fonts (OFL), icons (ISC), with licence files
 ├── spec/                      # open specifications (CC BY 4.0 / Apache-2.0)
 │   ├── client-server/         # OpenAPI
 │   ├── sync/                  # AsyncAPI + CDDL
@@ -669,7 +761,7 @@ ordo/
     └── helm/                  # later
 ```
 
-## 16. Decisions (ADRs)
+## 17. Decisions (ADRs)
 
 | # | Decision | Status |
 |---|---|---|
@@ -692,8 +784,10 @@ ordo/
 | 017 | Server-qualified global IDs and signed events from day one | Proposed |
 | 018 | Spec-first open specifications (OpenAPI, AsyncAPI, CDDL) under CC BY 4.0 (texts) / Apache-2.0 (schemas, conformance) | **Accepted** |
 | 019 | Med package first in the MVP (without ePCR) | **Accepted** |
+| 020 | Accessibility target EN 301 549 / WCAG 2.2 AA for all outputs | **Accepted** |
+| 021 | Design system on DTCG tokens with protected safety tokens; own `ordo-tokens` build; Atkinson Hyperlegible, Lucide; own components following WAI-ARIA APG | Proposed |
 
-## 17. Risks
+## 18. Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -704,22 +798,27 @@ ordo/
 | Rust + WASM has fewer UI contributors than JS | Small design system; good build docs |
 | SQLite in WASM / browser storage limits (iOS) | Verify in prototype; persistent storage; Tauri shell later |
 | Map is JavaScript, not Rust | Thin binding layer (`ordo-map`) |
+| The map canvas is not accessible | Accessible list view with the same actions; keyboard access to map objects |
+| Accessible Leptos component libraries are young | Own components following the WAI-ARIA APG; adopt a library only after evaluation |
+| Organisation branding breaks contrast | Themes checked automatically; safety tokens can't be overridden |
 | Federation is a large undertaking | Only the foundations now (IDs, signatures, home concept); the rest in phase 4 |
 | Maintaining open specs costs time | Spec-first only for sync, federation and connectors; the admin API spec is generated from code |
 | Volunteer project, limited time | Small MVP; planned operations (events) as low-risk field tests |
 | Safety-critical features (BA monitoring) | Own requirements and tests; never the only safeguard |
 
-## 18. Next steps
+## 19. Next steps
 
 1. Phase 0: set up the Cargo workspace, CI (build, tests, multi-arch container image)
-   and the minimal Compose setup; write ADRs 001–019.
-2. Draft the event envelope and sync protocol as the first specs (CDDL + AsyncAPI).
-3. Sync prototype covering the risky parts: `ordo-core` + `ordo-sync` + `ordo-crypto`,
+   and the minimal Compose setup; write ADRs 001–021.
+2. Design tokens (primitive, semantic, safety) with day, night and high-contrast
+   themes; `ordo-tokens` with contrast checks in CI.
+3. Draft the event envelope and sync protocol as the first specs (CDDL + AsyncAPI).
+4. Sync prototype covering the risky parts: `ordo-core` + `ordo-sync` + `ordo-crypto`,
    **two compartments** (`incident`, `med.clinical`), signed events with qualified IDs,
    one shared module (`units`), one package module (`med.patients`), one connector
    (`med.patientCounts.v1`), a minimal DE profile, minimal server and Leptos app, run
    via Docker Compose. Test: a command tablet sees counts but never receives patient
    data; network on/off; conflicting edits; two server instances on PostgreSQL. Measure
    size and memory.
-4. Design the main tablet screens for the Med MVP (patient registration, UHS board,
+5. Design the main tablet screens for the Med MVP (patient registration, UHS board,
    transport board) with volunteers.

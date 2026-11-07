@@ -1,0 +1,103 @@
+; ORDO event envelope — draft 0
+;
+; Concise Data Definition Language (CDDL, RFC 8610) for the CBOR structures of
+; ORDO events. The prose specification is in event.md.
+
+; ---------------------------------------------------------------------------
+; Signed event: what devices and servers exchange.
+; ---------------------------------------------------------------------------
+
+signed-event = [
+  body: bstr .cbor event-body,   ; kept and forwarded byte-for-byte
+  signature: signature,
+]
+
+signature = {
+  "kid": key-id,                 ; key that made the signature
+  "val": bstr .size 64,          ; Ed25519 signature, see event.md §4
+}
+
+; ---------------------------------------------------------------------------
+; Event body. Keys are listed in deterministic order (RFC 8949 §4.2.1).
+; ---------------------------------------------------------------------------
+
+event-body = {
+  "v": 1,                        ; envelope format version
+  "id": event-id,
+  "sv": uint,                    ; schema version of this event type
+  "hlc": hlc,
+  "inc": incident-id,
+  "mod": module-id,
+  "comp": compartment-id,
+  "type": event-type,
+  "author": author,
+  "origin": server-name,         ; server where the event was created
+  "payload": payload,
+  * tstr => any                  ; receivers MUST ignore unknown keys
+}
+
+author = {
+  "user": user-id,
+  "device": device-id,
+}
+
+; Hybrid logical clock. Ordered by wall, then counter, then node.
+hlc = [
+  wall: uint,                    ; milliseconds since Unix epoch, UTC
+  counter: uint .size 2,         ; 0..65535
+  node: device-id,
+]
+
+payload = plain-payload / sealed-payload
+
+plain-payload = {
+  "plain": bstr,                 ; CBOR-encoded, defined by the module
+}
+
+sealed-payload = {
+  "sealed": sealed-box,
+}
+
+; XChaCha20-Poly1305, see event.md §5
+sealed-box = {
+  "ct": bstr,                    ; ciphertext including authentication tag
+  "key": key-id,                 ; compartment data key used
+  "nonce": bstr .size 24,
+}
+
+; ---------------------------------------------------------------------------
+; Sequenced event: an event after the incident's home server has ordered it.
+; ---------------------------------------------------------------------------
+
+sequenced-event = {
+  "seq": uint,                   ; per incident and compartment, starting at 1
+  "chain": bstr .size 32,        ; hash chain value, see event.md §6
+  "event": signed-event,
+}
+
+; ---------------------------------------------------------------------------
+; Identifiers
+; ---------------------------------------------------------------------------
+
+; ULIDs in binary form (16 bytes, big-endian)
+event-id = bstr .size 16
+device-id = bstr .size 16
+
+; Lower-case DNS name, optionally with a port, e.g. "ordo.drk-musterstadt.de"
+server-name = tstr .regexp "[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?"
+
+; "localpart@server", e.g. "anna@ordo.drk-musterstadt.de"
+user-id = tstr .regexp "[a-z0-9._\\-]{1,64}@[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?"
+
+; "ULID@server" (ULID in canonical upper-case Crockford base32)
+incident-id = tstr .regexp "[0-7][0-9A-HJKMNP-TV-Z]{25}@[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?"
+
+; "name@server", names a signing or data key held by that server
+key-id = tstr .regexp "[A-Za-z0-9_\\-]{1,64}@[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?"
+
+; Dotted lower-case names, e.g. "incident", "med.clinical", "med.epcr"
+compartment-id = tstr .regexp "[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*"
+module-id = tstr .regexp "[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*"
+
+; At least two segments, camelCase allowed, e.g. "uhs.patientAdmitted"
+event-type = tstr .regexp "[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)+"

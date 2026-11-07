@@ -1,7 +1,7 @@
 # ORDO — Requirements
 
 > **O**perations, **R**esponse, **D**ispatch & **O**rganisation
-> Status: **Draft v0.4** · 2026-11-08
+> Status: **Draft v0.5** · 2026-11-08
 
 ## 1. Vision
 
@@ -298,7 +298,7 @@ could (later).
 | UX-4 | A new user can do the core task of their role without training |
 | UX-5 | No data entry is lost when the app is closed, the device sleeps or the network drops |
 | UX-6 | Works on tablet (main device), laptop and phone (reduced view) |
-| UX-7 | Meets WCAG 2.2 AA where it doesn't conflict with the above |
+| UX-7 | Accessible to everyone, including people with disabilities (§5.8) |
 | UX-8 | Each role opens in its **workspace**: only the views and actions for that role, in that service's wording |
 | UX-9 | Ready-made packages work with defaults; no configuration needed to start |
 
@@ -379,6 +379,39 @@ could (later).
 | MOD-6 | Interfaces to external systems are adapters behind a common interface |
 | MOD-7 | Map symbol sets, forms, report templates and translations are replaceable data, not code |
 
+### 5.8 Accessibility
+
+Responders, command assistants and control-centre staff include people with visual,
+hearing, motor or cognitive impairments — and everyone is impaired at a scene at night,
+in the rain, with gloves, under stress. Accessibility is a core requirement, not an
+add-on.
+
+| ID | Requirement |
+|---|---|
+| A11Y-1 | ORDO conforms to **EN 301 549**, the European standard behind the European Accessibility Act, the EU Web Accessibility Directive and, in Germany, BITV 2.0 and the state regulations that apply to municipal bodies such as fire brigades. Target: **WCAG 2.2 Level AA** (as in EN 301 549 v4.1.1), which also covers v3.2.1 (WCAG 2.1 AA), the version currently cited as harmonised standard |
+| A11Y-2 | This applies to every part: app, admin interface, setup wizard, generated documents (PDF/UA-1 tagged PDFs, EN 301 549 clause 10) and the documentation website |
+| A11Y-3 | Colour is never the only carrier of meaning (WCAG 1.4.1): triage categories, unit status and alarms always combine colour with text and a shape or pattern — about 8 % of men have a colour-vision deficiency |
+| A11Y-4 | Fully operable by keyboard alone and with screen readers (NVDA, JAWS, VoiceOver, TalkBack, Orca): semantic HTML first, WAI-ARIA only where needed, following the WAI-ARIA Authoring Practices |
+| A11Y-5 | Everything on the map is also available in an accessible list view with the same actions, because a map canvas is not accessible to screen readers |
+| A11Y-6 | Works with 200 % text size and 400 % zoom (reflow at 320 CSS px) without losing content or functions; follows the operating system's settings for text size, dark mode, increased contrast, reduced motion and forced colours |
+| A11Y-7 | Alarms and time-critical notices use several senses: visual plus sound plus vibration where available; never sound only (noise at the scene); nothing flashes more than three times per second (WCAG 2.3.1) |
+| A11Y-8 | Automatic locking (SEC-4) warns beforehand, never loses data, and unlocking needs no memory or puzzle test (WCAG 2.2.1, 3.3.8) |
+| A11Y-9 | Clear, short wording and consistent terms in the UI; texts shown to patients or the public (e.g. refusal of treatment) are available in plain language (*Einfache / Leichte Sprache*) and several languages |
+| A11Y-10 | Tested continuously: automated checks in CI, manual screen-reader tests for every release, and an expert audit (e.g. BITV-Test) before the first release for public bodies |
+| A11Y-11 | Every release comes with an accessibility conformance report against EN 301 549, so that public bodies can write their accessibility statement (*Erklärung zur Barrierefreiheit*); ORDO has a built-in way to report barriers |
+
+### 5.9 Design system
+
+| ID | Requirement |
+|---|---|
+| DS-1 | One consistent design system for all packages: components, layout, icons, motion and wording rules, documented with live examples |
+| DS-2 | Based on **design tokens** in the open W3C Design Tokens format (DTCG 2025.10), in three layers: primitive → semantic → component |
+| DS-3 | Themeable: themes change semantic tokens only. ORDO ships *day*, *night* and *high contrast* themes; organisations can add their own branding (logo, brand colours) |
+| DS-4 | Themes cannot break accessibility or safety: every theme is checked automatically for contrast (WCAG 1.4.3, 1.4.11); safety-relevant meanings (triage categories, alarms, status) keep their colours and cannot be changed by branding |
+| DS-5 | Components are accessible by default (semantics, focus handling, keyboard, labels), so module developers get accessibility without extra effort |
+| DS-6 | Themes are data and can be layered like profiles (e.g. ORDO default → organisation theme) |
+| DS-7 | Uses existing open-source building blocks where suitable (token tooling, fonts, icons, test tools), under licences compatible with AGPL-3.0 |
+
 ## 6. Constraints
 
 - Licence: **AGPL-3.0-or-later**. Modified versions must stay open, including when they
@@ -386,6 +419,8 @@ could (later).
 - Implemented in Rust; client runs as WebAssembly (see architecture).
 - Only open-licensed map data, symbols and fonts (e.g. OpenStreetMap).
 - No dependency on a single commercial cloud provider.
+- **Accessibility law:** EN 301 549 / WCAG 2.2 AA (§5.8). Public bodies using ORDO must
+  publish an accessibility statement; ORDO supplies the conformance report for it.
 - ORDO is a support tool. Responsibility stays with the people in charge, and
   procedures must work without it (fallback: paper, e.g. paper triage tags).
 - **Medical-device regulation (EU MDR):** ORDO documents and organises; it does not
@@ -399,7 +434,7 @@ could (later).
 
 | Phase | Content |
 |---|---|
-| **0 — Foundation** | Repository, CI, container image, Docker Compose, architecture decisions, platform core (events, sync, compartments, modules, profiles, global IDs, signed events), sync prototype, first spec drafts |
+| **0 — Foundation** | Repository, CI, container image, Docker Compose, architecture decisions, platform core (events, sync, compartments, modules, profiles, global IDs, signed events), sync prototype, first spec drafts, design tokens and themes, accessibility testing in CI |
 | **1 — MVP (Med)** | Shared modules (incidents, units, command, tasks, map, log, org) + **Med package: patients and triage, UHS, transport planning, hospitals** (no ePCR yet); planned operations; offline; one organisation; field tests at planned events |
 | **2 — Fire** | Fire package; first connectors between Fire and Med; field tests with fire brigades |
 | **3 — Patient records** | ePCR with clinical compartment, PDF handover; data-protection review |
