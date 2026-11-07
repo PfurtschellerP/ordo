@@ -1,0 +1,18 @@
+[package]
+name = "ordo-core"
+description = "ORDO platform core: identifiers, clocks and the event envelope"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+ciborium.workspace = true
+serde.workspace = true
+serde_bytes.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

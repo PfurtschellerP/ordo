@@ -1,0 +1,21 @@
+[package]
+name = "ordo-crypto"
+description = "ORDO cryptography: event signatures and hash chains"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+blake3.workspace = true
+ed25519-dalek.workspace = true
+ordo-core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+ciborium.workspace = true
+
+[lints]
+workspace = true
