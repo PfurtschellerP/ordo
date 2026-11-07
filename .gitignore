@@ -1,0 +1,20 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# WASM / frontend build output
+/dist/
+pkg/
+
+# Local data and secrets
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+*.swp
+.DS_Store

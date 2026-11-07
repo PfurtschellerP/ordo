@@ -1,0 +1,33 @@
+# Licensing of this repository, following the REUSE specification
+# (https://reuse.software). If several annotations match a file, the last one wins.
+version = 1
+SPDX-PackageName = "ORDO"
+
+# Default: all code and everything else is AGPL-3.0-or-later.
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "ORDO contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Open specifications: texts are CC BY 4.0 ...
+[[annotations]]
+path = "spec/**"
+SPDX-FileCopyrightText = "ORDO contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# ... schemas (OpenAPI, AsyncAPI, CDDL, JSON Schema) are Apache-2.0 ...
+[[annotations]]
+path = [
+  "spec/**/*.yaml",
+  "spec/**/*.yml",
+  "spec/**/*.json",
+  "spec/**/*.cddl",
+]
+SPDX-FileCopyrightText = "ORDO contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ... and so is the conformance test suite, as a whole.
+[[annotations]]
+path = "spec/conformance/**"
+SPDX-FileCopyrightText = "ORDO contributors"
+SPDX-License-Identifier = "Apache-2.0"
