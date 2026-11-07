@@ -27,6 +27,7 @@ Built first for volunteer organisations in Germany, designed to be international
 ## Licence
 
 - ORDO software: [GNU Affero General Public License v3.0 or later](LICENSE)
+- Documentation: [CC BY 4.0](LICENSES/CC-BY-4.0.txt)
 - Specifications: [CC BY 4.0](LICENSES/CC-BY-4.0.txt) (texts) and
   [Apache-2.0](LICENSES/Apache-2.0.txt) (schemas, conformance tests)
 
