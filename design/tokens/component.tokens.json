@@ -1,0 +1,148 @@
+{
+  "$description": "ORDO component tokens: bind semantic tokens to parts of components. Theme-independent.",
+  "component": {
+    "button": {
+      "minHeight": {
+        "$value": "{size.touchTarget}"
+      },
+      "radius": {
+        "$value": "{radius.medium}"
+      },
+      "paddingInline": {
+        "$value": "{space.4}"
+      },
+      "primary": {
+        "background": {
+          "$value": "{color.action.primary.background}"
+        },
+        "backgroundHover": {
+          "$value": "{color.action.primary.backgroundHover}"
+        },
+        "text": {
+          "$value": "{color.action.primary.text}"
+        }
+      },
+      "danger": {
+        "background": {
+          "$value": "{color.action.danger.background}"
+        },
+        "text": {
+          "$value": "{color.action.danger.text}"
+        }
+      }
+    },
+    "focusRing": {
+      "color": {
+        "$value": "{color.focus.ring}"
+      },
+      "width": {
+        "$value": "{size.focusRing.width}"
+      },
+      "offset": {
+        "$value": "{size.focusRing.offset}"
+      }
+    },
+    "input": {
+      "minHeight": {
+        "$value": "{size.touchTarget}"
+      },
+      "background": {
+        "$value": "{color.surface.sunken}"
+      },
+      "border": {
+        "$value": "{color.border.strong}"
+      },
+      "text": {
+        "$value": "{color.text.primary}"
+      }
+    },
+    "triageBadge": {
+      "borderWidth": {
+        "$value": "{size.border.thick}"
+      },
+      "minHeight": {
+        "$value": "{size.touchTarget}"
+      },
+      "immediate": {
+        "background": {
+          "$value": "{color.safety.triage.immediate.fill}"
+        },
+        "text": {
+          "$value": "{color.safety.triage.immediate.onFill}"
+        },
+        "border": {
+          "$value": "{color.safety.triage.immediate.border}"
+        }
+      },
+      "urgent": {
+        "background": {
+          "$value": "{color.safety.triage.urgent.fill}"
+        },
+        "text": {
+          "$value": "{color.safety.triage.urgent.onFill}"
+        },
+        "border": {
+          "$value": "{color.safety.triage.urgent.border}"
+        }
+      },
+      "minor": {
+        "background": {
+          "$value": "{color.safety.triage.minor.fill}"
+        },
+        "text": {
+          "$value": "{color.safety.triage.minor.onFill}"
+        },
+        "border": {
+          "$value": "{color.safety.triage.minor.border}"
+        }
+      },
+      "expectant": {
+        "background": {
+          "$value": "{color.safety.triage.expectant.fill}"
+        },
+        "text": {
+          "$value": "{color.safety.triage.expectant.onFill}"
+        },
+        "border": {
+          "$value": "{color.safety.triage.expectant.border}"
+        }
+      },
+      "deceased": {
+        "background": {
+          "$value": "{color.safety.triage.deceased.fill}"
+        },
+        "text": {
+          "$value": "{color.safety.triage.deceased.onFill}"
+        },
+        "border": {
+          "$value": "{color.safety.triage.deceased.border}"
+        }
+      }
+    },
+    "alarmBanner": {
+      "background": {
+        "$value": "{color.safety.alarm.fill}"
+      },
+      "text": {
+        "$value": "{color.safety.alarm.onFill}"
+      }
+    },
+    "body": {
+      "background": {
+        "$value": "{color.surface.default}"
+      },
+      "text": {
+        "$value": "{color.text.primary}"
+      },
+      "fontFamily": {
+        "$value": "{font.family.sans}"
+      },
+      "fontSize": {
+        "$value": "{font.size.3}"
+      },
+      "lineHeight": {
+        "$value": "{font.lineHeight.body}"
+      }
+    }
+  }
+}

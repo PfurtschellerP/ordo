@@ -1,0 +1,646 @@
+{
+  "$description": "ORDO primitive tokens: raw values without meaning. Themes and components refer to these.",
+  "color": {
+    "$type": "color",
+    "neutral": {
+      "0": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "hex": "#FFFFFF"
+        }
+      },
+      "50": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9608,
+            0.9647,
+            0.9725
+          ],
+          "hex": "#F5F6F8"
+        }
+      },
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9137,
+            0.9255,
+            0.9412
+          ],
+          "hex": "#E9ECF0"
+        }
+      },
+      "200": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.8275,
+            0.8471,
+            0.8745
+          ],
+          "hex": "#D3D8DF"
+        }
+      },
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.702,
+            0.7333,
+            0.7765
+          ],
+          "hex": "#B3BBC6"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5294,
+            0.5725,
+            0.6353
+          ],
+          "hex": "#8792A2"
+        }
+      },
+      "500": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3882,
+            0.4314,
+            0.498
+          ],
+          "hex": "#636E7F"
+        }
+      },
+      "600": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2902,
+            0.3294,
+            0.3961
+          ],
+          "hex": "#4A5465"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2118,
+            0.2431,
+            0.298
+          ],
+          "hex": "#363E4C"
+        }
+      },
+      "800": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1373,
+            0.1608,
+            0.2
+          ],
+          "hex": "#232933"
+        }
+      },
+      "900": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0863,
+            0.102,
+            0.1294
+          ],
+          "hex": "#161A21"
+        }
+      },
+      "950": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0431,
+            0.0549,
+            0.0745
+          ],
+          "hex": "#0B0E13"
+        }
+      },
+      "1000": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "hex": "#000000"
+        }
+      }
+    },
+    "blue": {
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.8667,
+            0.9176,
+            0.9961
+          ],
+          "hex": "#DDEAFE"
+        }
+      },
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5529,
+            0.7216,
+            0.9569
+          ],
+          "hex": "#8DB8F4"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3686,
+            0.6039,
+            0.9255
+          ],
+          "hex": "#5E9AEC"
+        }
+      },
+      "600": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1137,
+            0.3608,
+            0.7529
+          ],
+          "hex": "#1D5CC0"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0863,
+            0.2902,
+            0.6118
+          ],
+          "hex": "#164A9C"
+        }
+      },
+      "800": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0588,
+            0.2196,
+            0.4706
+          ],
+          "hex": "#0F3878"
+        }
+      }
+    },
+    "red": {
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9922,
+            0.8902,
+            0.8863
+          ],
+          "hex": "#FDE3E2"
+        }
+      },
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.949,
+            0.6039,
+            0.5882
+          ],
+          "hex": "#F29A96"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9098,
+            0.3765,
+            0.3529
+          ],
+          "hex": "#E8605A"
+        }
+      },
+      "600": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.7686,
+            0.1686,
+            0.149
+          ],
+          "hex": "#C42B26"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.6275,
+            0.1216,
+            0.1059
+          ],
+          "hex": "#A01F1B"
+        }
+      },
+      "800": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4784,
+            0.0824,
+            0.0706
+          ],
+          "hex": "#7A1512"
+        }
+      }
+    },
+    "yellow": {
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            0.8314,
+            0.2314
+          ],
+          "hex": "#FFD43B"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9098,
+            0.7255,
+            0.0
+          ],
+          "hex": "#E8B900"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4784,
+            0.3686,
+            0.0
+          ],
+          "hex": "#7A5E00"
+        }
+      },
+      "800": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.3608,
+            0.2745,
+            0.0
+          ],
+          "hex": "#5C4600"
+        }
+      }
+    },
+    "green": {
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.8667,
+            0.9529,
+            0.8941
+          ],
+          "hex": "#DDF3E4"
+        }
+      },
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.498,
+            0.7961,
+            0.5961
+          ],
+          "hex": "#7FCB98"
+        }
+      },
+      "400": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2627,
+            0.6588,
+            0.4039
+          ],
+          "hex": "#43A867"
+        }
+      },
+      "600": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1098,
+            0.4784,
+            0.2627
+          ],
+          "hex": "#1C7A43"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0824,
+            0.3686,
+            0.2
+          ],
+          "hex": "#155E33"
+        }
+      }
+    },
+    "orange": {
+      "100": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            0.9216,
+            0.8275
+          ],
+          "hex": "#FFEBD3"
+        }
+      },
+      "300": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9686,
+            0.698,
+            0.4039
+          ],
+          "hex": "#F7B267"
+        }
+      },
+      "700": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5412,
+            0.2745,
+            0.0
+          ],
+          "hex": "#8A4600"
+        }
+      }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "$description": "Spacing scale in rem, so it grows with the user's text size.",
+    "0": {
+      "$value": {
+        "value": 0,
+        "unit": "rem"
+      }
+    },
+    "1": {
+      "$value": {
+        "value": 0.25,
+        "unit": "rem"
+      }
+    },
+    "2": {
+      "$value": {
+        "value": 0.5,
+        "unit": "rem"
+      }
+    },
+    "3": {
+      "$value": {
+        "value": 0.75,
+        "unit": "rem"
+      }
+    },
+    "4": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      }
+    },
+    "5": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      }
+    },
+    "6": {
+      "$value": {
+        "value": 2,
+        "unit": "rem"
+      }
+    },
+    "7": {
+      "$value": {
+        "value": 3,
+        "unit": "rem"
+      }
+    },
+    "8": {
+      "$value": {
+        "value": 4,
+        "unit": "rem"
+      }
+    }
+  },
+  "size": {
+    "$type": "dimension",
+    "touchTarget": {
+      "$value": {
+        "value": 3,
+        "unit": "rem"
+      },
+      "$description": "Minimum size of touch targets: 48 px at default text size, about 12.7 mm (requirement UX-2)."
+    },
+    "border": {
+      "thin": {
+        "$value": {
+          "value": 1,
+          "unit": "px"
+        }
+      },
+      "thick": {
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        }
+      }
+    },
+    "focusRing": {
+      "width": {
+        "$value": {
+          "value": 3,
+          "unit": "px"
+        }
+      },
+      "offset": {
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        }
+      }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "small": {
+      "$value": {
+        "value": 0.25,
+        "unit": "rem"
+      }
+    },
+    "medium": {
+      "$value": {
+        "value": 0.5,
+        "unit": "rem"
+      }
+    },
+    "large": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "sans": {
+        "$value": [
+          "Atkinson Hyperlegible Next",
+          "system-ui",
+          "sans-serif"
+        ],
+        "$description": "Atkinson Hyperlegible Next (SIL OFL 1.1), designed for low-vision readers."
+      },
+      "mono": {
+        "$value": [
+          "Atkinson Hyperlegible Mono",
+          "ui-monospace",
+          "monospace"
+        ],
+        "$description": "For call signs, triage tag numbers and other codes."
+      }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": {
+        "$value": 400
+      },
+      "bold": {
+        "$value": 700
+      }
+    },
+    "size": {
+      "$type": "dimension",
+      "$description": "Type scale in rem. Body text is size 3 (18 px at default settings) for reading at arm's length.",
+      "1": {
+        "$value": {
+          "value": 0.875,
+          "unit": "rem"
+        }
+      },
+      "2": {
+        "$value": {
+          "value": 1,
+          "unit": "rem"
+        }
+      },
+      "3": {
+        "$value": {
+          "value": 1.125,
+          "unit": "rem"
+        }
+      },
+      "4": {
+        "$value": {
+          "value": 1.375,
+          "unit": "rem"
+        }
+      },
+      "5": {
+        "$value": {
+          "value": 1.75,
+          "unit": "rem"
+        }
+      },
+      "6": {
+        "$value": {
+          "value": 2.25,
+          "unit": "rem"
+        }
+      }
+    },
+    "lineHeight": {
+      "$type": "number",
+      "body": {
+        "$value": 1.5,
+        "$description": "At least 1.5 for body text (WCAG 1.4.12)."
+      },
+      "heading": {
+        "$value": 1.25
+      }
+    }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "$description": "Set to 0 ms when the user prefers reduced motion.",
+      "fast": {
+        "$value": {
+          "value": 100,
+          "unit": "ms"
+        }
+      },
+      "normal": {
+        "$value": {
+          "value": 200,
+          "unit": "ms"
+        }
+      },
+      "slow": {
+        "$value": {
+          "value": 400,
+          "unit": "ms"
+        }
+      }
+    }
+  }
+}

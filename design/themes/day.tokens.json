@@ -1,0 +1,167 @@
+{
+  "$description": "Day theme: light surfaces for daylight and sunlight.",
+  "color": {
+    "$type": "color",
+    "surface": {
+      "default": {
+        "$value": "{color.neutral.0}",
+        "$description": "Page background."
+      },
+      "raised": {
+        "$value": "{color.neutral.50}",
+        "$description": "Cards, panels, dialogs."
+      },
+      "sunken": {
+        "$value": "{color.neutral.100}",
+        "$description": "Input fields, wells."
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "{color.neutral.900}"
+      },
+      "secondary": {
+        "$value": "{color.neutral.600}",
+        "$description": "Less important text; still 4.5:1."
+      },
+      "link": {
+        "$value": "{color.blue.700}"
+      }
+    },
+    "border": {
+      "strong": {
+        "$value": "{color.neutral.500}",
+        "$description": "Boundaries of controls (WCAG 1.4.11: 3:1)."
+      }
+    },
+    "focus": {
+      "ring": {
+        "$value": "{color.blue.600}",
+        "$description": "Keyboard focus indicator."
+      }
+    },
+    "action": {
+      "primary": {
+        "background": {
+          "$value": "{color.blue.600}"
+        },
+        "backgroundHover": {
+          "$value": "{color.blue.700}"
+        },
+        "text": {
+          "$value": "{color.neutral.0}"
+        }
+      },
+      "danger": {
+        "background": {
+          "$value": "{color.red.600}"
+        },
+        "text": {
+          "$value": "{color.neutral.0}"
+        }
+      }
+    },
+    "feedback": {
+      "error": {
+        "text": {
+          "$value": "{color.red.700}"
+        },
+        "surface": {
+          "$value": "{color.red.100}"
+        }
+      },
+      "warning": {
+        "text": {
+          "$value": "{color.orange.700}"
+        },
+        "surface": {
+          "$value": "{color.orange.100}"
+        }
+      },
+      "success": {
+        "text": {
+          "$value": "{color.green.700}"
+        },
+        "surface": {
+          "$value": "{color.green.100}"
+        }
+      },
+      "info": {
+        "text": {
+          "$value": "{color.blue.700}"
+        },
+        "surface": {
+          "$value": "{color.blue.100}"
+        }
+      }
+    },
+    "safety": {
+      "$description": "Safety-relevant colours. Organisation themes cannot change them. Always combined with text and shape (WCAG 1.4.1).",
+      "triage": {
+        "immediate": {
+          "fill": {
+            "$value": "{color.red.600}"
+          },
+          "onFill": {
+            "$value": "{color.neutral.0}"
+          },
+          "border": {
+            "$value": "{color.red.600}"
+          }
+        },
+        "urgent": {
+          "fill": {
+            "$value": "{color.yellow.300}"
+          },
+          "onFill": {
+            "$value": "{color.neutral.950}"
+          },
+          "border": {
+            "$value": "{color.yellow.700}"
+          }
+        },
+        "minor": {
+          "fill": {
+            "$value": "{color.green.600}"
+          },
+          "onFill": {
+            "$value": "{color.neutral.0}"
+          },
+          "border": {
+            "$value": "{color.green.600}"
+          }
+        },
+        "expectant": {
+          "fill": {
+            "$value": "{color.blue.600}"
+          },
+          "onFill": {
+            "$value": "{color.neutral.0}"
+          },
+          "border": {
+            "$value": "{color.blue.600}"
+          }
+        },
+        "deceased": {
+          "fill": {
+            "$value": "{color.neutral.900}"
+          },
+          "onFill": {
+            "$value": "{color.neutral.0}"
+          },
+          "border": {
+            "$value": "{color.neutral.900}"
+          }
+        }
+      },
+      "alarm": {
+        "fill": {
+          "$value": "{color.red.600}"
+        },
+        "onFill": {
+          "$value": "{color.neutral.0}"
+        }
+      }
+    }
+  }
+}

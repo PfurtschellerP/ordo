@@ -1,0 +1,275 @@
+# Colour pairs that must meet WCAG contrast minimums in every theme.
+# Checked by `ordo-tokens check`; the results go into the accessibility
+# conformance report (requirements A11Y-11).
+#
+# criterion 1.4.3  = text contrast, minimum 4.5:1 (WCAG 2.2 AA)
+# criterion 1.4.11 = non-text contrast (control boundaries, focus, badges), 3:1
+#
+# Disabled controls are exempt under WCAG and deliberately not listed.
+
+[[pair]]
+fg = "color.text.primary"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Body text on default surface"
+
+[[pair]]
+fg = "color.text.primary"
+bg = "color.surface.raised"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Body text on raised surface"
+
+[[pair]]
+fg = "color.text.primary"
+bg = "color.surface.sunken"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Body text on sunken surface"
+
+[[pair]]
+fg = "color.text.secondary"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Secondary text on default surface"
+
+[[pair]]
+fg = "color.text.secondary"
+bg = "color.surface.raised"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Secondary text on raised surface"
+
+[[pair]]
+fg = "color.text.link"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Links"
+
+[[pair]]
+fg = "color.action.primary.text"
+bg = "color.action.primary.background"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Primary button label"
+
+[[pair]]
+fg = "color.action.primary.text"
+bg = "color.action.primary.backgroundHover"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Primary button label, hover"
+
+[[pair]]
+fg = "color.action.danger.text"
+bg = "color.action.danger.background"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Danger button label"
+
+[[pair]]
+fg = "color.feedback.error.text"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Error text on page"
+
+[[pair]]
+fg = "color.feedback.error.text"
+bg = "color.feedback.error.surface"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Error message box"
+
+[[pair]]
+fg = "color.feedback.warning.text"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Warning text on page"
+
+[[pair]]
+fg = "color.feedback.warning.text"
+bg = "color.feedback.warning.surface"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Warning message box"
+
+[[pair]]
+fg = "color.feedback.success.text"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Success text on page"
+
+[[pair]]
+fg = "color.feedback.success.text"
+bg = "color.feedback.success.surface"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Success message box"
+
+[[pair]]
+fg = "color.feedback.info.text"
+bg = "color.surface.default"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Info text on page"
+
+[[pair]]
+fg = "color.feedback.info.text"
+bg = "color.feedback.info.surface"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Info message box"
+
+[[pair]]
+fg = "color.safety.triage.immediate.onFill"
+bg = "color.safety.triage.immediate.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Triage label (immediate)"
+
+[[pair]]
+fg = "color.safety.triage.urgent.onFill"
+bg = "color.safety.triage.urgent.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Triage label (urgent)"
+
+[[pair]]
+fg = "color.safety.triage.minor.onFill"
+bg = "color.safety.triage.minor.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Triage label (minor)"
+
+[[pair]]
+fg = "color.safety.triage.expectant.onFill"
+bg = "color.safety.triage.expectant.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Triage label (expectant)"
+
+[[pair]]
+fg = "color.safety.triage.deceased.onFill"
+bg = "color.safety.triage.deceased.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Triage label (deceased)"
+
+[[pair]]
+fg = "color.safety.alarm.onFill"
+bg = "color.safety.alarm.fill"
+min = 4.5
+criterion = "1.4.3"
+purpose = "Alarm banner text"
+
+[[pair]]
+fg = "color.border.strong"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Control boundaries on default surface"
+
+[[pair]]
+fg = "color.focus.ring"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Focus indicator on default surface"
+
+[[pair]]
+fg = "color.border.strong"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Control boundaries on raised surface"
+
+[[pair]]
+fg = "color.focus.ring"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Focus indicator on raised surface"
+
+[[pair]]
+fg = "color.action.primary.background"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Primary button shape"
+
+[[pair]]
+fg = "color.safety.triage.immediate.border"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (immediate) on default surface"
+
+[[pair]]
+fg = "color.safety.triage.immediate.border"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (immediate) on raised surface"
+
+[[pair]]
+fg = "color.safety.triage.urgent.border"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (urgent) on default surface"
+
+[[pair]]
+fg = "color.safety.triage.urgent.border"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (urgent) on raised surface"
+
+[[pair]]
+fg = "color.safety.triage.minor.border"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (minor) on default surface"
+
+[[pair]]
+fg = "color.safety.triage.minor.border"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (minor) on raised surface"
+
+[[pair]]
+fg = "color.safety.triage.expectant.border"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (expectant) on default surface"
+
+[[pair]]
+fg = "color.safety.triage.expectant.border"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (expectant) on raised surface"
+
+[[pair]]
+fg = "color.safety.triage.deceased.border"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (deceased) on default surface"
+
+[[pair]]
+fg = "color.safety.triage.deceased.border"
+bg = "color.surface.raised"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Triage badge outline (deceased) on raised surface"
+

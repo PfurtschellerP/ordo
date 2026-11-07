@@ -1,0 +1,29 @@
+# ORDO design system manifest, read by `ordo-tokens`.
+
+# Prefix of the generated CSS custom properties: --ordo-…
+prefix = "ordo"
+
+# Theme-independent token files (W3C Design Tokens format, DTCG 2025.10).
+base = ["tokens/primitive.tokens.json", "tokens/component.tokens.json"]
+
+# Token groups that organisation themes may not override.
+protected = ["color.safety"]
+
+# Theme used when neither the user nor the operating system asks for another.
+default_theme = "day"
+
+# Themes, in the order their media queries apply: later entries win.
+# Theme files may only add semantic tokens; all themes must define the same tokens.
+[[theme]]
+name = "day"
+file = "themes/day.tokens.json"
+
+[[theme]]
+name = "night"
+file = "themes/night.tokens.json"
+media = "(prefers-color-scheme: dark)"
+
+[[theme]]
+name = "high-contrast"
+file = "themes/high-contrast.tokens.json"
+media = "(prefers-contrast: more)"
