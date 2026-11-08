@@ -15,7 +15,11 @@
 
 ## Open questions
 
-1. Which open tactical-symbol set (DV 102) can be used, and under which licence?
+1. Tactical symbols: the BBK's 2024 symbols may be redistributed only free of charge, which
+   an open-source licence does not allow. Options: ask the BBK for an open licence (e.g.
+   CC BY 4.0), let each installation import the graphics from the BABZ learning platform,
+   or draw an own set from the published construction rules. Which states have introduced
+   FwDV/DV 102?
 2. Which organisations in Germany could be early test partners — first medical services
    for planned events (e.g. DRK, ASB, JUH, MHD), then fire brigades?
 3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is
@@ -27,6 +31,9 @@
    become its open-source steward under the Cyber Resilience Act? A lawyer should review
    [ORDO's CRA role](standards.md#ordos-role-under-the-cyber-resilience-act) before the
    first release.
+8. State profiles: find the missing sources (Berlin, Hamburg, Thuringia; status codes,
+   MANV concepts and medical command structure per state), see
+   [German state sources](standards-de-states.md).
 
 ## Next steps
 

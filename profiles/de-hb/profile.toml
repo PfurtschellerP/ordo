@@ -1,0 +1,13 @@
+# Bremen: what differs from, or adds to, the German profile.
+id = "de-hb"
+name = "Bremen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100, Ausbildungsunterlage der Feuerwehr Bremen"
+url = "https://www.feuerwehr.bremen.de/sixcms/media.php/13/FwDV_100.pdf"
+note = "training material (Lehrmeinung), not the introducing decree"

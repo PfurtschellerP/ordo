@@ -1,0 +1,13 @@
+# Mecklenburg-Vorpommern: what differs from, or adds to, the German profile.
+id = "de-mv"
+name = "Mecklenburg-Vorpommern"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100"
+url = "https://www.brand-kats-mv.de/static/BKS/Dateien/PDF/Aus-%20und%20Fortbildung/FwDV%20100.pdf"
+note = "copy of the Landesschule für Brand- und Katastrophenschutz"

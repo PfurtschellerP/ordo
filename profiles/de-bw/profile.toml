@@ -1,0 +1,20 @@
+# Baden-Württemberg: what differs from, or adds to, the German profile.
+id = "de-bw"
+name = "Baden-Württemberg"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100 Führung und Leitung im Einsatz"
+edition = "AFKzV, 10 March 1999"
+url = "https://www.lfs-bw.de/fileadmin/LFS-BW/themen/gesetze_vorschriften/fwdv/dokumente/FwDV_100.pdf"
+note = "copy of the Landesfeuerwehrschule"
+
+[[source]]
+topic = "status-codes"
+title = "Taktische Statusmeldungen"
+edition = "02/2025"
+url = "https://lfs-bw.de/fileadmin/LFS-BW/themen/funk/digitalfunk/regelungenbetriebshandbuch/dokumente/Taktische_Statusmeldungen_022025.pdf"

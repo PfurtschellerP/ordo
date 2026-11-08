@@ -1,0 +1,13 @@
+# Schleswig-Holstein: what differs from, or adds to, the German profile.
+id = "de-sh"
+name = "Schleswig-Holstein"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100; Einführungserlass for the fire service regulations IV 333 – 260-296/2018"
+edition = "FwDV 100 March 1999; decree March 2021"
+url = "https://lfs-sh.de/Inhalte/Vorschriften/Dienstvorschriften.php"

@@ -1,0 +1,14 @@
+# Brandenburg: what differs from, or adds to, the German profile.
+id = "de-bb"
+name = "Brandenburg"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "Erlass zur Einführung der FwDV 100 als Feuerwehr- und Katastrophenschutz-Dienstvorschrift 100"
+edition = "27 October 1999"
+url = "https://bravors.brandenburg.de/verwaltungsvorschriften/fwdv100"
+note = "applies to fire service and disaster protection; replaced a separate KatS-DV 100"

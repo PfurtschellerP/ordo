@@ -1,0 +1,14 @@
+# Nordrhein-Westfalen: what differs from, or adds to, the German profile.
+id = "de-nw"
+name = "Nordrhein-Westfalen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100, introduced by Runderlass of the Ministry of the Interior of 23 December 1999"
+edition = "Stand 10 March 1999"
+url = "https://recht.nrw.de/lrmb/verwaltungsvorschrift/feuerwehr-dienstvorschrift-100-fwdv-100-fuehrung-und-leitung-im-einsatz/"
+note = "copy also at the Institut der Feuerwehr"

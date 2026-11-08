@@ -2448,6 +2448,8 @@ dependencies = [
  "ordo-med-patients",
  "ordo-sync",
  "ordo-units",
+ "serde",
+ "toml",
 ]
 
 [[package]]

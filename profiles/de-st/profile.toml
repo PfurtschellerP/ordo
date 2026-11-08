@@ -1,0 +1,14 @@
+# Sachsen-Anhalt: what differs from, or adds to, the German profile.
+id = "de-st"
+name = "Sachsen-Anhalt"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "DV 100 Führung und Leitung im Einsatz – Führungsdienstvorschrift für den Feuerwehrdienst sowie für die Bewältigung von Großschadenslagen und Katastrophen"
+edition = "Stand 2011; introduced by ERL DV of 3 January 2023 (MBl. LSA 2023 p. 27), valid until 31 December 2027"
+url = "https://umwelt-online.de/recht/anlasi/sicher/lsa/erlfwdv23.htm"
+note = "the decree also introduces FwDV/DV 800 (2017) and 810 (2018); secondary copy of the decree"

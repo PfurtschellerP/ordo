@@ -277,6 +277,11 @@ flowchart LR
   and roles may cross. Compartment keys are given only to partner servers that host
   authorised users; `med.clinical` normally stays with medical organisations.
 
+- **Different rules on each side:** every state (and country) has its own doctrine and
+  catalogues. Servers agree on core meanings, show their own labels and keep the
+  sender's original entry ([ADR-0044](../adr/0044-federation-across-profiles.md),
+  proposed).
+
 ### 8.4.3 Now vs later
 
 | Built now (cheap, avoids migrations later) | Built later (phase 4) |
@@ -631,11 +636,20 @@ profiles/de/
 # profiles/de/profile.toml
 id = "de"
 name = "Deutschland"
-version = "1.0.0"   # content version
+version = "0.1.0"   # content version
 format = 1          # profile format version (I18N-8)
-extends = []        # a state profile would say: extends = ["de"]
+extends = []        # a state profile says: extends = ["de"]
 languages = ["de", "en"]
+
+[[source]]          # documents the profile's content is taken from
+topic = "command"
+title = "FwDV 100 Führung und Leitung im Einsatz"
+edition = "AFKzV, 10 March 1999"
+url = "https://…"
 ```
+
+State profiles exist for all 16 states (`profiles/de-bw` … `profiles/de-th`); so far they
+list their sources ([German state sources](../standards-de-states.md)).
 
 ```toml
 # profiles/de/med/triage-categories.toml
@@ -686,8 +700,8 @@ de  →  de-by (Bavaria)  →  org: e.g. a local medical service
 
 | Item | DE profile |
 |---|---|
-| Command structure | FwDV 100: Einsatzleitung, Einsatzabschnitte, Untereinsatzabschnitte |
-| Tactical symbols | DV 102 / *Taktische Zeichen* (open-licensed set to be identified) |
+| Command structure | FwDV 100: Einsatzleitung, Einsatzabschnitte, Untereinsatzabschnitte; introduced per state, partly as an extended DV 100 (state profiles `de-<state>`, [sources](../standards-de-states.md)) |
+| Tactical symbols | *Taktische Zeichen im Bevölkerungsschutz* (BBK 2024, for FwDV/DV 102); licence open, see [roadmap](../roadmap.md) |
 | Unit types | HLF, LF, TLF, DLK, ELW, RTW, NEF, KTW, … |
 | Status codes | Status 1–9 (FMS/TMS) |
 | Crew strength | Tactical notation, e.g. 1/8/**9** |

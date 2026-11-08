@@ -1,0 +1,13 @@
+# Niedersachsen: what differs from, or adds to, the German profile.
+id = "de-ni"
+name = "Niedersachsen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100 (10 March 1999), introduced by decree, published in the download area of the Niedersächsische Feuerwehrschulen"
+edition = "10 March 1999"
+url = "https://www.feuerwehrschulen.niedersachsen.de/servlets/download?C=52170702&L=20"

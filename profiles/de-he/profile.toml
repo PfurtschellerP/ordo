@@ -1,0 +1,14 @@
+# Hessen: what differs from, or adds to, the German profile.
+id = "de-he"
+name = "Hessen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100 Führung und Leitung im Einsatz"
+edition = "Stand September 1999"
+url = "https://hlfs.hessen.de/sites/hlfs.hessen.de/files/2022-09/FwDV%20100%20-%20Homepage.pdf"
+note = "copy of the Hessische Landesfeuerwehrschule"

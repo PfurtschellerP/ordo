@@ -1,0 +1,19 @@
+# Bayern: what differs from, or adds to, the German profile.
+id = "de-by"
+name = "Bayern"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100, bekanntgemacht als bayerische Verwaltungsvorschrift"
+edition = "BayVwV"
+url = "https://www.gesetze-bayern.de/Content/Document/BayVwV96946/true"
+
+[[source]]
+topic = "status-codes"
+title = "Richtlinie FMS (Funkmeldesystem)"
+edition = "BayVwV"
+url = "https://www.gesetze-bayern.de/Content/Document/BayVwV156097"

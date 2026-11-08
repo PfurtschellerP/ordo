@@ -1,0 +1,14 @@
+# Sachsen: what differs from, or adds to, the German profile.
+id = "de-sn"
+name = "Sachsen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+
+[[source]]
+topic = "command"
+title = "FwDV 100"
+edition = "Stand March 1999"
+url = "https://www.lfs.sachsen.de/download/fwdv100.pdf"
+note = "copy of the Landesfeuerwehr- und Katastrophenschutzschule"

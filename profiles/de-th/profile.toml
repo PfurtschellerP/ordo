@@ -1,0 +1,8 @@
+# Thüringen: what differs from, or adds to, the German profile.
+id = "de-th"
+name = "Thüringen"
+version = "0.1.0"
+format = 1
+extends = ["de"]
+languages = ["de"]
+# Sources not found yet: see docs/standards-de-states.md.
