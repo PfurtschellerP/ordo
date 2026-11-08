@@ -11,9 +11,15 @@ topic = "command"
 title = "FwDV 100, bekanntgemacht als bayerische Verwaltungsvorschrift"
 edition = "BayVwV"
 url = "https://www.gesetze-bayern.de/Content/Document/BayVwV96946/true"
+watch = "text"
+checked = 2026-11-08
+fingerprint = "text-sha256:26f1ba4bfe964582f0ca8b93eac1565b76e2203c7c16a906aa8dcfad08c755a2"
 
 [[source]]
 topic = "status-codes"
 title = "Richtlinie FMS (Funkmeldesystem)"
 edition = "BayVwV"
 url = "https://www.gesetze-bayern.de/Content/Document/BayVwV156097"
+watch = "text"
+checked = 2026-11-08
+fingerprint = "text-sha256:c107e4c1aab791e42b8236cdf64b164df5281f924bfedb8be3d8e909b9416f31"

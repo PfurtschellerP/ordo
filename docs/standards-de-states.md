@@ -20,24 +20,31 @@ decree introducing it was found yet; see [standards](standards.md#command-and-co
 
 ## Command doctrine and other sources per state
 
-| State | Profile | Command doctrine as introduced | Other state sources |
-|---|---|---|---|
-| Baden-Württemberg | [`de-bw`](../profiles/de-bw/profile.toml) | [FwDV 100 Führung und Leitung im Einsatz](https://www.lfs-bw.de/fileadmin/LFS-BW/themen/gesetze_vorschriften/fwdv/dokumente/FwDV_100.pdf), AFKzV, 10 March 1999 — copy of the Landesfeuerwehrschule | [Taktische Statusmeldungen](https://lfs-bw.de/fileadmin/LFS-BW/themen/funk/digitalfunk/regelungenbetriebshandbuch/dokumente/Taktische_Statusmeldungen_022025.pdf), 02/2025 |
-| Bayern | [`de-by`](../profiles/de-by/profile.toml) | [FwDV 100, bekanntgemacht als bayerische Verwaltungsvorschrift](https://www.gesetze-bayern.de/Content/Document/BayVwV96946/true), BayVwV | [Richtlinie FMS (Funkmeldesystem)](https://www.gesetze-bayern.de/Content/Document/BayVwV156097), BayVwV |
-| Berlin | [`de-be`](../profiles/de-be/profile.toml) | *not found yet* | — |
-| Brandenburg | [`de-bb`](../profiles/de-bb/profile.toml) | [Erlass zur Einführung der FwDV 100 als Feuerwehr- und Katastrophenschutz-Dienstvorschrift 100](https://bravors.brandenburg.de/verwaltungsvorschriften/fwdv100), 27 October 1999 — applies to fire service and disaster protection; replaced a separate KatS-DV 100 | — |
-| Bremen | [`de-hb`](../profiles/de-hb/profile.toml) | [FwDV 100, Ausbildungsunterlage der Feuerwehr Bremen](https://www.feuerwehr.bremen.de/sixcms/media.php/13/FwDV_100.pdf) — training material (Lehrmeinung), not the introducing decree | — |
-| Hamburg | [`de-hh`](../profiles/de-hh/profile.toml) | *not found yet* | — |
-| Hessen | [`de-he`](../profiles/de-he/profile.toml) | [FwDV 100 Führung und Leitung im Einsatz](https://hlfs.hessen.de/sites/hlfs.hessen.de/files/2022-09/FwDV%20100%20-%20Homepage.pdf), Stand September 1999 — copy of the Hessische Landesfeuerwehrschule | — |
-| Mecklenburg-Vorpommern | [`de-mv`](../profiles/de-mv/profile.toml) | [FwDV 100](https://www.brand-kats-mv.de/static/BKS/Dateien/PDF/Aus-%20und%20Fortbildung/FwDV%20100.pdf) — copy of the Landesschule für Brand- und Katastrophenschutz | — |
-| Niedersachsen | [`de-ni`](../profiles/de-ni/profile.toml) | [FwDV 100 (10 March 1999), introduced by decree, published in the download area of the Niedersächsische Feuerwehrschulen](https://www.feuerwehrschulen.niedersachsen.de/servlets/download?C=52170702&L=20), 10 March 1999 | — |
-| Nordrhein-Westfalen | [`de-nw`](../profiles/de-nw/profile.toml) | [FwDV 100, introduced by Runderlass of the Ministry of the Interior of 23 December 1999](https://recht.nrw.de/lrmb/verwaltungsvorschrift/feuerwehr-dienstvorschrift-100-fwdv-100-fuehrung-und-leitung-im-einsatz/), Stand 10 March 1999 — copy also at the Institut der Feuerwehr | — |
-| Rheinland-Pfalz | [`de-rp`](../profiles/de-rp/profile.toml) | [DV 100 Führung und Leitung im Einsatz (RP)](https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/DV100.pdf), Stand 2000, introduced by letter of the Ministry of the Interior of 15 November 2000 — an extended FwDV 100 for the whole fire and disaster protection service | [Stabsarbeit: 4fach-Vordruck (message form) and Infofluss-Tischvorlage](https://lfbk.rlp.de/downloads/sonstiges), 2025-11-17; [Gefahrstoffkonzept RLP](https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/Gefahrstoffkonzept_April05a.pdf), April 2005; [Downloads of the Landesfeuerwehr- und Katastrophenschutzakademie (LFKA/LFBK)](https://lfbk.rlp.de/downloads) |
-| Saarland | [`de-sl`](../profiles/de-sl/profile.toml) | [FwDV 100](https://www.saarland.de/mibs/DE/institution/landesfeuerwehrschule/service/downloads/FW_Dienstvorschrift_100), Stand March 1999 with amendments 2005 | — |
-| Sachsen | [`de-sn`](../profiles/de-sn/profile.toml) | [FwDV 100](https://www.lfs.sachsen.de/download/fwdv100.pdf), Stand March 1999 — copy of the Landesfeuerwehr- und Katastrophenschutzschule | — |
-| Sachsen-Anhalt | [`de-st`](../profiles/de-st/profile.toml) | [DV 100 Führung und Leitung im Einsatz – Führungsdienstvorschrift für den Feuerwehrdienst sowie für die Bewältigung von Großschadenslagen und Katastrophen](https://umwelt-online.de/recht/anlasi/sicher/lsa/erlfwdv23.htm), Stand 2011; introduced by ERL DV of 3 January 2023 (MBl. LSA 2023 p. 27), valid until 31 December 2027 — the decree also introduces FwDV/DV 800 (2017) and 810 (2018); secondary copy of the decree | — |
-| Schleswig-Holstein | [`de-sh`](../profiles/de-sh/profile.toml) | [FwDV 100; Einführungserlass for the fire service regulations IV 333 – 260-296/2018](https://lfs-sh.de/Inhalte/Vorschriften/Dienstvorschriften.php), FwDV 100 March 1999; decree March 2021 | — |
-| Thüringen | [`de-th`](../profiles/de-th/profile.toml) | *not found yet* | — |
+The table is generated from the profiles (`cargo run -p ordo-profiles -- register
+--register docs/standards-de-states.md --parent de`); CI fails when it is out of date.
+*Checked* is the oldest date on which a maintainer confirmed the state's profile against
+its sources.
+
+<!-- generated by ordo-profiles register: start -->
+| Region | Profile | Command doctrine as introduced | Other sources | Checked |
+|---|---|---|---|---|
+| Baden-Württemberg | [`de-bw`](../profiles/de-bw/profile.toml) | [FwDV 100 Führung und Leitung im Einsatz](https://www.lfs-bw.de/fileadmin/LFS-BW/themen/gesetze_vorschriften/fwdv/dokumente/FwDV_100.pdf), AFKzV, 10 March 1999 — copy of the Landesfeuerwehrschule | [Taktische Statusmeldungen](https://www.lfs-bw.de/fileadmin/LFS-BW/themen/technik/funk/digitalfunk/regelungenbetriebshandbuch/dokumente/Taktische_Statusmeldungen.pdf), Stand February 2025 | 2026-11-08 |
+| Bayern | [`de-by`](../profiles/de-by/profile.toml) | [FwDV 100, bekanntgemacht als bayerische Verwaltungsvorschrift](https://www.gesetze-bayern.de/Content/Document/BayVwV96946/true), BayVwV | [Richtlinie FMS (Funkmeldesystem)](https://www.gesetze-bayern.de/Content/Document/BayVwV156097), BayVwV | 2026-11-08 |
+| Berlin | [`de-be`](../profiles/de-be/profile.toml) | *not found yet* | — | — |
+| Brandenburg | [`de-bb`](../profiles/de-bb/profile.toml) | [Erlass zur Einführung der FwDV 100 als Feuerwehr- und Katastrophenschutz-Dienstvorschrift 100](https://bravors.brandenburg.de/verwaltungsvorschriften/fwdv100), 27 October 1999 — applies to fire service and disaster protection; replaced a separate KatS-DV 100 | — | 2026-11-08 |
+| Bremen | [`de-hb`](../profiles/de-hb/profile.toml) | [FwDV 100, Ausbildungsunterlage der Feuerwehr Bremen](https://www.feuerwehr.bremen.de/sixcms/media.php/13/FwDV_100.pdf) — training material (Lehrmeinung), not the introducing decree | — | 2026-11-08 |
+| Hamburg | [`de-hh`](../profiles/de-hh/profile.toml) | *not found yet* | — | — |
+| Hessen | [`de-he`](../profiles/de-he/profile.toml) | [FwDV 100 Führung und Leitung im Einsatz](https://hlfs.hessen.de/sites/hlfs.hessen.de/files/2022-09/FwDV%20100%20-%20Homepage.pdf), Stand September 1999 — copy of the Hessische Landesfeuerwehrschule | — | 2026-11-08 |
+| Mecklenburg-Vorpommern | [`de-mv`](../profiles/de-mv/profile.toml) | [FwDV 100](https://www.brand-kats-mv.de/static/BKS/Dateien/PDF/Aus-%20und%20Fortbildung/FwDV%20100.pdf) — copy of the Landesschule für Brand- und Katastrophenschutz | — | 2026-11-08 |
+| Niedersachsen | [`de-ni`](../profiles/de-ni/profile.toml) | [FwDV 100 (10 March 1999), introduced by decree, published in the download area of the Niedersächsische Feuerwehrschulen](https://www.feuerwehrschulen.niedersachsen.de/servlets/download?C=52170702&L=20), 10 March 1999 | — | 2026-11-08 |
+| Nordrhein-Westfalen | [`de-nw`](../profiles/de-nw/profile.toml) | [FwDV 100, introduced by Runderlass of the Ministry of the Interior of 23 December 1999](https://recht.nrw.de/lrmb/verwaltungsvorschrift/feuerwehr-dienstvorschrift-100-fwdv-100-fuehrung-und-leitung-im-einsatz/), Stand 10 March 1999 — copy also at the Institut der Feuerwehr | — | 2026-11-08 |
+| Rheinland-Pfalz | [`de-rp`](../profiles/de-rp/profile.toml) | [DV 100 Führung und Leitung im Einsatz (RP)](https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/DV100.pdf), Stand 2000, introduced by letter of the Ministry of the Interior of 15 November 2000 — an extended FwDV 100 for the whole fire and disaster protection service | [Stabsarbeit: 4fach-Vordruck (message form) and Infofluss-Tischvorlage](https://lfbk.rlp.de/downloads/sonstiges), 2025-11-17; [Gefahrstoffkonzept RLP](https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/Gefahrstoffkonzept_April05a.pdf), April 2005; [Downloads of the Landesfeuerwehr- und Katastrophenschutzakademie (LFKA/LFBK)](https://lfbk.rlp.de/downloads); [Funkrufnamenverzeichnis Rheinland-Pfalz](https://www.bildungsinstitut-rlp.drk.de/fileadmin/downloads/Fuehrungs-_und_Leitungskraefte_der_Bereitschaften/Fuehrungskraefteausbildungen/Funkrufnamenverzeichnis_RLP_Stand_06-2026.pdf), Stand 06/2026 | 2026-11-08 |
+| Saarland | [`de-sl`](../profiles/de-sl/profile.toml) | [FwDV 100](https://www.saarland.de/mibs/DE/institution/landesfeuerwehrschule/service/downloads/FW_Dienstvorschrift_100), Stand March 1999 with amendments 2005 — the site refuses automated requests: check by hand | — | 2026-11-08 |
+| Sachsen | [`de-sn`](../profiles/de-sn/profile.toml) | [FwDV 100](https://www.lfs.sachsen.de/download/fwdv100.pdf), Stand March 1999 — copy of the Landesfeuerwehr- und Katastrophenschutzschule | — | 2026-11-08 |
+| Sachsen-Anhalt | [`de-st`](../profiles/de-st/profile.toml) | [DV 100 Führung und Leitung im Einsatz – Führungsdienstvorschrift für den Feuerwehrdienst sowie für die Bewältigung von Großschadenslagen und Katastrophen](https://umwelt-online.de/recht/anlasi/sicher/lsa/erlfwdv23.htm), Stand 2011; introduced by ERL DV of 3 January 2023 (MBl. LSA 2023 p. 27), valid until 31 December 2027 — the decree also introduces FwDV/DV 800 (2017) and 810 (2018); secondary copy of the decree | — | 2026-11-08 |
+| Schleswig-Holstein | [`de-sh`](../profiles/de-sh/profile.toml) | [FwDV 100; Einführungserlass for the fire service regulations IV 333 – 260-296/2018](https://lfs-sh.de/Inhalte/Vorschriften/Dienstvorschriften.php), FwDV 100 March 1999; decree March 2021 | — | 2026-11-08 |
+| Thüringen | [`de-th`](../profiles/de-th/profile.toml) | *not found yet* | — | — |
+<!-- generated by ordo-profiles register: end -->
 
 Most links are copies hosted by the state's fire service school; where only a secondary
 copy was found, the note says so. Editions differ: most states use FwDV 100 of March 1999
@@ -53,3 +60,26 @@ Saxony-Anhalt a DV 100 of 2011.
   the medical command structure (Sanitätseinsatzleitung), which ORDO needs first.
 
 Corrections and missing documents are welcome; please give the official source.
+
+## Keeping the sources current
+
+Every source in a `profile.toml` records `checked` (the date a maintainer last confirmed
+the profile against it) and `fingerprint` (a SHA-256 of the version seen then: the file
+itself, the visible text of a web page, or the list of documents a download page links
+to). Every Monday the workflow *Profile sources* fetches all sources again and opens or
+updates one issue, "Profile sources changed", listing what changed, moved or cannot be
+fetched. Sites that refuse automated requests are marked `watch = "manual"`; the issue
+reminds about them after 180 days.
+
+To work through the issue: open each source, update the profile if the rules changed (new
+edition, new link, new document), then record the review:
+
+```sh
+cargo run -p ordo-profiles -- watch                 # what changed (locally)
+cargo run -p ordo-profiles -- accept de-rp de-bw    # record today's date and fingerprints
+cargo run -p ordo-profiles -- register --register docs/standards-de-states.md --parent de
+```
+
+Existing change trackers (urlwatch, changedetection.io) were considered; they keep their
+state outside the repository, while here the reviewed version belongs in the profile
+itself, next to the content it justifies.

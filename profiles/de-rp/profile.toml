@@ -12,20 +12,37 @@ title = "DV 100 Führung und Leitung im Einsatz (RP)"
 edition = "Stand 2000, introduced by letter of the Ministry of the Interior of 15 November 2000"
 url = "https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/DV100.pdf"
 note = "an extended FwDV 100 for the whole fire and disaster protection service"
+checked = 2026-11-08
+fingerprint = "sha256:3cf67028879f54ab1de5348df190e6c98ac3f0b4bf017a72c6319a88be2cd73f"
 
 [[source]]
 topic = "staff-work"
 title = "Stabsarbeit: 4fach-Vordruck (message form) and Infofluss-Tischvorlage"
 edition = "2025-11-17"
 url = "https://lfbk.rlp.de/downloads/sonstiges"
+checked = 2026-11-08
+fingerprint = "links-sha256:4bd5e94d41435ecb13d7cbac62daa023ba45ca1fab91c415c8cb193760d4f3a2"
 
 [[source]]
 topic = "hazmat"
 title = "Gefahrstoffkonzept RLP"
 edition = "April 2005"
 url = "https://lfbk.rlp.de/fileadmin/lfbk/Inhaltsdateien/Gefahrstoffkonzept_April05a.pdf"
+checked = 2026-11-08
+fingerprint = "sha256:bef5ae8280ac5276f0f6fcce1d149fbef31dcbe37c98a9a92780aa6f24faa981"
 
 [[source]]
 topic = "index"
 title = "Downloads of the Landesfeuerwehr- und Katastrophenschutzakademie (LFKA/LFBK)"
 url = "https://lfbk.rlp.de/downloads"
+checked = 2026-11-08
+fingerprint = "links-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+[[source]]
+topic = "call-signs"
+title = "Funkrufnamenverzeichnis Rheinland-Pfalz"
+edition = "Stand 06/2026"
+url = "https://www.bildungsinstitut-rlp.drk.de/fileadmin/downloads/Fuehrungs-_und_Leitungskraefte_der_Bereitschaften/Fuehrungskraefteausbildungen/Funkrufnamenverzeichnis_RLP_Stand_06-2026.pdf"
+note = "copy of the DRK Landesverband Rheinland-Pfalz"
+checked = 2026-11-08
+fingerprint = "sha256:a73a74333d78e5ada9538ca494ec7b0dcdbb865241fe9bcbc253fa3bec5dd9e4"

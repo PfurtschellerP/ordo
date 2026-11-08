@@ -12,6 +12,8 @@ title = "FwDV 100 Führung und Leitung im Einsatz (AFKzV); introduced by each st
 edition = "AFKzV, 10 March 1999"
 url = "https://www.lfs-bw.de/fileadmin/LFS-BW/themen/gesetze_vorschriften/fwdv/dokumente/FwDV_100.pdf"
 note = "the states' introductions and variants are listed in their own profiles"
+checked = 2026-11-08
+fingerprint = "sha256:a5493801da099c2fb381501490f562724100e6acbe33a79794d0944c080bcafe"
 
 [[source]]
 topic = "symbols"
@@ -19,3 +21,5 @@ title = "Taktische Zeichen im Bevölkerungsschutz – Empfehlungen zur Einführu
 edition = "BBK, 1st edition May 2024, ISBN 978-3-949117-29-9; recommended to the states by the AFKzV on 11/12 March 2024"
 url = "https://www.kfv-ab.de/images/KFV/2025/250228_TZ/Taktische_Zeichen_im_Bevoelkerungsschutz.pdf"
 note = "copy hosted by a district fire brigade association; publisher BBK, graphics from the BABZ learning platform; reprint welcome with source, distribution only free of charge"
+checked = 2026-11-08
+fingerprint = "sha256:19533d622d3fbad2824b138d28c9b252c2f43c95e22bf428d2ea655424c3aae2"

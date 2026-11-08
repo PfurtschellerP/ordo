@@ -11,4 +11,7 @@ topic = "command"
 title = "Erlass zur Einführung der FwDV 100 als Feuerwehr- und Katastrophenschutz-Dienstvorschrift 100"
 edition = "27 October 1999"
 url = "https://bravors.brandenburg.de/verwaltungsvorschriften/fwdv100"
+watch = "text"
 note = "applies to fire service and disaster protection; replaced a separate KatS-DV 100"
+checked = 2026-11-08
+fingerprint = "text-sha256:4a5c32aa68df6c311bc3dd21b7b6b21288d099c0de5af50da386b13df2f27f72"

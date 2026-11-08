@@ -12,3 +12,5 @@ title = "FwDV 100"
 edition = "Stand March 1999"
 url = "https://www.lfs.sachsen.de/download/fwdv100.pdf"
 note = "copy of the Landesfeuerwehr- und Katastrophenschutzschule"
+checked = 2026-11-08
+fingerprint = "sha256:7325221e68b94bcc55ecccbe671de712d596f812f0061de3dc0be41a65db0594"

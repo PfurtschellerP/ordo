@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-08
 ---
 
@@ -18,6 +18,13 @@ units from both sides in one incident, with one picture of the situation
 How can servers with different profiles work on one incident without forcing one set of
 rules on everybody, and without losing what each side meant?
 
+## Decision Drivers
+
+* **Working within one's own jurisdiction comes first.** Cross-border incidents are the
+  exception. ORDO must fit each state's own doctrine and words completely; nothing of the
+  cross-border mechanism may get in the way of a purely local incident.
+* Cross-border work must still be possible, and easy, when it happens.
+
 ## Considered Options
 
 * One national (or European) catalogue that every installation must use
@@ -26,7 +33,7 @@ rules on everybody, and without losing what each side meant?
 
 ## Decision Outcome
 
-Proposed option: "Shared core meanings, local labels, original kept", because it works for
+Chosen option: "Shared core meanings, local labels, original kept", because it works for
 any number of profiles without pairwise tables, never changes what the sender meant, and
 already matches how profiles are built (every catalogue entry maps to a core meaning,
 architecture 8.8.2).
@@ -59,6 +66,9 @@ architecture 8.8.2).
    gets what the federation agreement grants that core role.
 7. **Need to know stays as it is.** Profiles change labels, not access: compartments,
    federation agreements and connectors decide what crosses a border.
+8. **Invisible when not needed.** In an incident without partners, devices show only the
+   own profile's labels; core meanings, partner labels and origins appear only once a
+   partner with another profile joins.
 
 ### Consequences
 
@@ -74,7 +84,11 @@ architecture 8.8.2).
 
 ## More Information
 
-To be confirmed with practitioners from neighbouring states before the federation phase.
+Reviewed by a practitioner from Rhineland-Palatinate (2026-11-08): sound for now; the
+focus must be good work within one's own jurisdiction, with cross-border work made
+easier, not the other way round. To be checked again with practitioners from other states
+before the federation phase.
+
 First step without federation: give every catalogue entry its core meaning and carry both
 in events (status codes already map to core meanings). Related:
 [ADR-0009](0009-layered-data-profiles.md) (layered profiles),

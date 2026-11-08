@@ -12,9 +12,13 @@ title = "FwDV 100 Führung und Leitung im Einsatz"
 edition = "AFKzV, 10 March 1999"
 url = "https://www.lfs-bw.de/fileadmin/LFS-BW/themen/gesetze_vorschriften/fwdv/dokumente/FwDV_100.pdf"
 note = "copy of the Landesfeuerwehrschule"
+checked = 2026-11-08
+fingerprint = "sha256:a5493801da099c2fb381501490f562724100e6acbe33a79794d0944c080bcafe"
 
 [[source]]
 topic = "status-codes"
 title = "Taktische Statusmeldungen"
-edition = "02/2025"
-url = "https://lfs-bw.de/fileadmin/LFS-BW/themen/funk/digitalfunk/regelungenbetriebshandbuch/dokumente/Taktische_Statusmeldungen_022025.pdf"
+edition = "Stand February 2025"
+url = "https://www.lfs-bw.de/fileadmin/LFS-BW/themen/technik/funk/digitalfunk/regelungenbetriebshandbuch/dokumente/Taktische_Statusmeldungen.pdf"
+checked = 2026-11-08
+fingerprint = "sha256:7bdded190025e3d15a38f1e8393bc7d60b79c7dab893a1da52afe1b2acc9cd4a"

@@ -18,7 +18,3 @@ ordo-units.workspace = true
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-serde.workspace = true
-toml.workspace = true

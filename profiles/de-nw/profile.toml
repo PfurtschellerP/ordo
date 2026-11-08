@@ -11,4 +11,7 @@ topic = "command"
 title = "FwDV 100, introduced by Runderlass of the Ministry of the Interior of 23 December 1999"
 edition = "Stand 10 March 1999"
 url = "https://recht.nrw.de/lrmb/verwaltungsvorschrift/feuerwehr-dienstvorschrift-100-fwdv-100-fuehrung-und-leitung-im-einsatz/"
+watch = "text"
 note = "copy also at the Institut der Feuerwehr"
+checked = 2026-11-08
+fingerprint = "text-sha256:029bb7d7a5afd1ec0b40b79209aacd682f97639ee0aa2b025b51daa7eb0d4d61"

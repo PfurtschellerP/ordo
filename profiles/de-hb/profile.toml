@@ -11,3 +11,5 @@ topic = "command"
 title = "FwDV 100, Ausbildungsunterlage der Feuerwehr Bremen"
 url = "https://www.feuerwehr.bremen.de/sixcms/media.php/13/FwDV_100.pdf"
 note = "training material (Lehrmeinung), not the introducing decree"
+checked = 2026-11-08
+fingerprint = "sha256:f7669ab4ce7eeb8f7f5eb35f1f96a3891396532ab17fe2e4df3cc44dba6730ee"

@@ -15,11 +15,12 @@
 
 ## Open questions
 
-1. Tactical symbols: the BBK's 2024 symbols may be redistributed only free of charge, which
-   an open-source licence does not allow. Options: ask the BBK for an open licence (e.g.
-   CC BY 4.0), let each installation import the graphics from the BABZ learning platform,
-   or draw an own set from the published construction rules. Which states have introduced
-   FwDV/DV 102?
+1. Tactical symbols: ORDO should ship the official BBK symbols (2024). The brochure says it
+   may only be passed on free of charge; it is unclear whether that binds the symbols
+   (possibly below the threshold of originality, or an official work under § 5 (2) UrhG).
+   Ask the BBK for written confirmation that they may be used in open-source software (or
+   for an open licence such as CC BY 4.0). Fallback: draw them from the published
+   construction rules. Which states have introduced FwDV/DV 102?
 2. Which organisations in Germany could be early test partners — first medical services
    for planned events (e.g. DRK, ASB, JUH, MHD), then fire brigades?
 3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is

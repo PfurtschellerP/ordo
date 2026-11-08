@@ -11,3 +11,7 @@ topic = "command"
 title = "FwDV 100"
 edition = "Stand March 1999 with amendments 2005"
 url = "https://www.saarland.de/mibs/DE/institution/landesfeuerwehrschule/service/downloads/FW_Dienstvorschrift_100"
+watch = "manual"
+note = "the site refuses automated requests: check by hand"
+checked = 2026-11-08
+fingerprint = "manual"

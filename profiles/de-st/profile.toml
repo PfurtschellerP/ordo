@@ -11,4 +11,7 @@ topic = "command"
 title = "DV 100 Führung und Leitung im Einsatz – Führungsdienstvorschrift für den Feuerwehrdienst sowie für die Bewältigung von Großschadenslagen und Katastrophen"
 edition = "Stand 2011; introduced by ERL DV of 3 January 2023 (MBl. LSA 2023 p. 27), valid until 31 December 2027"
 url = "https://umwelt-online.de/recht/anlasi/sicher/lsa/erlfwdv23.htm"
+watch = "text"
 note = "the decree also introduces FwDV/DV 800 (2017) and 810 (2018); secondary copy of the decree"
+checked = 2026-11-08
+fingerprint = "text-sha256:85bb851d67bf7a456cbcce9afca5f8828ecbc0efe3616e9efa056e10aece80f3"

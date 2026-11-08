@@ -11,3 +11,5 @@ topic = "command"
 title = "FwDV 100 (10 March 1999), introduced by decree, published in the download area of the Niedersächsische Feuerwehrschulen"
 edition = "10 March 1999"
 url = "https://www.feuerwehrschulen.niedersachsen.de/servlets/download?C=52170702&L=20"
+checked = 2026-11-08
+fingerprint = "sha256:cfd0f0c99a7884f33dba79d5e35dfccd40718f7dc49b7574141cbc26e443847c"

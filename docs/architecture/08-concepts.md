@@ -278,9 +278,9 @@ flowchart LR
   authorised users; `med.clinical` normally stays with medical organisations.
 
 - **Different rules on each side:** every state (and country) has its own doctrine and
-  catalogues. Servers agree on core meanings, show their own labels and keep the
-  sender's original entry ([ADR-0044](../adr/0044-federation-across-profiles.md),
-  proposed).
+  catalogues. Work within one's own jurisdiction comes first; across borders, servers
+  agree on core meanings, show their own labels and keep the sender's original entry
+  ([ADR-0044](../adr/0044-federation-across-profiles.md)).
 
 ### 8.4.3 Now vs later
 
