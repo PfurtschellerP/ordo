@@ -34,16 +34,16 @@ sequenceDiagram
   participant Server as Home server
   participant Cmd as Command tablet (Fire)
 
-  UHS->>UHS: Patient re-triaged (event in med.clinical)
-  UHS->>UHS: Derive med.patientCounts.v1 (numbers only)
-  UHS->>Server: Clinical event + connector event (incident compartment)
-  Server-->>UHS: Both events (user may read both compartments)
-  Server-->>Cmd: Connector event only
+  UHS->>UHS: Patient re-triaged (sealed event in med.clinical)
+  UHS->>Server: Push clinical event
+  Server->>Server: Order it, decrypt for the deriver, derive med.patientCounts.v1 (numbers only)
+  Server-->>UHS: Clinical event + counts (user may read both compartments)
+  Server-->>Cmd: Counts only (incident compartment)
   Cmd->>Cmd: Show "UHS 1: SK I 3 · SK II 5 · SK III 12"
 ```
 
-Concept: [8.3 Connectors](08-concepts.md#83-connectors). Requirements: PAT-6, SEC-9,
-CONN-3.
+Concept: [8.3 Connectors](08-concepts.md#83-connectors),
+[ADR-0024](../adr/0024-server-derived-connectors.md). Requirements: PAT-6, SEC-9, CONN-3.
 
 ## 6.3 Concurrent changes while disconnected
 

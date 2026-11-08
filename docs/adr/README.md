@@ -28,5 +28,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0021](0021-design-system.md) | Design system on W3C design tokens | proposed | 2026-11-08 |
 | [0022](0022-open-standards-first.md) | Open standards first | accepted | 2026-11-08 |
 | [0023](0023-docs-as-code.md) | Docs-as-code with arc42, MADR and OpenFastTrace | accepted | 2026-11-08 |
+| [0024](0024-server-derived-connectors.md) | Connector events are derived by the server that orders the source compartment | proposed | 2026-11-08 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

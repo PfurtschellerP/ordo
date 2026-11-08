@@ -91,6 +91,19 @@ Needs: impl, utest
 
 Tags: must, m0
 
+#### Outbox and resend
+`dsn~outbox-and-resend~1`
+
+A device records every new event in its outbox and shows it at once. After connecting, it sends `hello` with the last sequence number it has per stream, receives what it missed, and then sends its whole outbox. The server ignores events it has already ordered (by event ID), so resending after a lost confirmation never duplicates anything. An event leaves the outbox when it comes back ordered from the server.
+
+Covers:
+
+* [req~off-3~1](../requirements/07-quality.md#off-3--automatic-sync)
+
+Needs: impl, itest
+
+Tags: must, m1
+
 ## 8.2 Data compartments
 
 A **compartment** is a separately protected part of an incident's data. Every event
@@ -120,6 +133,34 @@ reports, PDF handover, FHIR export and backups), but keeps compartment keys sepa
 and logs every decryption. Full end-to-end encryption (server can't read clinical data)
 is possible later with the same structure, at the cost of server-side features.
 
+### 8.2.1 Design items
+
+#### Compartment-scoped sync
+`dsn~compartment-scoped-sync~1`
+
+On `hello`, the server grants only the streams (incident × compartment) the user may read and lists the others as denied; it never delivers events of a denied stream to that session, and the device discards deliveries for streams it was not granted. When a device pushes an event, the server checks author, signature, write permission and sealing before ordering it.
+
+Covers:
+
+* [req~sec-9~1](../requirements/07-quality.md#sec-9--compartment-scoped-sync)
+
+Needs: impl, itest
+
+Tags: must, m1
+
+#### Sealed payloads
+`dsn~sealed-payloads~1`
+
+Payloads of protected compartments are encrypted with XChaCha20-Poly1305 using the data key of the incident compartment ([spec §5](../../spec/sync/event.md)). The server creates the key on first use and grants it only to devices whose user may read the compartment. Server and devices store only the sealed form; the server rejects unsealed events in protected compartments and sealed events in unprotected ones.
+
+Covers:
+
+* [req~sec-10~2](../requirements/07-quality.md#sec-10--health-data-protection)
+
+Needs: impl, utest, itest
+
+Tags: must, m1
+
 ## 8.3 Connectors
 
 A **connector** is a versioned contract for information that crosses a package border.
@@ -131,13 +172,15 @@ flowchart LR
   subgraph MED["Med package (med.clinical)"]
     P["patient registered / re-triaged / transported"]
   end
-  P -- "derived on the med device" --> C["med.patientCounts.v1<br/>{ uhs: 'UHS 1', sk1: 3, sk2: 5, sk3: 12, deceased: 0 }"]
+  P -- "derived on the server (ADR-0024)" --> C["med.patientCounts.v1<br/>{ uhs: 'UHS 1', sk1: 3, sk2: 5, sk3: 12, deceased: 0 }"]
   C -- "incident compartment" --> CMD["Fire command workspace"]
   C --> POL["Police liaison workspace"]
 ```
 
-- The **providing** package derives connector events from its own data, on the device
-  where the change happens. So it also works offline at the scene.
+- Connector events are derived by the **server that orders the source compartment**
+  (the home server; later also the edge server in the command vehicle), with a deriver
+  provided by the package ([ADR-0024](../adr/0024-server-derived-connectors.md)). It has
+  the complete, ordered view, so there is exactly one consistent source.
 - Connector events contain **only what the contract allows**: counts and statuses,
   never clinical details (CONN-3).
 - **Consuming** packages depend only on the contract crate (`ordo-contracts`), never on
@@ -158,6 +201,22 @@ First contracts:
 | `fire.responderInjured.v1` | Fire → Med | Request for care: location, unit, urgency |
 | `command.dangerZones.v1` | Command → all | Danger zones, staging areas, sectors |
 | `command.routes.v1` | Command/Police → all | Cordons, access and exit routes |
+
+### 8.3.1 Design items
+
+#### Server-derived connectors
+`dsn~server-derived-connectors~1`
+
+A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit name and one number per triage category.
+
+Covers:
+
+* [req~pat-6~1](../requirements/04-med.md#pat-6--patient-counts-for-command)
+* [req~conn-3~1](../requirements/05-police-and-connectors.md#conn-3--minimum-necessary-data)
+
+Needs: impl, itest
+
+Tags: must, m1
 
 ## 8.4 Federation
 

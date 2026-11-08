@@ -1,0 +1,63 @@
+; ORDO sync protocol — draft 0
+;
+; Messages between devices and the server, CBOR-encoded (RFC 8949). Enums use the
+; externally tagged form { "name": content }. Event structures: event.cddl.
+; Prose: protocol.md.
+
+; ---------------------------------------------------------------- device → server
+
+client-message = { "hello": hello } / { "push": [* signed-event] }
+
+hello = {
+  "user": user-id,
+  "device": device-id,
+  "subscriptions": [* subscription],
+}
+
+subscription = {
+  "incident": incident-id,
+  "compartment": compartment-id,
+  "after": uint,                 ; last sequence number the device has, 0 if none
+}
+
+; ---------------------------------------------------------------- server → device
+
+server-message = { "welcome": welcome }
+               / { "refused": rejection }
+               / { "deliver": delivery }
+               / { "rejected": rejected }
+
+welcome = {
+  "granted": [* subscription],
+  "denied": [* stream-ref],
+  "protected": [* compartment-id],
+  "keys": [* key-grant],
+}
+
+stream-ref = {
+  "incident": incident-id,
+  "compartment": compartment-id,
+}
+
+; Draft 0: the key travels inside the TLS-protected session. Draft 1 encrypts it for
+; the device's own X25519 key.
+key-grant = {
+  "incident": incident-id,
+  "compartment": compartment-id,
+  "key_id": key-id,
+  "key": bstr .size 32,
+}
+
+delivery = {
+  "incident": incident-id,
+  "compartment": compartment-id,
+  "events": [* sequenced-event],   ; consecutive sequence numbers, ascending
+}
+
+rejected = {
+  "event": event-id,
+  "reason": rejection,
+}
+
+rejection = "malformed" / "unknownDevice" / "wrongAuthor" / "badSignature"
+          / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"

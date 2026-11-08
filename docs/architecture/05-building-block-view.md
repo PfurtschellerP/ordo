@@ -221,3 +221,36 @@ ordo/
     ├── systemd/
     └── helm/                  # later
 ```
+
+## 5.5 Module designs
+
+### 5.5.1 Shared module `units`
+
+#### Lost-update detection
+`dsn~lost-update-detection~1`
+
+Unit status uses *last writer wins* by hybrid logical clock. Every status change records the timestamp of the change it replaces, as its author knew it. When the changes of a unit are sorted by timestamp and a change does not replace its predecessor, the predecessor was overwritten without being seen: ORDO keeps the later value and reports a lost update. The result depends only on the set of events, not on the order of arrival, so all devices reach the same state.
+
+Covers:
+
+* [req~off-4~1](../requirements/07-quality.md#off-4--no-lost-changes)
+
+Needs: impl, itest
+
+Tags: must, m1
+
+### 5.5.2 Med module `med.patients`
+
+#### Patient triage history
+`dsn~patient-triage-history~1`
+
+Registration and re-triage are separate events in `med.clinical`, never overwritten. The register sorts them by timestamp: the first registration of a triage tag creates the patient, every later decision is appended to the history with category, time and author, and the current category is the latest entry. A second registration of the same tag and a re-triage of an unknown tag are reported as notices.
+
+Covers:
+
+* [req~pat-3~1](../requirements/04-med.md#pat-3--re-triage-with-history)
+
+Needs: impl, itest
+
+Tags: must, m1
+

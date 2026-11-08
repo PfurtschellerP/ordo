@@ -27,7 +27,7 @@ Needs: dsn
 
 When a patient is re-triaged, ORDO shall record the new category with time and author and keep all earlier categories in the patient's history.
 
-Tags: must, med
+Tags: must, med, m1
 
 Needs: dsn
 
@@ -54,7 +54,7 @@ Needs: dsn
 
 While an incident has registered patients, ORDO shall publish the number of patients per triage category and location to the shared incident compartment through the patient-count connector. The connector shall contain numbers only.
 
-Tags: must, med
+Tags: must, med, m1
 
 Needs: dsn
 

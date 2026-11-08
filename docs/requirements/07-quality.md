@@ -112,7 +112,7 @@ Needs: dsn
 
 When the connection returns, changes sync automatically without user action
 
-Tags: must, quality
+Tags: must, quality, m1
 
 Needs: dsn
 
@@ -121,7 +121,7 @@ Needs: dsn
 
 Concurrent changes never lose data; conflicts are resolved automatically and visibly
 
-Tags: must, quality
+Tags: must, quality, m1
 
 Needs: dsn
 
@@ -269,16 +269,16 @@ Needs: dsn
 
 ORDO shall send a device only data from compartments its user may read. A device whose user may not read a compartment shall never receive or store that compartment's data (e.g. a fire tablet never stores patient records).
 
-Tags: must, quality
+Tags: must, quality, m1
 
 Needs: dsn
 
 #### SEC-10 — Health data protection
-`req~sec-10~1`
+`req~sec-10~2`
 
-Health data is treated as special-category data (GDPR Art. 9): encrypted per compartment on server and devices, access logged per record
+ORDO shall treat health data as special-category data (GDPR Art. 9) and store it only encrypted per compartment, on the server and on devices. Access logging is covered by SEC-6 and EPCR-7.
 
-Tags: must, quality
+Tags: must, quality, m1
 
 Needs: dsn
 

@@ -1,0 +1,18 @@
+[package]
+name = "ordo-sync"
+description = "ORDO sync: protocol messages, server hub and device replica (no I/O)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordo-core.workspace = true
+ordo-crypto.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

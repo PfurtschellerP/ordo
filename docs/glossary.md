@@ -84,6 +84,12 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | projection | Current state computed from events |
 | HLC | Hybrid logical clock: timestamp close to real time, consistently ordered |
 | home server | The server of the leading organisation; orders an incident's events |
+| stream | One compartment of one incident: the unit of ordering, access and encryption |
+| hub | The server-side sync logic (`ordo-sync`) |
+| replica | A device's local copy of the streams its user may read |
+| outbox | A device's events that the server has not ordered yet |
+| lost update | A change made without knowing the change before it; shown, not hidden |
+| deriver | Server-side code of a package that derives connector events (ADR-0024) |
 | hash chain | Chained hashes over an incident's ordered events; detects tampering |
 | federation | Cooperation of ORDO installations of different organisations |
 | profile | Regional or organisational data package: labels, codes, symbols, forms |

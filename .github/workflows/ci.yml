@@ -34,8 +34,10 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
-      - name: Build platform crates for WebAssembly
-        run: cargo build --locked --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto
+      - name: Build client-side crates for WebAssembly
+        run: >-
+          cargo build --locked --target wasm32-unknown-unknown
+          -p ordo-core -p ordo-crypto -p ordo-sync -p ordo-contracts -p ordo-units -p ordo-med-patients
 
   design:
     name: Design tokens and contrast (WCAG)
@@ -62,8 +64,8 @@ jobs:
     env:
       OFT_VERSION: 4.11.0
       OFT_SHA256: f094cd314f0fc4236f513f66fb39260a16f72e2320beb6b4fdeb7940b9b8cf87
-      # Current milestone; see docs/requirements/README.md
-      MILESTONE: m0
+      # Milestones traced so far; see docs/requirements/README.md
+      MILESTONES: m0,m1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,11 +75,11 @@ jobs:
           curl -fsSL -o "$RUNNER_TEMP/oft.jar" \
             "https://github.com/itsallcode/openfasttrace/releases/download/${OFT_VERSION}/openfasttrace-${OFT_VERSION}.jar"
           echo "${OFT_SHA256}  $RUNNER_TEMP/oft.jar" | sha256sum --check
-      - name: Trace requirements of the current milestone
+      - name: Trace requirements of the milestones
         run: |
           set -o pipefail
           java -version
-          java -jar "$RUNNER_TEMP/oft.jar" trace -t "_,${MILESTONE}" docs platform | tee "$RUNNER_TEMP/trace.txt"
+          java -jar "$RUNNER_TEMP/oft.jar" trace -t "_,${MILESTONES}" docs platform modules packages acceptance | tee "$RUNNER_TEMP/trace.txt"
       - name: Publish trace to the job summary
         if: always()
         run: |

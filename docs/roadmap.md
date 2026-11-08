@@ -23,18 +23,18 @@
 
 ## Next steps
 
+Done in phase 0:
 
-1. Phase 0: set up the Cargo workspace, CI (build, tests, multi-arch container image)
-   and the minimal Compose setup; write ADRs 001–021.
-2. Design tokens (primitive, semantic, safety) with day, night and high-contrast
-   themes; `ordo-tokens` with contrast checks in CI.
-3. Draft the event envelope and sync protocol as the first specs (CDDL + AsyncAPI).
-4. Sync prototype covering the risky parts: `ordo-core` + `ordo-sync` + `ordo-crypto`,
-   **two compartments** (`incident`, `med.clinical`), signed events with qualified IDs,
-   one shared module (`units`), one package module (`med.patients`), one connector
-   (`med.patientCounts.v1`), a minimal DE profile, minimal server and Leptos app, run
-   via Docker Compose. Test: a command tablet sees counts but never receives patient
-   data; network on/off; conflicting edits; two server instances on PostgreSQL. Measure
-   size and memory.
-5. Design the main tablet screens for the Med MVP (patient registration, UHS board,
-   transport board) with volunteers.
+- Workspace, CI, specs (event envelope, sync protocol draft 0), design tokens and themes.
+- Sync logic with compartments, sealed payloads, units and patients modules, server-derived
+  patient counts; nine acceptance tests on a simulated network (milestone `m1`).
+
+Next:
+
+1. **Server binary:** `ordo serve` with axum (WebSocket), SQLite persistence, health
+   endpoints, container image and the minimal Docker Compose setup.
+2. **Minimal Leptos app:** patient registration and UHS board (Med), counts view
+   (command); offline storage in the browser.
+3. Field-near test: two tablets and a server, network on/off; measure bundle size and
+   memory.
+4. Design the main tablet screens for the Med MVP with volunteers.

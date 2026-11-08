@@ -56,7 +56,7 @@ Needs: dsn
 
 Connectors shall share only the minimum data necessary; clinical details shall never leave the Med package.
 
-Tags: must, connectors
+Tags: must, connectors, m1
 
 Needs: dsn
 

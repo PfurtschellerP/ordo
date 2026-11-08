@@ -15,7 +15,9 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `docs/roadmap.md` | Phases, open questions, next steps |
 | `spec/` | Open interface specifications (CDDL, later OpenAPI/AsyncAPI); permissive licences |
 | `design/` | Design tokens (W3C DTCG), themes, contrast pairs |
-| `platform/` | Rust crates: `ordo-core`, `ordo-crypto`, `ordo-tokens` |
+| `platform/` | Platform crates: `ordo-core`, `ordo-crypto`, `ordo-sync`, `ordo-contracts`, `ordo-tokens` |
+| `modules/`, `packages/` | Shared modules (`units`) and service packages (`med/patients`) |
+| `acceptance/` | Simulation harness and acceptance tests (scenarios from `docs/requirements/acceptance/`) |
 
 Read only the files you need; each document is split into small parts on purpose.
 
@@ -25,11 +27,12 @@ Read only the files you need; each document is split into small parts on purpose
 cargo fmt --all --check                                   # formatting
 cargo clippy --workspace --all-targets -- -D warnings      # lints, no warnings allowed
 cargo test --workspace                                    # all tests
-cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto
+cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto -p ordo-sync \
+  -p ordo-contracts -p ordo-units -p ordo-med-patients
 cargo run -p ordo-tokens -- check                         # design tokens + WCAG contrast
 cargo deny check                                          # dependency licences, advisories
 reuse lint                                                # licence information per file
-java -jar openfasttrace-4.11.0.jar trace -t _,m0 docs platform   # requirement tracing
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1 docs platform modules packages acceptance
 ```
 
 All of these run in CI (`.github/workflows/ci.yml`) and must pass.
@@ -65,8 +68,9 @@ All of these run in CI (`.github/workflows/ci.yml`) and must pass.
   (`impl`) and tests (`utest`). Add coverage tags as plain comments:
   `// [impl->dsn~<name>~<revision>]` above the implementing item,
   `// [utest->dsn~<name>~<revision>]` above the test.
-- CI traces items tagged with the current milestone (`m0`). Adding a requirement to the
-  milestone means tagging it **and** its design items.
+- CI traces items tagged with the milestones so far (`m0`, `m1`). Adding a requirement to
+  a milestone means tagging it **and** its design items. Unit tests use `utest`,
+  acceptance tests in `acceptance/` use `itest`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when
   the meaning changes.
 - Never write complete example IDs in Markdown; OpenFastTrace would import them.

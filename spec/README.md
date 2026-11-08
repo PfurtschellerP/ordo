@@ -7,7 +7,7 @@ can implement them and work together with ORDO.
 | Folder | Specification | Format | Status |
 |---|---|---|---|
 | `client-server/` | Client–server API (login, master data, admin) | OpenAPI 3.1 | planned |
-| `sync/` | Sync protocol and event envelope | AsyncAPI 3 + CDDL (RFC 8610) | planned |
+| `sync/` | [Event envelope](sync/event.md) and [sync protocol](sync/protocol.md) | CDDL (RFC 8610); AsyncAPI 3 later | draft 0 |
 | `federation/` | Server discovery, keys, server-to-server sync | OpenAPI 3.1 + AsyncAPI 3 | planned |
 | `connectors/` | Contracts for data crossing service-package borders | CDDL | planned |
 | `profiles/` | Format of regional profiles | JSON Schema | planned |

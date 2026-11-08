@@ -1,12 +1,14 @@
 //! ORDO cryptography: event signatures and the hash chain
 //! (spec/sync/event.md §4 and §6).
 //!
-//! Payload encryption for protected compartments will be added here as well.
+//! [`seal`] encrypts payloads of protected compartments (§5).
 
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use ordo_core::{CodecError, EventBody, KeyId, SequencedEvent, Signature, SignedEvent};
 
 pub use ed25519_dalek;
+
+pub mod seal;
 
 /// Prefix of every signed message: `ORDO event v1` followed by a zero byte.
 pub const SIGNING_CONTEXT: &[u8] = b"ORDO event v1\0";
@@ -29,6 +31,9 @@ pub enum CryptoError {
     /// The signature does not match the event and key.
     #[error("the signature is not valid")]
     BadSignature,
+    /// A sealed payload could not be decrypted: wrong key, changed data or wrong event.
+    #[error("the sealed payload cannot be opened")]
+    CannotOpen,
 }
 
 /// Signs events with one Ed25519 key.

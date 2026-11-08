@@ -1,0 +1,15 @@
+[package]
+name = "ordo-contracts"
+description = "ORDO connector contracts: versioned data that crosses service-package borders"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

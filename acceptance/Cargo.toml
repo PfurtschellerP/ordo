@@ -1,0 +1,20 @@
+[package]
+name = "ordo-acceptance"
+description = "ORDO acceptance tests: scenarios from docs/requirements/acceptance as executable tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordo-contracts.workspace = true
+ordo-core.workspace = true
+ordo-crypto.workspace = true
+ordo-med-patients.workspace = true
+ordo-sync.workspace = true
+ordo-units.workspace = true
+
+[lints]
+workspace = true
