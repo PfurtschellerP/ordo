@@ -40,3 +40,11 @@ Next:
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
 4. Design the main tablet screens for the Med MVP with volunteers.
+
+Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
+before the first real field use:
+
+- Incremental projections and streams loaded on demand (bounded memory).
+- Group commit for higher write throughput.
+- PostgreSQL storage backend for several instances and high availability (OPS-9).
+- Backup and restore including the master key (OPS-3).

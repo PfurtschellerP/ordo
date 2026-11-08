@@ -102,3 +102,52 @@ Needs: impl, itest
 
 Tags: must, m2
 
+## 7.6 Performance and availability
+
+### 7.6.1 Measured throughput (SQLite)
+
+Server path per message: decode, verify signature, check rights and sealing, order, hash
+chain, store in one SQLite transaction (WAL, `synchronous = FULL`, so every commit is on
+disk). Benchmark: `platform/ordo-server/tests/throughput.rs`, 5,000 events, 2026-11-08,
+on a desktop with a rotating hard disk (a conservative case; SSDs are much faster):
+
+| Events per message | Events/s |
+|---|---|
+| 1 | ~1,100 |
+| 10 | ~6,700 |
+| 100 | ~16,300 |
+
+A large mass-casualty incident (500 patients, 100 units) produces perhaps tens of
+thousands of events over hours, with peaks of tens per second. SQLite on one disk has
+more than an order of magnitude of headroom. Storage is therefore not the first
+bottleneck.
+
+### 7.6.2 Known bottlenecks of the prototype
+
+| Bottleneck | Plan |
+|---|---|
+| The hub keeps all events of all streams in memory | Load streams on demand; keep only chain head and recent events in memory |
+| The patient-count deriver recomputes from all events (O(n²) over an incident) | Incremental projections; snapshots |
+| One transaction per message | Group commit: collect messages for a few milliseconds and commit together |
+| One server process per installation in SQLite mode | PostgreSQL mode for several instances (OPS-9) |
+
+### 7.6.3 Availability
+
+ORDO is local-first, which changes what "highly available" has to mean:
+
+- **At the scene,** work continues when the server is unreachable: devices record into
+  their outbox and sync later. A short server outage costs no data and blocks no one.
+  The edge server in the command vehicle (later) keeps devices at the scene in sync
+  without any external server.
+- **Sharing between organisations** waits for the server and catches up afterwards.
+- **For installations that need a highly available server** (district, hosted service),
+  the path is the PostgreSQL mode ([ADR-0004](../adr/0004-sqlite-default-postgresql-optional.md)):
+  several stateless ORDO instances on a replicated PostgreSQL (e.g. CloudNativePG or
+  Patroni) with automatic failover.
+- **For single installations,** SQLite stays the default. Disaster recovery comes from
+  backups of the database file and the master key; continuous replication of the SQLite
+  file to another machine or S3 storage (e.g. Litestream) is an option.
+
+SQLite is therefore not an intermediate step to be replaced, but the right tool for one
+organisation; PostgreSQL is added for high availability and scale. Both sit behind the
+same storage interface in `ordo-server`.
