@@ -10,7 +10,7 @@ can implement them and work together with ORDO.
 | `sync/` | [Event envelope](sync/event.md) and [sync protocol](sync/protocol.md) | CDDL (RFC 8610); AsyncAPI 3 later | draft 0 |
 | `federation/` | Server discovery, keys, server-to-server sync | OpenAPI 3.1 + AsyncAPI 3 | planned |
 | `connectors/` | Contracts for data crossing service-package borders | CDDL | planned |
-| `profiles/` | Format of regional profiles | JSON Schema | planned |
+| `profiles/` | Format of regional profiles; [ePCR forms as FHIR Questionnaire](profiles/questionnaire-subset.md) | FHIR R4 subset; JSON Schema later | draft 0 |
 | `conformance/` | Test suite for implementations | — | planned |
 
 ## Licence

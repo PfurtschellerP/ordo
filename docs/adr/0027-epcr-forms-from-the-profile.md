@@ -44,5 +44,6 @@ can adapt forms without code, and events keep the full history.
 
 ## More Information
 
-Profile: `profiles/de/med/epcr-forms.toml`. Module: `packages/med/patients/src/record.rs`.
+The catalogue format is an HL7 FHIR Questionnaire since [ADR-0037](0037-epcr-forms-as-fhir-questionnaire.md).
+Profile: `profiles/de/med/epcr-forms.json`. Module: `packages/med/patients/src/record.rs`.
 Standards: [register](../standards.md#medical-response-and-patient-records).

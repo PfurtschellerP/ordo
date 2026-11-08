@@ -56,7 +56,7 @@ Review of existing home-grown parts (November 2026):
 | Policy enforcement (planned) | Cedar (Apache-2.0, CNCF) | Use ([ADR-0035](0035-authorization-with-cedar.md)) |
 | Device storage (`localStorage` snapshot) | SQLite in WebAssembly on OPFS; IndexedDB | Replace ([ADR-0034](0034-device-storage-sqlite-opfs.md)) |
 | Binary attachments | `object_store` (Apache-2.0); S3-compatible stores such as Garage | Use ([ADR-0033](0033-attachments-in-an-object-store.md)) |
-| ePCR form format (own TOML) | HL7 FHIR Questionnaire | Evaluate next; would also allow existing form editors |
+| ePCR form format (own TOML) | HL7 FHIR Questionnaire | Replaced ([ADR-0037](0037-epcr-forms-as-fhir-questionnaire.md)) |
 | Design-token build (`ordo-tokens`) | Style Dictionary, Terrazzo | Keep for now: small, Rust-only build, standard format, swappable |
 | Sync protocol | CRDT libraries (Automerge, Loro), Matrix, Postgres sync engines | Keep own protocol: none covers server-ordered, sealed, need-to-know compartments ([ADR-0005](0005-own-sync-protocol.md), architecture 8.4.1); reuse their building blocks (CBOR, Ed25519, …) |
 | Fuzzy matching in the command palette | `nucleo`, `fuzzy-matcher` | Keep: about 40 lines; a library would grow the WebAssembly bundle |

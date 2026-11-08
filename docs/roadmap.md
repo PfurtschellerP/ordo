@@ -22,8 +22,7 @@
    its use licence-free?
 4. Who can review data protection and medical-device questions before field use?
 5. Should larger tablets in portrait also use the bottom bar (breakpoint now 48 rem)?
-6. Should the ePCR forms move to the HL7 FHIR Questionnaire format, so existing form
-   editors can be used ([ADR-0032](adr/0032-reuse-open-source-first.md))?
+6. Which open-source FHIR form editor fits for profile authors (licence, maintenance)?
 
 ## Next steps
 
@@ -57,7 +56,8 @@ Done in phase 0:
   Cedar policies (ADR-0035); shortcuts and command names the same in every language
   (ADR-0036); open source first (ADR-0032).
 - Reuse instead of own code: Leptos' router (paths, back button), Playwright with
-  axe-core for the browser tests in Firefox, Chromium and WebKit.
+  axe-core for the browser tests in Firefox, Chromium and WebKit; ePCR forms as an HL7
+  FHIR Questionnaire (ADR-0037).
 
 Next:
 

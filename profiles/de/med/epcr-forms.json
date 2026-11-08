@@ -1,0 +1,1433 @@
+{
+  "resourceType": "Questionnaire",
+  "id": "ordo-de-epcr",
+  "url": "urn:ordo:profile:de:questionnaire:epcr",
+  "version": "1.0.0",
+  "name": "OrdoDeEpcr",
+  "title": "Patientenprotokoll (DE)",
+  "status": "draft",
+  "language": "de",
+  "subjectType": [
+    "Patient"
+  ],
+  "description": "ePCR forms of the ORDO DE profile. Sections follow German emergency documentation (DIVI MIND): identity, encounter, history, vital signs, findings, measures, medication, disposition. A repeating group is a series of timed entries; a non-repeating group has one current value per field. Input limits catch typing errors; they are not clinical limits. ORDO subset: spec/fhir/questionnaire-subset.md.",
+  "copyright": "This material contains content from LOINC® (http://loinc.org). LOINC is copyright © Regenstrief Institute, Inc. and the Logical Observation Identifiers Names and Codes (LOINC) Committee and is available at no cost under the license at http://loinc.org/license. LOINC® is a registered United States trademark of Regenstrief Institute, Inc. This product includes all or a portion of the UCUM table, UCUM codes, and UCUM definitions or is derived from it, subject to a license from Regenstrief Institute, Inc. and The UCUM Organization. The UCUM table and UCUM codes are copyright © 1995-2013, Regenstrief Institute, Inc. and the Unified Codes for Units of Measures (UCUM) Organization.",
+  "item": [
+    {
+      "linkId": "identity",
+      "text": "Personalien",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "identity.family_name",
+          "text": "Name",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.family"
+        },
+        {
+          "linkId": "identity.given_name",
+          "text": "Vorname",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.given"
+        },
+        {
+          "linkId": "identity.birth_date",
+          "text": "Geburtsdatum",
+          "type": "date",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.birthDate"
+        },
+        {
+          "linkId": "identity.age_estimate",
+          "text": "Alter, geschätzt",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "a",
+                "display": "Jahre"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 120
+            }
+          ],
+          "item": [
+            {
+              "linkId": "identity.age_estimate.hint",
+              "text": "Wenn das Geburtsdatum nicht bekannt ist",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "identity.sex",
+          "text": "Geschlecht",
+          "type": "choice",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.gender",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "code": "female",
+                "display": "weiblich"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "code": "male",
+                "display": "männlich"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "code": "other",
+                "display": "divers"
+              }
+            },
+            {
+              "valueCoding": {
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "code": "unknown",
+                "display": "unbekannt"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "identity.features",
+          "text": "Erkennungsmerkmale",
+          "type": "text",
+          "item": [
+            {
+              "linkId": "identity.features.hint",
+              "text": "Kleidung, Statur, Haare, Brille, Tätowierungen – hilft bei unbekannten Patienten",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "identity.language",
+          "text": "Sprache, Verständigung",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.communication.language",
+          "item": [
+            {
+              "linkId": "identity.language.hint",
+              "text": "z. B. Deutsch, Englisch, Gebärdensprache, Dolmetscher nötig",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "identity.address",
+          "text": "Anschrift",
+          "type": "text",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.address"
+        },
+        {
+          "linkId": "identity.phone",
+          "text": "Telefon",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.telecom"
+        },
+        {
+          "linkId": "identity.contact",
+          "text": "Angehörige, Kontaktperson",
+          "type": "text",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.contact"
+        },
+        {
+          "linkId": "identity.belongings",
+          "text": "Wertsachen, Habseligkeiten",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "linkId": "encounter",
+      "text": "Einsatz und Auffinden",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "encounter.found_location",
+          "text": "Auffindeort",
+          "type": "string"
+        },
+        {
+          "linkId": "encounter.found_time",
+          "text": "Auffindezeit",
+          "type": "time"
+        },
+        {
+          "linkId": "encounter.arrival_time",
+          "text": "Ankunft in der UHS",
+          "type": "time"
+        },
+        {
+          "linkId": "encounter.brought_by",
+          "text": "Gebracht durch",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "self",
+                "display": "selbst gekommen"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "companion",
+                "display": "Begleitperson"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "medic_team",
+                "display": "Sanitätstrupp"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "ems",
+                "display": "Rettungsdienst"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "police",
+                "display": "Polizei"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "security",
+                "display": "Ordnungsdienst"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "other",
+                "display": "sonstige"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "encounter.emergency_type",
+          "text": "Art des Notfalls",
+          "type": "choice",
+          "repeats": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "injury",
+                "display": "Verletzung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "illness",
+                "display": "Erkrankung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "intoxication",
+                "display": "Vergiftung, Alkohol, Drogen"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "heat",
+                "display": "Hitze, Sonne"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "cold",
+                "display": "Kälte"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "psychological",
+                "display": "psychische Ausnahmesituation"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "other",
+                "display": "sonstiges"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "encounter.mechanism",
+          "text": "Ereignis, Unfallhergang",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "linkId": "history",
+      "text": "Anamnese",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "history.complaint",
+          "text": "Beschwerden",
+          "type": "text"
+        },
+        {
+          "linkId": "history.onset",
+          "text": "Beginn der Beschwerden",
+          "type": "string",
+          "item": [
+            {
+              "linkId": "history.onset.hint",
+              "text": "Uhrzeit oder „seit …“",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "history.allergies",
+          "text": "Allergien",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/AllergyIntolerance#AllergyIntolerance",
+          "item": [
+            {
+              "linkId": "history.allergies.hint",
+              "text": "„keine bekannt“ ausdrücklich eintragen",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "history.medication",
+          "text": "Dauermedikation",
+          "type": "text",
+          "definition": "http://hl7.org/fhir/StructureDefinition/MedicationStatement#MedicationStatement"
+        },
+        {
+          "linkId": "history.conditions",
+          "text": "Vorerkrankungen",
+          "type": "text",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Condition#Condition"
+        },
+        {
+          "linkId": "history.last_intake",
+          "text": "Letzte Nahrungs- und Flüssigkeitsaufnahme",
+          "type": "string"
+        },
+        {
+          "linkId": "history.substances",
+          "text": "Alkohol, Drogen",
+          "type": "string"
+        },
+        {
+          "linkId": "history.pregnancy",
+          "text": "Schwangerschaft",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "no",
+                "display": "nein"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "yes",
+                "display": "ja"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "unknown",
+                "display": "unbekannt"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "vitals",
+      "text": "Vitalwerte",
+      "type": "group",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "vitals.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "vitals.heart_rate",
+          "text": "Herzfrequenz",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "/min",
+                "display": "/min"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 300
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.bp_systolic",
+          "text": "Blutdruck systolisch",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "mm[Hg]",
+                "display": "mmHg"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 300
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.bp_diastolic",
+          "text": "Blutdruck diastolisch",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "mm[Hg]",
+                "display": "mmHg"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 250
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "8462-4"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.resp_rate",
+          "text": "Atemfrequenz",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "/min",
+                "display": "/min"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 80
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "9279-1"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.spo2",
+          "text": "SpO₂",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "%",
+                "display": "%"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 100
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "59408-5"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.temperature",
+          "text": "Temperatur",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "Cel",
+                "display": "°C"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 20
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 45
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.glucose",
+          "text": "Blutzucker",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL",
+                "display": "mg/dl"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 1000
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "2339-0"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.etco2",
+          "text": "etCO₂",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+              "valueCoding": {
+                "system": "http://unitsofmeasure.org",
+                "code": "mm[Hg]",
+                "display": "mmHg"
+              }
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 150
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "19889-5"
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.gcs_eye",
+          "text": "GCS Augen öffnen",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 1
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 4
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "9267-6"
+            }
+          ],
+          "item": [
+            {
+              "linkId": "vitals.gcs_eye.hint",
+              "text": "1–4",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.gcs_verbal",
+          "text": "GCS verbale Reaktion",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 1
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 5
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "9270-0"
+            }
+          ],
+          "item": [
+            {
+              "linkId": "vitals.gcs_verbal.hint",
+              "text": "1–5",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.gcs_motor",
+          "text": "GCS motorische Reaktion",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 1
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 6
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "9268-4"
+            }
+          ],
+          "item": [
+            {
+              "linkId": "vitals.gcs_motor.hint",
+              "text": "1–6",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.pain",
+          "text": "Schmerz (NRS)",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            },
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
+              "valueDecimal": 10
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "72514-3"
+            }
+          ],
+          "item": [
+            {
+              "linkId": "vitals.pain.hint",
+              "text": "0–10",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "vitals.gcs",
+          "text": "GCS gesamt",
+          "type": "decimal",
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": {
+                "language": "text/fhirpath",
+                "expression": "%resource.repeat(item).where(linkId='vitals.gcs_eye').answer.value + %resource.repeat(item).where(linkId='vitals.gcs_verbal').answer.value + %resource.repeat(item).where(linkId='vitals.gcs_motor').answer.value"
+              }
+            }
+          ],
+          "code": [
+            {
+              "system": "http://loinc.org",
+              "code": "9269-2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "findings",
+      "text": "Befund",
+      "type": "group",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "findings.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "findings.consciousness",
+          "text": "Bewusstsein",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "alert",
+                "display": "wach"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "voice",
+                "display": "reagiert auf Ansprache"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "pain",
+                "display": "reagiert auf Schmerzreiz"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "unresponsive",
+                "display": "reagiert nicht"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.orientation",
+          "text": "Orientiert",
+          "type": "choice",
+          "repeats": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "person",
+                "display": "zur Person"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "place",
+                "display": "zum Ort"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "time",
+                "display": "zur Zeit"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "situation",
+                "display": "zur Situation"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.breathing",
+          "text": "Atmung",
+          "type": "choice",
+          "repeats": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "normal",
+                "display": "unauffällig"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "dyspnoea",
+                "display": "Atemnot"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "noises",
+                "display": "Atemgeräusche"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "apnoea",
+                "display": "keine Atmung"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.skin",
+          "text": "Haut",
+          "type": "choice",
+          "repeats": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "normal",
+                "display": "unauffällig"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "pale",
+                "display": "blass"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "cyanotic",
+                "display": "bläulich"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "sweaty",
+                "display": "kaltschweißig"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "flushed",
+                "display": "heiß, gerötet"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupils",
+          "text": "Pupillen",
+          "type": "string",
+          "item": [
+            {
+              "linkId": "findings.pupils.hint",
+              "text": "Weite, seitengleich, Lichtreaktion",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "findings.injuries",
+          "text": "Verletzungen",
+          "type": "text",
+          "item": [
+            {
+              "linkId": "findings.injuries.hint",
+              "text": "Körperregion und Art",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pain_location",
+          "text": "Schmerzen, Ort",
+          "type": "string"
+        },
+        {
+          "linkId": "findings.notes",
+          "text": "Weitere Befunde",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "linkId": "measures",
+      "text": "Maßnahmen",
+      "type": "group",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "measures.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "measures.measures",
+          "text": "Maßnahmen",
+          "type": "choice",
+          "repeats": true,
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "positioning",
+                "display": "Lagerung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "wound_care",
+                "display": "Wundversorgung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "bleeding_control",
+                "display": "Blutstillung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "tourniquet",
+                "display": "Tourniquet"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "immobilisation",
+                "display": "Ruhigstellung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "cooling",
+                "display": "Kühlung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "warming",
+                "display": "Wärmeerhalt"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "oxygen",
+                "display": "Sauerstoffgabe"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "iv_access",
+                "display": "Venenzugang"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "infusion",
+                "display": "Infusion"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "airway",
+                "display": "Atemwegssicherung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "ventilation",
+                "display": "Beatmung"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "cpr",
+                "display": "Reanimation"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "defibrillation",
+                "display": "Defibrillation"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "ecg",
+                "display": "EKG"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "psychosocial",
+                "display": "Betreuung"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "measures.details",
+          "text": "Details",
+          "type": "text"
+        },
+        {
+          "linkId": "measures.performed_by",
+          "text": "Durchgeführt von",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "linkId": "medication",
+      "text": "Medikamente",
+      "type": "group",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "medication.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "medication.drug",
+          "text": "Wirkstoff oder Präparat",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/MedicationAdministration#MedicationAdministration.medication"
+        },
+        {
+          "linkId": "medication.dose",
+          "text": "Dosis",
+          "type": "decimal",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/minValue",
+              "valueDecimal": 0
+            }
+          ],
+          "definition": "http://hl7.org/fhir/StructureDefinition/MedicationAdministration#MedicationAdministration.dosage.dose"
+        },
+        {
+          "linkId": "medication.dose_unit",
+          "text": "Einheit",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "mg",
+                "display": "mg"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "ug",
+                "display": "µg"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "g",
+                "display": "g"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "ml",
+                "display": "ml"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "iu",
+                "display": "I.E."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "l_min",
+                "display": "l/min"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "puff",
+                "display": "Hub"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "medication.route",
+          "text": "Applikation",
+          "type": "choice",
+          "definition": "http://hl7.org/fhir/StructureDefinition/MedicationAdministration#MedicationAdministration.dosage.route",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "iv",
+                "display": "i.v."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "io",
+                "display": "i.o."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "im",
+                "display": "i.m."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "sc",
+                "display": "s.c."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "po",
+                "display": "p.o."
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "inhal",
+                "display": "inhalativ"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "nasal",
+                "display": "nasal"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "buccal",
+                "display": "bukkal"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "rectal",
+                "display": "rektal"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "medication.ordered_by",
+          "text": "Angeordnet durch",
+          "type": "string"
+        },
+        {
+          "linkId": "medication.given_by",
+          "text": "Verabreicht durch",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "linkId": "disposition",
+      "text": "Verbleib und Übergabe",
+      "type": "group",
+      "item": [
+        {
+          "linkId": "disposition.outcome",
+          "text": "Verbleib",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "released",
+                "display": "vor Ort entlassen"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "transported",
+                "display": "Transport in Klinik"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "handed_over",
+                "display": "Übergabe an Rettungsdienst"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "refused_treatment",
+                "display": "Behandlung abgelehnt"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "refused_transport",
+                "display": "Transport abgelehnt"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "left",
+                "display": "ohne Abmeldung gegangen"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "deceased",
+                "display": "verstorben"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "other",
+                "display": "sonstiges"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "disposition.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "disposition.destination",
+          "text": "Transportziel",
+          "type": "string"
+        },
+        {
+          "linkId": "disposition.transport_unit",
+          "text": "Transportmittel (Funkrufname)",
+          "type": "string"
+        },
+        {
+          "linkId": "disposition.handed_to",
+          "text": "Übergeben an",
+          "type": "string"
+        },
+        {
+          "linkId": "disposition.notes",
+          "text": "Bemerkungen",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

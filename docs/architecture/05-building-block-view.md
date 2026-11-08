@@ -293,7 +293,8 @@ Tags: must, m1
 `dsn~patient-care-record~1`
 
 Module `med.epcr` in the same package. The forms come from the profile catalogue
-`epcr-forms`, checked at build time ([ADR-0027](../adr/0027-epcr-forms-from-the-profile.md)).
+`epcr-forms`, an HL7 FHIR Questionnaire in a documented subset, checked at build time
+([ADR-0027](../adr/0027-epcr-forms-from-the-profile.md), [ADR-0037](../adr/0037-epcr-forms-as-fhir-questionnaire.md)).
 Saving a form records one `epcr.entryRecorded` event in `med.clinical` with the triage
 tag number, the form ID and the checked values. Snapshot forms show the latest value per
 field and keep earlier ones; series forms list timed entries, and a correction names the

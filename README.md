@@ -43,7 +43,7 @@ design/          design tokens and themes (W3C DTCG), WCAG contrast pairs
 platform/        platform crates: core, crypto, sync, contracts, tokens, server, web app
 modules/         shared functional modules (e.g. units)
 packages/        service packages (e.g. med/patients)
-profiles/        regional profiles as data (e.g. de/med/epcr-forms.toml)
+profiles/        regional profiles as data (e.g. de/med/epcr-forms.json, a FHIR Questionnaire)
 tests/           cross-crate acceptance tests, Gherkin features, browser end-to-end tests
 deploy/          container image, Docker Compose
 ```

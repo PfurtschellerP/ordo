@@ -14,10 +14,8 @@ ordo-core.workspace = true
 ordo-sync.workspace = true
 serde.workspace = true
 serde_bytes.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
-toml.workspace = true
 
 [lints]
 workspace = true

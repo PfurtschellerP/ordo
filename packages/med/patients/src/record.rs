@@ -1,7 +1,8 @@
 //! Module `med.epcr`: the patient care record (ePCR).
 //!
 //! The structure of the record — forms, fields, units, choices — comes from the profile
-//! (catalogue `epcr-forms`, EPCR-2); this module only knows field *types*. Every entry
+//! as an HL7 FHIR `Questionnaire` (catalogue `epcr-forms`, EPCR-2, ADR-0037; read by
+//! [`crate::questionnaire`]); this module only knows field *types*. Every entry
 //! is an event in the protected compartment `med.clinical`, linked to the patient by the
 //! triage tag (EPCR-1). Nothing is overwritten (EPCR-4):
 //!
@@ -38,7 +39,8 @@ pub const MAX_TEXT_CHARS: usize = 4000;
 // Profile catalogue `epcr-forms`
 // ---------------------------------------------------------------------------
 
-/// The ePCR forms of a profile (`profiles/<id>/med/epcr-forms.toml`).
+/// The ePCR forms of a profile, read from its FHIR Questionnaire
+/// (`profiles/<id>/med/epcr-forms.json`) by [`FormCatalogue::from_questionnaire_json`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FormCatalogue {
@@ -175,6 +177,9 @@ pub enum CatalogueError {
     /// An ID that cannot be stored safely.
     #[error("invalid ID {0:?}: use a-z, 0-9 and _")]
     Id(String),
+    /// Something outside ORDO's subset of FHIR Questionnaire.
+    #[error("not supported by ORDO's Questionnaire subset: {0}")]
+    Unsupported(String),
 }
 
 fn check_id(id: &str) -> Result<(), CatalogueError> {
@@ -750,59 +755,106 @@ mod tests {
     use ordo_core::event::{Author, EventBody, Payload};
     use ordo_core::{DeviceId, EventId, IncidentId, ServerName, Ulid};
 
+    /// A small questionnaire in ORDO's FHIR subset.
     fn catalogue() -> FormCatalogue {
-        toml::from_str(
-            r#"
-            format = 1
-            [[form]]
-            id = "identity"
-            label = "Personalien"
-            kind = "snapshot"
-            [[form.field]]
-            id = "family_name"
-            label = "Name"
-            type = "text"
-            [[form.field]]
-            id = "sex"
-            label = "Geschlecht"
-            type = "choice"
-            option = [{ id = "female", label = "weiblich" }, { id = "male", label = "männlich" }]
+        FormCatalogue::from_questionnaire_json(QUESTIONNAIRE).expect("valid questionnaire")
+    }
 
-            [[form]]
-            id = "vitals"
-            label = "Vitalwerte"
-            kind = "series"
-            [[form.field]]
-            id = "heart_rate"
-            label = "Herzfrequenz"
-            type = "number"
-            unit = "/min"
-            min = 0
-            max = 300
-            [[form.field]]
-            id = "gcs_eye"
-            label = "GCS Augen"
-            type = "number"
-            min = 1
-            max = 4
-            [[form.field]]
-            id = "gcs_verbal"
-            label = "GCS verbal"
-            type = "number"
-            min = 1
-            max = 5
-            [[form.field]]
-            id = "measures"
-            label = "Maßnahmen"
-            type = "choices"
-            option = [{ id = "oxygen", label = "Sauerstoff" }, { id = "splint", label = "Schiene" }]
-            [[form.sum]]
-            id = "gcs"
-            label = "GCS"
-            of = ["gcs_eye", "gcs_verbal"]
-            "#,
-        )
-        .expect("valid catalogue")
+    const QUESTIONNAIRE: &str = r#"{
+      "resourceType": "Questionnaire",
+      "status": "draft",
+      "item": [
+        { "linkId": "identity", "text": "Personalien", "type": "group", "item": [
+          { "linkId": "identity.family_name", "text": "Name", "type": "string",
+            "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.family" },
+          { "linkId": "identity.sex", "text": "Geschlecht", "type": "choice", "answerOption": [
+            { "valueCoding": { "code": "female", "display": "weiblich" } },
+            { "valueCoding": { "code": "male", "display": "männlich" } } ] } ] },
+        { "linkId": "vitals", "text": "Vitalwerte", "type": "group", "repeats": true, "item": [
+          { "linkId": "vitals.heart_rate", "text": "Herzfrequenz", "type": "decimal",
+            "code": [{ "system": "http://loinc.org", "code": "8867-4" }],
+            "extension": [
+              { "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+                "valueCoding": { "system": "http://unitsofmeasure.org", "code": "/min", "display": "/min" } },
+              { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueDecimal": 0 },
+              { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueDecimal": 300 } ],
+            "item": [{ "linkId": "vitals.heart_rate.hint", "text": "Schläge pro Minute", "type": "display" }] },
+          { "linkId": "vitals.gcs_eye", "text": "GCS Augen", "type": "integer",
+            "extension": [
+              { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueInteger": 1 },
+              { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueInteger": 4 } ] },
+          { "linkId": "vitals.gcs_verbal", "text": "GCS verbal", "type": "integer",
+            "extension": [
+              { "url": "http://hl7.org/fhir/StructureDefinition/minValue", "valueInteger": 1 },
+              { "url": "http://hl7.org/fhir/StructureDefinition/maxValue", "valueInteger": 5 } ] },
+          { "linkId": "vitals.measures", "text": "Maßnahmen", "type": "choice", "repeats": true, "answerOption": [
+            { "valueCoding": { "code": "oxygen", "display": "Sauerstoff" } },
+            { "valueCoding": { "code": "splint", "display": "Schiene" } } ] },
+          { "linkId": "vitals.gcs", "text": "GCS", "type": "decimal", "readOnly": true,
+            "extension": [{ "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression",
+              "valueExpression": { "language": "text/fhirpath",
+                "expression": "%resource.repeat(item).where(linkId='vitals.gcs_eye').answer.value + %resource.repeat(item).where(linkId='vitals.gcs_verbal').answer.value" } }] } ] }
+      ]
+    }"#;
+
+    // [utest->dsn~patient-care-record~1]
+    #[test]
+    fn questionnaires_are_read_in_the_ordo_subset() {
+        let c = catalogue();
+        let identity = c.form("identity").expect("form");
+        assert_eq!(identity.kind, FormKind::Snapshot);
+        let name = identity.field("family_name").expect("field");
+        assert_eq!(name.code.as_deref(), Some("fhir:Patient.name.family"));
+        let vitals = c.form("vitals").expect("form");
+        assert_eq!(
+            vitals.kind,
+            FormKind::Series,
+            "a repeating group is a series"
+        );
+        let hr = vitals.field("heart_rate").expect("field");
+        assert_eq!(hr.unit.as_deref(), Some("/min"));
+        assert_eq!((hr.min, hr.max), (Some(0.0), Some(300.0)));
+        assert_eq!(hr.code.as_deref(), Some("loinc:8867-4"));
+        assert_eq!(hr.hint.as_deref(), Some("Schläge pro Minute"));
+        assert_eq!(
+            vitals.field("gcs_eye").map(|f| f.field_type),
+            Some(FieldType::Number)
+        );
+        assert_eq!(
+            vitals.field("measures").map(|f| f.field_type),
+            Some(FieldType::Choices)
+        );
+        assert_eq!(vitals.sums[0].of, vec!["gcs_eye", "gcs_verbal"]);
+    }
+
+    #[test]
+    fn anything_outside_the_subset_is_rejected() {
+        let replace = |from: &str, to: &str| {
+            FormCatalogue::from_questionnaire_json(&QUESTIONNAIRE.replace(from, to))
+        };
+        // Calculations other than sums (EPCR-9).
+        let product = replace(".answer.value + %resource", ".answer.value * %resource");
+        assert!(
+            matches!(product, Err(CatalogueError::Unsupported(_))),
+            "{product:?}"
+        );
+        // Sums across forms.
+        assert!(replace("linkId='vitals.gcs_verbal'", "linkId='identity.sex'").is_err());
+        // Conditional questions are not supported yet.
+        let conditional = replace(
+            r#""text": "Name", "type": "string","#,
+            r#""text": "Name", "type": "string", "enableWhen": [{}],"#,
+        );
+        assert!(matches!(conditional, Err(CatalogueError::Unsupported(_))));
+        // linkIds must name their group.
+        assert!(
+            replace(
+                r#""linkId": "identity.family_name""#,
+                r#""linkId": "family_name""#
+            )
+            .is_err()
+        );
+        assert!(FormCatalogue::from_questionnaire_json(r#"{"resourceType": "Patient"}"#).is_err());
     }
 
     fn one(text: &str) -> Value {
@@ -858,10 +910,17 @@ mod tests {
     #[test]
     fn the_profile_catalogue_is_valid() {
         catalogue().check().expect("valid");
-        let de: FormCatalogue =
-            toml::from_str(include_str!("../../../../profiles/de/med/epcr-forms.toml"))
-                .expect("DE profile parses");
-        de.check().expect("DE profile is valid");
+        let de = FormCatalogue::from_questionnaire_json(include_str!(
+            "../../../../profiles/de/med/epcr-forms.json"
+        ))
+        .expect("DE profile is a valid questionnaire");
+        assert_eq!(de.forms.len(), 8);
+        let vitals = de.form("vitals").expect("vital signs");
+        assert_eq!(vitals.kind, FormKind::Series);
+        assert_eq!(
+            vitals.sums[0].of,
+            vec!["gcs_eye", "gcs_verbal", "gcs_motor"]
+        );
     }
 
     #[test]

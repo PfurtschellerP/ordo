@@ -13,7 +13,7 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `docs/adr/` | Architecture decisions (MADR 4), one per file |
 | `docs/glossary.md` | Domain terms, English ↔ German. Use the English term in code |
 | `docs/standards.md` | Standards, doctrine and conventions ORDO follows, with editions and links |
-| `profiles/` | Regional profiles as data (e.g. `de/med/epcr-forms.toml`); no regional data in code |
+| `profiles/` | Regional profiles as data (e.g. `de/med/epcr-forms.json`, a FHIR Questionnaire); no regional data in code |
 | `docs/roadmap.md` | Phases, open questions, next steps |
 | `spec/` | Open interface specifications (CDDL, later OpenAPI/AsyncAPI); permissive licences |
 | `design/` | Design tokens (W3C DTCG), themes, contrast pairs |
