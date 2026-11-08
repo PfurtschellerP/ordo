@@ -1,5 +1,5 @@
 //! Throughput of the server path: hub (verify, order, chain) + SQLite (one transaction
-//! per message). Run with: cargo test --release -p ordo-server --test throughput -- --ignored --nocapture
+//! per message). Run with: `cargo bench -p ordo-server` (set TMPDIR to measure a real disk).
 
 use std::time::Instant;
 
@@ -97,11 +97,10 @@ async fn run(total: usize, batch: usize) -> f64 {
     total as f64 / secs
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "benchmark; run explicitly with --release"]
-async fn throughput() {
+fn main() {
+    let runtime = tokio::runtime::Runtime::new().expect("tokio runtime");
     for batch in [1, 10, 100] {
-        let rate = run(5_000, batch).await;
+        let rate = runtime.block_on(run(5_000, batch));
         println!("batch {batch:>3}: {rate:>8.0} events/s");
     }
 }

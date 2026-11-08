@@ -22,3 +22,7 @@ pkg/
 # Web app build output
 platform/ordo-app/dist/
 platform/ordo-app/generated/
+
+# Python
+__pycache__/
+*.pyc

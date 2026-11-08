@@ -37,4 +37,4 @@ the complete, ordered view and is the only source, so counts are always consiste
 ## More Information
 
 Details: [8.3 Connectors](../architecture/08-concepts.md#83-connectors), test
-`command_sees_counts_but_never_patient_data` in `acceptance/tests/sync_prototype.rs`.
+`command_sees_counts_but_never_patient_data` in `tests/acceptance/tests/sync_prototype.rs`.

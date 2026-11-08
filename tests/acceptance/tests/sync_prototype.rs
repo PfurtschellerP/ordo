@@ -1,4 +1,4 @@
-//! Sync prototype: the scenarios of docs/requirements/acceptance/ as executable tests.
+//! Sync prototype: the scenarios of tests/acceptance/features/ as executable tests.
 
 use ordo_acceptance::World;
 use ordo_contracts::TriageCategory::{self, Immediate, Minor, Urgent};

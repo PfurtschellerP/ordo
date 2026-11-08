@@ -75,7 +75,8 @@ req  (requirements)      what is needed               Needs: dsn
 
 - Code and tests point to **design items**, not directly to requirements.
 - Acceptance scenarios for key workflows are written in **Gherkin**
-  ([acceptance/](acceptance/)) and become executable tests with the MVP.
+  ([tests/acceptance/features/](../../tests/acceptance/features/)) and become executable tests
+  with the MVP.
 
 ## Milestones and CI
 
@@ -98,5 +99,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages tests
 ```

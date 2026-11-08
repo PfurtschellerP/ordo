@@ -33,6 +33,22 @@ ORDO uses **open standards wherever they exist and fit**
 ([ADR-0022](docs/adr/0022-open-standards-first.md)); the list of standards in use is in
 [architecture chapter 4.3](docs/architecture/04-solution-strategy.md#43-open-standards-in-use).
 
+## Repository map
+
+```text
+docs/            requirements (OpenFastTrace), architecture (arc42), decisions (MADR), glossary, roadmap
+spec/            open interface specifications (CDDL, later OpenAPI/AsyncAPI)
+design/          design tokens and themes (W3C DTCG), WCAG contrast pairs
+platform/        platform crates: core, crypto, sync, contracts, tokens, server, web app
+modules/         shared functional modules (e.g. units)
+packages/        service packages (e.g. med/patients)
+tests/           cross-crate acceptance tests, Gherkin features, browser end-to-end tests
+deploy/          container image, Docker Compose
+```
+
+Start with [AGENTS.md](AGENTS.md) for commands and rules, and with
+[tests/README.md](tests/README.md) for the kinds of tests.
+
 ## Licence
 
 - ORDO software: [GNU Affero General Public License v3.0 or later](LICENSE)

@@ -108,7 +108,7 @@ Tags: must, m2
 
 Server path per message: decode, verify signature, check rights and sealing, order, hash
 chain, store in one SQLite transaction (WAL, `synchronous = FULL`, so every commit is on
-disk). Benchmark: `platform/ordo-server/tests/throughput.rs`, 5,000 events, 2026-11-08,
+disk). Benchmark: `platform/ordo-server/benches/throughput.rs` (`cargo bench -p ordo-server`), 5,000 events, 2026-11-08,
 on a desktop with a rotating hard disk (a conservative case; SSDs are much faster):
 
 | Events per message | Events/s |

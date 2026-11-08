@@ -17,7 +17,8 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `design/` | Design tokens (W3C DTCG), themes, contrast pairs |
 | `platform/` | Platform crates: `ordo-core`, `ordo-crypto`, `ordo-sync`, `ordo-contracts`, `ordo-tokens` |
 | `modules/`, `packages/` | Shared modules (`units`) and service packages (`med/patients`) |
-| `acceptance/` | Simulation harness and acceptance tests; `acceptance/ui/`: UI scenario in headless Firefox |
+| `tests/acceptance/` | Cross-crate acceptance tests (simulated network) and Gherkin `features/` |
+| `tests/e2e/` | Browser end-to-end scenario and rendered-page audit (headless Firefox) |
 | `platform/ordo-app/` | Web app (Leptos → WebAssembly, Trunk); user-visible texts in `src/text.rs` |
 
 Read only the files you need; each document is split into small parts on purpose.
@@ -33,7 +34,7 @@ cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto -p ordo-
 cargo run -p ordo-tokens -- check                         # design tokens + WCAG contrast
 cargo deny check                                          # dependency licences, advisories
 reuse lint                                                # licence information per file
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages tests
 ```
 
 All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and image:
@@ -42,7 +43,7 @@ All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and im
 cargo run -p ordo-server -- serve                          # needs ORDO_* variables, see --help
 docker build -f deploy/Containerfile -t ordo:local .         # container image
 (cd platform/ordo-app && trunk build --release)             # web app (needs trunk, wasm-bindgen-cli)
-python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-ui   # UI test (Firefox)
+python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-ui   # UI test (Firefox)
 ```
 
 ## Rules that must never be broken
@@ -78,7 +79,7 @@ python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/
   `// [utest->dsn~<name>~<revision>]` above the test.
 - CI traces items tagged with the milestones so far (`m0` … `m4`). Adding a requirement to
   a milestone means tagging it **and** its design items. Unit tests use `utest`,
-  acceptance tests in `acceptance/` use `itest`.
+  acceptance and end-to-end tests in `tests/` use `itest`. See `tests/README.md`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when
   the meaning changes.
 - Never write complete example IDs in Markdown; OpenFastTrace would import them.

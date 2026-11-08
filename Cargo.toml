@@ -10,7 +10,7 @@ members = [
   "platform/ordo-app",
   "modules/units",
   "packages/med/patients",
-  "acceptance",
+  "tests/acceptance",
 ]
 
 [workspace.package]

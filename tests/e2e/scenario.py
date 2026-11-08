@@ -1,8 +1,8 @@
 """End-to-end UI scenario in headless Firefox against a real `ordo serve`.
 
-Usage:  python3 acceptance/ui/scenario.py <ordo binary> <app dist dir> <work dir>
+Usage:  python3 tests/e2e/scenario.py <ordo binary> <app dist dir> <work dir>
 
-Scenarios (docs/requirements/acceptance/): register patients, required triage choice,
+Scenarios (tests/acceptance/features/): register patients, required triage choice,
 offline registration with reload and resend, command sees counts but no patient data.
 Screenshots are written to the work dir. Exit code 1 on failure.
 """

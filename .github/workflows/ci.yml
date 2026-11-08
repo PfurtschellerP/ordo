@@ -79,7 +79,7 @@ jobs:
         run: |
           set -o pipefail
           java -version
-          java -jar "$RUNNER_TEMP/oft.jar" trace -t "_,${MILESTONES}" docs platform modules packages acceptance | tee "$RUNNER_TEMP/trace.txt"
+          java -jar "$RUNNER_TEMP/oft.jar" trace -t "_,${MILESTONES}" docs platform modules packages tests | tee "$RUNNER_TEMP/trace.txt"
       - name: Publish trace to the job summary
         if: always()
         run: |

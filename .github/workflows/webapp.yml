@@ -1,7 +1,7 @@
 name: Web app
 
 # Builds the Leptos app with Trunk and runs the end-to-end UI scenario
-# (acceptance/ui/scenario.py) in headless Firefox against a real `ordo serve`.
+# (tests/e2e/scenario.py) in headless Firefox against a real `ordo serve`.
 on:
   push:
     branches: [main]
@@ -10,7 +10,7 @@ on:
       - "modules/**"
       - "packages/**"
       - "design/**"
-      - "acceptance/ui/**"
+      - "tests/e2e/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/webapp.yml"
@@ -20,7 +20,7 @@ on:
       - "modules/**"
       - "packages/**"
       - "design/**"
-      - "acceptance/ui/**"
+      - "tests/e2e/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/webapp.yml"
@@ -58,7 +58,7 @@ jobs:
       - name: Build the server
         run: cargo build --locked -p ordo-server
       - name: Run the UI scenario
-        run: python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist "$RUNNER_TEMP/ui"
+        run: python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist "$RUNNER_TEMP/ui"
       - name: Bundle size to the job summary
         if: always()
         run: |

@@ -1,6 +1,6 @@
 [package]
 name = "ordo-acceptance"
-description = "ORDO acceptance tests: scenarios from docs/requirements/acceptance as executable tests"
+description = "ORDO acceptance tests: scenarios from tests/acceptance/features as executable tests"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
