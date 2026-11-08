@@ -3,7 +3,7 @@
 #   docker build -f deploy/Containerfile -t ordo .
 # Base images are pinned by digest; Dependabot keeps them current.
 
-FROM docker.io/library/rust:1.97-alpine@sha256:3c38f3f82c2f3d73da3b38e18d279393a04cb43ddded0e35088a8c3324d40900 AS build
+FROM docker.io/library/rust:1.98-alpine@sha256:7cc1c22d77d9432f7fe012a70e6d3e555af54c2a6832700ed7d553f1769ae89f AS build
 RUN apk add --no-cache musl-dev
 # Use the toolchain of the image instead of the one in rust-toolchain.toml (which would
 # download a second toolchain plus the WebAssembly target).
