@@ -126,6 +126,16 @@ impl World {
         );
     }
 
+    /// Opens connection `session` for `name` by hand and returns the device's answer to
+    /// the server's challenge (for tests that drive the hub directly).
+    pub fn hello(&mut self, name: &str, session: SessionId) -> ClientMessage {
+        let now = self.now;
+        for out in self.hub.connect(session) {
+            self.replica(name).receive(out.message, now).unwrap();
+        }
+        self.replica(name).hello().expect("answer to the challenge")
+    }
+
     /// The replica of `name`.
     pub fn replica(&mut self, name: &str) -> &mut Replica {
         &mut self.devices.get_mut(name).unwrap().replica
@@ -157,10 +167,17 @@ impl World {
                 }
                 let mut messages = Vec::new();
                 if device.session.is_none() {
-                    device.session = Some(self.next_session);
+                    let session = self.next_session;
+                    device.session = Some(session);
                     self.next_session += 1;
-                    messages.push(device.replica.hello());
+                    // The server's challenge, answered by the hello below.
+                    for out in self.hub.connect(session) {
+                        let message: ServerMessage =
+                            message::decode(&message::encode(&out.message).unwrap()).unwrap();
+                        device.replica.receive(message, self.now).unwrap();
+                    }
                 }
+                messages.extend(device.replica.hello());
                 messages.extend(device.replica.push());
                 let session = device.session.unwrap();
                 for message in messages {

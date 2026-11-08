@@ -13,8 +13,8 @@ use ordo_crypto::{Chain, EventSigner};
 
 use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, random_u128};
 use crate::message::{
-    ClientMessage, Delivery, Hello, KeyGrant, Rejected, Rejection, ServerMessage, StreamRef,
-    Subscription, Welcome,
+    Challenge, ClientMessage, Delivery, Hello, KeyGrant, Rejected, Rejection, ServerMessage,
+    StreamRef, Subscription, Welcome,
 };
 use crate::policy::AccessPolicy;
 
@@ -116,6 +116,8 @@ pub struct Hub<P> {
     streams: HashMap<StreamKey, Stream>,
     keys: HashMap<StreamKey, (KeyId, DataKey)>,
     sessions: BTreeMap<SessionId, Session>,
+    /// Challenges sent to connections that have not said hello yet.
+    challenges: HashMap<SessionId, [u8; 32]>,
     derivers: Vec<Box<dyn Deriver>>,
     changes: Vec<Change>,
 }
@@ -140,6 +142,7 @@ impl<P: AccessPolicy> Hub<P> {
             streams: HashMap::new(),
             keys: HashMap::new(),
             sessions: BTreeMap::new(),
+            challenges: HashMap::new(),
             derivers: Vec::new(),
             changes: Vec::new(),
         }
@@ -229,9 +232,22 @@ impl<P: AccessPolicy> Hub<P> {
             .unwrap_or_default()
     }
 
+    // [impl->dsn~device-proof~1]
+    /// A connection opened: returns the challenge the device must sign in its hello.
+    pub fn connect(&mut self, session: SessionId) -> Vec<Outgoing> {
+        let mut nonce = [0u8; 32];
+        self.entropy.fill(&mut nonce);
+        self.challenges.insert(session, nonce);
+        vec![Outgoing {
+            session,
+            message: ServerMessage::Challenge(Challenge { nonce }),
+        }]
+    }
+
     /// The session ended (network lost, app closed).
     pub fn disconnect(&mut self, session: SessionId) {
         self.sessions.remove(&session);
+        self.challenges.remove(&session);
     }
 
     /// Handles one message from `session` and returns the messages to send.
@@ -249,15 +265,34 @@ impl<P: AccessPolicy> Hub<P> {
 
     // [impl->dsn~compartment-scoped-sync~1]
     fn hello(&mut self, session: SessionId, hello: Hello) -> Vec<Outgoing> {
-        let registered = self
+        let refuse = |reason| {
+            vec![Outgoing {
+                session,
+                message: ServerMessage::Refused(reason),
+            }]
+        };
+        // [impl->dsn~device-proof~1]
+        // Every challenge is used once; a hello without one is refused.
+        let Some(challenge) = self.challenges.remove(&session) else {
+            return refuse(Rejection::NotAuthenticated);
+        };
+        let Some(device) = self
             .devices
             .get(&hello.device)
-            .is_some_and(|d| d.user == hello.user);
-        if !registered {
-            return vec![Outgoing {
-                session,
-                message: ServerMessage::Refused(Rejection::UnknownDevice),
-            }];
+            .filter(|d| d.user == hello.user)
+        else {
+            return refuse(Rejection::UnknownDevice);
+        };
+        if ordo_crypto::verify_hello(
+            &device.key,
+            &challenge,
+            &hello.device,
+            &hello.user,
+            &hello.proof,
+        )
+        .is_err()
+        {
+            return refuse(Rejection::NotAuthenticated);
         }
         let mut welcome = Welcome {
             granted: Vec::new(),

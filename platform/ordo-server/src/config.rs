@@ -24,6 +24,9 @@ pub struct Config {
     pub protected: Vec<CompartmentId>,
     /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
     pub app_dir: Option<PathBuf>,
+    /// Directory with the organisation's own Cedar policies, `*.cedar`
+    /// (`ORDO_POLICY_DIR`, optional, ADR-0035).
+    pub policy_dir: Option<PathBuf>,
 }
 
 /// Users and devices. Prototype: read from a file; later managed in the admin UI and
@@ -31,7 +34,7 @@ pub struct Config {
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Seed {
-    /// Users and the compartments they may read and write.
+    /// Users and their roles.
     #[serde(default, rename = "user")]
     pub users: Vec<SeedUser>,
     /// Paired devices.
@@ -45,8 +48,9 @@ pub struct Seed {
 pub struct SeedUser {
     /// User ID, e.g. `anna@ordo.example.org`.
     pub id: UserId,
-    /// Compartments the user may read and write.
-    pub compartments: Vec<CompartmentId>,
+    /// Roles, e.g. `medic`, `commander`. What a role may do is decided by the Cedar
+    /// policies (ADR-0035), never per person.
+    pub roles: Vec<String>,
 }
 
 /// A device in the seed file.
@@ -167,6 +171,7 @@ impl Config {
             seed,
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
+            policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
         })
     }
 }

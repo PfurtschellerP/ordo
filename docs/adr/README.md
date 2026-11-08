@@ -42,5 +42,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0035](0035-authorization-with-cedar.md) | Roles and permissions as Cedar policies | accepted | 2026-11-08 |
 | [0036](0036-language-independent-shortcuts.md) | Shortcuts and command names are the same in every language | accepted | 2026-11-08 |
 | [0037](0037-epcr-forms-as-fhir-questionnaire.md) | ePCR forms as an HL7 FHIR Questionnaire | accepted | 2026-11-08 |
+| [0038](0038-login-and-device-pairing.md) | Login: OpenID Connect, device keys and QR pairing | accepted | 2026-11-08 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

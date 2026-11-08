@@ -18,7 +18,7 @@ pub enum ClientMessage {
     Push(Vec<SignedEvent>),
 }
 
-/// Identifies the device and asks for streams.
+/// Identifies the device, proves its key and asks for streams.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hello {
     /// The user working on the device.
@@ -27,6 +27,19 @@ pub struct Hello {
     pub device: DeviceId,
     /// Streams the device wants, with the last sequence number it already has.
     pub subscriptions: Vec<Subscription>,
+    /// Ed25519 signature of the server's challenge with the device key
+    /// (`ordo_crypto::hello_message`).
+    #[serde(with = "fixed_bytes")]
+    pub proof: [u8; 64],
+}
+
+/// A random challenge the server sends right after the connection opens; the device
+/// answers with a [`Hello`] that signs it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Challenge {
+    /// 32 random bytes, used once.
+    #[serde(with = "fixed_bytes")]
+    pub nonce: [u8; 32],
 }
 
 /// A stream the device wants, and how far it already is.
@@ -44,6 +57,8 @@ pub struct Subscription {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
+    /// First message on every connection.
+    Challenge(Challenge),
     /// Answer to [`Hello`].
     Welcome(Welcome),
     /// The server refused the connection.
@@ -131,6 +146,8 @@ pub enum Rejection {
     Malformed,
     /// The device is not registered for this user.
     UnknownDevice,
+    /// The hello did not prove the device key (missing challenge or wrong proof).
+    NotAuthenticated,
     /// Author in the event doesn't match the connected user and device.
     WrongAuthor,
     /// The signature is not valid.

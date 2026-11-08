@@ -330,9 +330,9 @@ fn server_rejects_forged_unauthorised_and_unsealed_events() {
             other => panic!("expected one message, got {other:?}"),
         }
     };
-    let ben_hello = world.replica("ben").hello();
+    let ben_hello = world.hello("ben", 900);
     world.hub.handle(900, ben_hello, world.now);
-    let anna_hello = world.replica("anna").hello();
+    let anna_hello = world.hello("anna", 901);
     world.hub.handle(901, anna_hello, world.now);
 
     // Anna's event sent over Ben's connection.
@@ -415,7 +415,10 @@ fn device_detects_a_changed_event_in_the_chain() {
         ordo_acceptance::test_entropy(8),
     );
     tablet.subscribe(&incident, "incident");
-    let hello = tablet.hello();
+    for out in world.hub.connect(950) {
+        tablet.receive(out.message, world.now).unwrap();
+    }
+    let hello = tablet.hello().expect("answer to the challenge");
     for out in world.hub.handle(950, hello, world.now) {
         if let ServerMessage::Welcome(_) = out.message {
             tablet.receive(out.message, world.now).unwrap();
@@ -439,7 +442,7 @@ fn device_detects_a_changed_event_in_the_chain() {
 fn unknown_device_is_refused() {
     use ordo_sync::message::ServerMessage;
     let mut world = World::new();
-    let mut hello = world.replica("ben").hello();
+    let mut hello = world.hello("ben", 1);
     if let ClientMessage::Hello(h) = &mut hello {
         h.user = "anna@ordo.drk-musterstadt.de".parse().unwrap(); // Ben's device, Anna's name
     }
@@ -448,6 +451,59 @@ fn unknown_device_is_refused() {
         out[0].message,
         ServerMessage::Refused(Rejection::UnknownDevice)
     );
+}
+
+// [itest->dsn~device-proof~1]
+/// A connection only gets data after the device proved its key: a wrong proof, a hello
+/// without challenge and a replayed hello are refused, and nothing is delivered.
+#[test]
+fn only_a_device_that_proves_its_key_gets_data() {
+    use ordo_sync::message::ServerMessage;
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0042", Immediate);
+    world.sync();
+    let refused = |out: &[ordo_sync::Outgoing]| {
+        matches!(
+            out,
+            [o] if o.message == ServerMessage::Refused(Rejection::NotAuthenticated)
+        )
+    };
+
+    // A forged proof: someone knows Anna's user and device ID, but not her key.
+    world.set_online("anna", false);
+    let mut forged = world.hello("anna", 10);
+    if let ClientMessage::Hello(h) = &mut forged {
+        h.proof[0] ^= 1;
+    }
+    let replay = forged.clone();
+    assert!(
+        refused(&world.hub.handle(10, forged, world.now)),
+        "wrong proof"
+    );
+
+    // A hello on a connection that never got a challenge.
+    let genuine = world.hello("anna", 11);
+    assert!(
+        refused(&world.hub.handle(12, genuine.clone(), world.now)),
+        "no challenge"
+    );
+
+    // A genuine hello replayed on another connection: the challenge differs.
+    world.hub.connect(13);
+    assert!(
+        refused(&world.hub.handle(13, genuine, world.now)),
+        "replayed proof"
+    );
+    assert!(
+        refused(&world.hub.handle(14, replay, world.now)),
+        "replayed forgery"
+    );
+
+    // The real device still connects and gets its data, keys included.
+    let hello = world.hello("anna", 15);
+    let out = world.hub.handle(15, hello, world.now);
+    assert!(matches!(&out[0].message, ServerMessage::Welcome(w) if !w.keys.is_empty()));
 }
 
 /// A hub restored from its recorded changes continues exactly where it stopped:
@@ -533,7 +589,7 @@ fn reused_event_id_with_other_content_is_rejected() {
         ordo_crypto::ed25519_dalek::SigningKey::from_bytes(&[3; 32]),
         "device-ben@ordo.drk-musterstadt.de".parse().unwrap(),
     );
-    let hello = world.replica("ben").hello();
+    let hello = world.hello("ben", 900);
     world.hub.handle(900, hello, world.now);
     let resend = world
         .hub

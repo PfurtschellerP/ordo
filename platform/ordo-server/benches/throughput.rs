@@ -58,7 +58,10 @@ async fn run(total: usize, batch: usize) -> f64 {
         entropy(3),
     );
     replica.subscribe(&incident, "incident");
-    let hello = replica.hello();
+    for out in hub.connect(1) {
+        replica.receive(out.message, t0).unwrap();
+    }
+    let hello = replica.hello().expect("answer to the challenge");
     for out in hub.handle(1, hello, t0) {
         replica.receive(out.message, t0).unwrap();
     }

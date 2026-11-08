@@ -18,7 +18,7 @@ export class OrdoServer {
   }
 
   /** Creates the master key, one device key per user, and the seed file. */
-  setup(users: { name: string; compartments: string[] }[]): Record<string, DeviceKey> {
+  setup(users: { name: string; roles: string[] }[]): Record<string, DeviceKey> {
     fs.rmSync(this.work, { recursive: true, force: true });
     fs.mkdirSync(this.work, { recursive: true });
     const run = (...args: string[]) => execFileSync(ORDO, args, { encoding: "utf8" });
@@ -30,7 +30,7 @@ export class OrdoServer {
       const key = values as DeviceKey;
       keys[user.name] = key;
       const id = `${user.name}@localhost`;
-      seed += `[[user]]\nid = "${id}"\ncompartments = [${user.compartments.map((c) => `"${c}"`).join(", ")}]\n\n`;
+      seed += `[[user]]\nid = "${id}"\nroles = [${user.roles.map((r) => `"${r}"`).join(", ")}]\n\n`;
       seed += `[[device]]\nid = "${key.id}"\nuser = "${id}"\npublic_key = "${key.public_key}"\n\n`;
     }
     fs.writeFileSync(path.join(this.work, "seed.toml"), seed);

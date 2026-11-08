@@ -55,17 +55,20 @@ Done in phase 0:
   with FwDV 100; access follows roles, never people (ADR-0031); roles and permissions as
   Cedar policies (ADR-0035); shortcuts and command names the same in every language
   (ADR-0036); open source first (ADR-0032).
+- Login, step 1 (milestone `m7`, ADR-0038): every sync connection proves the device key
+  (sync protocol draft 1); access by roles with Cedar policies, organisations add roles
+  as policy files (ADR-0035).
 - Reuse instead of own code: Leptos' router (paths, back button), Playwright with
   axe-core for the browser tests in Firefox, Chromium and WebKit; ePCR forms as an HL7
   FHIR Questionnaire (ADR-0037).
 
 Next:
 
-1. Login and roles: OpenID Connect with an existing identity provider; pairing by QR code
-   with the OAuth 2.0 Device Authorization Grant (RFC 8628) instead of the seed file
-   (ORG-3); authentication of the connection (sync protocol draft 1); roles and
-   permissions as Cedar policies (ADR-0035); protected key storage in the app. The login
-   ADR also covers working offline (cached tokens, field server without internet).
+1. Login, step 2 ([ADR-0038](adr/0038-login-and-device-pairing.md)): OpenID Connect with an
+   existing identity provider (Dex in Docker Compose and CI); device key registration;
+   pairing by QR code with the OAuth 2.0 Device Authorization Grant (RFC 8628) instead of
+   the seed file (ORG-3); roles from identity-provider groups; device revocation (SEC-4).
+   Step 3: protected key storage in the browser (WebCrypto).
 2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).

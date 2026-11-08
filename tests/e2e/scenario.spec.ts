@@ -47,8 +47,8 @@ test.beforeAll(async ({ browser }, info) => {
   shots = path.join(process.env.ORDO_E2E_SHOTS ?? path.join(__dirname, "screenshots"), info.project.name);
   server = new OrdoServer(work, 18090 + info.parallelIndex);
   keys = server.setup([
-    { name: "anna", compartments: ["incident", "med.clinical"] },
-    { name: "ben", compartments: ["incident"] },
+    { name: "anna", roles: ["medic"] },
+    { name: "ben", roles: ["commander"] },
   ]);
   await server.start();
   anna = await newDevice(browser);

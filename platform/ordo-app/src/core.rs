@@ -143,12 +143,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
     };
     socket.set_binary_type(BinaryType::Arraybuffer);
 
+    // The server opens with a challenge; the hello answering it proves the device key
+    // (ADR-0038), see `on_message`.
     let on_open = Closure::<dyn FnMut()>::new(move || {
-        core.update_value(|c| {
-            c.connection = Connection::Online;
-            c.send(&c.replica.hello());
-            c.push();
-        });
+        core.update_value(|c| c.connection = Connection::Online);
         revision.update(|r| *r += 1);
     });
     let on_message = Closure::<dyn FnMut(MessageEvent)>::new(move |event: MessageEvent| {
@@ -164,6 +162,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             match c.replica.receive(message, now_ms()) {
                 Ok(()) => c.error = None,
                 Err(error) => c.error = Some(error.to_string()),
+            }
+            if let Some(hello) = c.replica.hello() {
+                c.send(&hello);
+                c.push();
             }
             if welcome {
                 c.push();

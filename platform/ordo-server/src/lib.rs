@@ -5,6 +5,7 @@
 //! from environment variables ([`Config`]). See architecture chapter 7.
 
 mod app;
+pub mod authz;
 pub mod config;
 pub mod store;
 
@@ -15,7 +16,7 @@ use ordo_core::{Author, DeviceId, KeyId, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::{SigningKey, VerifyingKey};
 use ordo_med_patients::PatientCountsDeriver;
-use ordo_sync::{Hub, HubConfig, StaticPolicy};
+use ordo_sync::{Hub, HubConfig};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -30,6 +31,9 @@ pub enum ServerError {
     /// Configuration error.
     #[error(transparent)]
     Config(#[from] config::ConfigError),
+    /// A policy file is invalid.
+    #[error(transparent)]
+    Policy(#[from] authz::PolicyError),
     /// Storage error.
     #[error(transparent)]
     Store(#[from] StoreError),
@@ -107,12 +111,33 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         KeyId::new("server-1", server).expect("valid key name"),
     );
 
-    // Access rules and devices from the seed.
-    let mut policy = StaticPolicy::default();
-    for user in &config.seed.users {
-        let compartments: Vec<&str> = user.compartments.iter().map(|c| c.as_str()).collect();
-        policy = policy.allow(&user.id, &compartments);
+    // [impl->dsn~role-policies~1]
+    // Roles from the seed, permissions from Cedar policies (defaults plus the
+    // organisation's files); invalid policies stop the start.
+    let roles = config
+        .seed
+        .users
+        .iter()
+        .map(|u| (u.id.clone(), u.roles.clone()))
+        .collect();
+    let mut extra = Vec::new();
+    if let Some(dir) = &config.policy_dir {
+        let mut files: Vec<_> = std::fs::read_dir(dir)?
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "cedar"))
+            .collect();
+        files.sort();
+        for path in files {
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            extra.push((name, std::fs::read_to_string(&path)?));
+        }
     }
+    let policy = authz::RolePolicy::new(roles, &extra)?;
     let mut hub = Hub::new(
         HubConfig {
             server: server.clone(),

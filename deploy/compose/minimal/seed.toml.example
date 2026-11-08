@@ -1,14 +1,16 @@
-# Users, their compartments and paired devices (prototype; later: admin UI and QR pairing).
+# Users, their roles and paired devices (development only; later: login with OpenID Connect
+# and QR pairing, ADR-0038). What a role may do is decided by Cedar policies (ADR-0035):
+# defaults `medic` and `commander`; own roles as *.cedar files in ORDO_POLICY_DIR.
 # Create a device key pair with:  docker compose run --rm --no-deps ordo generate-device-key
 # The public key goes here, the private key into the device.
 
 [[user]]
 id = "anna@ordo.example.org"
-compartments = ["incident", "med.clinical"]
+roles = ["medic"]
 
 [[user]]
 id = "ben@ordo.example.org"
-compartments = ["incident"]
+roles = ["commander"]
 
 [[device]]
 id = "01JCA0000000000000000000A1"

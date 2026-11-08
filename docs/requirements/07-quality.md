@@ -213,9 +213,18 @@ Needs: dsn
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 
-Role-based access per organisation, per incident and per compartment
+ORDO shall grant access to compartments by the roles a user holds in the organisation and the incident, never to individual users. Organisations shall be able to define their own roles and permissions without changing code.
 
-Tags: must, quality
+Tags: must, quality, m7
+
+Needs: dsn
+
+#### SEC-11 — Authenticated connections
+`req~sec-11~1`
+
+When a device connects, ORDO shall verify that the device holds the private key registered for its user and device before it sends any data or key; a device that cannot prove this shall receive nothing, and a recorded connection shall not be replayable.
+
+Tags: must, quality, m7
 
 Needs: dsn
 

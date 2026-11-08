@@ -56,6 +56,17 @@ source, it is marked *(secondary)*; replace it when the official source is known
 | [axe-core](https://github.com/dequelabs/axe-core) | Deque, 4.14 | followed | Automated WCAG 2.2 A/AA checks of every view in the browser tests |
 | [W3C Design Tokens Format](https://www.designtokens.org/) | W3C Community Group, 2025.10 | followed | Design system ([ADR-0021](adr/0021-design-system.md)) |
 
+## Identity and access
+
+| Standard | Publisher, edition | Status | Use in ORDO |
+|---|---|---|---|
+| [Cedar](https://github.com/cedar-policy/cedar) policy language | Cedar project, CNCF Sandbox (since October 2025), Apache-2.0 | followed | Roles and permissions ([ADR-0035](adr/0035-authorization-with-cedar.md)); schema and default policies in `platform/ordo-server/policies/`, `packages/*/policies/` |
+| [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) | OpenID Foundation | planned | Login with the organisation's identity provider ([ADR-0038](adr/0038-login-and-device-pairing.md)) |
+| [OAuth 2.0 Device Authorization Grant (RFC 8628)](https://www.rfc-editor.org/rfc/rfc8628) | IETF | planned | Pairing shared tablets and phones by QR code |
+| [OAuth 2.0 DPoP (RFC 9449)](https://www.rfc-editor.org/rfc/rfc9449) | IETF | planned | Access tokens bound to the device key for HTTP APIs |
+| [Dex](https://dexidp.io) | CNCF, Apache-2.0 | planned | Identity provider for small installations and tests |
+| Ed25519 challenge–response ([RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)) | IETF | followed | Every sync connection proves the device key ([protocol §2](../spec/sync/protocol.md)) |
+
 ## Data, security and engineering
 
 These are listed with their purpose in [architecture 4.3](architecture/04-solution-strategy.md#43-open-standards-in-use):

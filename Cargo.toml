@@ -32,6 +32,7 @@ ordo-med-patients = { path = "packages/med/patients" }
 axum = { version = "0.8", features = ["ws"] }
 base64 = "0.22"
 blake3 = "1"
+cedar-policy = { version = "4", default-features = false }
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
 console_error_panic_hook = "0.1"

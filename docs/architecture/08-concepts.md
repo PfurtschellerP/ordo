@@ -299,6 +299,46 @@ flowchart LR
 - **Access logging:** every read of a clinical record is an audit event.
 - **Memory safety:** no `unsafe` in ORDO's own code except reviewed FFI; `cargo audit`
   and `cargo deny` in CI.
+- **Login:** OpenID Connect with the organisation's identity provider, device keys and QR
+  pairing ([ADR-0038](../adr/0038-login-and-device-pairing.md)).
+
+### 8.5.1 Design items
+
+#### Device proof
+`dsn~device-proof~1`
+
+On every connection the hub sends a fresh 32-byte challenge. The device answers with its
+hello, which carries an Ed25519 signature with the device key over `ORDO hello v1`, a zero
+byte, the challenge, the device ID and the user ID (sync protocol draft 1). The hub uses
+each challenge once, checks the signature against the device's registered key, and
+refuses the connection otherwise; a refused connection gets no data and no key.
+
+Covers:
+
+* [req~sec-11~1](../requirements/07-quality.md#sec-11--authenticated-connections)
+
+Needs: impl, itest
+
+Tags: must, m7
+
+#### Role policies
+`dsn~role-policies~1`
+
+The server decides every read and write of a compartment with Cedar
+([ADR-0035](../adr/0035-authorization-with-cedar.md)): principal the user, resource the
+compartment, context the user's roles and the incident. Packages ship default policies
+(`medic`: incident and clinical data; `commander`: incident data); an organisation adds
+roles and policies as `*.cedar` files in `ORDO_POLICY_DIR`. All policies are validated
+against the schema at start; an invalid file stops the server. No permission is ever
+given to a person directly.
+
+Covers:
+
+* [req~sec-2~1](../requirements/07-quality.md#sec-2--role-based-access)
+
+Needs: impl, utest, itest
+
+Tags: must, m7
 
 ## 8.6 Design system and accessibility
 

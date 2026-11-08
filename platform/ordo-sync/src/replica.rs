@@ -67,6 +67,8 @@ pub struct Replica {
     streams: BTreeMap<StreamKey, LocalStream>,
     outbox: Vec<(StreamKey, SignedEvent)>,
     rejected: Vec<Rejected>,
+    /// The server's challenge on the current connection, until the hello answers it.
+    challenge: Option<[u8; 32]>,
 }
 
 impl Replica {
@@ -90,6 +92,7 @@ impl Replica {
             streams: BTreeMap::new(),
             outbox: Vec::new(),
             rejected: Vec::new(),
+            challenge: None,
         }
     }
 
@@ -164,10 +167,19 @@ impl Replica {
     }
 
     /// The first message after connecting.
-    pub fn hello(&self) -> ClientMessage {
-        ClientMessage::Hello(Hello {
+    ///
+    /// Answers the server's challenge with a proof of the device key (ADR-0038), so it
+    /// returns `None` until a [`ServerMessage::Challenge`] arrived on this connection.
+    // [impl->dsn~device-proof~1]
+    pub fn hello(&mut self) -> Option<ClientMessage> {
+        let challenge = self.challenge.take()?;
+        let proof = self
+            .signer
+            .sign_hello(&challenge, &self.author.device, &self.author.user);
+        Some(ClientMessage::Hello(Hello {
             user: self.author.user.clone(),
             device: self.author.device,
+            proof,
             subscriptions: self
                 .wanted
                 .iter()
@@ -180,7 +192,7 @@ impl Replica {
                         .map_or(0, LocalStream::last_seq),
                 })
                 .collect(),
-        })
+        }))
     }
 
     // [impl->dsn~outbox-and-resend~1]
@@ -305,6 +317,10 @@ impl Replica {
     /// Handles a message from the server.
     pub fn receive(&mut self, message: ServerMessage, now_ms: u64) -> Result<(), SyncError> {
         match message {
+            ServerMessage::Challenge(challenge) => {
+                self.challenge = Some(challenge.nonce);
+                Ok(())
+            }
             ServerMessage::Welcome(welcome) => {
                 self.protected = Some(welcome.protected);
                 for sub in welcome.granted {

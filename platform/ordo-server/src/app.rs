@@ -14,14 +14,16 @@ use axum::routing::get;
 use futures_util::{SinkExt, StreamExt};
 use ordo_crypto::seal::DataKey;
 use ordo_sync::message::{self, ClientMessage, ServerMessage};
-use ordo_sync::{Hub, SessionId, StaticPolicy};
+use ordo_sync::{Hub, SessionId};
+
+use crate::authz::RolePolicy;
 use tokio::sync::{Mutex, mpsc, watch};
 
 use crate::store::{Store, StoreError};
 
 /// Shared state of the running server.
 pub struct App {
-    pub(crate) hub: Mutex<Hub<StaticPolicy>>,
+    pub(crate) hub: Mutex<Hub<RolePolicy>>,
     pub(crate) store: Store,
     pub(crate) master: DataKey,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
@@ -41,7 +43,7 @@ struct Metrics {
 
 impl App {
     pub(crate) fn new(
-        hub: Hub<StaticPolicy>,
+        hub: Hub<RolePolicy>,
         store: Store,
         master: DataKey,
         stop: watch::Sender<bool>,
@@ -137,6 +139,17 @@ impl App {
             .insert(id, sender);
         self.metrics.sessions.fetch_add(1, Ordering::Relaxed);
         tracing::info!(session = id, "connected");
+        // The device must sign this challenge in its hello (ADR-0038).
+        for out in self.hub.lock().await.connect(id) {
+            if let Some(sender) = self
+                .sessions
+                .lock()
+                .expect("session registry lock")
+                .get(&out.session)
+            {
+                let _ = sender.send(out.message);
+            }
+        }
 
         let (mut sink, mut stream) = socket.split();
         let writer = tokio::spawn(async move {

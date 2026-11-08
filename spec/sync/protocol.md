@@ -1,6 +1,6 @@
 # ORDO Sync Protocol
 
-> Specification **draft 0** · 2026-11-08 · Schema: [`protocol.cddl`](protocol.cddl) ·
+> Specification **draft 1** · 2026-11-08 · Schema: [`protocol.cddl`](protocol.cddl) ·
 > Events: [`event.md`](event.md)
 
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described in
@@ -19,18 +19,24 @@ message per frame.
 
 ## 2. Connecting
 
-1. The device sends `hello` with its user, device and the streams it wants, each with the
-   last sequence number it already has.
-2. The server MUST refuse (`refused: unknownDevice`) if the device is not paired with
-   that user.
-3. The server answers `welcome`:
+1. The server sends `challenge` with 32 random bytes, new for every connection.
+2. The device sends `hello` with its user, device, the streams it wants (each with the
+   last sequence number it already has), and a `proof`: the Ed25519 signature with its
+   device key over `"ORDO hello v1"`, a zero byte, the challenge, the 16-byte device ID
+   and the UTF-8 user ID. The different prefix keeps proofs and event signatures apart.
+3. The server MUST refuse (`refused: notAuthenticated`) a hello on a connection without an
+   unused challenge, or with a proof that does not verify against the device's registered
+   key; and (`refused: unknownDevice`) if the device is not paired with that user. A
+   challenge is used once, so a recorded hello cannot be replayed. Nothing is sent to a
+   refused connection.
+4. The server answers `welcome`:
    - `granted`: streams the user may read. The server then sends every event the device
      is missing (`deliver`).
    - `denied`: streams the user may not read. The server MUST NOT send any event of a
      denied stream to this connection.
    - `protected`: compartments whose payloads must be sealed.
    - `keys`: data keys of granted protected streams.
-4. The device then sends its whole outbox (`push`).
+5. The device then sends its whole outbox (`push`).
 
 ## 3. Pushing events
 
@@ -65,9 +71,13 @@ The server MAY publish events it derives from a stream, e.g. connector events su
 `med.patientCounts.v1` ([ADR-0024](../../docs/adr/0024-server-derived-connectors.md)).
 They are signed by the server and ordered like any other event.
 
-## 6. Open points for draft 1
+## 6. Changes and open points
 
-- Authentication of the connection (token or challenge with the device key).
+Draft 1: the connection is authenticated with a challenge signed by the device key
+(§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)).
+
+Open for draft 2:
+
 - Key grants encrypted for the device key (X25519); key rotation.
 - Verifying signatures of other devices' events on the device (key directory).
 - AsyncAPI description of the WebSocket channel.

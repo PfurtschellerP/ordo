@@ -1,4 +1,4 @@
-; ORDO sync protocol — draft 0
+; ORDO sync protocol — draft 1
 ;
 ; Messages between devices and the server, CBOR-encoded (RFC 8949). Enums use the
 ; externally tagged form { "name": content }. Event structures: event.cddl.
@@ -12,6 +12,9 @@ hello = {
   "user": user-id,
   "device": device-id,
   "subscriptions": [* subscription],
+  ; Ed25519 signature with the device key over
+  ;   "ORDO hello v1" 0x00 || challenge nonce (32) || device-id (16) || UTF-8 user-id
+  "proof": bstr .size 64,
 }
 
 subscription = {
@@ -22,10 +25,16 @@ subscription = {
 
 ; ---------------------------------------------------------------- server → device
 
-server-message = { "welcome": welcome }
+server-message = { "challenge": challenge }
+               / { "welcome": welcome }
                / { "refused": rejection }
                / { "deliver": delivery }
                / { "rejected": rejected }
+
+; First message on every connection; the hello must sign the nonce.
+challenge = {
+  "nonce": bstr .size 32,          ; random, used once
+}
 
 welcome = {
   "granted": [* subscription],
@@ -59,6 +68,6 @@ rejected = {
   "reason": rejection,
 }
 
-rejection = "malformed" / "unknownDevice" / "wrongAuthor" / "badSignature"
+rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId"

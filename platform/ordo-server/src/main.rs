@@ -22,6 +22,7 @@ Environment for `serve`:
   ORDO_SEED_FILE         Users and devices (TOML, optional)
   ORDO_PROTECTED         Protected compartments (default med.clinical)
   ORDO_APP_DIR           Built web app, served at / (optional)
+  ORDO_POLICY_DIR        Own roles and permissions as Cedar policies, *.cedar (optional)
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {

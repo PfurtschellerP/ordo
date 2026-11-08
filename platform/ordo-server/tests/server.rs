@@ -28,11 +28,11 @@ fn incident() -> IncidentId {
     IncidentId::new(Ulid::from_parts(T0, 1).unwrap(), &server())
 }
 
-/// (user, key seed, compartments)
+/// (user, key seed, roles)
 const PEOPLE: [(&str, u8, &[&str]); 3] = [
-    ("anna", 1, &["incident", "med.clinical"]),
-    ("clara", 2, &["incident", "med.clinical"]),
-    ("ben", 3, &["incident"]),
+    ("anna", 1, &["medic"]),
+    ("clara", 2, &["medic"]),
+    ("ben", 3, &["commander"]),
 ];
 
 fn device_id(seed: u8) -> DeviceId {
@@ -42,10 +42,10 @@ fn device_id(seed: u8) -> DeviceId {
 fn write_setup(dir: &Path, master: [u8; 32]) {
     std::fs::write(dir.join("master.key"), to_hex(&master)).unwrap();
     let mut seed = String::new();
-    for (name, key, compartments) in PEOPLE {
-        let list: Vec<String> = compartments.iter().map(|c| format!("\"{c}\"")).collect();
+    for (name, key, roles) in PEOPLE {
+        let list: Vec<String> = roles.iter().map(|r| format!("\"{r}\"")).collect();
         seed += &format!(
-            "[[user]]\nid = \"{name}@{SERVER}\"\ncompartments = [{}]\n\n",
+            "[[user]]\nid = \"{name}@{SERVER}\"\nroles = [{}]\n\n",
             list.join(", ")
         );
         let public = SigningKey::from_bytes(&[key; 32]).verifying_key();
@@ -113,7 +113,23 @@ impl Client {
             .await
             .unwrap();
         let mut client = Self { socket, replica };
-        let hello = client.replica.hello();
+        // The server opens with a challenge; the hello proves the device key.
+        let hello = loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), client.socket.next())
+                .await
+                .expect("timed out waiting for the challenge")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                client
+                    .replica
+                    .receive(message::decode(&bytes).unwrap(), now())
+                    .unwrap();
+                if let Some(hello) = client.replica.hello() {
+                    break hello;
+                }
+            }
+        };
         client.send(hello).await;
         // Wait for the welcome (not for a fixed time: CI runners can be slow).
         client
@@ -229,6 +245,8 @@ async fn http_get(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
 }
 
 // [itest->dsn~store-before-send~1]
+// [itest->dsn~role-policies~1]
+// [itest->dsn~device-proof~1]
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_over_websocket_survives_a_restart() {
     let dir = tempfile::tempdir().unwrap();

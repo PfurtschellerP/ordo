@@ -1,0 +1,21 @@
+// ORDO authorisation schema (ADR-0035). Packages and organisations write Cedar policies
+// against it; the server validates every policy against it when it starts.
+//
+// Principal: a user. Resource: a data compartment of an incident, e.g.
+// Compartment::"med.clinical". Context: the roles the user holds in this incident (from
+// the organisation and from positions in the command structure, ADR-0031) and the
+// incident ID. People never get permissions directly; roles do.
+
+entity User;
+entity Compartment;
+
+type Request = {
+  roles: Set<String>,
+  incident: String,
+};
+
+action read, write appliesTo {
+  principal: [User],
+  resource: [Compartment],
+  context: Request,
+};
