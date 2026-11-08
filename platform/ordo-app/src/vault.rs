@@ -165,8 +165,12 @@ mod web {
         Ok(window.crypto().map_err(|_| NO_SECURE_CONTEXT)?.subtle())
     }
 
+    /// A readable message; the technical detail goes to the browser console.
     fn error(e: impl std::fmt::Debug) -> String {
-        format!("Sichere Speicherung: {e:?}")
+        web_sys::console::error_1(&format!("ORDO vault: {e:?}").into());
+        "Sichere Speicherung nicht möglich: Der Gerätespeicher des Browsers ist voll, \
+         gesperrt oder in diesem Modus nicht verfügbar."
+            .to_owned()
     }
 
     async fn database() -> Result<idb::Database, String> {

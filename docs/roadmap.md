@@ -88,30 +88,82 @@ Done in phase 0:
   axe-core for the browser tests in Firefox, Chromium and WebKit; ePCR forms as an HL7
   FHIR Questionnaire (ADR-0037).
 
-Next — feedback of practitioners on the screenshots (2026-11-08), Med first:
+Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
-- MANV workspace: Vorsichtung and Sichtung, patient collection point, treatment area,
-  transport organisation, overview for the medical command (LNA/OrgL).
-- "Betroffene" (unharmed, affected people) as a category of their own.
-- Transport priority for SK I and SK II, documented separately from the triage category
-  (Bavaria, NRW and Austria decouple them); which categories may get it, and its levels,
-  come from the state or country profile.
-- Treatment places within a UHS (Behandlungsplätze); patients are assigned to places.
-- Triage catalogues and algorithms (PRIOR, mSTaRT, …): constraint "no clinical decision
-  support" (EU MDR) — see the open decision in the reply of 2026-11-08.
-- Situation map (Lagekarte) with the official tactical symbols (ADR-0006: MapLibre,
-  PMTiles); positions of units and people with call signs. Browsers report positions only
-  while the app is open (iOS: foreground only); continuous tracking needs a native shell
-  or the positions of the BOS digital radios. Privacy: only during the deployment, visible
-  to the person, limited retention.
-- Map editor (Lagekarte bearbeiten) with geofencing: draw sectors, hazard and restricted
-  areas, collection points as shapes with tactical symbols (GeoJSON, RFC 7946; drawing with
-  an open-source MapLibre plug-in such as Terra Draw); a geofence reports when a unit or
-  person enters or leaves an area. Every change is an event, so the map is shared and
-  works offline like the rest of the incident.
-- Vital signs from patient monitors (corpuls C3 first): interface to be clarified with
-  the manufacturer; open standards to prefer: IEEE 11073 SDC, HL7 FHIR. Values are
-  documented, never interpreted (no alarms).
+**Fixed already:** palette quick actions now bring the opened form into view with the
+cursor in its first field; the app is installable as a PWA (it lacked icons).
+
+*Incident and command (Einsatzleitung)*
+
+- **Incidents planned ahead, roles per incident** ([ADR-0046](adr/0046-roles-granted-per-incident.md)):
+  an incident list with planned, active and closed incidents; a roster per incident; the
+  incident's command grants and withdraws roles (events, audited), access follows at once;
+  templates for recurring deployments. Identity provider groups no longer grant roles.
+  Choose the incident when logging in; nobody lands in another incident by accident.
+- **Roles and views (bug):** the Einsatzleitung sees the whole incident, including the
+  UHS; UHS crews see their UHS work only — no situation view, no device list, no editing
+  of units. Views are granted by permission (Cedar), not only by readable compartments.
+  Clinical details stay with medical roles (LNA, OrgL, UHS crews) unless an organisation's
+  policy grants more.
+- **Sectors (Einsatzabschnitte):** incident command, sectors and sub-sectors with their
+  leaders (Einsatzabschnittsleiter), staff functions and liaison officers, per FwDV 100 and
+  the state profile; shown as an organisation chart with the official tactical symbols.
+  Medical branch first (ADR-0031).
+- **Incident log (Einsatztagebuch) per DV 100:** timed entries with author, images and
+  files viewable in place, immutable (events cannot change; corrections are new entries,
+  hash-chained and signed). Legal requirements to be checked before building: state
+  archive law, evidence value, qualified time stamps (eIDAS), retention.
+- **Situation map (Lagekarte)** with the official symbols (ADR-0006: MapLibre, PMTiles);
+  **map editor with geofencing**: sectors, hazard and restricted areas, collection points
+  as shapes (GeoJSON, RFC 7946; drawing with an open-source plug-in such as Terra Draw);
+  a geofence reports when a unit or person enters or leaves. Every change is an event.
+- **Positions** of units and people with call signs on the map. Browsers report positions
+  only while the app is open (iOS: foreground only); continuous tracking needs a native
+  shell or the BOS digital radios' positions. Only during the deployment, visible to the
+  person, limited retention.
+- **Register personnel by scanning the Meldekarte** ([meldekarte.de](https://meldekarte.de),
+  run by volunteers of the BRK Kreisverband Augsburg-Land): the card's QR code carries
+  what is printed on it; scanning it adds the person to the incident's roster with arrival
+  time and formation. The QR format is not published — get a sample card or the format
+  from the operators. Decoding with an open-source library in the app (e.g. rxing,
+  Apache-2.0), camera via the browser.
+- **Interfaces:** Rescuetrack (vehicle positions and status), DIVERA 24/7 (forces on foot,
+  availability), and the status from BOS digital radio, so a status set on the radio
+  appears in ORDO (via the control centre's interfaces or the organisation's own radios;
+  to be clarified).
+
+*Medical (MANV, UHS)*
+
+- **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
+  transport organisation, overview for the medical command (LNA, OrgL).
+- **"Betroffene"** (unharmed, affected people) as a category of their own.
+- **Transport priority** for SK I and SK II, separate from the triage category (Bavaria,
+  NRW, Austria decouple them); categories and levels from the state or country profile.
+- **Transport request** from the UHS to the Einsatzleitung with a hint on the vehicle
+  needed (RTW, KTW, NEF, ITW, …).
+- **Treatment places** within a UHS (Behandlungsplätze); patients are assigned to places.
+- **Physician and paramedic module across all UHS:** overview of every UHS; orders
+  (medication, measures) as tasks for the UHS crew, acknowledged and documented when done.
+  ORDO records orders; it never proposes them.
+- **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
+  chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
+- **Medication catalogue:** fields for substances suggest from a catalogue of substances
+  used in emergency medicine (open source and licence to be found), free text allowed.
+- **Vital signs from patient monitors** (corpuls C3 first): interface to be clarified with
+  the manufacturer; prefer IEEE 11073 SDC, HL7 FHIR. Values are documented, never
+  interpreted (no alarms).
+
+*App*
+
+- **Header:** on wide screens the main menu sits on the left of the header, the search in
+  the middle, the signed-in person and their roles on the right; phones keep the bottom
+  bar.
+- **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
+  every list, alongside the arrow keys (extends ADR-0036).
+- **Person fields** suggest the registered users of the installation; free text allowed.
+- **PDF/A exports with Typst** (Apache-2.0, embeddable, PDF/A): incident log, patient
+  record for the handover (layout after the DIVI emergency protocol where no open
+  standard exists), other printable views.
 
 Then:
 

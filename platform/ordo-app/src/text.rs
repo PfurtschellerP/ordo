@@ -32,6 +32,7 @@ pub const PAIR_NEW_INCIDENT: &str = "Neuen Einsatz anlegen";
 pub const PAIR_SUBMIT: &str = "Koppeln";
 pub const UNPAIR: &str = "Gerät entkoppeln";
 pub const SIGNED_IN_AS: &str = "Angemeldet als";
+pub const RETRY: &str = "Erneut versuchen";
 pub const STARTING: &str = "ORDO wird gestartet …";
 
 pub const ONLINE: &str = "Verbunden";

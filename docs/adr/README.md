@@ -47,5 +47,7 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0040](0040-access-ends-only-on-positive-evidence.md) | Device logins expire after a timeout; unreachability alone ends nothing early | accepted | 2026-11-08 |
 | [0041](0041-encryption-at-rest-on-devices.md) | Encryption at rest on devices: envelope encryption with a device-bound key | accepted | 2026-11-08 |
 | [0044](0044-federation-across-profiles.md) | Federation across profiles: shared meanings, local labels | accepted | 2026-11-08 |
+| [0045](0045-triage-algorithms-as-reference.md) | Triage algorithms are shown as reference, never computed | accepted | 2026-11-09 |
+| [0046](0046-roles-granted-per-incident.md) | Roles are granted per incident in ORDO, not taken from identity provider groups | accepted | 2026-11-09 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -205,11 +205,29 @@ test("ORDO in the browser", async () => {
     await anna.keyboard.press("Escape");
     await expect(anna.locator("#palette"), "Escape closes the palette").not.toHaveAttribute("open", "");
     await expect(anna.locator("#tag"), "focus returns to where it was").toBeFocused();
+    // A quick action that opens a form brings it into view, with the cursor in its first field.
+    await openPalette(anna);
+    await anna.keyboard.type("0043");
+    await anna.keyboard.press("Enter");
+    await anna.keyboard.type("add vitals");
+    await expect.poll(() => selectedOption(anna)).toBe("Vitalwerte eintragen");
+    await anna.keyboard.press("Enter");
+    const firstField = anna.locator("[aria-labelledby=section-vitals] .editor :is(input, select, textarea)").first();
+    await expect(firstField, "the form's first field has the focus").toBeFocused();
+    await expect(firstField, "and is on screen").toBeInViewport();
+    await anna.locator("[aria-labelledby=section-vitals] .editor").getByRole("button", { name: "Abbrechen" }).click();
+    await anna.goBack();
   });
 
   await test.step("input survives being offline and a reload", async () => {
     // [itest->dsn~offline-app-shell~1]
     await expect.poll(() => anna.evaluate(() => !!navigator.serviceWorker.controller), { message: "the app shell is installed for offline use" }).toBe(true);
+    if (test.info().project.name === "chromium") {
+      // Chrome offers to install the app (PWA): manifest with name, icons, start URL.
+      const cdp = await anna.context().newCDPSession(anna);
+      const { installabilityErrors } = await cdp.send("Page.getInstallabilityErrors");
+      expect(installabilityErrors, "Chrome can install ORDO as an app").toEqual([]);
+    }
     await server.stop();
     await expect.poll(() => status(anna), { message: "loss of connection is shown" }).toContain("Offline");
     await register(anna, "DE-0045", 2, "UHS Eingang");

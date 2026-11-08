@@ -63,6 +63,11 @@ pub fn App() -> impl IntoView {
             <main id="main" class="page page--narrow">
                 <h1>{text::APP_NAME}</h1>
                 <p role="alert" class="error">{error}</p>
+                <button type="button" class="button" on:click=|_| {
+                    if let Some(w) = web_sys::window() {
+                        let _ = w.location().reload();
+                    }
+                }>{text::RETRY}</button>
             </main>
         }
         .into_any(),

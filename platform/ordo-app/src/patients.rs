@@ -681,11 +681,16 @@ fn FormSection(
                     class="button button--small"
                     aria-label=open_label
                     hidden=move || editing.get().is_some()
-                    on:click=move |_| {
-                        editing.set(Some(match form.kind {
-                            FormKind::Snapshot => Mode::Edit,
-                            FormKind::Series => Mode::New,
-                        }));
+                    on:click={
+                        let heading = heading.clone();
+                        move |_| {
+                            editing.set(Some(match form.kind {
+                                FormKind::Snapshot => Mode::Edit,
+                                FormKind::Series => Mode::New,
+                            }));
+                            let heading = heading.clone();
+                            after_render(move || reveal_editor(&heading));
+                        }
                     }
                 >
                     {open_text}
@@ -705,6 +710,30 @@ fn FormSection(
             }}
             {content}
         </section>
+    }
+}
+
+/// Brings an opened editor into view and focuses its first field, also when it was
+/// opened from the command palette (UX-10).
+fn reveal_editor(heading: &str) {
+    let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    if let Some(section_head) = document.get_element_by_id(heading) {
+        let options = web_sys::ScrollIntoViewOptions::new();
+        options.set_block(web_sys::ScrollLogicalPosition::Start);
+        section_head.scroll_into_view_with_scroll_into_view_options(&options);
+    }
+    let selector = format!(
+        "[aria-labelledby='{heading}'] .editor :is(input, select, textarea):not([type=hidden])"
+    );
+    if let Some(field) = document
+        .query_selector(&selector)
+        .ok()
+        .flatten()
+        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let _ = field.focus();
     }
 }
 

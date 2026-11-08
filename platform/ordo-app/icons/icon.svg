@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>ORDO</title>
+  <rect width="512" height="512" rx="96" fill="#1d5cc0"/>
+  <path d="M383.2 176.5A150 150 0 0 1 383.2 335.5M335.5 383.2A150 150 0 0 1 176.5 383.2M128.8 335.5A150 150 0 0 1 128.8 176.5M176.5 128.8A150 150 0 0 1 335.5 128.8" fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="46" fill="#ffffff"/>
+</svg>
