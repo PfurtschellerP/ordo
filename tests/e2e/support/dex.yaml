@@ -1,0 +1,41 @@
+# Dex (https://dexidp.io) as the identity provider of the browser tests (ADR-0038).
+# Test users only: anna (group medic) and ben (group commander), password "password".
+issuer: http://127.0.0.1:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+  grantTypes:
+    - "authorization_code"
+    - "urn:ietf:params:oauth:grant-type:device_code"
+  responseTypes: ["code"]
+
+staticClients:
+  - id: ordo
+    name: ORDO
+    secret: ordo-test-secret
+    redirectURIs:
+      - "http://127.0.0.1:18090/auth/callback"
+      - "/dex/device/callback"
+
+enablePasswordDB: true
+
+staticPasswords:
+  # bcrypt hash of "password"
+  - email: "anna@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: "anna"
+    preferredUsername: "anna"
+    userID: "8f8a6a4e-2d4b-4b3a-9b1e-0a6a1d1e0001"
+    groups: ["medic"]
+  - email: "ben@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: "ben"
+    preferredUsername: "ben"
+    userID: "8f8a6a4e-2d4b-4b3a-9b1e-0a6a1d1e0002"
+    groups: ["commander"]

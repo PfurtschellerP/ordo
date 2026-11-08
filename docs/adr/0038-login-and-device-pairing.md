@@ -56,9 +56,14 @@ stay usable offline.
 * Good, because organisations keep their user management, and ORDO keeps no passwords.
 * Good, because a lost tablet is revoked by removing its key; no shared passwords.
 * Bad, because a test identity provider (Dex) is needed in CI and in the Compose bundle.
+* Risk: whoever approves a QR code pairs that device with their own account (device-code
+  phishing). Only approve codes shown on your organisation's devices; the identity provider
+  names the client ("ORDO") on its approval page. A device ID already paired with another
+  person cannot be taken over.
 
 ## More Information
 
-Built in steps: (1) device proof on every connection and roles with Cedar; (2) OpenID
-Connect login, key registration and QR pairing with Dex; (3) protected key storage in the
-browser. Protocol: [spec/sync/protocol.md](../../spec/sync/protocol.md).
+Built in steps: (1) device proof on every connection and roles with Cedar (done);
+(2) OpenID Connect login, key registration and QR pairing with Dex (done; groups of the
+identity provider become roles); (3) device revocation, re-login and protected key storage
+in the browser. Protocol: [spec/sync/protocol.md](../../spec/sync/protocol.md).

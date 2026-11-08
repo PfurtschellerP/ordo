@@ -473,6 +473,16 @@
   textarea { resize: vertical; }
 }
 
+/* Pairing (ADR-0038) */
+@layer components {
+  .pairing-qr { display: grid; gap: var(--ordo-space-3); justify-items: start; }
+  /* The QR image brings its own light background and quiet zone, so it scans in every theme. */
+  .pairing-qr__code { width: min(256px, 100%); height: auto; border-radius: var(--ordo-radius-small); }
+  .pairing-qr__user-code { font-size: var(--ordo-font-size-5); font-weight: var(--ordo-font-weight-bold); margin: 0; }
+  .pairing-qr a { overflow-wrap: anywhere; }
+  .manual-pairing summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+}
+
 /* Command palette (ADR-0030): a modal dialog near the top, like a spotlight search. */
 @layer components {
   .palette {

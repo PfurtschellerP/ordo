@@ -23,6 +23,10 @@ Environment for `serve`:
   ORDO_PROTECTED         Protected compartments (default med.clinical)
   ORDO_APP_DIR           Built web app, served at / (optional)
   ORDO_POLICY_DIR        Own roles and permissions as Cedar policies, *.cedar (optional)
+  ORDO_OIDC_ISSUER       Identity provider for login (OpenID Connect, optional); then also:
+  ORDO_OIDC_CLIENT_ID    Client ID of ORDO at the identity provider
+  ORDO_OIDC_CLIENT_SECRET_FILE  File with the client secret
+  ORDO_PUBLIC_URL        Address of ORDO, e.g. https://ordo.example.org
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {

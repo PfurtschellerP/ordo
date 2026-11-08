@@ -18,6 +18,8 @@ use ordo_sync::message::{self, ClientMessage, ServerMessage};
 use ordo_sync::{Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
+#[allow(unused_imports)]
+use wasm_bindgen::JsCast as _;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::{BinaryType, CloseEvent, MessageEvent, WebSocket};
@@ -437,9 +439,8 @@ fn record(
 }
 
 /// A new incident ID on the server of `user`.
-pub fn new_incident_id(user: &str) -> Option<String> {
-    let user: UserId = user.trim().parse().ok()?;
-    let server: ServerName = user.server().parse().ok()?;
+pub fn new_incident_id(server: &str) -> Option<String> {
+    let server: ServerName = server.trim().parse().ok()?;
     let mut random = [0u8; 16];
     entropy(&mut random);
     let ulid = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()?;
@@ -452,6 +453,137 @@ pub fn incident_from_url() -> Option<String> {
     web_sys::UrlSearchParams::new_with_str(&search)
         .ok()?
         .get("incident")
+}
+
+// ---------------------------------------------------------------------------
+// Pairing (ADR-0038)
+// ---------------------------------------------------------------------------
+
+const PENDING_KEY: &str = "ordo.pending";
+
+/// A device key made on this device, waiting for the login that registers it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PendingDevice {
+    /// Device ID (ULID).
+    pub device: String,
+    /// Ed25519 private key, 64 hex characters; it never leaves the device.
+    pub private_key: String,
+    /// The incident to open after pairing.
+    pub incident: String,
+}
+
+impl PendingDevice {
+    /// A new device ID and key pair.
+    pub fn create(incident: &str) -> Option<Self> {
+        let mut seed = [0u8; 32];
+        entropy(&mut seed);
+        let mut random = [0u8; 16];
+        entropy(&mut random);
+        let device = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()?;
+        Some(Self {
+            device: device.to_string(),
+            private_key: to_hex(&seed),
+            incident: incident.to_owned(),
+        })
+    }
+
+    /// The public key, 64 hex characters, as the server registers it.
+    pub fn public_key(&self) -> Option<String> {
+        let seed: [u8; 32] = from_hex(&self.private_key)?;
+        Some(to_hex(
+            SigningKey::from_bytes(&seed).verifying_key().as_bytes(),
+        ))
+    }
+
+    /// The finished pairing for `user`.
+    pub fn paired(self, user: &str) -> Pairing {
+        Pairing {
+            user: user.to_owned(),
+            device: self.device,
+            private_key: self.private_key,
+            incident: self.incident,
+        }
+    }
+
+    /// Keeps the pending device across the login's page change.
+    pub fn save(&self) {
+        if let (Some(storage), Ok(json)) = (storage(), serde_json::to_string(self)) {
+            let _ = storage.set_item(PENDING_KEY, &json);
+        }
+    }
+
+    /// The pending device of a login that started on this device, removed from storage.
+    pub fn take() -> Option<Self> {
+        let storage = storage()?;
+        let json = storage.get_item(PENDING_KEY).ok()??;
+        let _ = storage.remove_item(PENDING_KEY);
+        serde_json::from_str(&json).ok()
+    }
+}
+
+/// Sends a request to the ORDO server and reads a JSON answer.
+pub async fn fetch_json(
+    method: &str,
+    url: &str,
+    body: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let init = web_sys::RequestInit::new();
+    init.set_method(method);
+    if let Some(body) = body {
+        let headers = web_sys::Headers::new().map_err(|_| "headers")?;
+        let _ = headers.set("content-type", "application/json");
+        init.set_headers(&headers);
+        init.set_body(&wasm_bindgen::JsValue::from_str(&body.to_string()));
+    }
+    let request = web_sys::Request::new_with_str_and_init(url, &init).map_err(|_| "request")?;
+    let window = web_sys::window().ok_or("window")?;
+    let response: web_sys::Response =
+        wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request))
+            .await
+            .map_err(|_| text::NETWORK_ERROR.to_owned())?
+            .dyn_into()
+            .map_err(|_| "response")?;
+    let text = wasm_bindgen_futures::JsFuture::from(response.text().map_err(|_| "body")?)
+        .await
+        .map_err(|_| "body")?
+        .as_string()
+        .unwrap_or_default();
+    if !response.ok() {
+        return Err(if text.is_empty() {
+            format!("HTTP {}", response.status())
+        } else {
+            text
+        });
+    }
+    serde_json::from_str(&text).map_err(|e| e.to_string())
+}
+
+/// Waits `ms` milliseconds (browser timer).
+pub async fn sleep_ms(ms: i32) {
+    let promise = js_sys::Promise::new(&mut |resolve, _| {
+        if let Some(window) = web_sys::window() {
+            let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
+        }
+    });
+    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+}
+
+/// A query parameter of the page URL.
+pub fn url_param(name: &str) -> Option<String> {
+    let search = web_sys::window()?.location().search().ok()?;
+    web_sys::UrlSearchParams::new_with_str(&search)
+        .ok()?
+        .get(name)
+}
+
+/// Removes query parameters from the address bar (after a login returned).
+pub fn clear_url_params() {
+    if let Some(window) = web_sys::window()
+        && let Ok(history) = window.history()
+        && let Ok(path) = window.location().pathname()
+    {
+        let _ = history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&path));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +627,10 @@ pub fn forget_device() {
         let _ = storage.remove_item(PAIRING_KEY);
         let _ = storage.remove_item(REPLICA_KEY);
     }
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Prefix of the Base64 storage format (older versions stored hex without prefix).

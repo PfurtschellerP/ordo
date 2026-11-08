@@ -1,6 +1,12 @@
 # Automatic HTTPS for ORDO_DOMAIN (Let's Encrypt; local CA for "localhost").
-# WebSocket connections to /sync are proxied as well.
+# WebSocket connections to /sync are proxied as well; /dex goes to the identity provider
+# (profile "login" in compose.yaml).
 {$ORDO_DOMAIN} {
 	encode zstd gzip
-	reverse_proxy ordo:8080
+	handle /dex* {
+		reverse_proxy dex:5556
+	}
+	handle {
+		reverse_proxy ordo:8080
+	}
 }

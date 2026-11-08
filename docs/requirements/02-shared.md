@@ -350,11 +350,11 @@ Tags: should, shared
 Needs: dsn
 
 #### ORG-3 — Device pairing
-`req~org-3~1`
+`req~org-3~2`
 
-Pair a device via QR code; a paired device can be revoked
+When a logged-in person approves a device by scanning the QR code it shows, ORDO shall pair that device with the person, without typing passwords on the device. (Revoking devices: SEC-4.)
 
-Tags: must, shared
+Tags: must, shared, m8
 
 Needs: dsn
 

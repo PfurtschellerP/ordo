@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::{Arc, RwLock};
 
 use cedar_policy::{
     Authorizer, Context, Decision, Entities, EntityId, EntityTypeName, EntityUid, PolicySet,
@@ -44,13 +45,60 @@ pub enum PolicyError {
     },
 }
 
+/// The roles of every user, shared between the policy and the login, which updates them
+/// with the identity provider's groups (ADR-0038).
+#[derive(Clone, Default)]
+pub struct Roles(Arc<RwLock<HashMap<UserId, Vec<String>>>>);
+
+impl Roles {
+    /// Roles from a list.
+    pub fn new(roles: impl IntoIterator<Item = (UserId, Vec<String>)>) -> Self {
+        Self(Arc::new(RwLock::new(roles.into_iter().collect())))
+    }
+
+    /// Adds roles of `user` (keeps the existing ones, no duplicates).
+    pub fn add(&self, user: &UserId, roles: &[String]) {
+        let mut map = self.0.write().expect("roles lock");
+        let entry = map.entry(user.clone()).or_default();
+        for role in roles {
+            if !entry.contains(role) {
+                entry.push(role.clone());
+            }
+        }
+    }
+
+    /// Replaces the roles of `user` that came from the identity provider: `base` (e.g.
+    /// from the seed) plus `roles`.
+    pub fn set(&self, user: &UserId, base: &[String], roles: &[String]) {
+        let mut all: Vec<String> = base.to_vec();
+        for role in roles {
+            if !all.contains(role) {
+                all.push(role.clone());
+            }
+        }
+        self.0
+            .write()
+            .expect("roles lock")
+            .insert(user.clone(), all);
+    }
+
+    fn of(&self, user: &UserId) -> Vec<String> {
+        self.0
+            .read()
+            .expect("roles lock")
+            .get(user)
+            .cloned()
+            .unwrap_or_default()
+    }
+}
+
 // [impl->dsn~role-policies~1]
 /// Decides with Cedar policies, by the roles a user holds.
 pub struct RolePolicy {
     schema: Schema,
     policies: PolicySet,
     authorizer: Authorizer,
-    roles: HashMap<UserId, Vec<String>>,
+    roles: Roles,
 }
 
 fn uid(entity_type: &str, id: &str) -> EntityUid {
@@ -63,10 +111,7 @@ fn uid(entity_type: &str, id: &str) -> EntityUid {
 impl RolePolicy {
     /// Loads the default policies and `extra` ones (file name, text), validates all of
     /// them, and takes the roles of each user.
-    pub fn new(
-        roles: HashMap<UserId, Vec<String>>,
-        extra: &[(String, String)],
-    ) -> Result<Self, PolicyError> {
+    pub fn new(roles: Roles, extra: &[(String, String)]) -> Result<Self, PolicyError> {
         let (schema, _warnings) =
             Schema::from_cedarschema_str(SCHEMA).map_err(|e| PolicyError::Schema(e.to_string()))?;
         let validator = Validator::new(schema.clone());
@@ -113,7 +158,7 @@ impl RolePolicy {
         incident: &IncidentId,
         compartment: &CompartmentId,
     ) -> bool {
-        let roles = self.roles.get(user).cloned().unwrap_or_default();
+        let roles = self.roles.of(user);
         let context = Context::from_pairs([
             (
                 "roles".to_owned(),
@@ -171,7 +216,7 @@ mod tests {
     }
 
     fn policy(extra: &[(String, String)]) -> Result<RolePolicy, PolicyError> {
-        let roles = HashMap::from([
+        let roles = Roles::new([
             (user("anna"), vec!["medic".to_owned()]),
             (user("ben"), vec!["commander".to_owned()]),
             (user("clara"), vec!["uhs_lead".to_owned()]),

@@ -14,9 +14,10 @@ import {
   fillForm,
   closePalette,
   openPalette,
+  loginPair,
   openRecord,
   openView,
-  pair,
+  qrPair,
   pathOf,
   patientRows,
   register,
@@ -26,13 +27,15 @@ import {
   storedReplica,
   title,
 } from "./support/app";
-import { DeviceKey, OrdoServer } from "./support/server";
+import { startDex } from "./support/dex";
+import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
-let keys: Record<string, DeviceKey>;
+let stopDex: () => void;
 let incident: string;
 let anna: Page;
 let ben: Page;
+let phone: Page;
 let shots: string;
 
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
@@ -46,17 +49,17 @@ test.beforeAll(async ({ browser }, info) => {
   const work = path.join(process.env.ORDO_E2E_WORK ?? os.tmpdir(), `ordo-e2e-${info.project.name}`);
   shots = path.join(process.env.ORDO_E2E_SHOTS ?? path.join(__dirname, "screenshots"), info.project.name);
   server = new OrdoServer(work, 18090 + info.parallelIndex);
-  keys = server.setup([
-    { name: "anna", roles: ["medic"] },
-    { name: "ben", roles: ["commander"] },
-  ]);
+  server.setup(); // no seed: people log in with Dex, roles come from their groups
+  stopDex = await startDex();
   await server.start();
   anna = await newDevice(browser);
   ben = await newDevice(browser);
+  phone = await newDevice(browser);
 });
 
 test.afterAll(async () => {
   await server?.stop();
+  stopDex?.();
 });
 
 // One test with steps: later steps build on earlier ones, and soft checks (audits)
@@ -64,9 +67,11 @@ test.afterAll(async () => {
 test("ORDO in the browser", async () => {
   await test.step("a medic registers patients at several UHS", async () => {
     await anna.goto(server.url);
-    await expect(anna.getByLabel("Benutzer (name@server)")).toBeVisible();
+    await expect(anna.getByRole("button", { name: "Anmelden" })).toBeVisible();
     await audit(anna, "Pairing page");
-    incident = await pair(anna, server, "anna@localhost", keys.anna);
+    // [itest->dsn~oidc-login~1]
+    incident = await loginPair(anna, server, "anna@example.org");
+    expect(await anna.evaluate(() => JSON.parse(localStorage.getItem("ordo.pairing")!).user), "the login maps to an ORDO user").toBe("anna@localhost");
     await expect.poll(() => status(anna), { message: "medic device connects" }).toContain("Verbunden");
     await expect.poll(() => title(anna), { message: "a medic starts in Sanität – UHS" }).toContain("Sanität – UHS");
 
@@ -255,7 +260,9 @@ test("ORDO in the browser", async () => {
   });
 
   await test.step("command sees counts and resources, but no patient data", async () => {
-    await pair(ben, server, "ben@localhost", keys.ben, incident);
+    // [itest->dsn~qr-pairing~1]
+    await qrPair(ben, phone, server, "ben@example.org", incident);
+    await phone.context().close();
     // [itest->dsn~workspace-navigation~2]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
     await ben.locator("#launcher-button").click();

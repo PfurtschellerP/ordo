@@ -7,6 +7,7 @@
 mod app;
 pub mod authz;
 pub mod config;
+mod login;
 pub mod store;
 
 use std::net::SocketAddr;
@@ -114,12 +115,16 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     // [impl->dsn~role-policies~1]
     // Roles from the seed, permissions from Cedar policies (defaults plus the
     // organisation's files); invalid policies stop the start.
-    let roles = config
-        .seed
-        .users
-        .iter()
-        .map(|u| (u.id.clone(), u.roles.clone()))
-        .collect();
+    let roles = authz::Roles::new(
+        config
+            .seed
+            .users
+            .iter()
+            .map(|u| (u.id.clone(), u.roles.clone())),
+    );
+    for (user, provider_roles) in store.load_roles().await? {
+        roles.add(&user, &provider_roles);
+    }
     let mut extra = Vec::new();
     if let Some(dir) = &config.policy_dir {
         let mut files: Vec<_> = std::fs::read_dir(dir)?
@@ -137,7 +142,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             extra.push((name, std::fs::read_to_string(&path)?));
         }
     }
-    let policy = authz::RolePolicy::new(roles, &extra)?;
+    let policy = authz::RolePolicy::new(roles.clone(), &extra)?;
     let mut hub = Hub::new(
         HubConfig {
             server: server.clone(),
@@ -160,6 +165,12 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         })?;
         hub.register_device(device.device_id()?, device.user.clone(), key);
     }
+    // Devices paired by login (ADR-0038).
+    for (device, user, key) in store.load_devices().await? {
+        let key = VerifyingKey::from_bytes(&key)
+            .map_err(|e| StoreError::Invalid(format!("device key: {e}")))?;
+        hub.register_device(device, user, key);
+    }
     hub.add_deriver(PatientCountsDeriver::default());
 
     // Restore keys first, then events in sequence order.
@@ -176,7 +187,29 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let addr = listener.local_addr()?;
     let (stop, stopped) = watch::channel(false);
-    let app = Arc::new(App::new(hub, store, master, stop.clone()));
+    let seed_roles = config
+        .seed
+        .users
+        .iter()
+        .map(|u| (u.id.clone(), u.roles.clone()))
+        .collect();
+    let login = match &config.oidc {
+        Some(oidc) => Some(
+            login::Login::new(oidc.clone())
+                .map_err(|e| config::ConfigError::invalid("ORDO_OIDC_ISSUER", e.to_string()))?,
+        ),
+        None => None,
+    };
+    let app = Arc::new(App::new(
+        hub,
+        store,
+        master,
+        config.server_name.clone(),
+        roles,
+        seed_roles,
+        login,
+        stop.clone(),
+    ));
     let router = app.clone().router(config.app_dir.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");
     let task = tokio::spawn(async move {

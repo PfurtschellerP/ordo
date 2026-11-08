@@ -1,0 +1,41 @@
+# Dex (https://dexidp.io) for organisations without their own identity provider.
+# Copy to dex.yaml, replace ordo.example.org with your ORDO_DOMAIN and set the client
+# secret to the content of oidc-client-secret. Docs: https://dexidp.io/docs/
+issuer: https://ordo.example.org/dex
+
+storage:
+  type: sqlite3
+  config:
+    file: /var/dex/dex.db
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+  grantTypes:
+    - "authorization_code"
+    - "urn:ietf:params:oauth:grant-type:device_code"   # pairing tablets by QR code
+  responseTypes: ["code"]
+
+staticClients:
+  - id: ordo
+    name: ORDO
+    secret: "replace with the content of oidc-client-secret"
+    redirectURIs:
+      - "https://ordo.example.org/auth/callback"
+      - "/dex/device/callback"
+
+# Local accounts. Groups become ORDO roles (e.g. medic, commander; ADR-0035).
+# Password hash:  htpasswd -BnC 10 "" | tr -d ':\n'
+enablePasswordDB: true
+staticPasswords:
+  - email: "anna@ordo.example.org"
+    hash: "replace with a bcrypt hash"
+    username: "anna"
+    preferredUsername: "anna"
+    userID: "replace with a random UUID"
+    groups: ["medic"]
+
+# Instead of (or besides) local accounts, Dex can connect to LDAP / Active Directory,
+# SAML or another OpenID Connect provider: https://dexidp.io/docs/connectors/

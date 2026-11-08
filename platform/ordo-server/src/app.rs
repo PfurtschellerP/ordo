@@ -10,13 +10,16 @@ use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use futures_util::{SinkExt, StreamExt};
+use ordo_core::{DeviceId, ServerName, UserId};
+use ordo_crypto::ed25519_dalek::VerifyingKey;
 use ordo_crypto::seal::DataKey;
 use ordo_sync::message::{self, ClientMessage, ServerMessage};
 use ordo_sync::{Hub, SessionId};
 
-use crate::authz::RolePolicy;
+use crate::authz::{RolePolicy, Roles};
+use crate::login::{self, Login};
 use tokio::sync::{Mutex, mpsc, watch};
 
 use crate::store::{Store, StoreError};
@@ -26,6 +29,14 @@ pub struct App {
     pub(crate) hub: Mutex<Hub<RolePolicy>>,
     pub(crate) store: Store,
     pub(crate) master: DataKey,
+    /// This server's name.
+    pub(crate) server: ServerName,
+    /// Roles of all users, shared with the Cedar policy (ADR-0035).
+    pub(crate) roles: Roles,
+    /// Roles from the seed file, kept when a login adds the provider's groups.
+    pub(crate) seed_roles: HashMap<UserId, Vec<String>>,
+    /// Login with OpenID Connect, if configured (ADR-0038).
+    pub(crate) login: Option<Login>,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
@@ -42,16 +53,25 @@ struct Metrics {
 }
 
 impl App {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         hub: Hub<RolePolicy>,
         store: Store,
         master: DataKey,
+        server: ServerName,
+        roles: Roles,
+        seed_roles: HashMap<UserId, Vec<String>>,
+        login: Option<Login>,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
             hub: Mutex::new(hub),
             store,
             master,
+            server,
+            roles,
+            seed_roles,
+            login,
             sessions: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
@@ -59,6 +79,26 @@ impl App {
             failed: AtomicBool::new(false),
             metrics: Metrics::default(),
         }
+    }
+
+    /// Pairs a device with a user: stored first, then known to the hub, so the device can
+    /// connect at once and after a restart. Returns `false` if the device ID belongs to
+    /// another user (no takeover).
+    pub(crate) async fn register_device(
+        &self,
+        device: DeviceId,
+        user: UserId,
+        key: VerifyingKey,
+    ) -> Result<bool, StoreError> {
+        if !self
+            .store
+            .save_device(&device, &user, key.as_bytes(), now_ms())
+            .await?
+        {
+            return Ok(false);
+        }
+        self.hub.lock().await.register_device(device, user, key);
+        Ok(true)
     }
 
     /// Whether storage failed; the process should then exit so it is restarted.
@@ -75,6 +115,12 @@ impl App {
             .route("/healthz", get(|| async { "ok\n" }))
             .route("/readyz", get(readyz))
             .route("/metrics", get(metrics))
+            .route("/auth/config", get(login::config))
+            .route("/auth/login", get(login::start))
+            .route("/auth/callback", get(login::callback))
+            .route("/auth/device", post(login::device_start))
+            .route("/auth/device/{id}", get(login::device_status))
+            .route("/auth/device/{id}/qr.svg", get(login::device_qr))
             .with_state(self);
         let router = match app_dir {
             Some(dir) => {

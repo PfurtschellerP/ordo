@@ -340,6 +340,44 @@ Needs: impl, utest, itest
 
 Tags: must, m7
 
+#### OpenID Connect login
+`dsn~oidc-login~1`
+
+The ORDO server is the relying party (backend for frontend); the browser never sees a
+token. The pairing page creates a device key pair, keeps the private key on the device and
+sends the public key to `GET /auth/login`. The server starts the authorization code flow
+with PKCE and binds it to the browser with a cookie; on return it verifies the ID token
+(issuer, audience, signature, nonce), maps the provider's subject to a stable ORDO user ID
+(preferred user name or e-mail), takes the `groups` claim as roles, stores the device key
+and registers it with the hub. The provider is discovered on first use, so a field server
+also starts without it ([ADR-0038](../adr/0038-login-and-device-pairing.md)).
+
+Covers:
+
+* [req~sec-3~2](../requirements/07-quality.md#sec-3--login-and-single-sign-on)
+
+Needs: impl, itest
+
+Tags: must, m8
+
+#### QR pairing
+`dsn~qr-pairing~1`
+
+A shared device sends its public key to `POST /auth/device`; the server starts the OAuth
+2.0 Device Authorization Grant (RFC 8628) at the identity provider and returns the user
+code and verification address. The device shows them as QR code (rendered by the server)
+and as text with a link; a logged-in person opens it on their phone and approves. The
+server waits for the approval in the background, verifies the ID token, and registers the
+device key as for a login; the device polls `GET /auth/device/{id}` until it is paired.
+
+Covers:
+
+* [req~org-3~2](../requirements/02-shared.md#org-3--device-pairing)
+
+Needs: impl, itest
+
+Tags: must, m8
+
 ## 8.6 Design system and accessibility
 
 Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).

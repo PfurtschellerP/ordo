@@ -27,6 +27,23 @@ pub struct Config {
     /// Directory with the organisation's own Cedar policies, `*.cedar`
     /// (`ORDO_POLICY_DIR`, optional, ADR-0035).
     pub policy_dir: Option<PathBuf>,
+    /// Login with OpenID Connect (optional, ADR-0038).
+    pub oidc: Option<OidcConfig>,
+}
+
+/// The organisation's identity provider (all of `ORDO_OIDC_ISSUER`,
+/// `ORDO_OIDC_CLIENT_ID`, `ORDO_OIDC_CLIENT_SECRET_FILE` and `ORDO_PUBLIC_URL`).
+#[derive(Debug, Clone)]
+pub struct OidcConfig {
+    /// Issuer URL of the identity provider, e.g. `https://id.example.org/dex`.
+    pub issuer: String,
+    /// Client ID of ORDO at the identity provider.
+    pub client_id: String,
+    /// Client secret, read from a file.
+    pub client_secret: String,
+    /// Address under which people reach ORDO, e.g. `https://ordo.example.org`; the login
+    /// returns to `<public URL>/auth/callback`.
+    pub public_url: String,
 }
 
 /// Users and devices. Prototype: read from a file; later managed in the admin UI and
@@ -107,7 +124,7 @@ pub enum ConfigError {
 }
 
 impl ConfigError {
-    fn invalid(name: &str, message: impl Into<String>) -> Self {
+    pub(crate) fn invalid(name: &str, message: impl Into<String>) -> Self {
         Self::Invalid {
             name: name.to_owned(),
             message: message.into(),
@@ -172,6 +189,24 @@ impl Config {
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
+            oidc: match get("ORDO_OIDC_ISSUER").filter(|issuer| !issuer.trim().is_empty()) {
+                None => None,
+                Some(issuer) => Some(OidcConfig {
+                    issuer,
+                    client_id: get("ORDO_OIDC_CLIENT_ID")
+                        .ok_or(ConfigError::Missing("ORDO_OIDC_CLIENT_ID"))?,
+                    client_secret: read(
+                        &get("ORDO_OIDC_CLIENT_SECRET_FILE")
+                            .ok_or(ConfigError::Missing("ORDO_OIDC_CLIENT_SECRET_FILE"))?,
+                    )?
+                    .trim()
+                    .to_owned(),
+                    public_url: get("ORDO_PUBLIC_URL")
+                        .ok_or(ConfigError::Missing("ORDO_PUBLIC_URL"))?
+                        .trim_end_matches('/')
+                        .to_owned(),
+                }),
+            },
         })
     }
 }

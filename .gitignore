@@ -13,6 +13,10 @@ pkg/
 .env
 .env.*
 !.env.example
+deploy/compose/**/master.key
+deploy/compose/**/seed.toml
+deploy/compose/**/dex.yaml
+deploy/compose/**/oidc-client-secret
 
 # Editors and OS
 .idea/

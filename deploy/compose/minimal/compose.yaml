@@ -12,8 +12,14 @@ services:
       ORDO_SERVER_NAME: ${ORDO_DOMAIN:?set ORDO_DOMAIN in .env}
       ORDO_MASTER_KEY_FILE: /run/secrets/ordo_master_key
       ORDO_SEED_FILE: /config/seed.toml
+      # Login with OpenID Connect (ADR-0038); empty = no login, seed file only.
+      ORDO_OIDC_ISSUER: ${ORDO_OIDC_ISSUER:-}
+      ORDO_OIDC_CLIENT_ID: ${ORDO_OIDC_CLIENT_ID:-ordo}
+      ORDO_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+      ORDO_PUBLIC_URL: https://${ORDO_DOMAIN}
     secrets:
       - ordo_master_key
+      - oidc_client_secret
     volumes:
       - ordo-data:/data
       - ./seed.toml:/config/seed.toml:ro
@@ -22,6 +28,21 @@ services:
     security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
     networks: [internal]
+
+  # Identity provider for organisations without one (profile "login"): Dex with local
+  # accounts, or as a bridge to LDAP / Active Directory. Reached at https://<domain>/dex.
+  dex:
+    image: ghcr.io/dexidp/dex:v2.46.1@sha256:65b72ca0f4b0bf6d4ada84ec21da8851782563404ac7b8f926923d27ceced9ab
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./dex.yaml:/etc/dex/config.yaml:ro
+      - dex-data:/var/dex
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [internal]
+    profiles: [login]
 
   caddy:
     image: docker.io/library/caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
@@ -39,14 +60,21 @@ services:
       ordo:
         condition: service_healthy
     restart: unless-stopped
-    networks: [internal]
+    networks:
+      internal:
+        # Inside the network the domain leads to Caddy, so ORDO reaches the login at
+        # https://<domain>/dex like the browsers do.
+        aliases: ["${ORDO_DOMAIN}"]
 
 secrets:
   ordo_master_key:
     file: ./master.key
+  oidc_client_secret:
+    file: ./oidc-client-secret
 
 volumes:
   ordo-data:
+  dex-data:
   caddy-data:
   caddy-config:
 

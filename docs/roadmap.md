@@ -58,17 +58,19 @@ Done in phase 0:
 - Login, step 1 (milestone `m7`, ADR-0038): every sync connection proves the device key
   (sync protocol draft 1); access by roles with Cedar policies, organisations add roles
   as policy files (ADR-0035).
+- Login, step 2 (milestone `m8`): OpenID Connect login (ORDO server as relying party,
+  PKCE), QR pairing of shared tablets (RFC 8628), identity-provider groups as roles, paired
+  devices stored; Dex in the browser tests and, optionally, in Docker Compose. The browser
+  test pairs both devices for real.
 - Reuse instead of own code: Leptos' router (paths, back button), Playwright with
   axe-core for the browser tests in Firefox, Chromium and WebKit; ePCR forms as an HL7
   FHIR Questionnaire (ADR-0037).
 
 Next:
 
-1. Login, step 2 ([ADR-0038](adr/0038-login-and-device-pairing.md)): OpenID Connect with an
-   existing identity provider (Dex in Docker Compose and CI); device key registration;
-   pairing by QR code with the OAuth 2.0 Device Authorization Grant (RFC 8628) instead of
-   the seed file (ORG-3); roles from identity-provider groups; device revocation (SEC-4).
-   Step 3: protected key storage in the browser (WebCrypto).
+1. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)): device list and
+   revocation (SEC-4), periodic re-login, protected key storage in the browser
+   (WebCrypto, non-extractable keys), and an admin view for roles.
 2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).

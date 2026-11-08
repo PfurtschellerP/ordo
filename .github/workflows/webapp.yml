@@ -70,6 +70,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps firefox chromium webkit
+          docker pull ghcr.io/dexidp/dex:v2.46.1   # identity provider of the tests
       - name: Run the UI scenario in Firefox, Chromium and WebKit
         working-directory: tests/e2e
         env:

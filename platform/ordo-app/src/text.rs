@@ -7,7 +7,21 @@ pub const APP_NAME: &str = "ORDO";
 pub const SKIP_LINK: &str = "Zum Inhalt springen";
 
 pub const PAIR_TITLE: &str = "Gerät koppeln";
-pub const PAIR_INTRO: &str = "Prototyp: Die Angaben stammen aus der Seed-Datei des Servers und aus `ordo generate-device-key`. Später ersetzt ein QR-Code diesen Schritt.";
+pub const PAIR_INTRO: &str = "Melde dich mit dem Konto deiner Organisation an. Dieses Gerät erhält dabei einen eigenen Schlüssel, der es nie verlässt; ORDO speichert keine Passwörter.";
+pub const PAIR_LOGIN: &str = "Anmelden";
+pub const PAIR_QR: &str = "Mit QR-Code koppeln";
+pub const PAIR_QR_HINT: &str = "Für gemeinsam genutzte Tablets: Mit einem angemeldeten Handy den QR-Code scannen und freigeben.";
+pub const PAIR_QR_ALT: &str = "QR-Code zum Koppeln dieses Geräts";
+pub fn pair_code(code: &str) -> String {
+    format!("Code: {code}")
+}
+pub const PAIR_QR_LINK: &str = "Ohne Kamera: auf einem anderen Gerät öffnen und den Code eingeben:";
+pub const PAIR_WAITING: &str = "Warte auf Freigabe …";
+pub const PAIR_NO_LOGIN: &str = "Für diesen Server ist keine Anmeldung eingerichtet.";
+pub const PAIR_MANUAL: &str = "Entwicklung: Gerät manuell koppeln";
+pub const PAIR_MANUAL_INTRO: &str = "Für Testumgebungen ohne Anmeldung: Angaben aus der Seed-Datei des Servers und aus `ordo generate-device-key`.";
+pub const LOGIN_FAILED: &str = "Anmeldung fehlgeschlagen";
+pub const NETWORK_ERROR: &str = "Server nicht erreichbar";
 pub const PAIR_USER: &str = "Benutzer (name@server)";
 pub const PAIR_DEVICE: &str = "Geräte-ID";
 pub const PAIR_KEY: &str = "Privater Schlüssel des Geräts";

@@ -53,23 +53,172 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
 #[component]
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
-    let pairing = RwSignal::new(core::load_pairing());
+    // A login that returned to this device: finish pairing it (ADR-0038).
+    let returned = core::url_param("paired")
+        .and_then(|user| core::PendingDevice::take().map(|device| device.paired(&user)));
+    let login_error = core::url_param("login_error");
+    if returned.is_some() || login_error.is_some() {
+        core::clear_url_params();
+    }
+    if let Some(pairing) = &returned {
+        core::save_pairing(pairing);
+    }
+    let pairing = RwSignal::new(returned.or_else(core::load_pairing));
     view! {
         <Router>
             {move || match pairing.get() {
-                None => view! { <PairingForm pairing /> }.into_any(),
+                None => view! { <PairingForm pairing login_error=login_error.clone() /> }.into_any(),
                 Some(p) => view! { <Workspace pairing=p on_unpair=move || pairing.set(None) /> }.into_any(),
             }}
         </Router>
     }
 }
 
+// [impl->dsn~oidc-login~1]
+// [impl->dsn~qr-pairing~1]
+/// Pairing: log in with the organisation's account, or pair a shared tablet by QR code;
+/// the device makes its own key, which never leaves it (ADR-0038).
 #[component]
-fn PairingForm(pairing: RwSignal<Option<Pairing>>) -> impl IntoView {
+fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> impl IntoView {
+    let incident = RwSignal::new(core::incident_from_url().unwrap_or_default());
+    let server = RwSignal::new(None::<String>);
+    let login_enabled = RwSignal::new(None::<bool>);
+    let error = RwSignal::new(login_error.map(|e| format!("{}: {e}", text::LOGIN_FAILED)));
+    // (pairing ID, user code, address to open)
+    let qr = RwSignal::new(None::<(String, String, String)>);
+    leptos::task::spawn_local(async move {
+        match core::fetch_json("GET", "/auth/config", None).await {
+            Ok(config) => {
+                server.set(config["server"].as_str().map(str::to_owned));
+                login_enabled.set(Some(config["login"].as_bool().unwrap_or(false)));
+            }
+            Err(e) => {
+                login_enabled.set(Some(false));
+                error.set(Some(e));
+            }
+        }
+    });
+    // The incident to open: the one entered, or a new one on this server.
+    let chosen_incident = move || {
+        let entered = incident.get_untracked().trim().to_owned();
+        if !entered.is_empty() {
+            return Some(entered);
+        }
+        let id = core::new_incident_id(&server.get_untracked()?)?;
+        incident.set(id.clone());
+        Some(id)
+    };
+    let new_incident = move |_| {
+        if let Some(id) = server.get().and_then(|s| core::new_incident_id(&s)) {
+            incident.set(id);
+        }
+    };
+    let login = move |_| {
+        let Some(device) = chosen_incident().and_then(|i| core::PendingDevice::create(&i)) else {
+            return;
+        };
+        let Some(key) = device.public_key() else {
+            return;
+        };
+        device.save();
+        if let Some(window) = web_sys::window() {
+            let _ = window
+                .location()
+                .assign(&format!("/auth/login?device={}&key={key}", device.device));
+        }
+    };
+    let start_qr = move |_| {
+        let Some(device) = chosen_incident().and_then(|i| core::PendingDevice::create(&i)) else {
+            return;
+        };
+        let Some(key) = device.public_key() else {
+            return;
+        };
+        error.set(None);
+        leptos::task::spawn_local(async move {
+            let body = serde_json::json!({ "device": device.device, "key": key });
+            let started = match core::fetch_json("POST", "/auth/device", Some(&body)).await {
+                Ok(started) => started,
+                Err(e) => {
+                    error.set(Some(e));
+                    return;
+                }
+            };
+            let field = |name: &str| started[name].as_str().unwrap_or_default().to_owned();
+            let id = field("id");
+            let uri = started["verification_uri_complete"]
+                .as_str()
+                .map_or_else(|| field("verification_uri"), str::to_owned);
+            qr.set(Some((id.clone(), field("user_code"), uri)));
+            loop {
+                core::sleep_ms(2_000).await;
+                if qr.get_untracked().is_none() {
+                    return;
+                }
+                match core::fetch_json("GET", &format!("/auth/device/{id}"), None).await {
+                    Ok(state) if state["status"] == "done" => {
+                        let user = state["user"].as_str().unwrap_or_default();
+                        let paired = device.clone().paired(user);
+                        core::save_pairing(&paired);
+                        pairing.set(Some(paired));
+                        return;
+                    }
+                    Ok(state) if state["status"] == "failed" => {
+                        error.set(state["error"].as_str().map(str::to_owned));
+                        qr.set(None);
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        });
+    };
+    view! {
+        <main id="main" class="page page--narrow">
+            <h1>{text::APP_NAME} " – " {text::PAIR_TITLE}</h1>
+            <p>{text::PAIR_INTRO}</p>
+            <div class="form">
+                <label for="incident">{text::PAIR_INCIDENT}</label>
+                <div class="row">
+                    <input id="incident" type="text" spellcheck="false" bind:value=incident />
+                    <button type="button" class="button" on:click=new_incident>{text::PAIR_NEW_INCIDENT}</button>
+                </div>
+            </div>
+            <p role="alert" class="error">{move || error.get()}</p>
+            {move || match login_enabled.get() {
+                None => ().into_any(),
+                Some(false) => view! { <p class="notice">{text::PAIR_NO_LOGIN}</p> }.into_any(),
+                Some(true) => view! {
+                    <div class="row">
+                        <button id="login" type="button" class="button button--primary" on:click=login>{text::PAIR_LOGIN}</button>
+                        <button id="pair-qr" type="button" class="button" on:click=start_qr>{text::PAIR_QR}</button>
+                    </div>
+                    <p class="hint">{text::PAIR_QR_HINT}</p>
+                }.into_any(),
+            }}
+            {move || qr.get().map(|(id, code, uri)| view! {
+                <section class="card pairing-qr" aria-labelledby="pair-qr-title">
+                    <h2 id="pair-qr-title">{text::PAIR_QR}</h2>
+                    <img class="pairing-qr__code" src=format!("/auth/device/{id}/qr.svg") alt=text::PAIR_QR_ALT width="256" height="256" />
+                    <p class="pairing-qr__user-code code">{text::pair_code(&code)}</p>
+                    <p>{text::PAIR_QR_LINK} " " <a id="pair-qr-link" href=uri.clone()>{uri.clone()}</a></p>
+                    <p role="status">{text::PAIR_WAITING}</p>
+                </section>
+            })}
+            <details class="manual-pairing">
+                <summary>{text::PAIR_MANUAL}</summary>
+                <ManualPairing pairing incident />
+            </details>
+        </main>
+    }
+}
+
+/// Manual pairing with data from the seed file (development and tests without login).
+#[component]
+fn ManualPairing(pairing: RwSignal<Option<Pairing>>, incident: RwSignal<String>) -> impl IntoView {
     let user = RwSignal::new(String::new());
     let device = RwSignal::new(String::new());
     let key = RwSignal::new(String::new());
-    let incident = RwSignal::new(core::incident_from_url().unwrap_or_default());
     let error = RwSignal::new(None::<String>);
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -87,31 +236,18 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>) -> impl IntoView {
             Err(e) => error.set(Some(e)),
         }
     };
-    let new_incident = move |_| {
-        if let Some(id) = core::new_incident_id(&user.get()) {
-            incident.set(id);
-        }
-    };
     view! {
-        <main id="main" class="page page--narrow">
-            <h1>{text::APP_NAME} " – " {text::PAIR_TITLE}</h1>
-            <p>{text::PAIR_INTRO}</p>
-            <form on:submit=submit class="form">
-                <label for="user">{text::PAIR_USER}</label>
-                <input id="user" type="text" autocomplete="username" required bind:value=user />
-                <label for="device">{text::PAIR_DEVICE}</label>
-                <input id="device" type="text" autocomplete="off" spellcheck="false" required bind:value=device />
-                <label for="key">{text::PAIR_KEY}</label>
-                <input id="key" type="password" autocomplete="off" spellcheck="false" required bind:value=key />
-                <label for="incident">{text::PAIR_INCIDENT}</label>
-                <div class="row">
-                    <input id="incident" type="text" spellcheck="false" required bind:value=incident />
-                    <button type="button" class="button" on:click=new_incident>{text::PAIR_NEW_INCIDENT}</button>
-                </div>
-                <p role="alert" class="error">{move || error.get()}</p>
-                <button type="submit" class="button button--primary">{text::PAIR_SUBMIT}</button>
-            </form>
-        </main>
+        <p>{text::PAIR_MANUAL_INTRO}</p>
+        <form on:submit=submit class="form">
+            <label for="user">{text::PAIR_USER}</label>
+            <input id="user" type="text" autocomplete="username" required bind:value=user />
+            <label for="device">{text::PAIR_DEVICE}</label>
+            <input id="device" type="text" autocomplete="off" spellcheck="false" required bind:value=device />
+            <label for="key">{text::PAIR_KEY}</label>
+            <input id="key" type="password" autocomplete="off" spellcheck="false" required bind:value=key />
+            <p role="alert" class="error">{move || error.get()}</p>
+            <button type="submit" class="button">{text::PAIR_SUBMIT}</button>
+        </form>
     }
 }
 

@@ -43,6 +43,11 @@ percent-encoding = "2"
 ed25519-dalek = "3"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 getrandom = "0.4"
+openidconnect = { version = "4", default-features = false, features = ["reqwest"] }
+# HTTP client of the login (via openidconnect): TLS with the system's certificate store, so
+# identity providers with an organisation's own certificate authority work too.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -59,7 +64,8 @@ wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
   "BinaryType", "Blob", "CanvasRenderingContext2d", "CloseEvent", "Crypto", "Document", "DomTokenList",
   "File", "FileList", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
-  "HtmlInputElement", "ImageBitmap", "Location", "MessageEvent", "Navigator", "ScrollIntoViewOptions",
+  "Headers", "HtmlInputElement", "ImageBitmap", "Location", "MessageEvent", "Navigator", "Request",
+  "RequestInit", "Response", "ScrollIntoViewOptions",
   "ScrollLogicalPosition", "Storage", "UrlSearchParams", "WebSocket", "Window",
 ] }
 tracing = "0.1"

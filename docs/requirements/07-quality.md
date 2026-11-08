@@ -229,11 +229,11 @@ Tags: must, quality, m7
 Needs: dsn
 
 #### SEC-3 — Login and single sign-on
-`req~sec-3~1`
+`req~sec-3~2`
 
-Login with local accounts; single sign-on via OpenID Connect for larger organisations
+When a person logs in, ORDO shall authenticate them with their organisation's identity provider via OpenID Connect and shall store no passwords itself. For organisations without an identity provider, the installation bundle shall include one with local accounts.
 
-Tags: must, quality
+Tags: must, quality, m8
 
 Needs: dsn
 

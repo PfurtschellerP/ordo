@@ -25,6 +25,10 @@ plus our own checks for what axe does not cover (44 px touch targets, reflow, br
 table rows, fixed bars covering content). Playwright's Firefox build crashes inside axe
 on some pages, so axe runs in Chromium and WebKit, and Firefox runs our own checks.
 
+Devices are paired for real: Anna logs in with [Dex](https://dexidp.io), Ben's tablet is
+paired by QR code from a second browser ("phone"). The test starts Dex in Docker
+(`support/dex.ts`, configuration `support/dex.yaml`); Docker or Podman must be available.
+
 ```sh
 cargo build -p ordo-server
 (cd platform/ordo-app && trunk build --release)

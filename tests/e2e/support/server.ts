@@ -17,12 +17,14 @@ export class OrdoServer {
     return `http://127.0.0.1:${this.port}/`;
   }
 
-  /** Creates the master key, one device key per user, and the seed file. */
-  setup(users: { name: string; roles: string[] }[]): Record<string, DeviceKey> {
+  /** Creates the master key, the client secret for Dex, and (for users paired by hand)
+   *  one device key per user plus the seed file. */
+  setup(users: { name: string; roles: string[] }[] = []): Record<string, DeviceKey> {
     fs.rmSync(this.work, { recursive: true, force: true });
     fs.mkdirSync(this.work, { recursive: true });
     const run = (...args: string[]) => execFileSync(ORDO, args, { encoding: "utf8" });
     fs.writeFileSync(path.join(this.work, "master.key"), run("generate-key"));
+    fs.writeFileSync(path.join(this.work, "oidc-secret"), "ordo-test-secret");
     const keys: Record<string, DeviceKey> = {};
     let seed = "";
     for (const user of users) {
@@ -48,6 +50,11 @@ export class OrdoServer {
         ORDO_MASTER_KEY_FILE: path.join(this.work, "master.key"),
         ORDO_SEED_FILE: path.join(this.work, "seed.toml"),
         ORDO_APP_DIR: DIST,
+        // Login with Dex (support/dex.yaml).
+        ORDO_OIDC_ISSUER: "http://127.0.0.1:5556/dex",
+        ORDO_OIDC_CLIENT_ID: "ordo",
+        ORDO_OIDC_CLIENT_SECRET_FILE: path.join(this.work, "oidc-secret"),
+        ORDO_PUBLIC_URL: `http://127.0.0.1:${this.port}`,
       },
       stdio: ["ignore", log, log],
     });

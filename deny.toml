@@ -12,6 +12,10 @@ ignore = [
   # paste is unmaintained (no known vulnerability). It is a compile-time macro used by
   # Leptos (either_of). Revisit when Leptos replaces it.
   { id = "RUSTSEC-2024-0436", reason = "unmaintained compile-time dependency of Leptos, no known vulnerability" },
+  # rsa: timing side channel in operations with the private key (Marvin attack). ORDO uses
+  # rsa only through openidconnect to verify identity providers' RS256 signatures with
+  # their public keys; there is no private key that could leak. Revisit when a fix exists.
+  { id = "RUSTSEC-2023-0071", reason = "only RSA signature verification with public keys (OIDC ID tokens); no private-key operations" },
 ]
 
 [licenses]
