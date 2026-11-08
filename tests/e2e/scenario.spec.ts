@@ -341,5 +341,26 @@ test("ORDO in the browser", async () => {
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));
     await settle(ben);
     await shot(ben, "command-high-contrast");
+    await ben.evaluate(() => delete document.documentElement.dataset.theme);
+  });
+
+  // [itest->dsn~access-timeout~1]
+  await test.step("a device locks itself when its login has expired, also offline", async () => {
+    const start = Date.now();
+    await ben.clock.install({ time: start });
+    await ben.reload();
+    await expect(ben.locator(".app-header__title")).toBeVisible();
+    // 49 hours later, without any contact to the server (default timeout: 48 hours).
+    await ben.clock.setSystemTime(start + 49 * 3600_000);
+    await ben.clock.fastForward("01:05");
+    await expect(ben.getByRole("heading", { name: /Anmeldung abgelaufen/ }), "the device locks itself").toBeVisible();
+    await expect(ben.locator(".unit-card"), "no data is shown while locked").toHaveCount(0);
+    await expect(ben.getByRole("button", { name: "Anmelden" }), "the person can log in again").toBeVisible();
+    await audit(ben, "Login expired", [1200]);
+    await shot(ben, "login-expired");
+    // Back within the login: the device unlocks; its data is still there.
+    await ben.clock.setSystemTime(Date.now());
+    await ben.clock.fastForward("01:05");
+    await expect(ben.locator(".app-header__title"), "the device unlocks within its login").toBeVisible();
   });
 });

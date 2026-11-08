@@ -228,6 +228,15 @@ Tags: must, quality, m7
 
 Needs: dsn
 
+#### SEC-12 — Access timeout
+`req~sec-12~1`
+
+ORDO shall end the access of a paired device when its person has not been verified by the identity provider for the access timeout (default 48 hours, configurable from 1 to 30 days), or at once when the identity provider definitively refuses the person; the device shall then lock itself, also offline, until the person logs in again. An unreachable identity provider alone shall not end access before the timeout.
+
+Tags: must, quality, m9
+
+Needs: dsn
+
 #### SEC-3 — Login and single sign-on
 `req~sec-3~2`
 

@@ -65,6 +65,14 @@ const SCHEMA: &[&str] = &[
     ) STRICT",
 ];
 
+/// Columns added after the first release of a table; adding them again fails harmlessly.
+const ADDED_COLUMNS: &[&str] = &[
+    // End of a device's login (ms), ADR-0040.
+    "ALTER TABLE devices ADD COLUMN valid_until INTEGER",
+    // The identity provider's renewal token, wrapped with the master key (ADR-0040).
+    "ALTER TABLE identities ADD COLUMN refresh BLOB",
+];
+
 /// The server's database.
 #[derive(Clone)]
 pub struct Store {
@@ -86,6 +94,13 @@ impl Store {
             .await?;
         for statement in SCHEMA {
             sqlx::query(*statement).execute(&pool).await?;
+        }
+        for statement in ADDED_COLUMNS {
+            if let Err(error) = sqlx::query(*statement).execute(&pool).await
+                && !error.to_string().contains("duplicate column")
+            {
+                return Err(error.into());
+            }
         }
         Ok(Self { pool })
     }
@@ -264,33 +279,103 @@ impl Store {
             .collect()
     }
 
-    /// Stores a paired device. Pairing it again replaces its key, but only for the same
-    /// user: a device ID of another person cannot be taken over (returns `false`).
+    /// Stores a paired device whose login lasts until `valid_until` (ms). Pairing it again
+    /// replaces its key, but only for the same user: a device ID of another person cannot
+    /// be taken over (returns `false`).
     pub async fn save_device(
         &self,
         device: &DeviceId,
         user: &UserId,
         key: &[u8; 32],
         now_ms: u64,
+        valid_until: u64,
     ) -> Result<bool, StoreError> {
         let saved = sqlx::query(
-            "INSERT INTO devices (device_id, user_id, public_key, paired_ms) VALUES (?, ?, ?, ?)
+            "INSERT INTO devices (device_id, user_id, public_key, paired_ms, valid_until)
+             VALUES (?, ?, ?, ?, ?)
              ON CONFLICT (device_id) DO UPDATE SET public_key = excluded.public_key,
-                 paired_ms = excluded.paired_ms
+                 paired_ms = excluded.paired_ms, valid_until = excluded.valid_until
              WHERE devices.user_id = excluded.user_id",
         )
         .bind(device.ulid().to_string())
         .bind(user.as_str())
         .bind(key.as_slice())
-        .bind(i64::try_from(now_ms).unwrap_or(i64::MAX))
+        .bind(ms(now_ms))
+        .bind(ms(valid_until))
         .execute(&self.pool)
         .await?;
         Ok(saved.rows_affected() == 1)
     }
 
-    /// All paired devices: (device, user, public key).
-    pub async fn load_devices(&self) -> Result<Vec<(DeviceId, UserId, [u8; 32])>, StoreError> {
-        let rows = sqlx::query("SELECT device_id, user_id, public_key FROM devices")
+    /// Sets the end of the login of all devices of `user` (re-verified or ended).
+    pub async fn set_valid_until(&self, user: &UserId, valid_until: u64) -> Result<(), StoreError> {
+        sqlx::query("UPDATE devices SET valid_until = ? WHERE user_id = ?")
+            .bind(ms(valid_until))
+            .bind(user.as_str())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Stores (or with `None` removes) the identity provider's renewal token of a person,
+    /// wrapped with the master key.
+    pub async fn set_refresh(
+        &self,
+        issuer: &str,
+        subject: &str,
+        token: Option<&str>,
+        master: &DataKey,
+    ) -> Result<(), StoreError> {
+        let wrapped = token.map(|t| {
+            seal::wrap(
+                master,
+                random_nonce(),
+                &refresh_label(issuer, subject),
+                t.as_bytes(),
+            )
+        });
+        sqlx::query("UPDATE identities SET refresh = ? WHERE issuer = ? AND subject = ?")
+            .bind(wrapped)
+            .bind(issuer)
+            .bind(subject)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Everyone with a renewal token: (issuer, subject, user, token).
+    pub async fn load_refresh(
+        &self,
+        master: &DataKey,
+    ) -> Result<Vec<(String, String, UserId, String)>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT issuer, subject, user_id, refresh FROM identities WHERE refresh IS NOT NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                let issuer: String = row.get("issuer");
+                let subject: String = row.get("subject");
+                let user: String = row.get("user_id");
+                let wrapped: Vec<u8> = row.get("refresh");
+                let token = seal::unwrap(master, &refresh_label(&issuer, &subject), &wrapped)
+                    .map_err(|_| StoreError::Invalid("renewal token cannot be unwrapped".into()))?;
+                Ok((
+                    issuer,
+                    subject,
+                    UserId::from_str(&user).map_err(|e| StoreError::Invalid(e.to_string()))?,
+                    String::from_utf8(token).map_err(|e| StoreError::Invalid(e.to_string()))?,
+                ))
+            })
+            .collect()
+    }
+
+    /// All paired devices: (device, user, public key, end of login).
+    pub async fn load_devices(
+        &self,
+    ) -> Result<Vec<(DeviceId, UserId, [u8; 32], Option<u64>)>, StoreError> {
+        let rows = sqlx::query("SELECT device_id, user_id, public_key, valid_until FROM devices")
             .fetch_all(&self.pool)
             .await?;
         rows.into_iter()
@@ -304,6 +389,8 @@ impl Store {
                     UserId::from_str(&user).map_err(|e| invalid(e.to_string()))?,
                     key.try_into()
                         .map_err(|_| invalid("device key length".into()))?,
+                    row.get::<Option<i64>, _>("valid_until")
+                        .map(|v| u64::try_from(v).unwrap_or_default()),
                 ))
             })
             .collect()
@@ -340,6 +427,14 @@ impl Store {
     }
 }
 
+fn ms(value: u64) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
+}
+
+fn refresh_label(issuer: &str, subject: &str) -> String {
+    format!("refresh/{issuer}/{subject}")
+}
+
 fn stream_key(incident: &str, compartment: &str) -> Result<StreamKey, StoreError> {
     let incident =
         IncidentId::from_str(incident).map_err(|e| StoreError::Invalid(e.to_string()))?;
@@ -374,26 +469,28 @@ mod tests {
         let device = DeviceId(Ulid::from_parts(1, 1).unwrap());
         assert!(
             store
-                .save_device(&device, &user("anna"), &[1; 32], 1)
+                .save_device(&device, &user("anna"), &[1; 32], 1, 100)
                 .await
                 .unwrap()
         );
         assert!(
             store
-                .save_device(&device, &user("anna"), &[2; 32], 2)
+                .save_device(&device, &user("anna"), &[2; 32], 2, 200)
                 .await
                 .unwrap(),
             "the same person may pair the device again with a new key"
         );
         assert!(
             !store
-                .save_device(&device, &user("mallory"), &[3; 32], 3)
+                .save_device(&device, &user("mallory"), &[3; 32], 3, 300)
                 .await
                 .unwrap(),
             "another person may not take the device ID over"
         );
         let devices = store.load_devices().await.unwrap();
-        assert_eq!(devices, vec![(device, user("anna"), [2; 32])]);
+        assert_eq!(devices, vec![(device, user("anna"), [2; 32], Some(200))]);
+        store.set_valid_until(&user("anna"), 5).await.unwrap();
+        assert_eq!(store.load_devices().await.unwrap()[0].3, Some(5));
     }
 
     #[tokio::test]

@@ -45,12 +45,18 @@ Changes to `dex.yaml` take effect after `docker compose restart dex`.
 
 ## Field servers without internet
 
-Devices that were paired before the deployment keep working without any login: each
-connection is proven with the device's own key, which the field server checks itself. Plan
-it like this:
+Devices that were paired before the deployment keep working without the identity provider
+until their access timeout: each connection is proven with the device's own key, which the
+field server checks itself. Plan it like this:
 
 - **Pair the devices before you leave** (at the station, with internet): log in on every
   tablet or pair it by QR code.
+- **Mind the access timeout:** a device login lasts 48 hours after its person was last
+  verified by the identity provider, then the device locks itself until the person logs
+  in again ([ADR-0040](../../../docs/adr/0040-access-ends-only-on-positive-evidence.md)).
+  For longer deployments without internet, set `ORDO_ACCESS_TIMEOUT_HOURS` (up to 720 =
+  30 days) before you leave. People with local accounts of the field server's Dex can log
+  in again on site.
 - **People who join on scene** log in with a local account of the field server's Dex
   (`staticPasswords`). An upstream provider cannot be reached offline; Dex does not cache
   its logins. (Planned: an already paired person with the right role approves a new device

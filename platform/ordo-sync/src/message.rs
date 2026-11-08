@@ -80,6 +80,11 @@ pub struct Welcome {
     pub protected: Vec<CompartmentId>,
     /// Data keys for protected compartments the user may read.
     pub keys: Vec<KeyGrant>,
+    /// Until when (ms since the Unix epoch) the login of this device is valid; the device
+    /// locks itself afterwards, also offline, until the person logs in again (ADR-0040).
+    /// `None`: no limit (devices paired by hand for development).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<u64>,
 }
 
 /// An incident compartment.
@@ -148,6 +153,8 @@ pub enum Rejection {
     UnknownDevice,
     /// The hello did not prove the device key (missing challenge or wrong proof).
     NotAuthenticated,
+    /// The login of this device has expired or was ended; the person must log in again.
+    LoginExpired,
     /// Author in the event doesn't match the connected user and device.
     WrongAuthor,
     /// The signature is not valid.

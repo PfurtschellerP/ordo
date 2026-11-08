@@ -32,9 +32,10 @@ use openidconnect::core::{
 use openidconnect::{
     AdditionalClaims, AdditionalProviderMetadata, AuthType, AuthorizationCode, ClientId,
     ClientSecret, CsrfToken, DeviceAuthorizationUrl, EmptyExtraTokenFields, EndpointMaybeSet,
-    EndpointNotSet, EndpointSet, IdTokenClaims, IdTokenFields, IssuerUrl, Nonce, PkceCodeChallenge,
-    PkceCodeVerifier, ProviderMetadata, RedirectUrl, Scope, StandardErrorResponse,
-    StandardTokenResponse, TokenResponse as _, reqwest,
+    EndpointNotSet, EndpointSet, IdTokenClaims, IdTokenFields, IssuerUrl, Nonce,
+    OAuth2TokenResponse as _, PkceCodeChallenge, PkceCodeVerifier, ProviderMetadata, RedirectUrl,
+    RefreshToken, RequestTokenError, Scope, StandardErrorResponse, StandardTokenResponse,
+    TokenResponse as _, reqwest,
 };
 use ordo_core::{DeviceId, Ulid, UserId};
 use ordo_crypto::ed25519_dalek::VerifyingKey;
@@ -216,7 +217,9 @@ impl Login {
     }
 }
 
-const SCOPES: [&str; 3] = ["profile", "email", "groups"];
+/// `offline_access` asks for a renewal token, so the server can re-verify people in the
+/// background (ADR-0040).
+const SCOPES: [&str; 4] = ["profile", "email", "groups", "offline_access"];
 
 /// The ORDO user name for a person: their preferred user name (or the local part of the
 /// e-mail address), in the characters ORDO user IDs allow.
@@ -263,6 +266,7 @@ fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
 async fn finish(
     app: &App,
     claims: &Claims,
+    renewal: Option<&RefreshToken>,
     device: DeviceId,
     key: VerifyingKey,
 ) -> Result<UserId, LoginError> {
@@ -283,11 +287,136 @@ async fn finish(
         .await?;
     let base = app.seed_roles.get(&user).cloned().unwrap_or_default();
     app.roles.set(&user, &base, &roles);
+    if let Some(renewal) = renewal {
+        app.store
+            .set_refresh(
+                claims.issuer().as_str(),
+                claims.subject().as_str(),
+                Some(renewal.secret()),
+                &app.master,
+            )
+            .await?;
+    }
     if !app.register_device(device, user.clone(), key).await? {
         return Err(LoginError::DeviceTaken);
     }
     tracing::info!(user = %user, device = %device.ulid(), "device paired by login");
     Ok(user)
+}
+
+/// What a background renewal found out.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Renewal {
+    /// The identity provider confirmed the person; the login is extended.
+    Confirmed,
+    /// The identity provider definitively refused (`invalid_grant`); access ends now.
+    Refused,
+    /// No answer that decides anything (unreachable, generic errors): nothing changes;
+    /// the timeout still applies (ADR-0040).
+    Undecided,
+}
+
+/// Classifies a failed renewal: only `invalid_grant` is a definitive refusal. Dex, for
+/// example, reports an unreachable upstream provider and an upstream refusal with the same
+/// generic error, so those stay undecided.
+fn classify<RE: std::error::Error + 'static>(
+    error: &RequestTokenError<RE, StandardErrorResponse<CoreErrorResponseType>>,
+) -> Renewal {
+    match error {
+        RequestTokenError::ServerResponse(response)
+            if *response.error() == CoreErrorResponseType::InvalidGrant =>
+        {
+            Renewal::Refused
+        }
+        _ => Renewal::Undecided,
+    }
+}
+
+// [impl->dsn~access-timeout~1]
+/// Re-verifies everyone who logged in, with the identity provider's renewal tokens: a
+/// confirmation extends the login of all their devices and updates their roles; a
+/// definitive refusal ends it at once; anything else changes nothing (ADR-0040).
+pub(crate) async fn reverify(app: &App) {
+    let Some(login) = app.login.as_ref() else {
+        return;
+    };
+    let people = match app.store.load_refresh(&app.master).await {
+        Ok(people) => people,
+        Err(error) => {
+            tracing::error!(%error, "reading renewal tokens failed");
+            return;
+        }
+    };
+    if people.is_empty() {
+        return;
+    }
+    let client = match login.client().await {
+        Ok(client) => client,
+        Err(error) => {
+            tracing::info!(%error, "identity provider not reachable; logins stay as they are");
+            return;
+        }
+    };
+    for (issuer, subject, user, token) in people {
+        let token = RefreshToken::new(token);
+        let request = match client.exchange_refresh_token(&token) {
+            Ok(request) => request,
+            Err(error) => {
+                tracing::error!(%error, "renewal not possible");
+                return;
+            }
+        };
+        let outcome = match request.request_async(&login.http).await {
+            Ok(tokens) => {
+                let no_nonce = |_: Option<&Nonce>| Ok::<(), String>(());
+                if let Some(claims) = tokens
+                    .id_token()
+                    .and_then(|t| t.claims(&client.id_token_verifier(), no_nonce).ok())
+                {
+                    let roles = claims.additional_claims().groups.clone();
+                    let base = app.seed_roles.get(&user).cloned().unwrap_or_default();
+                    app.roles.set(&user, &base, &roles);
+                    let wanted = user.localpart().to_owned();
+                    if let Err(error) = app
+                        .store
+                        .identity(&issuer, &subject, &wanted, &app.server, &roles)
+                        .await
+                    {
+                        tracing::error!(%error, "storing roles failed");
+                    }
+                }
+                let renewed = tokens.refresh_token().map(|t| t.secret().as_str());
+                let stored = renewed.unwrap_or(token.secret().as_str());
+                if let Err(error) = app
+                    .store
+                    .set_refresh(&issuer, &subject, Some(stored), &app.master)
+                    .await
+                {
+                    tracing::error!(%error, "storing the renewal token failed");
+                }
+                Renewal::Confirmed
+            }
+            Err(error) => classify(&error),
+        };
+        let result = match outcome {
+            Renewal::Confirmed => app.set_valid_until(&user, app.valid_from_now()).await,
+            Renewal::Refused => {
+                tracing::warn!(user = %user, "identity provider refused the renewal; access ends");
+                let _ = app
+                    .store
+                    .set_refresh(&issuer, &subject, None, &app.master)
+                    .await;
+                app.set_valid_until(&user, crate::app::now_ms()).await
+            }
+            Renewal::Undecided => {
+                tracing::info!(user = %user, "renewal undecided; login stays until its end");
+                Ok(())
+            }
+        };
+        if let Err(error) = result {
+            tracing::error!(%error, "storing the login state failed");
+        }
+    }
 }
 
 /// `GET /auth/config`: whether login is available, and the server name (for new incidents).
@@ -426,7 +555,14 @@ pub(crate) async fn callback(
                 return Err(LoginError::Token(e.to_string()));
             }
         };
-        finish(&app, &claims, pending.device, pending.key).await
+        finish(
+            &app,
+            &claims,
+            tokens.refresh_token(),
+            pending.device,
+            pending.key,
+        )
+        .await
     }
     .await;
     match result {
@@ -532,7 +668,7 @@ pub(crate) async fn device_start(
                 .claims(&client.id_token_verifier(), no_nonce)
                 .map_err(|e| LoginError::Token(e.to_string()))?
                 .clone();
-            finish(&waiting, &claims, device, key).await
+            finish(&waiting, &claims, tokens.refresh_token(), device, key).await
         }
         .await;
         let status = match result {
@@ -636,6 +772,23 @@ mod tests {
         assert!(parse_device(&device, &hex).is_some());
         assert!(parse_device("not-a-ulid", &hex).is_none());
         assert!(parse_device(&device, "abc").is_none());
+    }
+
+    // [utest->dsn~access-timeout~1]
+    #[test]
+    fn only_invalid_grant_ends_access() {
+        type Error =
+            RequestTokenError<std::io::Error, StandardErrorResponse<CoreErrorResponseType>>;
+        let response = |kind| StandardErrorResponse::new(kind, None, None);
+        let refused: Error =
+            RequestTokenError::ServerResponse(response(CoreErrorResponseType::InvalidGrant));
+        assert_eq!(classify(&refused), Renewal::Refused);
+        // Dex answers an unreachable upstream with a generic invalid_request (HTTP 500).
+        let generic: Error =
+            RequestTokenError::ServerResponse(response(CoreErrorResponseType::InvalidRequest));
+        assert_eq!(classify(&generic), Renewal::Undecided);
+        let offline: Error = RequestTokenError::Request(std::io::Error::other("unreachable"));
+        assert_eq!(classify(&offline), Renewal::Undecided);
     }
 
     #[test]

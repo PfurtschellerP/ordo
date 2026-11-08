@@ -44,6 +44,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0037](0037-epcr-forms-as-fhir-questionnaire.md) | ePCR forms as an HL7 FHIR Questionnaire | accepted | 2026-11-08 |
 | [0038](0038-login-and-device-pairing.md) | Login: OpenID Connect, device keys and QR pairing | accepted, amended by 0039 | 2026-11-08 |
 | [0039](0039-dex-in-every-installation.md) | Dex in every installation; ORDO speaks only OpenID Connect | accepted | 2026-11-08 |
-| [0040](0040-access-ends-only-on-positive-evidence.md) | Access ends only on positive evidence, never on unreachability | proposed | 2026-11-08 |
+| [0040](0040-access-ends-only-on-positive-evidence.md) | Device logins expire after a timeout; unreachability alone ends nothing early | accepted | 2026-11-08 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

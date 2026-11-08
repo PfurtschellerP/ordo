@@ -60,6 +60,11 @@ Done in phase 0:
   as policy files (ADR-0035).
 - Dex in every installation; ORDO speaks only OpenID Connect, LDAP is not supported
   (ADR-0039); field-server guidance in the Compose bundle.
+- Access timeout (milestone `m9`, ADR-0040): a device login ends 48 hours (1–30 days)
+  after the last verification; the server renews it in the background with the identity
+  provider's renewal token, ends it at once on a definitive refusal, refuses and cuts
+  expired devices; the device locks itself, also offline, and its person logs in again
+  with the same key.
 - Login, step 2 (milestone `m8`): OpenID Connect login (ORDO server as relying party,
   PKCE), QR pairing of shared tablets (RFC 8628), identity-provider groups as roles, paired
   devices stored; Dex in the browser tests and, optionally, in Docker Compose. The browser
@@ -71,11 +76,8 @@ Done in phase 0:
 Next:
 
 1. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)): device list and
-   revocation (SEC-4); background re-verification on the server, where access ends only
-   on positive evidence and never because a service is unreachable
-   ([ADR-0040](adr/0040-access-ends-only-on-positive-evidence.md), proposed); protected key
-   storage in the browser (WebCrypto, non-extractable keys); an admin view for roles,
-   "last verified" and Dex's local accounts.
+   revocation by an admin (SEC-4); protected key storage in the browser (WebCrypto,
+   non-extractable keys); an admin view for roles, "valid until" and Dex's local accounts.
 2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).

@@ -797,3 +797,50 @@ fn several_uhs_and_units_in_one_incident() {
     let anna_events = world.replica("anna").events(&incident, "incident").unwrap();
     assert_eq!(UnitRegister::from_events(&anna_events), register);
 }
+
+// [itest->dsn~access-timeout~1]
+/// A login does not last forever: the device learns when it ends, an open connection is
+/// cut when it passes, a new one is refused, and a renewal makes the device work again.
+#[test]
+fn access_ends_when_the_login_expires_and_returns_after_renewal() {
+    use ordo_sync::message::ServerMessage;
+    let mut world = World::new();
+    world.sync();
+    let anna: ordo_core::UserId = "anna@ordo.drk-musterstadt.de".parse().unwrap();
+    let minute = 60_000;
+    world.hub.set_valid_until(&anna, world.now + minute);
+    // Reconnect, so the welcome tells the device when its login ends.
+    world.set_online("anna", false);
+    world.set_online("anna", true);
+    world.sync();
+    let start = world.now;
+    assert_eq!(world.replica("anna").valid_until(), Some(start + minute));
+    assert!(!world.replica("anna").login_expired(start));
+
+    world.tick(minute + 1);
+    let now = world.now;
+    assert!(
+        world.replica("anna").login_expired(now),
+        "the device locks itself, also offline"
+    );
+    let cut = world.hub.expire(now);
+    assert!(
+        cut.iter()
+            .any(|o| o.message == ServerMessage::Refused(Rejection::LoginExpired)),
+        "the open connection is cut: {cut:?}"
+    );
+    let hello = world.hello("anna", 77);
+    let out = world.hub.handle(77, hello, now);
+    assert_eq!(
+        out[0].message,
+        ServerMessage::Refused(Rejection::LoginExpired)
+    );
+
+    // Re-verified (login or background renewal): the device works again.
+    world.hub.set_valid_until(&anna, now + 48 * 60 * minute);
+    let hello = world.hello("anna", 78);
+    let out = world.hub.handle(78, hello, now);
+    assert!(
+        matches!(&out[0].message, ServerMessage::Welcome(w) if w.valid_until == Some(now + 48 * 60 * minute))
+    );
+}

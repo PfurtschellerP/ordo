@@ -36,6 +36,10 @@ message per frame.
      denied stream to this connection.
    - `protected`: compartments whose payloads must be sealed.
    - `keys`: data keys of granted protected streams.
+   - `valid_until` (optional): the end of this device's login. The device locks itself
+     afterwards, also offline, until the person logs in again. The server MUST refuse
+     (`refused: loginExpired`) a hello of a device whose login has ended, and MUST end open
+     connections of such devices with the same refusal.
 5. The device then sends its whole outbox (`push`).
 
 ## 3. Pushing events
@@ -74,7 +78,8 @@ They are signed by the server and ordered like any other event.
 ## 6. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
-(§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)).
+(§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
+(`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md)).
 
 Open for draft 2:
 

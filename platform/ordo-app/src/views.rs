@@ -68,7 +68,7 @@ pub fn App() -> impl IntoView {
         <Router>
             {move || match pairing.get() {
                 None => view! { <PairingForm pairing login_error=login_error.clone() /> }.into_any(),
-                Some(p) => view! { <Workspace pairing=p on_unpair=move || pairing.set(None) /> }.into_any(),
+                Some(p) => view! { <Device pairing=p paired=pairing on_unpair=move || pairing.set(None) /> }.into_any(),
             }}
         </Router>
     }
@@ -77,10 +77,23 @@ pub fn App() -> impl IntoView {
 // [impl->dsn~oidc-login~1]
 // [impl->dsn~qr-pairing~1]
 /// Pairing: log in with the organisation's account, or pair a shared tablet by QR code;
-/// the device makes its own key, which never leaves it (ADR-0038).
+/// the device makes its own key, which never leaves it (ADR-0038). With `relogin`, the
+/// device's login has expired: the person logs in again with the same device key, and the
+/// data on the device stays (ADR-0040).
 #[component]
-fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> impl IntoView {
-    let incident = RwSignal::new(core::incident_from_url().unwrap_or_default());
+fn PairingForm(
+    pairing: RwSignal<Option<Pairing>>,
+    login_error: Option<String>,
+    #[prop(optional)] relogin: Option<Pairing>,
+) -> impl IntoView {
+    let relogin = StoredValue::new(relogin);
+    let is_relogin = relogin.with_value(Option::is_some);
+    let incident = RwSignal::new(
+        relogin
+            .with_value(|r| r.as_ref().map(|p| p.incident.clone()))
+            .or_else(core::incident_from_url)
+            .unwrap_or_default(),
+    );
     let server = RwSignal::new(None::<String>);
     let login_enabled = RwSignal::new(None::<bool>);
     let error = RwSignal::new(login_error.map(|e| format!("{}: {e}", text::LOGIN_FAILED)));
@@ -113,8 +126,17 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) 
             incident.set(id);
         }
     };
+    // The device to log in with: the existing one (log in again) or a new key pair.
+    let device_for_login = move || match relogin.get_value() {
+        Some(p) => Some(core::PendingDevice {
+            device: p.device,
+            private_key: p.private_key,
+            incident: p.incident,
+        }),
+        None => chosen_incident().and_then(|i| core::PendingDevice::create(&i)),
+    };
     let login = move |_| {
-        let Some(device) = chosen_incident().and_then(|i| core::PendingDevice::create(&i)) else {
+        let Some(device) = device_for_login() else {
             return;
         };
         let Some(key) = device.public_key() else {
@@ -128,7 +150,7 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) 
         }
     };
     let start_qr = move |_| {
-        let Some(device) = chosen_incident().and_then(|i| core::PendingDevice::create(&i)) else {
+        let Some(device) = device_for_login() else {
             return;
         };
         let Some(key) = device.public_key() else {
@@ -175,15 +197,20 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) 
     };
     view! {
         <main id="main" class="page page--narrow">
-            <h1>{text::APP_NAME} " – " {text::PAIR_TITLE}</h1>
-            <p>{text::PAIR_INTRO}</p>
-            <div class="form">
-                <label for="incident">{text::PAIR_INCIDENT}</label>
-                <div class="row">
-                    <input id="incident" type="text" spellcheck="false" bind:value=incident />
-                    <button type="button" class="button" on:click=new_incident>{text::PAIR_NEW_INCIDENT}</button>
+            <h1>
+                {text::APP_NAME} " – "
+                {if is_relogin { text::RELOGIN_TITLE } else { text::PAIR_TITLE }}
+            </h1>
+            <p>{if is_relogin { text::RELOGIN_INTRO } else { text::PAIR_INTRO }}</p>
+            {(!is_relogin).then(|| view! {
+                <div class="form">
+                    <label for="incident">{text::PAIR_INCIDENT}</label>
+                    <div class="row">
+                        <input id="incident" type="text" spellcheck="false" bind:value=incident />
+                        <button type="button" class="button" on:click=new_incident>{text::PAIR_NEW_INCIDENT}</button>
+                    </div>
                 </div>
-            </div>
+            })}
             <p role="alert" class="error">{move || error.get()}</p>
             {move || match login_enabled.get() {
                 None => ().into_any(),
@@ -205,10 +232,23 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) 
                     <p role="status">{text::PAIR_WAITING}</p>
                 </section>
             })}
-            <details class="manual-pairing">
-                <summary>{text::PAIR_MANUAL}</summary>
-                <ManualPairing pairing incident />
-            </details>
+            {if is_relogin {
+                view! {
+                    <button type="button" class="button" on:click=move |_| {
+                        core::forget_device();
+                        pairing.set(None);
+                    }>{text::UNPAIR}</button>
+                }
+                .into_any()
+            } else {
+                view! {
+                    <details class="manual-pairing">
+                        <summary>{text::PAIR_MANUAL}</summary>
+                        <ManualPairing pairing incident />
+                    </details>
+                }
+                .into_any()
+            }}
         </main>
     }
 }
@@ -334,14 +374,50 @@ pub(crate) fn after_render(f: impl FnOnce() + 'static) {
 /// Layout: header with title, search and connection; navigation as a rail (wide
 /// screens) or a bottom bar (phones, tablets in portrait), holding the views and the menu
 /// (launcher) for switching workspaces.
+// [impl->dsn~access-timeout~1]
+/// The paired device: its state and connection, and either the workspace or, when the
+/// device's login has expired, the lock screen to log in again (ADR-0040). The device locks
+/// itself also offline, from the end of the login the server announced.
 #[component]
-fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl IntoView {
+fn Device(
+    pairing: Pairing,
+    paired: RwSignal<Option<Pairing>>,
+    on_unpair: impl Fn() + Clone + Send + Sync + 'static,
+) -> impl IntoView {
     let core = match Core::new(&pairing) {
         Ok(core) => StoredValue::new_local(core),
         Err(error) => return view! { <p role="alert" class="error">{error}</p> }.into_any(),
     };
     let revision = RwSignal::new(0u64);
     core::connect(core, revision);
+    // Check the end of the login every minute, also without connection.
+    if let Ok(tick) = set_interval_with_handle(
+        move || revision.update(|r| *r += 1),
+        std::time::Duration::from_secs(60),
+    ) {
+        on_cleanup(move || tick.clear());
+    }
+    let locked = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.login_expired || c.replica.login_expired(core::now_ms()))
+    });
+    view! {
+        <Show
+            when=move || !locked.get()
+            fallback=move || view! { <PairingForm pairing=paired login_error=None relogin=pairing.clone() /> }
+        >
+            <Workspace core revision on_unpair=on_unpair.clone() />
+        </Show>
+    }
+    .into_any()
+}
+
+#[component]
+fn Workspace(
+    core: Handle,
+    revision: RwSignal<u64>,
+    on_unpair: impl Fn() + Clone + 'static,
+) -> impl IntoView {
     let nav = Nav::new();
     provide_context(patients::Drafts::default());
     let open = RwSignal::new(false);

@@ -14,7 +14,7 @@ use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
 use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind, record};
-use ordo_sync::message::{self, ClientMessage, ServerMessage};
+use ordo_sync::message::{self, ClientMessage, Rejection, ServerMessage};
 use ordo_sync::{Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
@@ -71,6 +71,8 @@ pub struct Core {
     /// The device storage refused the last save (full or blocked): input is only kept
     /// in memory until it is sent.
     pub storage_failed: bool,
+    /// The server refused the device because its login expired or was ended (ADR-0040).
+    pub login_expired: bool,
     socket: Option<WebSocket>,
 }
 
@@ -117,6 +119,7 @@ impl Core {
             announcement: String::new(),
             error: None,
             storage_failed: false,
+            login_expired: false,
             socket: None,
         })
     }
@@ -162,7 +165,16 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         let welcome = matches!(message, ServerMessage::Welcome(_));
         core.update_value(|c| {
             match c.replica.receive(message, now_ms()) {
-                Ok(()) => c.error = None,
+                Ok(()) => {
+                    c.error = None;
+                    // Only a welcome proves that the login is valid again.
+                    if welcome {
+                        c.login_expired = false;
+                    }
+                }
+                Err(ordo_sync::SyncError::Refused(Rejection::LoginExpired)) => {
+                    c.login_expired = true;
+                }
                 Err(error) => c.error = Some(error.to_string()),
             }
             if let Some(hello) = c.replica.hello() {

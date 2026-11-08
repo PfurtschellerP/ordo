@@ -88,6 +88,14 @@ pub struct HubConfig {
 struct RegisteredDevice {
     user: UserId,
     key: VerifyingKey,
+    /// End of the device's login (ms); `None` for devices without a limit.
+    valid_until: Option<u64>,
+}
+
+impl RegisteredDevice {
+    fn expired(&self, now_ms: u64) -> bool {
+        self.valid_until.is_some_and(|until| now_ms >= until)
+    }
 }
 
 #[derive(Default)]
@@ -214,9 +222,64 @@ impl<P: AccessPolicy> Hub<P> {
         self.signer.verifying_key()
     }
 
-    /// Registers a paired device of `user` with its public key.
+    /// Registers a paired device of `user` with its public key, without a time limit
+    /// (devices paired by hand for development).
     pub fn register_device(&mut self, device: DeviceId, user: UserId, key: VerifyingKey) {
-        self.devices.insert(device, RegisteredDevice { user, key });
+        self.register_device_until(device, user, key, None);
+    }
+
+    // [impl->dsn~access-timeout~1]
+    /// Registers a paired device whose login is valid until `valid_until` (ms).
+    pub fn register_device_until(
+        &mut self,
+        device: DeviceId,
+        user: UserId,
+        key: VerifyingKey,
+        valid_until: Option<u64>,
+    ) {
+        self.devices.insert(
+            device,
+            RegisteredDevice {
+                user,
+                key,
+                valid_until,
+            },
+        );
+    }
+
+    // [impl->dsn~access-timeout~1]
+    /// Sets the end of the login of every device of `user` (re-verified: later; refused by
+    /// the identity provider: now).
+    pub fn set_valid_until(&mut self, user: &UserId, valid_until: u64) {
+        for device in self.devices.values_mut().filter(|d| &d.user == user) {
+            device.valid_until = Some(valid_until);
+        }
+    }
+
+    // [impl->dsn~access-timeout~1]
+    /// Ends the sessions of devices whose login has expired; returns the refusals to send.
+    /// The server calls this regularly, so an open connection does not outlive the login.
+    pub fn expire(&mut self, now_ms: u64) -> Vec<Outgoing> {
+        let expired: Vec<SessionId> = self
+            .sessions
+            .iter()
+            .filter(|(_, s)| {
+                self.devices
+                    .get(&s.device)
+                    .is_none_or(|d| d.expired(now_ms))
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        expired
+            .into_iter()
+            .map(|session| {
+                self.sessions.remove(&session);
+                Outgoing {
+                    session,
+                    message: ServerMessage::Refused(Rejection::LoginExpired),
+                }
+            })
+            .collect()
     }
 
     /// Adds a connector deriver.
@@ -258,13 +321,20 @@ impl<P: AccessPolicy> Hub<P> {
         now_ms: u64,
     ) -> Vec<Outgoing> {
         match message {
-            ClientMessage::Hello(hello) => self.hello(session, hello),
-            ClientMessage::Push(events) => self.push(session, events, now_ms),
+            ClientMessage::Hello(hello) => self.hello(session, hello, now_ms),
+            ClientMessage::Push(events) => {
+                // A connection does not outlive the login of its device.
+                let expired = self.expire(now_ms);
+                if let Some(refusal) = expired.iter().find(|o| o.session == session) {
+                    return vec![refusal.clone()];
+                }
+                self.push(session, events, now_ms)
+            }
         }
     }
 
     // [impl->dsn~compartment-scoped-sync~1]
-    fn hello(&mut self, session: SessionId, hello: Hello) -> Vec<Outgoing> {
+    fn hello(&mut self, session: SessionId, hello: Hello, now_ms: u64) -> Vec<Outgoing> {
         let refuse = |reason| {
             vec![Outgoing {
                 session,
@@ -294,11 +364,17 @@ impl<P: AccessPolicy> Hub<P> {
         {
             return refuse(Rejection::NotAuthenticated);
         }
+        // [impl->dsn~access-timeout~1]
+        if device.expired(now_ms) {
+            return refuse(Rejection::LoginExpired);
+        }
+        let valid_until = device.valid_until;
         let mut welcome = Welcome {
             granted: Vec::new(),
             denied: Vec::new(),
             protected: self.config.protected.clone(),
             keys: Vec::new(),
+            valid_until,
         };
         let mut deliveries = Vec::new();
         let mut streams = HashSet::new();

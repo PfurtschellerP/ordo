@@ -41,6 +41,8 @@ welcome = {
   "denied": [* stream-ref],
   "protected": [* compartment-id],
   "keys": [* key-grant],
+  ? "valid_until": uint,           ; end of this device's login (ms since 1970); the
+                                   ; device locks itself afterwards, also offline
 }
 
 stream-ref = {
@@ -68,6 +70,7 @@ rejected = {
   "reason": rejection,
 }
 
-rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "wrongAuthor" / "badSignature"
+rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
+          / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId"

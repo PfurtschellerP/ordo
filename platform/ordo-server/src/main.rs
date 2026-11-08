@@ -27,6 +27,8 @@ Environment for `serve`:
   ORDO_OIDC_CLIENT_ID    Client ID of ORDO at the identity provider
   ORDO_OIDC_CLIENT_SECRET_FILE  File with the client secret
   ORDO_PUBLIC_URL        Address of ORDO, e.g. https://ordo.example.org
+  ORDO_ACCESS_TIMEOUT_HOURS  How long a device login lasts without re-verification
+                         (default 48, from 24 to 720 = 1 to 30 days)
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {

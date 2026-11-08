@@ -37,6 +37,8 @@ pub struct App {
     pub(crate) seed_roles: HashMap<UserId, Vec<String>>,
     /// Login with OpenID Connect, if configured (ADR-0038).
     pub(crate) login: Option<Login>,
+    /// How long a login lasts without re-verification (ADR-0040).
+    pub(crate) access_timeout: std::time::Duration,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
@@ -62,6 +64,7 @@ impl App {
         roles: Roles,
         seed_roles: HashMap<UserId, Vec<String>>,
         login: Option<Login>,
+        access_timeout: std::time::Duration,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -72,6 +75,7 @@ impl App {
             roles,
             seed_roles,
             login,
+            access_timeout,
             sessions: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
@@ -81,24 +85,78 @@ impl App {
         }
     }
 
+    /// The end of a login that is verified now.
+    pub(crate) fn valid_from_now(&self) -> u64 {
+        now_ms().saturating_add(u64::try_from(self.access_timeout.as_millis()).unwrap_or(u64::MAX))
+    }
+
     /// Pairs a device with a user: stored first, then known to the hub, so the device can
-    /// connect at once and after a restart. Returns `false` if the device ID belongs to
-    /// another user (no takeover).
+    /// connect at once and after a restart. The person just logged in, so the logins of
+    /// all their devices are renewed. Returns `false` if the device ID belongs to another
+    /// user (no takeover).
     pub(crate) async fn register_device(
         &self,
         device: DeviceId,
         user: UserId,
         key: VerifyingKey,
     ) -> Result<bool, StoreError> {
+        let valid_until = self.valid_from_now();
         if !self
             .store
-            .save_device(&device, &user, key.as_bytes(), now_ms())
+            .save_device(&device, &user, key.as_bytes(), now_ms(), valid_until)
             .await?
         {
             return Ok(false);
         }
-        self.hub.lock().await.register_device(device, user, key);
+        self.hub
+            .lock()
+            .await
+            .register_device_until(device, user.clone(), key, Some(valid_until));
+        self.set_valid_until(&user, valid_until).await?;
         Ok(true)
+    }
+
+    // [impl->dsn~access-timeout~1]
+    /// Sets the end of the login of all devices of `user`, and cuts connections whose login
+    /// has ended.
+    pub(crate) async fn set_valid_until(
+        &self,
+        user: &UserId,
+        valid_until: u64,
+    ) -> Result<(), StoreError> {
+        self.store.set_valid_until(user, valid_until).await?;
+        self.hub.lock().await.set_valid_until(user, valid_until);
+        self.expire_sessions().await;
+        Ok(())
+    }
+
+    /// Cuts the connections of devices whose login has expired: they receive the refusal,
+    /// then their connection closes.
+    pub(crate) async fn expire_sessions(&self) {
+        let refused = self.hub.lock().await.expire(now_ms());
+        let mut sessions = self.sessions.lock().expect("session registry lock");
+        for out in refused {
+            if let Some(sender) = sessions.remove(&out.session) {
+                tracing::info!(session = out.session, "login expired; connection closed");
+                let _ = sender.send(out.message);
+            }
+        }
+    }
+
+    /// Regular work: cut expired connections every minute; re-verify logins in the
+    /// background every 15 minutes (ADR-0040).
+    pub(crate) async fn maintenance(self: Arc<Self>) {
+        let mut minute = tokio::time::interval(std::time::Duration::from_secs(60));
+        let mut quarter = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
+        let stop = stopped(self.shutdown.clone());
+        tokio::pin!(stop);
+        loop {
+            tokio::select! {
+                _ = minute.tick() => self.expire_sessions().await,
+                _ = quarter.tick() => login::reverify(&self).await,
+                () = &mut stop => return,
+            }
+        }
     }
 
     /// Whether storage failed; the process should then exit so it is restarted.

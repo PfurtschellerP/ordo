@@ -165,11 +165,12 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         })?;
         hub.register_device(device.device_id()?, device.user.clone(), key);
     }
-    // Devices paired by login (ADR-0038).
-    for (device, user, key) in store.load_devices().await? {
+    // Devices paired by login (ADR-0038), each with the end of its login (ADR-0040); a
+    // device without a recorded end has to log in again.
+    for (device, user, key, valid_until) in store.load_devices().await? {
         let key = VerifyingKey::from_bytes(&key)
             .map_err(|e| StoreError::Invalid(format!("device key: {e}")))?;
-        hub.register_device(device, user, key);
+        hub.register_device_until(device, user, key, Some(valid_until.unwrap_or(0)));
     }
     hub.add_deriver(PatientCountsDeriver::default());
 
@@ -208,8 +209,10 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         roles,
         seed_roles,
         login,
+        config.access_timeout,
         stop.clone(),
     ));
+    tokio::spawn(app.clone().maintenance());
     let router = app.clone().router(config.app_dir.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");
     let task = tokio::spawn(async move {

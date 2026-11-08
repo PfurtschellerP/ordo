@@ -378,6 +378,27 @@ Needs: impl, itest
 
 Tags: must, m8
 
+#### Access timeout
+`dsn~access-timeout~1`
+
+Every device paired by login has an end of its login, stored with the device: "now +
+access timeout" (default 48 h, 24–720 h) after each successful verification. A login on
+any of the person's devices, or a background renewal of the identity provider's renewal
+token (every 15 minutes, `offline_access`), sets it for all their devices; only
+`invalid_grant` ends it at once, every other failure leaves it unchanged. The hub refuses
+expired devices at hello and cuts their open sessions (`loginExpired`, checked every minute
+and before each push). The welcome carries `valid_until`; the device keeps it and locks
+itself at that time, also offline, offering to log in again with the same device key
+([ADR-0040](../adr/0040-access-ends-only-on-positive-evidence.md)).
+
+Covers:
+
+* [req~sec-12~1](../requirements/07-quality.md#sec-12--access-timeout)
+
+Needs: impl, utest, itest
+
+Tags: must, m9
+
 ## 8.6 Design system and accessibility
 
 Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).

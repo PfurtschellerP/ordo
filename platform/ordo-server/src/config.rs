@@ -29,7 +29,15 @@ pub struct Config {
     pub policy_dir: Option<PathBuf>,
     /// Login with OpenID Connect (optional, ADR-0038).
     pub oidc: Option<OidcConfig>,
+    /// How long a device's login lasts without re-verification (`ORDO_ACCESS_TIMEOUT_HOURS`,
+    /// default 48, from 24 to 720 hours, i.e. 1 to 30 days; ADR-0040).
+    pub access_timeout: std::time::Duration,
 }
+
+/// Default access timeout in hours (ADR-0040).
+pub const ACCESS_TIMEOUT_HOURS: u64 = 48;
+/// Allowed access timeouts in hours: 1 to 30 days.
+pub const ACCESS_TIMEOUT_RANGE: std::ops::RangeInclusive<u64> = 24..=720;
 
 /// The organisation's identity provider (all of `ORDO_OIDC_ISSUER`,
 /// `ORDO_OIDC_CLIENT_ID`, `ORDO_OIDC_CLIENT_SECRET_FILE` and `ORDO_PUBLIC_URL`).
@@ -180,7 +188,22 @@ impl Config {
                 })
             })
             .collect::<Result<_, _>>()?;
+        let timeout_hours = match get("ORDO_ACCESS_TIMEOUT_HOURS") {
+            None => ACCESS_TIMEOUT_HOURS,
+            Some(text) => text
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|h| ACCESS_TIMEOUT_RANGE.contains(h))
+                .ok_or_else(|| {
+                    ConfigError::invalid(
+                        "ORDO_ACCESS_TIMEOUT_HOURS",
+                        "expected hours from 24 to 720 (1 to 30 days)",
+                    )
+                })?,
+        };
         Ok(Self {
+            access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),
             server_name,
             listen,
             data_dir,
@@ -233,4 +256,35 @@ pub fn parse_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
 /// Lower-case hex.
 pub fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config(timeout: Option<&str>) -> Result<Config, ConfigError> {
+        let dir = std::env::temp_dir().join(format!("ordo-config-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = dir.join("master.key");
+        std::fs::write(&key, "00".repeat(32)).unwrap();
+        let key = key.to_string_lossy().into_owned();
+        Config::from_lookup(|name| match name {
+            "ORDO_SERVER_NAME" => Some("ordo.example.org".into()),
+            "ORDO_MASTER_KEY_FILE" => Some(key.clone()),
+            "ORDO_ACCESS_TIMEOUT_HOURS" => timeout.map(str::to_owned),
+            _ => None,
+        })
+    }
+
+    // [utest->dsn~access-timeout~1]
+    #[test]
+    fn the_access_timeout_is_48_hours_and_can_be_1_to_30_days() {
+        let hours = |c: Config| c.access_timeout.as_secs() / 3600;
+        assert_eq!(hours(config(None).unwrap()), 48);
+        assert_eq!(hours(config(Some("24")).unwrap()), 24);
+        assert_eq!(hours(config(Some("720")).unwrap()), 720);
+        for wrong in ["23", "721", "0", "two days"] {
+            assert!(config(Some(wrong)).is_err(), "{wrong}");
+        }
+    }
 }

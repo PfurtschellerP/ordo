@@ -34,6 +34,9 @@ pub struct ReplicaState {
     pub streams: Vec<(StreamKey, Vec<SequencedEvent>)>,
     /// Unconfirmed events.
     pub outbox: Vec<(StreamKey, SignedEvent)>,
+    /// End of the device's login (ADR-0040).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<u64>,
 }
 
 #[derive(Default)]
@@ -69,6 +72,8 @@ pub struct Replica {
     rejected: Vec<Rejected>,
     /// The server's challenge on the current connection, until the hello answers it.
     challenge: Option<[u8; 32]>,
+    /// End of this device's login, as the server said in its last welcome (ADR-0040).
+    valid_until: Option<u64>,
 }
 
 impl Replica {
@@ -93,6 +98,7 @@ impl Replica {
             outbox: Vec::new(),
             rejected: Vec::new(),
             challenge: None,
+            valid_until: None,
         }
     }
 
@@ -119,6 +125,7 @@ impl Replica {
                 .map(|(key, stream)| (key.clone(), stream.events.clone()))
                 .collect(),
             outbox: self.outbox.clone(),
+            valid_until: self.valid_until,
         }
     }
 
@@ -152,6 +159,7 @@ impl Replica {
             let _ = replica.clock.observe(&body.hlc, body.hlc.wall_ms);
             replica.outbox.push((key, event));
         }
+        replica.valid_until = state.valid_until;
         Ok(replica)
     }
 
@@ -217,6 +225,18 @@ impl Replica {
     /// then it does not know which streams it may use).
     pub fn is_ready(&self) -> bool {
         self.protected.is_some()
+    }
+
+    // [impl->dsn~access-timeout~1]
+    /// Whether this device's login has expired at `now_ms`, as far as the device knows:
+    /// it then locks itself, also offline, until the person logs in again.
+    pub fn login_expired(&self, now_ms: u64) -> bool {
+        self.valid_until.is_some_and(|until| now_ms >= until)
+    }
+
+    /// The end of this device's login, if limited.
+    pub fn valid_until(&self) -> Option<u64> {
+        self.valid_until
     }
 
     /// Whether the server granted the stream.
@@ -323,6 +343,7 @@ impl Replica {
             }
             ServerMessage::Welcome(welcome) => {
                 self.protected = Some(welcome.protected);
+                self.valid_until = welcome.valid_until;
                 for sub in welcome.granted {
                     self.granted.insert((sub.incident, sub.compartment));
                 }
