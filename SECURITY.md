@@ -28,3 +28,11 @@ state of the `main` branch is supported.
   (`cargo deny check`), and Dependabot proposes updates weekly.
 - GitHub Actions are pinned to full commit hashes.
 - ORDO's own code contains no `unsafe` Rust (`unsafe_code = "forbid"`).
+
+## Cyber Resilience Act
+
+ORDO is non-commercial free software; the project is not a manufacturer under the EU
+Cyber Resilience Act. Whoever places ORDO on the market commercially, for example on a
+preinstalled field server, is the manufacturer of that product. We support them with
+this disclosure process and, planned, an SBOM and signed build provenance for every
+release. Details: [docs/standards.md](docs/standards.md#ordos-role-under-the-cyber-resilience-act).

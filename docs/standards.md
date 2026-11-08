@@ -74,6 +74,40 @@ CBOR (RFC 8949), CDDL (RFC 8610), Ed25519 (RFC 8032), XChaCha20-Poly1305, BLAKE3
 ULID, WebSocket (RFC 6455), URI fragments and percent-encoding (RFC 3986), JPEG, OCI
 images, SPDX and REUSE, arc42, MADR 4, EARS, Gherkin, OpenFastTrace, AGENTS.md.
 
+## Regulation and product security
+
+| Standard | Publisher, edition | Status | Use in ORDO |
+|---|---|---|---|
+| [Cyber Resilience Act](https://eur-lex.europa.eu/eli/reg/2024/2847/oj), Regulation (EU) 2024/2847 | EU; in force since 10 December 2024, reporting duties since 11 September 2026, other duties from 11 December 2027; Commission guidance of 27 July 2026, C(2026) 5252 *(date from secondary sources)* | followed (role below) | ORDO is non-commercial free software; we prepare what manufacturers need: SBOM, vulnerability handling, signed releases |
+| [NIS2 Directive](https://eur-lex.europa.eu/eli/dir/2022/2555/oj), (EU) 2022/2555 | EU | reference | Operators such as rescue services may be regulated entities and must check their suppliers; the CRA preparations cover what they ask for |
+
+### ORDO's role under the Cyber Resilience Act
+
+*Our reading, not legal advice. To be checked by a lawyer before the first release and
+whenever ORDO's governance or funding changes.*
+
+- **The ORDO project is not a manufacturer.** ORDO is free and open-source software
+  (AGPL-3.0-or-later), developed without commercial activity: no paid edition, no
+  updates or features tied to payment. Publishing the code is not placing it on the
+  market. Donations, grants or public funding do not change this as long as the software
+  stays freely available on the same terms.
+- **Whoever monetises ORDO is the manufacturer of that product.** For example, someone
+  who sells a field server with ORDO preinstalled, offers a paid edition, or otherwise
+  places ORDO on the market as part of a commercial activity carries the manufacturer's
+  duties for it: risk assessment, SBOM, vulnerability handling and reporting, security
+  updates for the support period, CE marking.
+- **Open-source steward, possibly later.** If a legal entity (for example a foundation or
+  association) is founded to support ORDO systematically, and ORDO is meant for
+  commercial use by others, that entity can become an *open-source software steward*
+  (Article 24) with lighter duties: a documented cybersecurity policy, cooperation with
+  market surveillance authorities, and reporting of actively exploited vulnerabilities as
+  far as it is involved. This will be an ADR when the governance is decided
+  ([roadmap](roadmap.md)).
+- **CRA-ready anyway.** So that operators, integrators and future manufacturers can adopt
+  ORDO easily, the project provides what the CRA asks of products: coordinated
+  vulnerability disclosure ([SECURITY.md](../SECURITY.md)), dependency checks on every
+  change, and, planned, an SBOM, build provenance and signatures for every release.
+
 ## Keeping this list current
 
 - Add a row when ORDO starts to follow, or plans to follow, a standard; link the ADR,

@@ -23,6 +23,10 @@
 4. Who can review data protection and medical-device questions before field use?
 5. Should larger tablets in portrait also use the bottom bar (breakpoint now 48 rem)?
 6. Which open-source FHIR form editor fits for profile authors (licence, maintenance)?
+7. Governance: should a legal entity (foundation, association) support ORDO, and thereby
+   become its open-source steward under the Cyber Resilience Act? A lawyer should review
+   [ORDO's CRA role](standards.md#ordos-role-under-the-cyber-resilience-act) before the
+   first release.
 
 ## Next steps
 
