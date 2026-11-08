@@ -72,6 +72,15 @@ field server checks itself. Plan it like this:
   devices by device management. The field router's DNS must resolve the domain to the
   field server.
 
+## Devices
+
+- Open ORDO only over HTTPS: the app encrypts everything it stores on the device and
+  refuses to store anything without a secure connection
+  ([ADR-0041](../../../docs/adr/0041-encryption-at-rest-on-devices.md)).
+- Enforce a screen lock and disk encryption on every tablet, phone and laptop (device
+  management). The app's own encryption makes unpairing and remote wipe effective; against
+  a stolen device that is switched off, the operating system's disk encryption protects.
+
 ## Notes
 
 - The ORDO container is read-only, runs as a non-root user without capabilities; data

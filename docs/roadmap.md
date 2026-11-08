@@ -73,6 +73,9 @@ Done in phase 0:
   admins (Cedar permission `manage_devices`) all devices; a revoked device is cut off at
   once, refused from then on, and deletes its key and data when it connects (remote
   wipe). Unpairing revokes, too.
+- Encryption at rest on devices (milestone `m10`, ADR-0041): pairing, device key and
+  replica are stored encrypted with a storage key wrapped by a non-extractable WebCrypto
+  key; unpairing and revocation destroy it (crypto-shredding).
 - Login, step 2 (milestone `m8`): OpenID Connect login (ORDO server as relying party,
   PKCE), QR pairing of shared tablets (RFC 8628), identity-provider groups as roles, paired
   devices stored; Dex in the browser tests and, optionally, in Docker Compose. The browser
@@ -83,20 +86,22 @@ Done in phase 0:
 
 Next:
 
-1. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): protected key
-   storage in the browser (WebCrypto, non-extractable keys); device names in the device
-   list; an admin view for roles, "valid until" and Dex's local accounts; the device lock
-   with PIN or biometrics (SEC-13).
-2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
+1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
+   clinical data): post-quantum plan with crypto agility and hybrid TLS check (ADR-0042);
+   supply chain with SBOM (CycloneDX), build provenance, signed images and OpenSSF
+   Scorecard (ADR-0043); later the device lock with WebAuthn PRF or PIN (SEC-13).
+2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
+   in the device list; an admin view for roles, "valid until" and Dex's local accounts.
+3. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).
-3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
+4. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-4. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
+5. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
    status codes from the DE profile, releasing units, UHS staff and location.
-5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-6. Command structure as data, medical branch first (ADR-0031).
+7. Command structure as data, medical branch first (ADR-0031).
 
 Later, after the features above:
 

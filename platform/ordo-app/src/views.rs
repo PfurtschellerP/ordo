@@ -50,9 +50,29 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
 }
 
 /// Pairing or workspace.
+/// The app: opens the encrypted device storage first (ADR-0041), then starts.
 #[component]
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
+    let vault = RwSignal::new(None::<Result<(), String>>);
+    leptos::task::spawn_local(async move { vault.set(Some(crate::vault::open().await)) });
+    move || match vault.get() {
+        None => view! { <main id="main" class="page page--narrow"><p>{text::STARTING}</p></main> }
+            .into_any(),
+        Some(Err(error)) => view! {
+            <main id="main" class="page page--narrow">
+                <h1>{text::APP_NAME}</h1>
+                <p role="alert" class="error">{error}</p>
+            </main>
+        }
+        .into_any(),
+        Some(Ok(())) => view! { <Start /> }.into_any(),
+    }
+}
+
+/// Pairing or the paired device.
+#[component]
+fn Start() -> impl IntoView {
     // A login that returned to this device: finish pairing it (ADR-0038).
     let returned = core::url_param("paired")
         .and_then(|user| core::PendingDevice::take().map(|device| device.paired(&user)));
@@ -501,6 +521,7 @@ fn Workspace(
         focus("main");
     };
     let incident = core.with_value(|c| c.incident.to_string());
+    let user = core.with_value(|c| c.replica.user().to_string());
     // Unpairing deletes the key on this device; if the server can be reached, it forgets
     // the device as well (SEC-4), so it no longer appears in the device list.
     let unpair = move |_| {
@@ -624,6 +645,7 @@ fn Workspace(
                             .collect_view()}
                         <section class="launcher__package" aria-label=text::DEVICE>
                             <h3>{text::DEVICE}</h3>
+                            <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user}</strong></p>
                             <label for="theme">{text::APPEARANCE}</label>
                             <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
                                 let value = event_target_value(&ev);

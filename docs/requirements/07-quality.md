@@ -202,11 +202,12 @@ Needs: dsn
 ### 5.4 Security and data protection
 
 #### SEC-1 — Encryption in transit and at rest
-`req~sec-1~1`
+`req~sec-1~2`
 
-All network traffic encrypted (TLS); data on devices encrypted at rest
+ORDO shall encrypt all network traffic with TLS, and shall store data on devices only
+encrypted, with a key that is destroyed when the device is unpaired or revoked.
 
-Tags: must, quality
+Tags: must, quality, m10
 
 Needs: dsn
 

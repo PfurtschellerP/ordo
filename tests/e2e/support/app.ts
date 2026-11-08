@@ -23,10 +23,18 @@ export const facts = (page: Page, section: string) =>
     list.map((f) => (f as HTMLElement).innerText.replace(/\n/g, " ")).join(" / "),
   );
 
-/** The replica as stored on the device (Base64 with prefix; older versions: hex). */
-export async function storedReplica(page: Page): Promise<Buffer> {
-  const text = (await page.evaluate(() => localStorage.getItem("ordo.replica"))) ?? "";
-  return text.startsWith("b64:") ? Buffer.from(text.slice(4), "base64") : Buffer.from(text, "hex");
+/** An item as stored on the device (encrypted: "enc1:" and Base64, ADR-0041). */
+export const storedItem = (page: Page, name: string) => page.evaluate((n) => localStorage.getItem(n), name);
+
+/** Records the WebSocket frames a device sends and receives, to check what travels. */
+export function recordFrames(page: Page): { sent: Buffer[]; received: Buffer[] } {
+  const frames = { sent: [] as Buffer[], received: [] as Buffer[] };
+  const bytes = (payload: string | Buffer) => (typeof payload === "string" ? Buffer.from(payload) : payload);
+  page.on("websocket", (ws) => {
+    ws.on("framesent", (f) => frames.sent.push(bytes(f.payload)));
+    ws.on("framereceived", (f) => frames.received.push(bytes(f.payload)));
+  });
+  return frames;
 }
 
 /** Logs in at Dex's login form. */

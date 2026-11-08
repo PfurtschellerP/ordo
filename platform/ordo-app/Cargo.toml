@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 base64.workspace = true
 console_error_panic_hook.workspace = true
+idb.workspace = true
 js-sys.workspace = true
 leptos.workspace = true
 leptos_router.workspace = true

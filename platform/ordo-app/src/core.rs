@@ -4,9 +4,9 @@
 //! loss, and exchanges messages. Everything is saved to browser storage after each
 //! change, so a reload or a closed tab loses nothing (UX-5).
 //!
-//! Prototype limitations: the pairing data (including the device's private key) and the
-//! replica state (including compartment data keys) are kept in `localStorage` without
-//! extra protection. A native shell or WebCrypto-protected keys come later.
+//! Pairing data (with the device's private key) and the replica (with compartment data
+//! keys) are stored encrypted (ADR-0041, see `vault`); older plain-text items are encrypted
+//! on first load.
 
 use leptos::prelude::*;
 use ordo_contracts::TriageCategory;
@@ -24,7 +24,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::{BinaryType, CloseEvent, MessageEvent, WebSocket};
 
-use crate::text;
+use crate::{text, vault};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 
@@ -588,19 +588,18 @@ impl PendingDevice {
         }
     }
 
-    /// Keeps the pending device across the login's page change.
+    /// Keeps the pending device across the login's page change (encrypted).
     pub fn save(&self) {
-        if let (Some(storage), Ok(json)) = (storage(), serde_json::to_string(self)) {
-            let _ = storage.set_item(PENDING_KEY, &json);
+        if let Ok(json) = serde_json::to_vec(self) {
+            store(PENDING_KEY, &json);
         }
     }
 
     /// The pending device of a login that started on this device, removed from storage.
     pub fn take() -> Option<Self> {
-        let storage = storage()?;
-        let json = storage.get_item(PENDING_KEY).ok()??;
-        let _ = storage.remove_item(PENDING_KEY);
-        serde_json::from_str(&json).ok()
+        let json = load(PENDING_KEY);
+        storage()?.remove_item(PENDING_KEY).ok()?;
+        serde_json::from_slice(&json?).ok()
     }
 }
 
@@ -677,15 +676,43 @@ fn storage() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok()?
 }
 
-/// Saved pairing data.
-pub fn load_pairing() -> Option<Pairing> {
-    serde_json::from_str(&storage()?.get_item(PAIRING_KEY).ok()??).ok()
+// [impl->dsn~device-storage-encryption~1]
+/// Stores an item encrypted (ADR-0041). Without an open vault nothing is stored: plain
+/// text never reaches the device storage.
+fn store(name: &str, bytes: &[u8]) -> bool {
+    let (Some(storage), Some(text)) = (storage(), vault::encrypt(name, bytes)) else {
+        return false;
+    };
+    storage.set_item(name, &text).is_ok()
 }
 
-/// Saves pairing data.
+// [impl->dsn~device-storage-encryption~1]
+/// Loads an encrypted item. An item that cannot be decrypted (key replaced) is removed.
+fn load(name: &str) -> Option<Vec<u8>> {
+    let storage = storage()?;
+    let text = storage.get_item(name).ok()??;
+    let plain = vault::decrypt(name, &text);
+    if plain.is_none() {
+        let _ = storage.remove_item(name);
+    }
+    plain
+}
+
+/// Saved pairing data. Older versions stored it as plain JSON: it is encrypted now.
+pub fn load_pairing() -> Option<Pairing> {
+    let text = storage()?.get_item(PAIRING_KEY).ok()??;
+    if !vault::is_encrypted(&text) {
+        let pairing: Pairing = serde_json::from_str(&text).ok()?;
+        save_pairing(&pairing);
+        return Some(pairing);
+    }
+    serde_json::from_slice(&load(PAIRING_KEY)?).ok()
+}
+
+/// Saves pairing data (encrypted).
 pub fn save_pairing(pairing: &Pairing) {
-    if let (Some(storage), Ok(json)) = (storage(), serde_json::to_string(pairing)) {
-        let _ = storage.set_item(PAIRING_KEY, &json);
+    if let Ok(json) = serde_json::to_vec(pairing) {
+        store(PAIRING_KEY, &json);
     }
 }
 
@@ -704,12 +731,16 @@ pub fn set_preference(key: &str, value: Option<&str>) {
     }
 }
 
-/// Removes pairing and local data from this browser.
+// [impl->dsn~device-storage-encryption~1]
+/// Removes pairing and local data from this browser, and replaces the storage key, so
+/// nothing left behind in the browser's files can be decrypted (crypto-shredding).
 pub fn forget_device() {
     if let Some(storage) = storage() {
         let _ = storage.remove_item(PAIRING_KEY);
         let _ = storage.remove_item(REPLICA_KEY);
+        let _ = storage.remove_item(PENDING_KEY);
     }
+    vault::shred();
 }
 
 fn to_hex(bytes: &[u8]) -> String {
@@ -722,21 +753,30 @@ const BASE64_PREFIX: &str = "b64:";
 // [impl->dsn~local-persistence~1]
 fn load_replica() -> Option<ReplicaState> {
     let text = storage()?.get_item(REPLICA_KEY).ok()??;
-    let bytes = match text.strip_prefix(BASE64_PREFIX) {
-        Some(b64) => BASE64.decode(b64).ok()?,
-        None => from_hex_vec(&text)?,
+    let bytes = if vault::is_encrypted(&text) {
+        load(REPLICA_KEY)?
+    } else {
+        // Older versions: plain Base64 or hex; encrypted from now on.
+        let bytes = match text.strip_prefix(BASE64_PREFIX) {
+            Some(b64) => BASE64.decode(b64).ok()?,
+            None => from_hex_vec(&text)?,
+        };
+        store(REPLICA_KEY, &bytes);
+        bytes
     };
     message::decode(&bytes).ok()
 }
 
 // [impl->dsn~local-persistence~1]
-/// Saves the replica. An error means the browser refused (storage full or blocked);
-/// the caller shows it, because unsaved input would be lost on reload (UX-5).
+/// Saves the replica, encrypted. An error means the browser refused (storage full or
+/// blocked); the caller shows it, because unsaved input would be lost on reload (UX-5).
 fn save_replica(replica: &Replica) -> Result<(), ()> {
-    let storage = storage().ok_or(())?;
     let bytes = message::encode(&replica.snapshot()).map_err(|_| ())?;
-    let text = format!("{BASE64_PREFIX}{}", BASE64.encode(bytes));
-    storage.set_item(REPLICA_KEY, &text).map_err(|_| ())
+    if store(REPLICA_KEY, &bytes) {
+        Ok(())
+    } else {
+        Err(())
+    }
 }
 
 // ---------------------------------------------------------------------------

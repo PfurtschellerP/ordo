@@ -291,7 +291,9 @@ flowchart LR
 - **Transport:** TLS everywhere (rustls); ACME / Let's Encrypt or local certificates.
 - **Compartments:** separate access rules, sync scope, keys and retention ([8.2](#82-data-compartments)).
 - **Devices:** own key pair per device, paired via QR code; revocation removes keys and
-  stops sync. Devices with clinical data lock automatically (PIN / biometrics).
+  stops sync. Data on the device is stored encrypted
+  ([ADR-0041](../adr/0041-encryption-at-rest-on-devices.md)). Devices with clinical data
+  lock automatically (PIN / biometrics, SEC-13).
 - **Permissions** are checked on the server for every event; the client checks them only
   for quick feedback.
 - **Guests** get a time-limited link for one incident, `incident` compartment only.
@@ -423,6 +425,25 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m9
+
+#### Device storage encryption
+`dsn~device-storage-encryption~1`
+
+The app stores nothing in plain text: pairing, pending pairing and replica are encrypted
+with a storage key (XChaCha20-Poly1305, the item's name as associated data, format
+`enc1:`). The storage key is wrapped by a non-extractable AES-256-GCM WebCrypto key kept in
+IndexedDB, and unwrapped at start; without a secure context the app stores nothing.
+Unpairing and revocation replace the storage key, so leftovers cannot be decrypted. Older
+plain-text items are encrypted on first load. Network traffic uses TLS, terminated by the
+bundled reverse proxy ([ADR-0041](../adr/0041-encryption-at-rest-on-devices.md)).
+
+Covers:
+
+* [req~sec-1~2](../requirements/07-quality.md#sec-1--encryption-in-transit-and-at-rest)
+
+Needs: impl, utest, itest
+
+Tags: must, m10
 
 ## 8.6 Design system and accessibility
 

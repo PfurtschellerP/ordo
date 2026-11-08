@@ -6,6 +6,7 @@ mod nav;
 mod palette;
 mod patients;
 mod text;
+mod vault;
 mod views;
 
 fn main() {

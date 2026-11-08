@@ -171,6 +171,11 @@ impl Replica {
         self.author.device
     }
 
+    /// The user of this device.
+    pub fn user(&self) -> &UserId {
+        &self.author.user
+    }
+
     /// Asks for a stream on the next connection.
     pub fn subscribe(&mut self, incident: &IncidentId, compartment: &str) {
         let compartment: CompartmentId = compartment.parse().expect("valid compartment ID");

@@ -25,7 +25,8 @@ import {
   saveForm,
   selectedOption,
   status,
-  storedReplica,
+  recordFrames,
+  storedItem,
   title,
 } from "./support/app";
 import { startDex } from "./support/dex";
@@ -39,6 +40,8 @@ let ben: Page;
 let phone: Page;
 let dora: Page;
 let shots: string;
+let annaFrames: ReturnType<typeof recordFrames>;
+let benFrames: ReturnType<typeof recordFrames>;
 
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
 
@@ -58,6 +61,8 @@ test.beforeAll(async ({ browser }, info) => {
   ben = await newDevice(browser);
   phone = await newDevice(browser);
   dora = await newDevice(browser);
+  annaFrames = recordFrames(anna);
+  benFrames = recordFrames(ben);
 });
 
 test.afterAll(async () => {
@@ -74,7 +79,13 @@ test("ORDO in the browser", async () => {
     await audit(anna, "Pairing page");
     // [itest->dsn~oidc-login~1]
     incident = await loginPair(anna, server, "anna@example.org");
-    expect(await anna.evaluate(() => JSON.parse(localStorage.getItem("ordo.pairing")!).user), "the login maps to an ORDO user").toBe("anna@localhost");
+    await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user").toHaveText("Angemeldet als anna@localhost");
+    // [itest->dsn~device-storage-encryption~1]
+    for (const item of ["ordo.pairing", "ordo.replica", "ordo.storage-key"]) {
+      await expect.poll(() => storedItem(anna, item), { message: `${item} is stored` }).not.toBeNull();
+    }
+    const pairing = (await storedItem(anna, "ordo.pairing"))!;
+    expect(pairing.startsWith("enc1:") && !pairing.includes("anna") && !pairing.includes("private_key"), "the device key is stored encrypted").toBe(true);
     await expect.poll(() => status(anna), { message: "medic device connects" }).toContain("Verbunden");
     await expect.poll(() => title(anna), { message: "a medic starts in Sanität – UHS" }).toContain("Sanität – UHS");
 
@@ -167,8 +178,10 @@ test("ORDO in the browser", async () => {
     await expect.poll(() => pathOf(anna), { message: "the back button returns to the list" }).toBe("/med.uhs/patients");
     await expect(anna.locator("#record-title")).toHaveCount(0);
     await expect(anna.locator(".patient-card[data-tag='DE-0044']"), "the list shows the name").toContainText("Mustermann, Max");
-    const stored = await storedReplica(anna);
-    expect(stored.includes("Mustermann") || stored.includes("Penicillin"), "clinical entries are stored sealed, not in plain text").toBe(false);
+    expect((await storedItem(anna, "ordo.replica"))!.startsWith("enc1:"), "the device stores its data encrypted").toBe(true);
+    const sent = Buffer.concat(annaFrames.sent);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.includes("Mustermann") || sent.includes("Penicillin"), "clinical entries travel sealed, not in plain text").toBe(false);
   });
 
     // [itest->dsn~command-palette~1]
@@ -303,11 +316,11 @@ test("ORDO in the browser", async () => {
       "UHS Eingang 1 0 1 0 0 2 2 / 5",
     ]);
     await audit(ben, "Command workspace (wide)", [1700]);
-    const stored = await storedReplica(ben);
-    expect(stored.length).toBeGreaterThan(0);
+    const received = Buffer.concat(benFrames.received);
+    expect(received.length).toBeGreaterThan(0);
     expect(
-      stored.includes("DE-0042") || stored.includes("Mustermann") || stored.includes(Buffer.from([0xff, 0xd8, 0xff])),
-      "the command device stores no triage tag number, no name and no photo",
+      received.includes("DE-0042") || received.includes("Mustermann") || received.includes(Buffer.from([0xff, 0xd8, 0xff])),
+      "the command device receives no triage tag number, no name and no photo",
     ).toBe(false);
     await audit(ben, "Command workspace");
     await shot(ben, "command");

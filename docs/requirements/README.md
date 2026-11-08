@@ -96,6 +96,7 @@ the build fails.
 | 7 — Login, step 1 | `m7` | Connections prove the device key (SEC-11); access by roles with Cedar policies (SEC-2) |
 | 8 — Login, step 2 | `m8` | Login with OpenID Connect (SEC-3), pairing by QR code (ORG-3) |
 | 9 — Login, step 3 | `m9` | Device logins expire after a timeout, renewed in the background (SEC-12); lost devices are revoked and wiped (SEC-4) |
+| 10 — Security hardening | `m10` | Data on devices encrypted at rest (SEC-1) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -104,5 +105,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10 docs platform modules packages tests
 ```

@@ -304,6 +304,7 @@
   .launcher__item[aria-disabled="true"] { border-style: dashed; color: var(--ordo-color-text-secondary); cursor: not-allowed; }
   .launcher__reason { display: block; margin-top: var(--ordo-space-1); color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
   .launcher__reason:empty { display: none; }
+  .launcher__user { margin: 0 0 var(--ordo-space-2); overflow-wrap: anywhere; }
 
   .layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: calc(100vh - 6rem); }
   .navigation {
