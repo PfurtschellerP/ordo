@@ -64,7 +64,7 @@ source, it is marked *(secondary)*; replace it when the official source is known
 | [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) with [PKCE (RFC 7636)](https://www.rfc-editor.org/rfc/rfc7636) | OpenID Foundation, IETF | followed | Login with the organisation's identity provider; ORDO is the relying party, the browser sees no token ([ADR-0038](adr/0038-login-and-device-pairing.md)) |
 | [OAuth 2.0 Device Authorization Grant (RFC 8628)](https://www.rfc-editor.org/rfc/rfc8628) | IETF | followed | Pairing shared tablets and phones by QR code |
 | [OAuth 2.0 DPoP (RFC 9449)](https://www.rfc-editor.org/rfc/rfc9449) | IETF | planned | Access tokens bound to the device key for HTTP APIs |
-| [Dex](https://dexidp.io) | CNCF, Apache-2.0, v2.46 | followed | Identity provider in the browser tests and, optionally, in the Docker Compose bundle |
+| [Dex](https://dexidp.io) | CNCF, Apache-2.0, v2.46 | followed | Login of every installation: local accounts or the organisation's OpenID Connect provider as connector ([ADR-0039](adr/0039-dex-in-every-installation.md)); also in the browser tests |
 | Ed25519 challenge–response ([RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)) | IETF | followed | Every sync connection proves the device key ([protocol §2](../spec/sync/protocol.md)) |
 
 ## Data, security and engineering

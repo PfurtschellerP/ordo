@@ -1,7 +1,7 @@
-# Dex (https://dexidp.io) for organisations without their own identity provider.
-# Copy to dex.yaml, replace ordo.example.org with your ORDO_DOMAIN and set the client
-# secret to the content of oidc-client-secret. Docs: https://dexidp.io/docs/
-issuer: https://ordo.example.org/dex
+# Dex (https://dexidp.io), the login of ORDO (ADR-0038, ADR-0039).
+# Copy to dex.yaml. Domain and client secret come from .env; only the accounts below (or
+# the connector to your organisation's provider) are yours to fill in.
+issuer: https://{{ getenv "ORDO_DOMAIN" }}/dex
 
 storage:
   type: sqlite3
@@ -21,13 +21,14 @@ oauth2:
 staticClients:
   - id: ordo
     name: ORDO
-    secret: "replace with the content of oidc-client-secret"
+    secretEnv: ORDO_OIDC_CLIENT_SECRET
     redirectURIs:
-      - "https://ordo.example.org/auth/callback"
+      - "https://{{ getenv "ORDO_DOMAIN" }}/auth/callback"
       - "/dex/device/callback"
 
-# Local accounts. Groups become ORDO roles (e.g. medic, commander; ADR-0035).
-# Password hash:  htpasswd -BnC 10 "" | tr -d ':\n'
+# Very small organisations: local accounts. Groups become ORDO roles (ADR-0035).
+#   Password hash:  docker run --rm httpd:2-alpine htpasswd -nbBC 10 "" 'the password' | tr -d ':\n'
+#   User ID:        any random UUID, e.g. from  uuidgen
 enablePasswordDB: true
 staticPasswords:
   - email: "anna@ordo.example.org"
@@ -37,5 +38,16 @@ staticPasswords:
     userID: "replace with a random UUID"
     groups: ["medic"]
 
-# Instead of (or besides) local accounts, Dex can connect to LDAP / Active Directory,
-# SAML or another OpenID Connect provider: https://dexidp.io/docs/connectors/
+# Everyone else: connect your organisation's OpenID Connect provider instead of (or
+# besides) local accounts. It must deliver the groups that become ORDO roles.
+# connectors:
+#   - type: oidc
+#     id: organisation
+#     name: "Login with your organisation"
+#     config:
+#       issuer: https://login.microsoftonline.com/<tenant-id>/v2.0
+#       clientID: <client id at your provider>
+#       clientSecret: $ORGANISATION_CLIENT_SECRET
+#       redirectURI: https://ordo.example.org/dex/callback
+#       insecureEnableGroups: true
+#       scopes: [openid, profile, email, groups]

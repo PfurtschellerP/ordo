@@ -63,6 +63,9 @@ stay usable offline.
 
 ## More Information
 
+Amended by [ADR-0039](0039-dex-in-every-installation.md): Dex is part of every
+installation, and ORDO talks only to it; LDAP and SAML are not supported.
+
 Built in steps: (1) device proof on every connection and roles with Cedar (done);
 (2) OpenID Connect login, key registration and QR pairing with Dex (done; groups of the
 identity provider become roles); (3) device revocation, re-login and protected key storage

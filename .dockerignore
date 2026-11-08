@@ -5,5 +5,4 @@ target/
 **/master.key
 deploy/compose/**/seed.toml
 deploy/compose/**/dex.yaml
-deploy/compose/**/oidc-client-secret
 deploy/compose/**/.env

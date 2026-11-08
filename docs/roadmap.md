@@ -58,6 +58,8 @@ Done in phase 0:
 - Login, step 1 (milestone `m7`, ADR-0038): every sync connection proves the device key
   (sync protocol draft 1); access by roles with Cedar policies, organisations add roles
   as policy files (ADR-0035).
+- Dex in every installation; ORDO speaks only OpenID Connect, LDAP is not supported
+  (ADR-0039); field-server guidance in the Compose bundle.
 - Login, step 2 (milestone `m8`): OpenID Connect login (ORDO server as relying party,
   PKCE), QR pairing of shared tablets (RFC 8628), identity-provider groups as roles, paired
   devices stored; Dex in the browser tests and, optionally, in Docker Compose. The browser
@@ -69,8 +71,10 @@ Done in phase 0:
 Next:
 
 1. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)): device list and
-   revocation (SEC-4), periodic re-login, protected key storage in the browser
-   (WebCrypto, non-extractable keys), and an admin view for roles.
+   revocation (SEC-4), periodic re-login that never locks people out offline (due only
+   when the identity provider is reachable, with a grace period), protected key storage in
+   the browser (WebCrypto, non-extractable keys), an admin view for roles and for Dex's
+   local accounts.
 2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).
@@ -81,6 +85,12 @@ Next:
 5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
 6. Command structure as data, medical branch first (ADR-0031).
+
+Later, after the features above:
+
+- Offline device approval: an already paired person with the right role approves a new
+  device directly, without any identity provider — like a coach substituting a player at
+  half-time ([ADR-0039](adr/0039-dex-in-every-installation.md)).
 
 Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
 before the first real field use:

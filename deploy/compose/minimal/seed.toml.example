@@ -1,8 +1,12 @@
-# Users, their roles and paired devices (development only; later: login with OpenID Connect
-# and QR pairing, ADR-0038). What a role may do is decided by Cedar policies (ADR-0035):
-# defaults `medic` and `commander`; own roles as *.cedar files in ORDO_POLICY_DIR.
+# Development only: users, roles and devices paired by hand, without login. Normal setups
+# use Dex (dex.yaml). To use a seed file, mount it in a compose.override.yaml:
+#   services:
+#     ordo:
+#       environment: { ORDO_SEED_FILE: /config/seed.toml }
+#       volumes: ["./seed.toml:/config/seed.toml:ro"]
+# What a role may do is decided by Cedar policies (ADR-0035): defaults `medic` and
+# `commander`; own roles as *.cedar files in ORDO_POLICY_DIR.
 # Create a device key pair with:  docker compose run --rm --no-deps ordo generate-device-key
-# The public key goes here, the private key into the device.
 
 [[user]]
 id = "anna@ordo.example.org"

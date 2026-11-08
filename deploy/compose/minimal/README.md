@@ -1,15 +1,15 @@
 # ORDO — minimal Docker Compose setup
 
-One ORDO server with SQLite, behind [Caddy](https://caddyserver.com) for automatic
-HTTPS. Suitable for one organisation or district.
+One ORDO server with SQLite, [Dex](https://dexidp.io) for login and
+[Caddy](https://caddyserver.com) for automatic HTTPS. Suitable for one organisation or
+district, at a station with internet and on a field server without it.
 
 ## Start
 
 ```sh
 cd deploy/compose/minimal
-cp .env.example .env              # set ORDO_DOMAIN
-cp seed.toml.example seed.toml    # users and devices paired by hand (development)
-openssl rand -hex 32 > oidc-client-secret   # needed even without login, see below
+cp .env.example .env              # set ORDO_DOMAIN and ORDO_OIDC_CLIENT_SECRET
+cp dex.yaml.example dex.yaml      # accounts, or the connector to your organisation's login
 
 # Master key: encrypts all keys stored by the server. Keep a backup in a safe place —
 # without it, stored clinical data cannot be read.
@@ -21,34 +21,53 @@ docker compose up -d
 docker compose ps                 # ordo should become "healthy"
 ```
 
-Endpoints (through Caddy): `wss://<domain>/sync`, `https://<domain>/healthz`,
-`/readyz`, `/metrics`.
+Endpoints (through Caddy): the app at `https://<domain>/`, login at `/dex`, sync at
+`wss://<domain>/sync`, `/healthz`, `/readyz`, `/metrics`.
 
-## Login (optional)
+## Login
 
-ORDO stores no passwords; people log in with an OpenID Connect identity provider
-([ADR-0038](../../../docs/adr/0038-login-and-device-pairing.md)). Every setup needs the
-secret file, even without login:
+ORDO stores no passwords and talks only to the bundled Dex
+([ADR-0038](../../../docs/adr/0038-login-and-device-pairing.md),
+[ADR-0039](../../../docs/adr/0039-dex-in-every-installation.md)). Two ways to fill in
+`dex.yaml`:
 
-```sh
-openssl rand -hex 32 > oidc-client-secret
-```
+- **Very small organisations: local accounts** (`staticPasswords`). Groups of an
+  account become its ORDO roles, e.g. `medic`, `commander`.
+- **Everyone else: your organisation's OpenID Connect provider** (Microsoft Entra ID,
+  Keycloak, Authentik, Google, …) as a Dex connector; see the commented example in
+  `dex.yaml.example`. Register Dex there with the redirect URI `https://<domain>/dex/callback`
+  and let it send the groups that become ORDO roles.
 
-- **Your organisation's provider** (Keycloak, Authentik, Microsoft Entra ID, …): register
-  ORDO as a client with the redirect URI `https://<domain>/auth/callback` and, for QR
-  pairing, the device authorization grant; put its issuer URL into `ORDO_OIDC_ISSUER` in
-  `.env` and the client secret into `oidc-client-secret`. Groups in the `groups` claim
-  become ORDO roles.
-- **Bundled Dex** with local accounts: `cp dex.yaml.example dex.yaml`, edit it (domain,
-  secret, accounts), set `ORDO_OIDC_ISSUER=https://<domain>/dex` in `.env`, then
-  `docker compose --profile login up -d`.
+ORDO itself speaks only OpenID Connect. Dex could also reach LDAP or SAML directories,
+but ORDO does not support or test that; prefer your provider's OpenID Connect.
 
-The ORDO container trusts the system's certificate authorities. For a provider with your
-organisation's own certificate authority, mount its certificate and set `SSL_CERT_FILE`.
+Changes to `dex.yaml` take effect after `docker compose restart dex`.
+
+## Field servers without internet
+
+Devices that were paired before the deployment keep working without any login: each
+connection is proven with the device's own key, which the field server checks itself. Plan
+it like this:
+
+- **Pair the devices before you leave** (at the station, with internet): log in on every
+  tablet or pair it by QR code.
+- **People who join on scene** log in with a local account of the field server's Dex
+  (`staticPasswords`). An upstream provider cannot be reached offline; Dex does not cache
+  its logins. (Planned: an already paired person with the right role approves a new device
+  directly — like substituting a player at half-time.)
+- **Certificates:** iPads and other browsers run the offline app and keep keys only over
+  HTTPS. Without internet, Caddy cannot get or renew a Let's Encrypt certificate on site.
+  Get it beforehand (e.g. a DNS challenge for `field1.ordo.your-org.example`, renewed at
+  the station) or use your organisation's own certificate authority, installed on the
+  devices by device management. The field router's DNS must resolve the domain to the
+  field server.
 
 ## Notes
 
 - The ORDO container is read-only, runs as a non-root user without capabilities; data
-  lives in the volume `ordo-data`.
-- Changes to `seed.toml` take effect after `docker compose restart ordo`.
-- Back up the volume `ordo-data` **and** `master.key`.
+  lives in the volume `ordo-data`, Dex keeps its state in `dex-data`.
+- ORDO trusts the system's certificate authorities. With your organisation's own
+  certificate authority, mount its certificate into the ORDO container and set
+  `SSL_CERT_FILE`.
+- For development without login, `seed.toml.example` shows how to pair devices by hand.
+- Back up the volumes `ordo-data` and `dex-data` **and** `master.key`.
