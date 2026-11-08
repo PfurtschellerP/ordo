@@ -27,7 +27,6 @@ pub fn pending(n: usize) -> String {
     }
 }
 
-pub const WORKSPACES: &str = "Arbeitsbereiche";
 pub const TAB_MED: &str = "Sanität";
 pub const TAB_COMMAND: &str = "Einsatzleitung";
 
@@ -36,8 +35,6 @@ pub const REGISTER_TAG: &str = "Nummer der Patientenanhängekarte";
 pub const REGISTER_CATEGORY: &str = "Sichtungskategorie";
 pub const REGISTER_UHS: &str = "UHS";
 pub const REGISTER_SUBMIT: &str = "Registrieren";
-pub const NO_CLINICAL_ACCESS: &str =
-    "Kein Zugriff auf Patientendaten in diesem Einsatz – oder das Gerät war noch nie verbunden.";
 
 pub const BOARD_TITLE: &str = "UHS-Übersicht";
 pub const BOARD_EMPTY: &str = "Noch keine Patienten registriert.";
@@ -71,6 +68,15 @@ pub fn status_set(unit: &str, status: &str) -> String {
 }
 
 pub const TAB_RESOURCES: &str = "Einsatzmittel";
+
+pub const LAUNCHER: &str = "Arbeitsbereich wechseln";
+pub const VIEWS: &str = "Ansichten";
+pub const INCIDENT: &str = "Einsatz";
+pub const REASON_NO_ACCESS: &str = "Kein Zugriff in diesem Einsatz";
+pub const REASON_NOT_CONNECTED: &str = "Verfügbar nach der ersten Verbindung";
+pub const NO_WORKSPACE: &str =
+    "Für dieses Gerät ist in diesem Einsatz noch kein Arbeitsbereich freigegeben.";
+pub const DEVICE: &str = "Gerät";
 
 pub const UHS_TITLE: &str = "Unfallhilfsstellen";
 pub const UHS_EMPTY: &str = "Noch keine UHS angelegt.";

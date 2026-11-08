@@ -39,6 +39,9 @@ Done in phase 0:
   status in their own workspace; audit of the rendered app (contrast, layout, touch
   targets, reflow) in all themes.
 
+- Navigation: workspace launcher with role-based availability, view rail or bottom bar
+  (milestone `m5`, ADR-0025); test directories moved to conventional places.
+
 Next:
 
 1. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
@@ -47,7 +50,8 @@ Next:
    bundle size and memory.
 3. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
    status codes from the DE profile, releasing units, UHS staff and location.
-4. Design the main tablet screens for the Med MVP with volunteers.
+4. Design the main tablet screens for the Med MVP with volunteers; on phones, show the
+   patient overview as a list of cards instead of a wide table.
 
 Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
 before the first real field use:

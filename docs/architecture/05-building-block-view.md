@@ -339,3 +339,19 @@ Needs: impl, itest
 
 Tags: must, m3
 
+#### Workspace navigation
+`dsn~workspace-navigation~1`
+
+Workspaces (package, label, required compartments, views) are defined as data. A
+launcher at the top left switches workspaces; it lists every workspace of the packages in
+use and keeps unavailable ones in place, disabled, with the reason. Views of the current
+workspace are a rail on wide screens and a bottom bar on phones. A device opens the last
+used workspace, or the first one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md)).
+
+Covers:
+
+* [req~ux-8~1](../requirements/07-quality.md#ux-8--role-workspaces)
+
+Needs: impl, itest
+
+Tags: must, m5

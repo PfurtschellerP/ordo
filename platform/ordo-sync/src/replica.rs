@@ -201,6 +201,12 @@ impl Replica {
         &self.rejected
     }
 
+    /// Whether the device has received a welcome from the server at least once (until
+    /// then it does not know which streams it may use).
+    pub fn is_ready(&self) -> bool {
+        self.protected.is_some()
+    }
+
     /// Whether the server granted the stream.
     pub fn is_granted(&self, incident: &IncidentId, compartment: &str) -> bool {
         compartment

@@ -74,7 +74,7 @@ Needs: dsn
 
 Each role opens in its **workspace**: only the views and actions for that role, in that service's wording
 
-Tags: must, quality
+Tags: must, quality, m5
 
 Needs: dsn
 

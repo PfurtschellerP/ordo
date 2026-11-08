@@ -51,7 +51,7 @@ zeroize = { version = "1", features = ["derive"] }
 toml = "1"
 tower-http = { version = "0.7", features = ["fs", "set-header"] }
 wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = ["BinaryType", "CloseEvent", "Crypto", "Location", "MessageEvent", "Storage", "UrlSearchParams", "WebSocket", "Window"] }
+web-sys = { version = "0.3", features = ["BinaryType", "CloseEvent", "Crypto", "Document", "HtmlElement", "Location", "MessageEvent", "Storage", "UrlSearchParams", "WebSocket", "Window"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 

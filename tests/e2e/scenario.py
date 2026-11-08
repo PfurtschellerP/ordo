@@ -90,6 +90,29 @@ el.value = option.value; el.dispatchEvent(new Event('change', {bubbles: true}));
 """
 
 
+def open_workspace(ff, label):
+    """Opens the launcher and chooses a workspace by its label."""
+    ff.js("document.getElementById('launcher-button').click()")
+    ok = ff.js("""
+      const item = [...document.querySelectorAll('.launcher__item')].find(b => b.innerText.trim() === arguments[0]);
+      if (!item || item.getAttribute('aria-disabled') === 'true') return false;
+      item.click(); return true;""", label)
+    assert ok, f"workspace {label} not available"
+
+
+def open_view(ff, label):
+    assert wait_for(lambda: ff.js("""
+      const b = [...document.querySelectorAll('.views__item')].find(b => b.innerText.trim() === arguments[0]);
+      if (!b) return false; b.click(); return true;""", label)), f"view {label} missing"
+
+
+def launcher_item(ff, label):
+    """(aria-disabled, reason) of a launcher item."""
+    return ff.js("""
+      const b = [...document.querySelectorAll('.launcher__item')].find(b => b.innerText.trim() === arguments[0]);
+      return b ? [b.getAttribute('aria-disabled'), document.getElementById(b.getAttribute('aria-describedby')).innerText] : null;""", label)
+
+
 def create_uhs(ff, name, capacity):
     assert wait_for(lambda: ff.js("return !!document.getElementById('uhs-name')"), 15), "UHS form missing"
     ff.js(FILL, "uhs-name", name)
@@ -119,11 +142,15 @@ try:
     audit(anna, "Pairing page", check)
     incident = pair(anna, "anna@localhost", keys["anna"])
     check(wait_for(lambda: "Verbunden" in status(anna)), "medic device connects")
+    check(wait_for(lambda: "Sanität – UHS" in anna.js("return document.getElementById('launcher-button').innerText")),
+          "a medic starts in the workspace Sanität – UHS")
+    open_view(anna, "UHS verwalten")
     create_uhs(anna, "UHS Bühne Nord", 10)
     create_uhs(anna, "UHS Eingang", 5)
     # [itest->dsn~uhs-registry~1]
     check(wait_for(lambda: anna.js("return document.querySelectorAll('.load-list__item').length") == 2),
           "two UHS are set up and listed with their load")
+    open_view(anna, "Patienten")
     for tag, i, uhs in (("DE-0042", 0, "UHS Bühne Nord"), ("DE-0043", 1, "UHS Bühne Nord"), ("DE-0044", 1, "UHS Eingang")):
         register(anna, tag, i, uhs)
     check(wait_for(lambda: "Alles gesendet" in status(anna)), "registrations are sent")
@@ -155,7 +182,13 @@ try:
     badges = anna.js("return [...document.querySelectorAll('.triage')].map(b => !!b.querySelector('.triage__shape') && b.innerText.trim().length > 0)")
     check(len(badges) > 0 and all(badges), f"every triage badge has a shape and a text label ({len(badges)} badges)")
     audit(anna, "Med workspace", check)
+    anna.js("document.getElementById('launcher-button').click()")
+    audit(anna, "Launcher (medic)", check)
+    anna.js("document.getElementById('launcher-button').click()")
     anna.shot(f"{WORK}/med-day.png")
+    anna.cmd("WebDriver:SetWindowRect", {"width": 420, "height": 900})
+    anna.shot(f"{WORK}/med-phone.png")
+    anna.cmd("WebDriver:SetWindowRect", {"width": 1200, "height": 1000})
     anna.js("document.documentElement.dataset.theme = 'night'")
     anna.shot(f"{WORK}/med-night.png")
 finally:
@@ -164,9 +197,17 @@ finally:
 ben = Firefox(f"{WORK}/profile-ben", 2829)
 try:
     pair(ben, "ben@localhost", keys["ben"], incident)
-    check(wait_for(lambda: "Kein Zugriff" in ben.js("return document.querySelector('#main')?.innerText || ''")),
-          "command device has no access to patient data")
-    ben.js(CLICK_TEXT, "Einsatzleitung")
+    # [itest->dsn~workspace-navigation~1]
+    check(wait_for(lambda: "Einsatzleitung – Lage" in ben.js("return document.getElementById('launcher-button').innerText")),
+          "the commander starts in the first workspace he may use: Einsatzleitung – Lage")
+    ben.js("document.getElementById('launcher-button').click()")
+    check(launcher_item(ben, "UHS") == ["true", "Kein Zugriff in diesem Einsatz"],
+          f"the UHS workspace stays in the menu, disabled, with the reason: {launcher_item(ben, 'UHS')}")
+    audit(ben, "Launcher (commander)", check)
+    ben.shot(f"{WORK}/launcher.png")
+    ben.js("document.querySelector('.launcher').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
+    check(wait_for(lambda: ben.js("return document.getElementById('launcher-panel').hidden")), "Escape closes the launcher")
+    check(ben.js("return document.activeElement.id") == "launcher-button", "focus returns to the launcher button")
     counts = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].map(r => [...r.cells].map(c => c.innerText.split('\\n')[0]).join(' '))")
     check(wait_for(lambda: counts() == ["UHS Bühne Nord 1 1 0 0 0 2 2 / 10", "UHS Eingang 1 0 1 0 0 2 2 / 5"]),
           f"command sees counts and load per UHS: {counts()}")
@@ -176,7 +217,7 @@ try:
     ben.shot(f"{WORK}/command.png")
 
     # Resources: add a vehicle and set its status (UNIT-1, UNIT-3).
-    ben.js(CLICK_TEXT, "Einsatzmittel")
+    open_view(ben, "Einsatzmittel")
     assert wait_for(lambda: ben.js("return !!document.getElementById('unit-call-sign')")), "resources form missing"
     ben.js(FILL, "unit-call-sign", "RTW 83/1")
     ben.js(FILL, "unit-type", "RTW")
