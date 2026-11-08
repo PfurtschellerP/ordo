@@ -15,6 +15,13 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | incident command | Einsatzleitung | The incident commander and their staff |
 | handover of command | Übergabe der Einsatzleitung | Transfer of a leadership role to another person; always logged |
 | command assistant | Führungsassistent, Melder | Supports the commander: log, radio, unit status |
+| command level | Führungsstufe A–D | How far the command organisation has grown, from a leader without a command unit to a staff (FwDV 100) |
+| staff | Führungsstab | Supports the incident commander at higher command levels |
+| staff function | Sachgebiet S1–S6 | S1 personnel, S2 situation, S3 operations, S4 logistics, S5 media, S6 communication |
+| joint command | Gemeinsame Einsatzleitung | Leaders of several organisations commanding together; each keeps its own chain of command |
+| liaison officer | Verbindungsperson | Represents an organisation in another organisation's command |
+| specialist adviser | Fachberater | Advises the command on a special subject |
+| position | Funktion (in der Führungsorganisation) | A place in the command structure that people hold and hand over, e.g. sector leader or S2 |
 | sector | Einsatzabschnitt (EA) | Part of the incident with its own leader (FwDV 100) |
 | sub-sector | Untereinsatzabschnitt | Part of a sector |
 | sector leader | Abschnittsleiter | Leads one sector |
@@ -54,6 +61,10 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | re-triage | Nachsichtung | Assigning a new triage category; history is kept |
 | mass-casualty incident (MCI) | Massenanfall von Verletzten (MANV) | More patients than regular resources can handle |
 | medical incident lead | Leitender Notarzt (LNA), Organisatorischer Leiter Rettungsdienst (OrgL) | Physician and organisational lead of the medical response |
+| medical command | Sanitätseinsatzleitung (SanEL) | LNA and OrgL with their support staff; leads the medical sector |
+| patient care record (ePCR) | Patientenprotokoll, Einsatzprotokoll | Documentation of one patient: identity, history, findings, vital signs, measures, medication, disposition |
+| vital signs | Vitalwerte | Heart rate, blood pressure, breathing rate, SpO₂, temperature, blood sugar, GCS, pain |
+| disposition | Verbleib | What happened to the patient: released, transported, handed over, refused, deceased |
 | physician, emergency physician | Arzt, Notarzt (NA) | — |
 | medic | Sanitäter, Rettungssanitäter, Notfallsanitäter | Medical staff below physician level |
 | transport officer | Transportorganisation | Plans patient transports |
@@ -77,6 +88,11 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | shared module | Function used by all services: incidents, units, command, tasks, map, log, org |
 | service package | Bundle for one service (Fire, Med, Police): modules, workspaces, wording |
 | workspace | What a role sees when it opens ORDO; defined as data |
+| view | One screen of a workspace, chosen in the rail or the bottom bar |
+| menu (launcher) | Switches workspaces; at the top of the rail, or at the end of the bottom bar on phones |
+| command palette | Search for views, patients, units and commands, opened with Ctrl+K / ⌘K |
+| route | Workspace, view and record, kept in the URL fragment (`#/med.uhs/patients/…`) |
+| snapshot form, series form | ePCR form with one current value per field, or with timed entries |
 | connector | Versioned contract for data crossing a package border, published as events |
 | adapter | Integration with an external system |
 | compartment | Separately protected part of an incident's data, e.g. `incident`, `med.clinical` |

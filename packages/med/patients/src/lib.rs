@@ -12,6 +12,8 @@ use ordo_core::{CompartmentId, Hlc, IncidentId, UserId};
 use ordo_sync::{AppliedEvent, Derived, Deriver};
 use serde::{Deserialize, Serialize};
 
+pub mod record;
+
 /// Module ID.
 pub const MODULE: &str = "med.patients";
 /// Compartment of patient events.

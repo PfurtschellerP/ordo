@@ -67,6 +67,15 @@ Tags: should, med
 
 Needs: dsn
 
+#### PAT-8 — Photo for identification
+`req~pat-8~1`
+
+When a medic takes or uploads a photo of a patient, ORDO shall store it in the patient's record for identification only: downscaled, without camera or location metadata, and readable only by those who may read the record.
+
+Tags: should, med, m6
+
+Needs: dsn
+
 ### 4.10 Med package: on-site care units (UHS)
 
 #### UHS-1 — On-site care units
@@ -128,36 +137,36 @@ Needs: dsn
 #### EPCR-1 — One record per patient
 `req~epcr-1~1`
 
-One patient care record per patient, linked to the triage tag and the patient pathway
+ORDO shall keep one patient care record per patient, linked to the patient's triage tag number and pathway.
 
-Tags: must, med
+Tags: must, med, m6
 
 Needs: dsn
 
 #### EPCR-2 — Record structure from profile
 `req~epcr-2~1`
 
-Record structure based on the German emergency dataset (DIVI **MIND**); forms are defined in the profile, not in code
+ORDO shall take the structure of the patient care record (forms, fields, units, choices) from the active profile, not from code. The DE profile follows the German emergency dataset (DIVI **MIND**).
 
-Tags: must, med
+Tags: must, med, m6
 
 Needs: dsn
 
 #### EPCR-3 — Quick entry
 `req~epcr-3~1`
 
-Quick entry on tablet: vital signs, findings, measures, medication, each with time; large controls, minimal typing
+When a medic documents vital signs, findings, measures or medication, ORDO shall record each entry with its time and author, with large controls and as little typing as possible.
 
-Tags: must, med
+Tags: must, med, m6
 
 Needs: dsn
 
 #### EPCR-4 — Append-only record
 `req~epcr-4~1`
 
-Append-only: corrections are new entries that reference the old one; the responsible person signs off
+When an entry of the patient care record is corrected, ORDO shall record the correction as a new entry that references the old one and keep the old entry visible. (Sign-off by the responsible person follows later.)
 
-Tags: must, med
+Tags: must, med, m6
 
 Needs: dsn
 

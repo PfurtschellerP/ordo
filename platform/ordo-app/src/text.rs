@@ -36,14 +36,9 @@ pub const REGISTER_CATEGORY: &str = "Sichtungskategorie";
 pub const REGISTER_UHS: &str = "UHS";
 pub const REGISTER_SUBMIT: &str = "Registrieren";
 
-pub const BOARD_TITLE: &str = "UHS-Übersicht";
 pub const BOARD_EMPTY: &str = "Noch keine Patienten registriert.";
-pub const COL_TAG: &str = "PAK-Nr.";
-pub const COL_CATEGORY: &str = "Kategorie";
 pub const COL_UHS: &str = "UHS";
-pub const COL_HISTORY: &str = "Sichtungen";
 pub const COL_RETRIAGE: &str = "Nachsichtung";
-pub const COL_STATE: &str = "Status";
 pub const NOT_SENT: &str = "noch nicht gesendet";
 pub const SENT: &str = "gesendet";
 
@@ -96,9 +91,6 @@ pub const UNIT_CALL_SIGN: &str = "Funkrufname";
 pub const UNIT_TYPE: &str = "Typ (z. B. RTW, KTW, Sanitätstrupp)";
 pub const UNIT_ORGANISATION: &str = "Organisation";
 pub const UNIT_SUBMIT: &str = "Einsatzmittel hinzufügen";
-pub const COL_CALL_SIGN: &str = "Funkrufname";
-pub const COL_TYPE: &str = "Typ";
-pub const COL_ORGANISATION: &str = "Organisation";
 pub const COL_STATUS: &str = "Status";
 pub const COL_SET_STATUS: &str = "Status setzen";
 pub const NO_STATUS: &str = "–";
@@ -155,4 +147,144 @@ pub fn description(category: TriageCategory) -> &'static str {
         TriageCategory::Expectant => "Sichtungskategorie IV, blau, abwartende Behandlung",
         TriageCategory::Deceased => "Verstorben",
     }
+}
+
+// Navigation and header
+pub const MENU: &str = "Menü";
+pub const SEARCH: &str = "Suchen";
+pub const SHORTCUT_PALETTE: &str = "Strg+K";
+pub const SHORTCUT_PALETTE_MAC: &str = "⌘K";
+pub const STORAGE_FAILED: &str = "Gerätespeicher voll oder gesperrt: Eingaben bleiben nur bis zum Senden erhalten. Nicht neu laden.";
+
+// Appearance (UX-3)
+pub const APPEARANCE: &str = "Darstellung";
+pub const THEMES: [(&str, &str); 4] = [
+    ("", "Automatisch"),
+    ("day", "Tag"),
+    ("night", "Nacht"),
+    ("high-contrast", "Hoher Kontrast"),
+];
+pub fn theme_set(label: &str) -> String {
+    format!("Darstellung: {label}")
+}
+
+// Patient list and record
+pub const PATIENTS_TITLE: &str = "Patienten";
+pub const ALL_PATIENTS: &str = "Alle Patienten";
+pub const REGISTERED: &str = "registriert.";
+pub const CHOOSE_PATIENT: &str = "Patient in der Liste wählen, um die Akte zu öffnen.";
+pub const UNKNOWN_PERSON: &str = "Person unbekannt";
+pub fn patient_title(tag: &str) -> String {
+    format!("Patient {tag}")
+}
+pub fn triage_count(n: usize) -> String {
+    match n {
+        1 => "1 Sichtung".into(),
+        n => format!("{n} Sichtungen"),
+    }
+}
+pub const NOT_FOUND: &str = "Diesen Patienten gibt es in diesem Einsatz nicht.";
+pub const SECTIONS: &str = "Abschnitte";
+pub const TRIAGE_TITLE: &str = "Sichtung";
+pub const TRIAGE_HISTORY: &str = "Verlauf";
+pub const RETRIAGE_TO: &str = "Sichtung ändern";
+pub fn retriage_label(tag: &str, category: TriageCategory) -> String {
+    format!("{COL_RETRIAGE} {tag}: {}", label(category))
+}
+pub fn by_at(user: &str, time: &str) -> String {
+    format!("{time}, {user}")
+}
+
+pub const PHOTO_TITLE: &str = "Foto";
+pub const PHOTO_NONE: &str = "Noch kein Foto.";
+pub const PHOTO_TAKE: &str = "Foto aufnehmen";
+pub const PHOTO_UPLOAD: &str = "Bild hochladen";
+pub const PHOTO_BUSY: &str = "Foto wird verkleinert …";
+pub const PHOTO_PURPOSE: &str = "Nur zur Identifikation. Das Foto wird verkleinert, ohne Kamera- und Ortsdaten gespeichert und nur an Berechtigte übertragen.";
+pub fn photo_alt(tag: &str) -> String {
+    format!("Foto von Patient {tag}")
+}
+pub fn photo_added(tag: &str) -> String {
+    format!("Foto für Patient {tag} gespeichert")
+}
+pub const PHOTO_FAILED: &str = "Das Bild konnte nicht gelesen werden.";
+pub const PHOTO_TOO_LARGE: &str = "Das Bild ist auch verkleinert zu groß.";
+
+pub const EDIT: &str = "Bearbeiten";
+pub const SAVE: &str = "Speichern";
+pub const CANCEL: &str = "Abbrechen";
+pub const NEW_ENTRY: &str = "Neuer Eintrag";
+pub const CORRECT: &str = "Korrigieren";
+pub const NOTHING_DOCUMENTED: &str = "Noch nichts dokumentiert.";
+pub const NO_ANSWER: &str = "keine Angabe";
+pub const NOW: &str = "Jetzt";
+pub const EMPTY_ENTRY: &str = "Bitte mindestens einen Wert eintragen.";
+pub const NO_CHANGES: &str = "Keine Änderungen.";
+pub const CHECK_INPUT: &str = "Bitte die markierten Felder prüfen.";
+pub fn corrected_entries(n: usize) -> String {
+    match n {
+        1 => "1 korrigierter Eintrag".into(),
+        n => format!("{n} korrigierte Einträge"),
+    }
+}
+pub const CORRECTED: &str = "korrigiert";
+pub fn entry_saved(form: &str, tag: &str) -> String {
+    format!("{form} für Patient {tag} gespeichert")
+}
+pub fn new_entry_label(form: &str) -> String {
+    format!("{NEW_ENTRY}: {form}")
+}
+pub fn edit_label(form: &str) -> String {
+    format!("{form} {}", EDIT.to_lowercase())
+}
+pub fn value_error(error: &ordo_med_patients::record::ValueError) -> String {
+    use ordo_med_patients::record::ValueError as E;
+    match error {
+        E::NotANumber => "Bitte eine Zahl eingeben.".into(),
+        E::OutOfRange { min, max } => match (min, max) {
+            (Some(min), Some(max)) => format!("Bitte einen Wert von {min} bis {max} eingeben."),
+            (Some(min), None) => format!("Bitte mindestens {min} eingeben."),
+            (None, Some(max)) => format!("Bitte höchstens {max} eingeben."),
+            (None, None) => "Wert nicht möglich.".into(),
+        },
+        E::NotADate => "Bitte ein Datum eingeben.".into(),
+        E::NotATime => "Bitte eine Uhrzeit (hh:mm) eingeben.".into(),
+        E::TooLong => "Der Text ist zu lang.".into(),
+        E::UnknownField | E::UnknownOption(_) | E::WrongKind => "Wert nicht möglich.".into(),
+    }
+}
+
+// Command palette (UX-10)
+pub const PALETTE_TITLE: &str = "Suchen und Befehle";
+pub const PALETTE_PLACEHOLDER: &str = "Patient, Einsatzmittel, Ansicht oder Befehl …";
+pub const PALETTE_RESULTS: &str = "Ergebnisse";
+pub const PALETTE_NONE: &str = "Nichts gefunden.";
+pub const PALETTE_KEYS: &str = "wählen";
+pub const PALETTE_RUN: &str = "ausführen";
+pub const PALETTE_CLOSE: &str = "schließen";
+pub const PALETTE_BACK: &str = "zurück";
+pub fn palette_count(n: usize) -> String {
+    match n {
+        0 => PALETTE_NONE.into(),
+        1 => "1 Ergebnis".into(),
+        n => format!("{n} Ergebnisse"),
+    }
+}
+pub const GROUP_VIEWS: &str = "Ansicht";
+pub const GROUP_ACTIONS: &str = "Befehl";
+pub const GROUP_PATIENTS: &str = "Patient";
+pub const GROUP_UNITS: &str = "Einsatzmittel";
+pub const ACTION_REGISTER: &str = "Patient registrieren";
+pub const ACTION_CREATE_UHS: &str = "UHS anlegen";
+pub const ACTION_ADD_UNIT: &str = "Einsatzmittel hinzufügen";
+pub const ACTION_OPEN_RECORD: &str = "Akte öffnen";
+pub const ACTION_TAKE_PHOTO: &str = "Foto aufnehmen";
+pub fn action_entry(form: &str) -> String {
+    format!("{form} eintragen")
+}
+pub fn action_retriage(category: TriageCategory) -> String {
+    format!("Sichtung ändern: {}", label(category))
+}
+pub fn action_status(code: &str) -> String {
+    format!("Status {}", status_label(code))
 }

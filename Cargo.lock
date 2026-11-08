@@ -1564,6 +1564,7 @@ dependencies = [
 name = "ordo-app"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "console_error_panic_hook",
  "js-sys",
  "leptos",
@@ -1575,7 +1576,9 @@ dependencies = [
  "ordo-units",
  "serde",
  "serde_json",
+ "toml",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -1617,6 +1620,9 @@ dependencies = [
  "ordo-core",
  "ordo-sync",
  "serde",
+ "serde_bytes",
+ "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]

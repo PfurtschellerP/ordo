@@ -458,6 +458,10 @@ profile. Core, modules and packages contain no regional data (I18N-4).
 
 ### 8.8.1 Profile packages
 
+The first catalogue exists: `profiles/de/med/epcr-forms.toml` (ePCR forms,
+[ADR-0027](../adr/0027-epcr-forms-from-the-profile.md)). The app checks it at build time and
+embeds it; loading effective profiles from the server comes later.
+
 ```
 profiles/de/
 ├── profile.toml               # manifest

@@ -13,6 +13,11 @@ ordo-contracts.workspace = true
 ordo-core.workspace = true
 ordo-sync.workspace = true
 serde.workspace = true
+serde_bytes.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
 
 [lints]
 workspace = true

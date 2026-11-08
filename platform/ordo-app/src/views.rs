@@ -3,14 +3,14 @@
 
 use leptos::prelude::*;
 use ordo_contracts::TriageCategory::{self, Deceased, Expectant, Immediate, Minor, Urgent};
-use ordo_med_patients::{self as patients, PatientRegister, UhsCreated};
+use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
-use crate::nav;
-use crate::text;
+use crate::{nav, palette, patients, text};
 
-const CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Deceased];
+/// Triage categories in display order.
+pub(crate) const CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Deceased];
 
 fn css_class(category: TriageCategory) -> &'static str {
     match category {
@@ -25,7 +25,7 @@ fn css_class(category: TriageCategory) -> &'static str {
 // [impl->dsn~triage-badge~1]
 /// Colour plus label plus shape, never colour alone (A11Y-3).
 #[component]
-fn TriageBadge(category: TriageCategory) -> impl IntoView {
+pub(crate) fn TriageBadge(category: TriageCategory) -> impl IntoView {
     view! {
         <span class=css_class(category) title=text::description(category)>
             <span class="triage__shape" aria-hidden="true"></span>
@@ -36,19 +36,20 @@ fn TriageBadge(category: TriageCategory) -> impl IntoView {
 }
 
 /// The on-site care units of the incident (from the shared compartment).
-fn uhs_list(core: Handle) -> Vec<UhsCreated> {
+pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
     core.with_value(|c| {
         let events = c
             .replica
-            .events(&c.incident, patients::UHS_COMPARTMENT)
+            .events(&c.incident, med::UHS_COMPARTMENT)
             .unwrap_or_default();
-        patients::uhs_list(&events)
+        med::uhs_list(&events)
     })
 }
 
 /// Pairing or workspace.
 #[component]
 pub fn App() -> impl IntoView {
+    apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
     let pairing = RwSignal::new(core::load_pairing());
     move || match pairing.get() {
         None => view! { <PairingForm pairing /> }.into_any(),
@@ -108,7 +109,7 @@ fn PairingForm(pairing: RwSignal<Option<Pairing>>) -> impl IntoView {
 }
 
 /// Whether the user may open `workspace` on this device, and if not, why not.
-fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'static str> {
+pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'static str> {
     core.with_value(|c| {
         if !c.replica.is_ready() {
             return Err(text::REASON_NOT_CONNECTED);
@@ -126,26 +127,86 @@ fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'static str> 
 }
 
 const NAV_KEY: &str = "ordo.nav";
+const THEME_KEY: &str = "ordo.theme";
 
-fn saved_navigation() -> Option<(String, String)> {
-    let saved = web_sys::window()?
-        .local_storage()
-        .ok()??
-        .get_item(NAV_KEY)
-        .ok()??;
-    let (w, v) = saved.split_once('/')?;
-    Some((w.to_owned(), v.to_owned()))
+/// Applies a colour theme (`""` = follow the system) and remembers it on this device.
+pub(crate) fn apply_theme(theme: &str) {
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    {
+        let _ = if theme.is_empty() {
+            root.remove_attribute("data-theme")
+        } else {
+            root.set_attribute("data-theme", theme)
+        };
+    }
+    core::set_preference(THEME_KEY, (!theme.is_empty()).then_some(theme));
 }
 
-fn save_navigation(workspace: &str, view: &str) {
-    if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-        let _ = storage.set_item(NAV_KEY, &format!("{workspace}/{view}"));
+/// Navigation state shared by all views: the route lives in the URL fragment.
+#[derive(Clone, Copy)]
+pub(crate) struct Nav {
+    /// The current route.
+    pub route: RwSignal<nav::Route>,
+}
+
+impl Nav {
+    /// Starts from the URL fragment, else from the last route used on this device.
+    fn start() -> Self {
+        let from_hash = web_sys::window()
+            .and_then(|w| w.location().hash().ok())
+            .and_then(|h| nav::Route::from_hash(&h));
+        let route = from_hash.unwrap_or_else(|| {
+            core::preference(NAV_KEY)
+                .and_then(|saved| {
+                    let (w, v) = saved.split_once('/')?;
+                    Some(nav::Route::view(w, v))
+                })
+                .unwrap_or_else(|| {
+                    nav::Route::view(nav::WORKSPACES[0].id, nav::WORKSPACES[0].views[0].id)
+                })
+        });
+        let nav = Self {
+            route: RwSignal::new(route),
+        };
+        // Back and forward buttons, links to `#/…`.
+        let handle = window_event_listener(leptos::ev::hashchange, move |_| {
+            if let Some(route) = web_sys::window()
+                .and_then(|w| w.location().hash().ok())
+                .and_then(|h| nav::Route::from_hash(&h))
+                && route != nav.route.get_untracked()
+            {
+                core::set_preference(
+                    NAV_KEY,
+                    Some(&format!("{}/{}", route.workspace, route.view)),
+                );
+                nav.route.set(route);
+            }
+        });
+        on_cleanup(move || handle.remove());
+        nav
+    }
+
+    /// Goes to `route` and adds it to the browser history.
+    pub fn go(self, route: nav::Route) {
+        core::set_preference(
+            NAV_KEY,
+            Some(&format!("{}/{}", route.workspace, route.view)),
+        );
+        if let Some(location) = web_sys::window().map(|w| w.location())
+            && location.hash().ok().as_deref() != Some(route.to_hash().as_str())
+        {
+            let _ = location.set_hash(&route.to_hash());
+        }
+        self.route.set(route);
     }
 }
 
-// [impl->dsn~workspace-navigation~1]
-/// Layout: launcher (workspace switch) top left, incident and connection in the header,
-/// views as a rail (wide screens) or bottom bar (narrow screens).
+// [impl->dsn~workspace-navigation~2]
+/// Layout: header with title, search and connection; navigation as a rail (wide
+/// screens) or a bottom bar (phones, tablets in portrait), holding the views and the menu
+/// (launcher) for switching workspaces.
 #[component]
 fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl IntoView {
     let core = match Core::new(&pairing) {
@@ -154,35 +215,34 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
     };
     let revision = RwSignal::new(0u64);
     core::connect(core, revision);
-    let saved = saved_navigation();
-    let workspace_id = RwSignal::new(
-        saved
-            .as_ref()
-            .map_or_else(|| nav::WORKSPACES[0].id.to_owned(), |(w, _)| w.clone()),
-    );
-    let view_id = RwSignal::new(saved.map_or_else(String::new, |(_, v)| v));
+    let nav = Nav::start();
+    provide_context(patients::Drafts::default());
     let open = RwSignal::new(false);
+    let palette = RwSignal::new(false);
 
     // The shown workspace: the chosen one if accessible, otherwise the first accessible.
-    let current = move || {
+    let current = Memo::new(move |_| {
         revision.track();
-        let chosen = nav::workspace(&workspace_id.get()).filter(|w| access(core, w).is_ok());
-        chosen.or_else(|| nav::WORKSPACES.iter().find(|w| access(core, w).is_ok()))
-    };
-    let current_view = move || {
-        let workspace = current()?;
-        let id = view_id.get();
+        let chosen = nav::workspace(&nav.route.with(|r| r.workspace.clone()))
+            .filter(|w| access(core, w).is_ok());
+        chosen
+            .or_else(|| nav::WORKSPACES.iter().find(|w| access(core, w).is_ok()))
+            .map(|w| w.id)
+    });
+    let current_view = Memo::new(move |_| {
+        let workspace = nav::workspace(current.get()?)?;
+        let id = nav.route.with(|r| r.view.clone());
         workspace
             .views
             .iter()
             .find(|v| v.id == id)
             .or_else(|| workspace.views.first())
-    };
+            .map(|v| v.id)
+    });
+    let record = Memo::new(move |_| nav.route.with(|r| r.record.clone()));
     let choose = move |w: &'static nav::Workspace| {
-        workspace_id.set(w.id.to_owned());
-        view_id.set(w.views[0].id.to_owned());
-        save_navigation(w.id, w.views[0].id);
         open.set(false);
+        nav.go(nav::Route::view(w.id, w.views[0].id));
         focus("main");
     };
     let incident = core.with_value(|c| c.incident.to_string());
@@ -190,124 +250,176 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
         core::forget_device();
         on_unpair();
     };
-    let launcher_label = move || match current() {
+    let title = move || match current.get().and_then(nav::workspace) {
         Some(w) => format!("{} – {}", w.package, w.label),
-        None => text::LAUNCHER.to_owned(),
+        None => text::APP_NAME.to_owned(),
     };
+    let mac = web_sys::window()
+        .and_then(|w| w.navigator().platform().ok())
+        .is_some_and(|p| p.starts_with("Mac") || p.starts_with("iP"));
+    let shortcut = if mac {
+        text::SHORTCUT_PALETTE_MAC
+    } else {
+        text::SHORTCUT_PALETTE
+    };
+    // Ctrl+K / ⌘K opens and closes the command palette from anywhere (UX-10).
+    let keys = window_event_listener(leptos::ev::keydown, move |ev| {
+        if (ev.ctrl_key() || ev.meta_key()) && !ev.alt_key() && ev.key().eq_ignore_ascii_case("k") {
+            ev.prevent_default();
+            open.set(false);
+            palette.update(|p| *p = !*p);
+        }
+    });
+    on_cleanup(move || keys.remove());
+    let theme = RwSignal::new(core::preference(THEME_KEY).unwrap_or_default());
+
     view! {
-        <a class="skip-link" href="#main">{text::SKIP_LINK}</a>
+        <a class="skip-link" href="#main" on:click=move |ev| {
+            ev.prevent_default();
+            focus("main");
+        }>{text::SKIP_LINK}</a>
         <header class="app-header">
-            <div class="launcher" on:keydown=move |ev| {
-                if ev.key() == "Escape" && open.get() {
-                    open.set(false);
-                    focus("launcher-button");
-                }
-            }>
-                <button
-                    id="launcher-button"
-                    type="button"
-                    class="launcher__button"
-                    aria-expanded=move || open.get().to_string()
-                    aria-controls="launcher-panel"
-                    on:click=move |_| open.update(|o| *o = !*o)
-                >
-                    <span class="launcher__icon" aria-hidden="true"></span>
-                    <span class="visually-hidden">{text::LAUNCHER} ": "</span>
-                    <span>{launcher_label}</span>
-                    <span aria-hidden="true">" ▾"</span>
-                </button>
-                <div id="launcher-panel" class="launcher__panel" hidden=move || !open.get()>
-                    <h2 class="launcher__title">{text::LAUNCHER}</h2>
-                    {nav::packages()
-                        .into_iter()
-                        .map(|(package, workspaces)| {
-                            view! {
-                                <section class="launcher__package" aria-label=package>
-                                    <h3>{package}</h3>
-                                    <ul>
-                                        {workspaces
-                                            .into_iter()
-                                            .map(|w| {
-                                                let reason_id = format!("reason-{}", w.id.replace('.', "-"));
-                                                let reason = move || {
-                                                    revision.track();
-                                                    access(core, w).err()
-                                                };
-                                                view! {
-                                                    <li>
-                                                        <button
-                                                            type="button"
-                                                            class="launcher__item"
-                                                            aria-disabled=move || reason().is_some().to_string()
-                                                            aria-current=move || (current().map(|c| c.id) == Some(w.id)).then_some("true")
-                                                            aria-describedby=reason_id.clone()
-                                                            on:click=move |_| {
-                                                                if reason().is_none() {
-                                                                    choose(w);
-                                                                }
-                                                            }
-                                                        >
-                                                            {w.label}
-                                                        </button>
-                                                        <span id=reason_id class="launcher__reason">{reason}</span>
-                                                    </li>
-                                                }
-                                            })
-                                            .collect_view()}
-                                    </ul>
-                                </section>
-                            }
-                        })
-                        .collect_view()}
-                    <section class="launcher__package" aria-label=text::DEVICE>
-                        <h3>{text::DEVICE}</h3>
-                        <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
-                    </section>
-                </div>
+            <h1 class="app-header__title">{title}</h1>
+            <button
+                id="palette-button"
+                type="button"
+                class="search-button"
+                aria-keyshortcuts="Control+K Meta+K"
+                on:click=move |_| palette.set(true)
+            >
+                <span class="search-button__icon" aria-hidden="true"></span>
+                <span>{text::SEARCH}</span>
+                <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
+            </button>
+            <div class="app-header__state">
+                <p class="app-header__incident">
+                    <span>{text::INCIDENT} ": "</span>
+                    <span class="code" title=incident.clone()>{incident.chars().take(10).collect::<String>()} "…"</span>
+                </p>
+                <ConnectionStatus core revision />
             </div>
-            <p class="app-header__incident">
-                <span>{text::INCIDENT} ": "</span>
-                <span class="code" title=incident.clone()>{incident.chars().take(10).collect::<String>()} "…"</span>
-            </p>
-            <ConnectionStatus core revision />
         </header>
         <div class="layout">
-            <nav class="views" aria-label=text::VIEWS>
-                {move || {
-                    current()
-                        .map(|w| {
-                            w.views
-                                .iter()
-                                .map(|v| {
-                                    let selected = move || current_view().map(|c| c.id) == Some(v.id);
-                                    view! {
-                                        <button
-                                            type="button"
-                                            class="views__item"
-                                            aria-current=move || selected().then_some("page")
-                                            on:click=move |_| {
-                                                view_id.set(v.id.to_owned());
-                                                save_navigation(w.id, v.id);
-                                            }
-                                        >
-                                            {v.label}
-                                        </button>
-                                    }
-                                })
-                                .collect_view()
-                        })
-                }}
-            </nav>
+            <div class="navigation">
+              <div class="navigation__inner">
+                <div class="launcher" on:keydown=move |ev| {
+                    if ev.key() == "Escape" && open.get() {
+                        open.set(false);
+                        focus("launcher-button");
+                    }
+                }>
+                    <button
+                        id="launcher-button"
+                        type="button"
+                        class="launcher__button"
+                        aria-expanded=move || open.get().to_string()
+                        aria-controls="launcher-panel"
+                        on:click=move |_| open.update(|o| *o = !*o)
+                    >
+                        <span class="launcher__icon" aria-hidden="true"></span>
+                        <span>{text::MENU}</span>
+                        <span class="visually-hidden">" – " {text::LAUNCHER}</span>
+                    </button>
+                    <div id="launcher-panel" class="launcher__panel" hidden=move || !open.get()>
+                        <h2 class="launcher__title">{text::LAUNCHER}</h2>
+                        {nav::packages()
+                            .into_iter()
+                            .map(|(package, workspaces)| {
+                                view! {
+                                    <section class="launcher__package" aria-label=package>
+                                        <h3>{package}</h3>
+                                        <ul>
+                                            {workspaces
+                                                .into_iter()
+                                                .map(|w| {
+                                                    let reason_id = format!("reason-{}", w.id.replace('.', "-"));
+                                                    let reason = move || {
+                                                        revision.track();
+                                                        access(core, w).err()
+                                                    };
+                                                    view! {
+                                                        <li>
+                                                            <button
+                                                                type="button"
+                                                                class="launcher__item"
+                                                                aria-disabled=move || reason().is_some().to_string()
+                                                                aria-current=move || (current.get() == Some(w.id)).then_some("true")
+                                                                aria-describedby=reason_id.clone()
+                                                                on:click=move |_| {
+                                                                    if reason().is_none() {
+                                                                        choose(w);
+                                                                    }
+                                                                }
+                                                            >
+                                                                {w.label}
+                                                            </button>
+                                                            <span id=reason_id class="launcher__reason">{reason}</span>
+                                                        </li>
+                                                    }
+                                                })
+                                                .collect_view()}
+                                        </ul>
+                                    </section>
+                                }
+                            })
+                            .collect_view()}
+                        <section class="launcher__package" aria-label=text::DEVICE>
+                            <h3>{text::DEVICE}</h3>
+                            <label for="theme">{text::APPEARANCE}</label>
+                            <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
+                                let value = event_target_value(&ev);
+                                apply_theme(&value);
+                                theme.set(value);
+                            }>
+                                {text::THEMES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
+                            </select>
+                            <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
+                        </section>
+                    </div>
+                </div>
+                <nav class="views" aria-label=text::VIEWS>
+                    {move || {
+                        current
+                            .get()
+                            .and_then(nav::workspace)
+                            .map(|w| {
+                                w.views
+                                    .iter()
+                                    .map(|v| {
+                                        let selected = move || current_view.get() == Some(v.id);
+                                        view! {
+                                            <a
+                                                class="views__item"
+                                                href=nav::Route::view(w.id, v.id).to_hash()
+                                                aria-current=move || selected().then_some("page")
+                                                on:click=move |ev| {
+                                                    ev.prevent_default();
+                                                    nav.go(nav::Route::view(w.id, v.id));
+                                                }
+                                            >
+                                                {v.label}
+                                            </a>
+                                        }
+                                    })
+                                    .collect_view()
+                            })
+                    }}
+                </nav>
+              </div>
+            </div>
             <main id="main" class="page" tabindex="-1">
-                {move || match (current().map(|w| w.id), current_view().map(|v| v.id)) {
+                {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
-                    (Some("med.uhs"), _) => view! { <RegisterForm core revision /> <UhsBoard core revision /> }.into_any(),
+                    (Some("med.uhs"), _) => {
+                        view! { <patients::PatientsView core revision nav record=Signal::derive(move || record.get()) /> }.into_any()
+                    }
                     (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
             </main>
         </div>
+        <palette::Palette core revision nav open=palette theme />
         <p class="visually-hidden" role="status" aria-live="polite">
             {move || {
                 revision.track();
@@ -319,7 +431,7 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
 }
 
 /// Moves keyboard focus to the element with `id` (after navigation).
-fn focus(id: &str) {
+pub(crate) fn focus(id: &str) {
     use wasm_bindgen::JsCast;
     if let Some(el) = web_sys::window()
         .and_then(|w| w.document())
@@ -330,12 +442,31 @@ fn focus(id: &str) {
     }
 }
 
+/// Clicks the element with `id` (e.g. to open an editor after navigation).
+pub(crate) fn click(id: &str) {
+    use wasm_bindgen::JsCast;
+    if let Some(el) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id(id))
+        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        el.click();
+    }
+}
+
 /// Connection and outbox state, as text (OFF-5).
 #[component]
 fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let state = move || {
         revision.track();
-        core.with_value(|c| (c.connection, c.replica.outbox_len(), c.error.clone()))
+        core.with_value(|c| {
+            (
+                c.connection,
+                c.replica.outbox_len(),
+                c.error.clone(),
+                c.storage_failed,
+            )
+        })
     };
     view! {
         <div class="status" data-state=move || match state().0 {
@@ -353,6 +484,7 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             </span>
             <span class="status__pending">{move || text::pending(state().1)}</span>
             {move || state().2.map(|e| view! { <span role="alert" class="error">{e}</span> })}
+            {move || state().3.then(|| view! { <span role="alert" class="error">{text::STORAGE_FAILED}</span> })}
         </div>
     }
 }
@@ -388,7 +520,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         let counts = core.with_value(|c| {
             let events = c
                 .replica
-                .events(&c.incident, patients::COMPARTMENT)
+                .events(&c.incident, med::COMPARTMENT)
                 .unwrap_or_default();
             PatientRegister::from_events(&events).counts()
         });
@@ -445,194 +577,8 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 }
 
 #[component]
-fn RegisterForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let tag = RwSignal::new(String::new());
-    // Remembered between registrations: a device usually works at one UHS.
-    let uhs = RwSignal::new(String::new());
-    // No preselection: a forgotten choice must not become a wrong triage category.
-    let category = RwSignal::new(None::<TriageCategory>);
-    let error = RwSignal::new(None::<String>);
-    let list = move || {
-        revision.track();
-        uhs_list(core)
-    };
-    let submit = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
-        let value = tag.get().trim().to_owned();
-        let Some(chosen) = category.get() else { return };
-        if value.is_empty() || uhs.get().is_empty() {
-            return;
-        }
-        match core::register(core, revision, &value, chosen, &uhs.get()) {
-            Ok(()) => {
-                tag.set(String::new());
-                category.set(None);
-                error.set(None);
-            }
-            Err(e) => error.set(Some(e)),
-        }
-    };
-    view! {
-        <section aria-labelledby="register-title" class="card">
-            <h2 id="register-title">{text::REGISTER_TITLE}</h2>
-            {move || {
-                let list = list();
-                if list.is_empty() {
-                    return view! { <p class="notice">{text::NO_UHS}</p> }.into_any();
-                }
-                view! {
-                    <form on:submit=submit class="form">
-                        <label for="tag">{text::REGISTER_TAG}</label>
-                        <input id="tag" type="text" inputmode="numeric" autocomplete="off" required bind:value=tag class="input--code" />
-                        <fieldset class="choices">
-                            <legend>{text::REGISTER_CATEGORY}</legend>
-                            {CATEGORIES
-                                .into_iter()
-                                .map(|c| {
-                                    view! {
-                                        <label class="choice">
-                                            <input
-                                                type="radio"
-                                                name="category"
-                                                required
-                                                prop:checked=move || category.get() == Some(c)
-                                                on:change=move |_| category.set(Some(c))
-                                            />
-                                            <TriageBadge category=c />
-                                        </label>
-                                    }
-                                })
-                                .collect_view()}
-                        </fieldset>
-                        <label for="uhs">{text::REGISTER_UHS}</label>
-                        <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
-                            <option value="">{text::UHS_CHOOSE}</option>
-                            {list.into_iter().map(|u| view! { <option value=u.id.clone()>{u.name}</option> }).collect_view()}
-                        </select>
-                        <p role="alert" class="error">{move || error.get()}</p>
-                        <button type="submit" class="button button--primary">{text::REGISTER_SUBMIT}</button>
-                    </form>
-                }
-                .into_any()
-            }}
-        </section>
-    }
-}
-
-/// The triage tag number of a patient event (both event types carry `tag`).
-fn tag_of(event: &ordo_sync::AppliedEvent) -> Option<String> {
-    #[derive(serde::Deserialize)]
-    struct Tag {
-        tag: String,
-    }
-    ordo_core::codec::from_cbor::<Tag>(&event.payload)
-        .ok()
-        .map(|t| t.tag)
-}
-
-#[component]
-fn UhsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let rows = move || {
-        revision.track();
-        let names: std::collections::HashMap<String, String> =
-            uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
-        core.with_value(|c| {
-            let events = c
-                .replica
-                .events(&c.incident, patients::COMPARTMENT)
-                .unwrap_or_default();
-            // Patients with changes that are still in the outbox.
-            let pending: Vec<String> = events
-                .iter()
-                .filter(|e| e.seq.is_none())
-                .filter_map(tag_of)
-                .collect();
-            PatientRegister::from_events(&events)
-                .patients()
-                .map(|p| {
-                    let uhs = names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone());
-                    (
-                        p.tag.clone(),
-                        uhs,
-                        p.category(),
-                        p.history.len(),
-                        pending.contains(&p.tag),
-                    )
-                })
-                .collect::<Vec<_>>()
-        })
-    };
-    view! {
-        <section aria-labelledby="board-title" class="card">
-            <h2 id="board-title">{text::BOARD_TITLE}</h2>
-            {move || {
-                let rows = rows();
-                if rows.is_empty() {
-                    return view! { <p>{text::BOARD_EMPTY}</p> }.into_any();
-                }
-                view! {
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">{text::COL_TAG}</th>
-                                <th scope="col">{text::COL_CATEGORY}</th>
-                                <th scope="col">{text::COL_UHS}</th>
-                                <th scope="col">{text::COL_HISTORY}</th>
-                                <th scope="col">{text::COL_STATE}</th>
-                                <th scope="col">{text::COL_RETRIAGE}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows
-                                .into_iter()
-                                .map(|(tag, uhs, category, history, pending)| {
-                                    let tag_for_buttons = tag.clone();
-                                    view! {
-                                        <tr>
-                                            <th scope="row" class="code">{tag.clone()}</th>
-                                            <td><TriageBadge category /></td>
-                                            <td>{uhs}</td>
-                                            <td>{history}</td>
-                                            <td>{if pending { text::NOT_SENT } else { text::SENT }}</td>
-                                            <td>
-                                                <div class="retriage">
-                                                    {CATEGORIES
-                                                        .into_iter()
-                                                        .filter(|c| *c != category)
-                                                        .map(|c| {
-                                                            let tag = tag_for_buttons.clone();
-                                                            view! {
-                                                                <button
-                                                                    type="button"
-                                                                    class="button button--small"
-                                                                    aria-label=format!("{} {}: {}", text::COL_RETRIAGE, tag, text::label(c))
-                                                                    on:click=move |_| {
-                                                                        let _ = core::retriage(core, revision, &tag, c);
-                                                                    }
-                                                                >
-                                                                    {text::label(c)}
-                                                                </button>
-                                                            }
-                                                        })
-                                                        .collect_view()}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                })
-                                .collect_view()}
-                        </tbody>
-                    </table>
-                }
-                .into_any()
-            }}
-        </section>
-    }
-}
-
-#[component]
 fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let rows = move || {
+    let rows = Memo::new(move |_| {
         revision.track();
         let list = uhs_list(core);
         let counts = core.with_value(|c| {
@@ -640,7 +586,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .replica
                 .events(&c.incident, "incident")
                 .unwrap_or_default();
-            patients::latest_counts(&events)
+            med::latest_counts(&events)
         });
         list.into_iter()
             .map(|u| {
@@ -651,17 +597,37 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 )
             })
             .collect::<Vec<_>>()
-    };
+    });
     view! {
         <section aria-labelledby="counts-title" class="card">
             <h2 id="counts-title">{text::COUNTS_TITLE}</h2>
             {move || {
-                let rows = rows();
+                let rows = rows.get();
                 if rows.is_empty() {
                     return view! { <p>{text::COUNTS_EMPTY}</p> }.into_any();
                 }
+                // Narrow screens: one block per UHS instead of a wide table (reflow).
+                let list = rows
+                    .iter()
+                    .map(|(name, capacity, c)| {
+                        let total: u32 = CATEGORIES.iter().map(|k| c.get(*k)).sum();
+                        view! {
+                            <li class="count-card">
+                                <h3>{name.clone()}</h3>
+                                <ul class="count-card__counts">
+                                    {CATEGORIES
+                                        .into_iter()
+                                        .map(|k| view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}</span></li> })
+                                        .collect_view()}
+                                </ul>
+                                <p>{text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, *capacity)}</p>
+                            </li>
+                        }
+                    })
+                    .collect_view();
                 view! {
-                    <table class="table">
+                    <ul class="count-list only-narrow">{list}</ul>
+                    <table class="table only-wide">
                         <thead>
                             <tr>
                                 <th scope="col">{text::COL_UHS}</th>
@@ -715,7 +681,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             Err(e) => error.set(Some(e)),
         }
     };
-    let register = move || {
+    let register = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {
             let events = c
@@ -724,69 +690,61 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .unwrap_or_default();
             UnitRegister::from_events(&events)
         })
-    };
+    });
     view! {
         <section aria-labelledby="units-title" class="card">
             <h2 id="units-title">{text::UNITS_TITLE}</h2>
             {move || {
-                register()
+                register
+                    .get()
                     .lost_updates
                     .into_iter()
                     .map(|l| view! { <p class="notice notice--warning">{text::lost_update(&l.unit, &l.overwritten, &l.kept)}</p> })
                     .collect_view()
             }}
             {move || {
-                let units = register().units;
+                let units = register.get().units;
                 if units.is_empty() {
                     return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
                 }
                 view! {
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">{text::COL_CALL_SIGN}</th>
-                                <th scope="col">{text::COL_TYPE}</th>
-                                <th scope="col">{text::COL_ORGANISATION}</th>
-                                <th scope="col">{text::COL_STATUS}</th>
-                                <th scope="col">{text::COL_SET_STATUS}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {units
-                                .into_values()
-                                .map(|u| {
-                                    let unit = u.unit.clone();
-                                    let current = u.status.as_ref().map(|s| s.status.clone()).unwrap_or_default();
-                                    let shown = if current.is_empty() { text::NO_STATUS.to_owned() } else { text::status_label(&current) };
-                                    view! {
-                                        <tr>
-                                            <th scope="row">{u.unit.clone()}</th>
-                                            <td>{u.unit_type}</td>
-                                            <td>{u.organisation}</td>
-                                            <td>{shown}</td>
-                                            <td>
-                                                <select
-                                                    aria-label=text::set_status_label(&unit)
-                                                    on:change=move |ev| {
-                                                        let value = event_target_value(&ev);
-                                                        if !value.is_empty() {
-                                                            let _ = core::set_status(core, revision, &unit, &value);
-                                                        }
-                                                    }
-                                                >
-                                                    <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
-                                                    {text::STATUS_CODES
-                                                        .iter()
-                                                        .map(|(code, _)| view! { <option value=*code selected=*code == current>{text::status_label(code)}</option> })
-                                                        .collect_view()}
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    }
-                                })
-                                .collect_view()}
-                        </tbody>
-                    </table>
+                    <ul class="unit-list">
+                        {units
+                            .into_values()
+                            .map(|u| {
+                                let unit = u.unit.clone();
+                                let current = u.status.as_ref().map(|s| s.status.clone()).unwrap_or_default();
+                                let shown = if current.is_empty() { text::NO_STATUS.to_owned() } else { text::status_label(&current) };
+                                let details = [u.unit_type.as_str(), u.organisation.as_str()]
+                                    .into_iter()
+                                    .filter(|t| !t.is_empty())
+                                    .collect::<Vec<_>>()
+                                    .join(" · ");
+                                view! {
+                                    <li class="unit-card" data-unit=u.unit.clone()>
+                                        <h3 class="unit-card__name">{u.unit.clone()}</h3>
+                                        <p class="unit-card__details">{details}</p>
+                                        <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
+                                        <select
+                                            aria-label=text::set_status_label(&unit)
+                                            on:change=move |ev| {
+                                                let value = event_target_value(&ev);
+                                                if !value.is_empty() {
+                                                    let _ = core::set_status(core, revision, &unit, &value);
+                                                }
+                                            }
+                                        >
+                                            <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
+                                            {text::STATUS_CODES
+                                                .iter()
+                                                .map(|(code, _)| view! { <option value=*code selected=*code == current>{text::status_label(code)}</option> })
+                                                .collect_view()}
+                                        </select>
+                                    </li>
+                                }
+                            })
+                            .collect_view()}
+                    </ul>
                 }
                 .into_any()
             }}

@@ -3,7 +3,9 @@
 - Text contrast (WCAG 1.4.3) of every visible text, against the composited background.
 - Table rows: all cells of a row end at the same line (no broken card/table layout).
 - Touch targets (UX-2): buttons and inputs at least 44 CSS px high.
-- Reflow (WCAG 1.4.10): the page does not scroll horizontally.
+- Reflow (WCAG 1.4.10): the page does not scroll horizontally, and no content is wider
+  than its card (a table that only scrolls inside its card is a reflow failure too).
+- Fixed bars (bottom navigation): scrolled to the end, they cover no content.
 
 Returns a list of human-readable problems; empty means everything passed.
 """
@@ -47,7 +49,7 @@ const problems = [];
 for (const el of document.querySelectorAll('body *')) {
   if (!visible(el)) continue;
   let text = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(' ').trim();
-  if (el.matches('input[type=text], input[type=password]')) text = el.value || '';
+  if (el.matches('input[type=text], input[type=password], textarea')) text = el.value || '';
   if (el.matches('select')) text = el.options[el.selectedIndex]?.text || '';
   if (!text) continue;
   const cs = getComputedStyle(el);
@@ -74,15 +76,33 @@ for (const cell of document.querySelectorAll('td, th')) {
 }
 
 // Touch targets
-for (const el of document.querySelectorAll('button, select, input[type=text], input[type=password], a.skip-link')) {
+for (const el of document.querySelectorAll('button, select, textarea, input[type=text], input[type=password], input[type=date], input[type=time], a.skip-link, a.views__item, a.patient-card, a.back-link, label.button, label.chip, summary, [role=option]')) {
   if (!visible(el) || el.matches('a.skip-link')) continue;
   const h = el.getBoundingClientRect().height;
   if (h < 44) problems.push(`touch target ${h.toFixed(0)} px < 44 px: ${describe(el, el.innerText || el.id)}`);
 }
 
-// Reflow: no horizontal scrolling of the page
+// Reflow: no horizontal scrolling of the page, nothing wider than its card
 const doc = document.documentElement;
 if (doc.scrollWidth > doc.clientWidth + 1) problems.push(`page scrolls horizontally: ${doc.scrollWidth} > ${doc.clientWidth}`);
+for (const box of document.querySelectorAll('.card, .record__section, .entry, .editor')) {
+  if (visible(box) && box.scrollWidth > box.clientWidth + 1) problems.push(`content wider than its box: ${describe(box, box.innerText || '')} (${box.scrollWidth} > ${box.clientWidth})`);
+}
+
+// Fixed bars must not cover content: scrolled to the very end, nothing lies beneath them.
+const bars = [...document.querySelectorAll('body *')].filter((e) => getComputedStyle(e).position === 'fixed' && visible(e) && !e.closest('dialog, .launcher__panel'));
+if (bars.length) {
+  const before = window.scrollY;
+  window.scrollTo(0, doc.scrollHeight);
+  const content = [...document.querySelectorAll('#main h2, #main h3, #main p, #main li, #main button, #main a, #main input, #main select, #main textarea, #main label, #main td, #main th')]
+    .filter((e) => visible(e) && !bars.some((b) => b.contains(e)));
+  for (const bar of bars) {
+    const b = bar.getBoundingClientRect();
+    const hit = content.find((e) => { const r = e.getBoundingClientRect(); return r.bottom > b.top + 1 && r.top < b.bottom - 1 && r.right > b.left && r.left < b.right; });
+    if (hit) problems.push(`covered by a fixed bar when scrolled to the end: ${describe(hit, hit.innerText || hit.id || '')}`);
+  }
+  window.scrollTo(0, before);
+}
 return problems;
 """
 

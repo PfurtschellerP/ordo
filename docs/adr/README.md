@@ -29,6 +29,12 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0022](0022-open-standards-first.md) | Open standards first | accepted | 2026-11-08 |
 | [0023](0023-docs-as-code.md) | Docs-as-code with arc42, MADR and OpenFastTrace | accepted | 2026-11-08 |
 | [0024](0024-server-derived-connectors.md) | Connector events are derived by the server that orders the source compartment | proposed | 2026-11-08 |
-| [0025](0025-workspace-navigation.md) | Navigation: workspace launcher plus view rail or bottom bar | accepted | 2026-11-08 |
+| [0025](0025-workspace-navigation.md) | Navigation: workspace launcher plus view rail or bottom bar | accepted, amended by 0026 | 2026-11-08 |
+| [0026](0026-navigation-at-the-bottom-on-phones.md) | Navigation at the bottom on phones, menu included | accepted | 2026-11-08 |
+| [0027](0027-epcr-forms-from-the-profile.md) | Patient care record: forms from the profile, values as events | accepted | 2026-11-08 |
+| [0028](0028-patient-photos-in-sealed-events.md) | Patient photos as small images inside sealed events | proposed | 2026-11-08 |
+| [0029](0029-edit-records-in-place.md) | Edit records in place, not in modal dialogs | accepted | 2026-11-08 |
+| [0030](0030-command-palette.md) | Command palette and keyboard shortcuts | accepted | 2026-11-08 |
+| [0031](0031-command-structure-from-doctrine.md) | Command structure as data, following the official doctrine | proposed | 2026-11-08 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

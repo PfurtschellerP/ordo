@@ -289,11 +289,53 @@ Needs: impl, itest
 
 Tags: must, m1
 
+#### Patient care record
+`dsn~patient-care-record~1`
+
+Module `med.epcr` in the same package. The forms come from the profile catalogue
+`epcr-forms`, checked at build time ([ADR-0027](../adr/0027-epcr-forms-from-the-profile.md)).
+Saving a form records one `epcr.entryRecorded` event in `med.clinical` with the triage
+tag number, the form ID and the checked values. Snapshot forms show the latest value per
+field and keep earlier ones; series forms list timed entries, and a correction names the
+entry it replaces, which stays visible as corrected. The only calculation is a sum of
+documented values defined by the profile (e.g. GCS). In the app, the record is a page with
+its own address; forms open in place, unsaved input survives switching views
+([ADR-0029](../adr/0029-edit-records-in-place.md)).
+
+Covers:
+
+* [req~epcr-1~1](../requirements/04-med.md#epcr-1--one-record-per-patient)
+* [req~epcr-2~1](../requirements/04-med.md#epcr-2--record-structure-from-profile)
+* [req~epcr-3~1](../requirements/04-med.md#epcr-3--quick-entry)
+* [req~epcr-4~1](../requirements/04-med.md#epcr-4--append-only-record)
+
+Needs: impl, utest, itest
+
+Tags: must, m6
+
+#### Patient photo
+`dsn~patient-photo~1`
+
+The device takes a photo with HTML media capture or reads an uploaded image, downscales
+it (longest side at most 800 px) and re-encodes it as JPEG, which drops camera and
+location metadata. An `epcr.photoAdded` event in `med.clinical` carries at most 160 KiB;
+the module rejects larger photos and other media types. The record shows the latest
+photo ([ADR-0028](../adr/0028-patient-photos-in-sealed-events.md)).
+
+Covers:
+
+* [req~pat-8~1](../requirements/04-med.md#pat-8--photo-for-identification)
+
+Needs: impl, utest, itest
+
+Tags: should, m6
+
 ### 5.5.3 Web app `ordo-app`
 
 Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `ordo serve`
 (`ORDO_APP_DIR`). Prototype workspaces: Med (registration, UHS board) and command
-(patient counts). Texts in German (DE profile) in one file, to move to Fluent later.
+(patient counts), resources, the patient care record (`patients.rs`) and the command
+palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Fluent later.
 
 #### Local persistence
 `dsn~local-persistence~1`
@@ -340,13 +382,18 @@ Needs: impl, itest
 Tags: must, m3
 
 #### Workspace navigation
-`dsn~workspace-navigation~1`
+`dsn~workspace-navigation~2`
 
-Workspaces (package, label, required compartments, views) are defined as data. A
-launcher at the top left switches workspaces; it lists every workspace of the packages in
-use and keeps unavailable ones in place, disabled, with the reason. Views of the current
-workspace are a rail on wide screens and a bottom bar on phones. A device opens the last
-used workspace, or the first one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md)).
+Workspaces (package, label, required compartments, views) are defined as data. A menu
+(launcher) switches workspaces; it lists every workspace of the packages in use and keeps
+unavailable ones in place, disabled, with the reason. On wide screens a rail holds the
+menu at its top and the views of the current workspace below; on phones and tablets in
+portrait, one bar at the bottom holds the views and, at its end, the menu, which opens
+upwards; the content never lies beneath the bar. The header shows the workspace as page
+heading, search, incident and connection. The route (workspace, view, record) lives in the
+URL fragment, so the back button works; a device opens the last used workspace, or the
+first one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md),
+[ADR-0026](../adr/0026-navigation-at-the-bottom-on-phones.md)).
 
 Covers:
 
@@ -355,3 +402,23 @@ Covers:
 Needs: impl, itest
 
 Tags: must, m5
+
+#### Command palette
+`dsn~command-palette~1`
+
+Ctrl+K or ⌘K, or the search button, opens a modal dialog with a combobox and a listbox
+(WAI-ARIA Authoring Practices). Entries are views, commands, patients (by triage tag
+number only) and units (by call sign), built from the current state; matching ignores
+case and umlauts and ranks word starts first. Choosing a patient or unit shows its quick
+actions (open the record, new entry, photo, re-triage; unit status). Entries the user may
+not use are disabled with the reason. Arrow keys, Enter, Backspace and Escape work as
+expected; focus returns to where it was; the number of results is announced
+([ADR-0030](../adr/0030-command-palette.md)).
+
+Covers:
+
+* [req~ux-10~1](../requirements/07-quality.md#ux-10--keyboard-command-palette)
+
+Needs: impl, utest, itest
+
+Tags: should, m6

@@ -92,6 +92,7 @@ the build fails.
 | 3 — First app | `m3` | No lost input (UX-5), colour never the only carrier of meaning (A11Y-3) |
 | 4 — Several UHS | `m4` | Several on-site care units with a load overview (UHS-4) |
 | 5 — Navigation | `m5` | Each role opens in its workspace (UX-8) |
+| 6 — Patient record | `m6` | Patient care record from the profile (EPCR-1…4), photo for identification (PAT-8), keyboard command palette (UX-10) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -100,5 +101,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6 docs platform modules packages tests
 ```

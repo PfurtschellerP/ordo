@@ -46,17 +46,38 @@ class Firefox:
     def go(self, url):
         self.cmd("WebDriver:Navigate", {"url": url})
 
-    def shot(self, path):
+    def shot(self, path, full=True):
+        """Screenshot of the whole page, or (full=False) of what the viewport shows, as a
+        user sees it; fixed bars appear where they really are."""
         end = time.time() + 5
         while time.time() < end and self.js("return document.getAnimations().length") > 0:
             time.sleep(0.05)
-        png = self.cmd("WebDriver:TakeScreenshot", {"full": True})["value"]
+        png = self.cmd("WebDriver:TakeScreenshot", {"full": full})["value"]
         open(path, "wb").write(base64.b64decode(png))
+
+    def keys(self, *chords):
+        """Real key presses (with the browser's default actions, unlike synthetic events).
+        Each chord is a string of keys pressed together, e.g. CTRL + "k", or text to type."""
+        actions = []
+        for chord in chords:
+            if chord and chord[0] in MODIFIERS:
+                down = [{"type": "keyDown", "value": k} for k in chord]
+                up = [{"type": "keyUp", "value": k} for k in reversed(chord)]
+                actions += down + up
+            else:
+                for k in chord:
+                    actions += [{"type": "keyDown", "value": k}, {"type": "keyUp", "value": k}]
+        self.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "keyboard", "actions": actions}]})
+        self.cmd("WebDriver:ReleaseActions")
 
     def quit(self):
         try: self.cmd("Marionette:Quit", {"flags": ["eForceQuit"]})
         except Exception: pass
         self.proc.wait(timeout=20)
+
+# WebDriver key codes.
+CTRL, ENTER, ESCAPE, DOWN, BACKSPACE = "\ue009", "\ue007", "\ue00c", "\ue015", "\ue003"
+MODIFIERS = {CTRL}
 
 # Helpers that drive the app like a user (input events, clicks).
 FILL = """

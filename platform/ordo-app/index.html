@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
     <title>ORDO</title>
     <link data-trunk rel="css" href="generated/ordo-tokens.css">
@@ -12,6 +12,8 @@
     <link data-trunk rel="copy-file" href="sw.js">
     <script>
       if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+      // Apply the chosen colour theme before the first paint (no flash of the wrong theme).
+      try { const t = localStorage.getItem("ordo.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
     </script>
     <link data-trunk rel="rust" data-bin="ordo-app" data-cargo-profile="release-wasm" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals">
   </head>

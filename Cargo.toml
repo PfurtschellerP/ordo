@@ -30,6 +30,7 @@ ordo-units = { path = "modules/units" }
 ordo-med-patients = { path = "packages/med/patients" }
 
 axum = { version = "0.8", features = ["ws"] }
+base64 = "0.22"
 blake3 = "1"
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
@@ -51,7 +52,13 @@ zeroize = { version = "1", features = ["derive"] }
 toml = "1"
 tower-http = { version = "0.7", features = ["fs", "set-header"] }
 wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = ["BinaryType", "CloseEvent", "Crypto", "Document", "HtmlElement", "Location", "MessageEvent", "Storage", "UrlSearchParams", "WebSocket", "Window"] }
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+  "BinaryType", "Blob", "CanvasRenderingContext2d", "CloseEvent", "Crypto", "Document", "DomTokenList",
+  "File", "FileList", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
+  "HtmlInputElement", "ImageBitmap", "Location", "MessageEvent", "Navigator", "ScrollIntoViewOptions",
+  "ScrollLogicalPosition", "Storage", "UrlSearchParams", "WebSocket", "Window",
+] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 

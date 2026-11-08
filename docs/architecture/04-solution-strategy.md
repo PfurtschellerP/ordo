@@ -38,7 +38,8 @@
 
 ORDO uses open standards wherever they exist and fit ([ADR-0022](../adr/0022-open-standards-first.md)).
 Where nothing fits, ORDO's own formats are published as open specifications in
-[spec/](../../spec/README.md).
+[spec/](../../spec/README.md). The [standards register](../standards.md) lists every
+standard and doctrine with edition, link and where ORDO uses it.
 
 | Area | Standard / open specification |
 |---|---|
@@ -46,9 +47,9 @@ Where nothing fits, ORDO's own formats are published as open specifications in
 | Identifiers and time | ULID (open specification), DNS names, UTC |
 | Cryptography | Ed25519 (RFC 8032), XChaCha20-Poly1305, X25519 (RFC 7748), BLAKE3 (open specification), TLS 1.3 |
 | Interfaces | OpenAPI 3.1, AsyncAPI 3, WebSocket (RFC 6455), OpenID Connect |
-| Emergency and health data | EMSI (ISO/TR 22351), CAP (OASIS), HL7 FHIR, DIVI MIND (dataset), DV 102 tactical symbols |
+| Emergency and health data | EMSI (ISO/TR 22351), CAP (OASIS), EDXL-TEP (OASIS), HL7 FHIR, LOINC, DIVI MIND (dataset), DV 102 tactical symbols |
 | Maps | OpenStreetMap data, PMTiles, MapLibre style specification, WMS/WMTS (OGC) |
-| User interface | HTML, CSS, WAI-ARIA, Web App Manifest (PWA), Project Fluent (translations), SVG |
+| User interface | HTML (incl. `dialog`, media capture), CSS (incl. container queries), WAI-ARIA, Web App Manifest (PWA), Project Fluent (translations), SVG, JPEG |
 | Design | W3C Design Tokens format (DTCG 2025.10) |
 | Accessibility | EN 301 549, WCAG 2.2, PDF/UA-1 |
 | Operation | OCI container images, Prometheus/OpenMetrics, OpenTelemetry, twelve-factor app |

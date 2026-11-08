@@ -3,14 +3,15 @@
 Usage:  python3 tests/e2e/scenario.py <ordo binary> <app dist dir> <work dir>
 
 Scenarios (tests/acceptance/features/): register patients, required triage choice,
-offline registration with reload and resend, command sees counts but no patient data.
-Screenshots are written to the work dir. Exit code 1 on failure.
+patient record with photo, keyboard command palette, offline registration with reload
+and resend, command sees counts but no patient data, phone layout with bottom
+navigation. Screenshots are written to the work dir. Exit code 1 on failure.
 """
-import os, re, shutil, subprocess, sys, time, urllib.request
+import base64, os, re, shutil, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.dirname(__file__))
 from audit import audit  # noqa: E402
-from marionette import CLICK_TEXT, FILL, Firefox  # noqa: E402
+from marionette import BACKSPACE, CLICK_TEXT, CTRL, DOWN, ENTER, ESCAPE, FILL, Firefox  # noqa: E402
 
 ORDO, DIST, WORK = sys.argv[1:4]
 PORT = 18090
@@ -79,7 +80,36 @@ def pair(ff, user, keys, incident=None):
 
 
 status = lambda ff: ff.js("return document.querySelector('.status')?.innerText.replace(/\\n/g, ' | ') || ''")
-rows = lambda ff: ff.js("return [...document.querySelectorAll('#main tbody tr')].map(r => r.cells[0].innerText + ' ' + r.cells[1].innerText.split('\\n')[0] + ' ' + r.cells[4].innerText)")
+rows = lambda ff: ff.js("return [...document.querySelectorAll('.patient-card')].map(c => c.dataset.tag + ' ' + c.querySelector('.triage').innerText.split('\\n')[0] + ' ' + c.querySelector('.patient-card__state').innerText)")
+title = lambda ff: ff.js("return document.querySelector('.app-header__title')?.innerText || ''")
+announced = lambda ff: ff.js("return document.querySelector('body > [role=status]').innerText")
+hash_ = lambda ff: ff.js("return decodeURIComponent(location.hash)")
+facts = lambda ff, section: ff.js("return [...document.querySelectorAll(`[aria-labelledby=section-${arguments[0]}] .facts`)].map(f => f.innerText.replace(/\\n/g, ' ')).join(' / ')", section)
+
+
+def stored_replica(ff):
+    """The replica as stored on the device (bytes; Base64 with prefix, older: hex)."""
+    text = ff.js("return localStorage.getItem('ordo.replica') || ''")
+    return base64.b64decode(text[4:]) if text.startswith("b64:") else bytes.fromhex(text)
+
+
+def open_record(ff, tag):
+    ff.js("document.querySelector(`.patient-card[data-tag='${arguments[0]}']`).click()", tag)
+    assert wait_for(lambda: ff.js("return document.getElementById('record-title')?.innerText") == f"Patient {tag}"), f"record {tag} missing"
+
+
+def fill_form(ff, form, values, choices=()):
+    """Fills an open editor: text values by field ID, choices by option label."""
+    for field, value in values.items():
+        ff.js("const el = document.getElementById(arguments[0]); el.value = arguments[1]; el.dispatchEvent(new Event('input', {bubbles: true}));",
+              f"f-{form}-{field}", value)
+    for field, label in choices:
+        ff.js("[...document.querySelectorAll(`#${arguments[0]} label`)].find(l => l.innerText.trim() === arguments[1]).click()",
+              f"f-{form}-{field}", label)
+
+
+def save_form(ff, form):
+    ff.js("document.getElementById(arguments[0]).closest('section').querySelector('form.editor button[type=submit]').click()", f"section-{form}")
 
 
 SELECT = """
@@ -142,8 +172,7 @@ try:
     audit(anna, "Pairing page", check)
     incident = pair(anna, "anna@localhost", keys["anna"])
     check(wait_for(lambda: "Verbunden" in status(anna)), "medic device connects")
-    check(wait_for(lambda: "Sanität – UHS" in anna.js("return document.getElementById('launcher-button').innerText")),
-          "a medic starts in the workspace Sanität – UHS")
+    check(wait_for(lambda: "Sanität – UHS" in title(anna)), "a medic starts in the workspace Sanität – UHS")
     open_view(anna, "UHS verwalten")
     create_uhs(anna, "UHS Bühne Nord", 10)
     create_uhs(anna, "UHS Eingang", 5)
@@ -160,10 +189,95 @@ try:
     check(len(rows(anna)) == 3, "registration without a triage category is not possible")
     anna.js(FILL, "tag", "")
 
+    # Patient record (EPCR-1…4, PAT-8), opened from the list; the URL names the record.
+    open_record(anna, "DE-0044")
+    check(hash_(anna) == "#/med.uhs/patients/DE-0044", f"the record has its own address: {hash_(anna)}")
     anna.js("document.querySelector('button[aria-label=\"Nachsichtung DE-0044: SK I\"]').click()")
-    check(wait_for(lambda: "nachgesichtet" in anna.js("return document.querySelector('[role=status]').innerText")),
-          "re-triage is announced to screen readers")
+    check(wait_for(lambda: "nachgesichtet" in announced(anna)), "re-triage is announced to screen readers")
     check(wait_for(lambda: "Alles gesendet" in status(anna)), "re-triage is sent")
+
+    # [itest->dsn~patient-care-record~1]
+    anna.js("document.getElementById('edit-identity').click()")
+    fill_form(anna, "identity", {"family_name": "Mustermann", "given_name": "Max", "age_estimate": "40"}, [("sex", "männlich")])
+    save_form(anna, "identity")
+    check(wait_for(lambda: "Mustermann" in facts(anna, "identity") and "männlich" in facts(anna, "identity")),
+          f"identity is documented: {facts(anna, 'identity')}")
+    anna.js("document.getElementById('new-vitals').click()")
+    fill_form(anna, "vitals", {"heart_rate": "abc"})
+    save_form(anna, "vitals")
+    check(wait_for(lambda: anna.js("return document.getElementById('f-vitals-heart_rate').getAttribute('aria-invalid')") == "true"),
+          "an invalid number is marked and explained")
+    fill_form(anna, "vitals", {"heart_rate": "112", "spo2": "97", "gcs_eye": "4", "gcs_verbal": "5", "gcs_motor": "6"})
+    save_form(anna, "vitals")
+    check(wait_for(lambda: "GCS gesamt 15" in facts(anna, "vitals") and "112 /min" in facts(anna, "vitals")),
+          f"vital signs are documented with the GCS total: {facts(anna, 'vitals')}")
+    anna.js("document.querySelector('[aria-labelledby=section-vitals] .entry button').click()")  # Korrigieren
+    fill_form(anna, "vitals", {"heart_rate": "92"})
+    save_form(anna, "vitals")
+    check(wait_for(lambda: "92 /min" in facts(anna, "vitals") and anna.js(
+          "return document.querySelector('[aria-labelledby=section-vitals] .corrected summary')?.innerText") == "1 korrigierter Eintrag"),
+          "a correction replaces the entry and keeps the old one visible")
+
+    # Unsaved input survives switching views (UX-5).
+    anna.js("document.getElementById('edit-history').click()")
+    fill_form(anna, "history", {"allergies": "Penicillin"})
+    open_view(anna, "UHS verwalten")
+    open_view(anna, "Patienten")
+    open_record(anna, "DE-0044")
+    check(wait_for(lambda: anna.js("return document.getElementById('f-history-allergies')?.value") == "Penicillin"),
+          "unsaved input is still there after switching views")
+    save_form(anna, "history")
+
+    # [itest->dsn~patient-photo~1]
+    anna.js("""
+      const canvas = document.createElement('canvas'); canvas.width = 3000; canvas.height = 2000;
+      const ctx = canvas.getContext('2d');
+      for (let i = 0; i < 400; i++) { ctx.fillStyle = `hsl(${i * 7 % 360} 70% 50%)`; ctx.fillRect(Math.random() * 3000, Math.random() * 2000, 300, 200); }
+      canvas.toBlob((blob) => {
+        const dt = new DataTransfer(); dt.items.add(new File([blob], 'photo.png', {type: 'image/png'}));
+        const input = document.getElementById('photo-upload'); input.files = dt.files;
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+      }, 'image/png');""")
+    check(wait_for(lambda: anna.js("const i = document.querySelector('img.photo'); return !!i && i.complete && i.naturalWidth > 0"), 20),
+          "a photo is taken for identification and shown in the record")
+    size = anna.js("const i = document.querySelector('img.photo'); return [i.naturalWidth, i.naturalHeight, atob(i.src.split(',')[1]).length, i.src.slice(0, 23)]")
+    check(size[0] <= 800 and size[1] <= 800 and size[2] <= 160 * 1024 and size[3] == "data:image/jpeg;base64,",
+          f"the photo is downscaled and re-encoded as JPEG: {size}")
+    check(wait_for(lambda: "Alles gesendet" in status(anna)), "record entries and photo are sent")
+    audit(anna, "Patient record", check)
+    anna.shot(f"{WORK}/record.png")
+
+    anna.js("history.back()")
+    check(wait_for(lambda: hash_(anna) == "#/med.uhs/patients" and not anna.js("return !!document.getElementById('record-title')")),
+          "the back button returns from the record to the list")
+    check(wait_for(lambda: any(r.startswith("DE-0044") for r in rows(anna))) and "Mustermann, Max" in anna.js(
+          "return document.querySelector(`.patient-card[data-tag='DE-0044']`).innerText"),
+          "the list shows the documented name")
+    stored = stored_replica(anna)
+    check(b"Mustermann" not in stored and b"Penicillin" not in stored,
+          "clinical entries are stored sealed on the medic's device, not in plain text")
+
+    # [itest->dsn~command-palette~1]
+    anna.js("document.getElementById('tag').focus()")
+    anna.keys(CTRL + "k")
+    check(wait_for(lambda: anna.js("return document.getElementById('palette').open")), "Ctrl+K opens the command palette")
+    check(anna.js("return document.activeElement.id") == "palette-input", "the search field has the focus")
+    anna.keys("0043")
+    check(wait_for(lambda: anna.js("return document.querySelector('#palette-list [aria-selected=true] .palette__label')?.innerText") == "DE-0043"),
+          "typing part of a triage tag number finds the patient")
+    audit(anna, "Command palette", check, widths=(1200,))
+    anna.keys(ENTER, "sk iii")
+    check(wait_for(lambda: anna.js("return document.querySelector('#palette-list [aria-selected=true] .palette__label')?.innerText") == "Sichtung ändern: SK III"),
+          "the patient's quick actions are offered")
+    anna.keys(ENTER)
+    check(wait_for(lambda: "DE-0043 nachgesichtet: SK III" in announced(anna)), "a re-triage runs from the palette without leaving the keyboard")
+    check(not anna.js("return document.getElementById('palette').open"), "the palette closes after the action")
+    anna.keys(CTRL + "k", "vitalwerte")
+    check(wait_for(lambda: anna.js("return document.getElementById('palette-list').children.length") == 0),
+          "patient commands are only offered for a chosen patient")
+    anna.keys(ESCAPE)
+    check(wait_for(lambda: not anna.js("return document.getElementById('palette').open")), "Escape closes the palette")
+    check(anna.js("return document.activeElement.id") == "tag", "focus returns to where it was")
 
     # [itest->dsn~offline-app-shell~1]
     check(wait_for(lambda: anna.js("return !!navigator.serviceWorker.controller"), 15),
@@ -186,8 +300,26 @@ try:
     audit(anna, "Launcher (medic)", check)
     anna.js("document.getElementById('launcher-button').click()")
     anna.shot(f"{WORK}/med-day.png")
-    anna.cmd("WebDriver:SetWindowRect", {"width": 420, "height": 900})
-    anna.shot(f"{WORK}/med-phone.png")
+
+    # Phone: navigation at the bottom, menu included (ADR-0025).
+    anna.cmd("WebDriver:SetWindowRect", {"width": 390, "height": 844})
+    time.sleep(0.3)
+    bar = anna.js("""const n = document.querySelector('.navigation').getBoundingClientRect();
+      const m = document.getElementById('launcher-button').getBoundingClientRect();
+      return [Math.round(n.bottom), innerHeight, m.top >= n.top && m.bottom <= n.bottom]""")
+    check(bar[0] == bar[1] and bar[2], f"on phones the views and the menu are in a bar at the bottom: {bar}")
+    anna.js("window.scrollTo(0, 0)")
+    anna.shot(f"{WORK}/med-phone.png", full=False)
+    anna.js("document.getElementById('launcher-button').click()")
+    sheet = anna.js("""const p = document.getElementById('launcher-panel').getBoundingClientRect();
+      const n = document.querySelector('.navigation').getBoundingClientRect(); return [Math.round(p.bottom), Math.round(n.top), Math.round(p.top)]""")
+    check(sheet[0] <= sheet[1] + 1 and sheet[2] > 0, f"the menu opens upwards above the bar: {sheet}")
+    anna.shot(f"{WORK}/launcher-phone.png", full=False)
+    anna.js("document.getElementById('launcher-button').click()")
+    open_record(anna, "DE-0042")
+    anna.shot(f"{WORK}/record-phone.png", full=False)
+    check(not anna.js("return document.querySelector('.master').offsetParent"), "on phones the record is a page of its own")
+    anna.js("history.back()")
     anna.cmd("WebDriver:SetWindowRect", {"width": 1200, "height": 1000})
     anna.js("document.documentElement.dataset.theme = 'night'")
     anna.shot(f"{WORK}/med-night.png")
@@ -197,9 +329,9 @@ finally:
 ben = Firefox(f"{WORK}/profile-ben", 2829)
 try:
     pair(ben, "ben@localhost", keys["ben"], incident)
-    # [itest->dsn~workspace-navigation~1]
-    check(wait_for(lambda: "Einsatzleitung – Lage" in ben.js("return document.getElementById('launcher-button').innerText")),
-          "the commander starts in the first workspace he may use: Einsatzleitung – Lage")
+    # [itest->dsn~workspace-navigation~2]
+    check(wait_for(lambda: "Einsatzleitung – Lage" in title(ben)),
+          "the commander starts in the first workspace they may use: Einsatzleitung – Lage")
     ben.js("document.getElementById('launcher-button').click()")
     check(launcher_item(ben, "UHS") == ["true", "Kein Zugriff in diesem Einsatz"],
           f"the UHS workspace stays in the menu, disabled, with the reason: {launcher_item(ben, 'UHS')}")
@@ -208,11 +340,18 @@ try:
     ben.js("document.querySelector('.launcher').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))")
     check(wait_for(lambda: ben.js("return document.getElementById('launcher-panel').hidden")), "Escape closes the launcher")
     check(ben.js("return document.activeElement.id") == "launcher-button", "focus returns to the launcher button")
-    counts = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].map(r => [...r.cells].map(c => c.innerText.split('\\n')[0]).join(' '))")
-    check(wait_for(lambda: counts() == ["UHS Bühne Nord 1 1 0 0 0 2 2 / 10", "UHS Eingang 1 0 1 0 0 2 2 / 5"]),
-          f"command sees counts and load per UHS: {counts()}")
-    stored = ben.js("return localStorage.getItem('ordo.replica') || ''")
-    check(stored != "" and "44452d30303432" not in stored, "command device stores no triage tag number")
+    # DE-0043 was re-triaged to SK III from the palette.
+    cards = lambda: ben.js("return [...document.querySelectorAll('.count-card')].map(c => [c.querySelector('h3').innerText, ...[...c.querySelectorAll('.count-card__n')].map(n => n.innerText), c.querySelector('p').innerText].join(' '))")
+    check(wait_for(lambda: cards() == ["UHS Bühne Nord 1 0 1 0 0 Gesamt: 2 · Belegung: 2 / 10", "UHS Eingang 1 0 1 0 0 Gesamt: 2 · Belegung: 2 / 5"]),
+          f"command sees counts and load per UHS: {cards()}")
+    ben.cmd("WebDriver:SetWindowRect", {"width": 1700, "height": 1000})
+    table = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].filter(r => r.offsetParent).map(r => [...r.cells].map(c => c.innerText.split('\\n')[0]).join(' '))")
+    check(wait_for(lambda: table() == ["UHS Bühne Nord 1 0 1 0 0 2 2 / 10", "UHS Eingang 1 0 1 0 0 2 2 / 5"]),
+          f"where there is room, the counts are a table: {table()}")
+    audit(ben, "Command workspace (wide)", check, widths=(1700,))
+    stored = stored_replica(ben)
+    check(len(stored) > 0 and b"DE-0042" not in stored and b"Mustermann" not in stored and b"\xff\xd8\xff" not in stored,
+          "command device stores no triage tag number, no name and no photo")
     audit(ben, "Command workspace", check)
     ben.shot(f"{WORK}/command.png")
 
@@ -225,10 +364,21 @@ try:
     ben.js(CLICK_TEXT, "Einsatzmittel hinzufügen")
     assert wait_for(lambda: ben.js("return !!document.querySelector('select[aria-label=\"Status von RTW 83/1 setzen\"]')")), "unit row missing"
     ben.js(SELECT, "Status von RTW 83/1 setzen", "3 ")
-    units_row = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].map(r => [...r.cells].slice(0, 4).map(c => c.innerText).join(' | ')).join('; ')")
-    check(wait_for(lambda: units_row() == "RTW 83/1 | RTW | DRK Musterstadt | 3 – Einsatz übernommen"),
+    units_row = lambda: ben.js("return [...document.querySelectorAll('.unit-card')].map(c => [...c.querySelectorAll('h3, p')].map(e => e.innerText).join(' | ')).join('; ')")
+    check(wait_for(lambda: units_row() == "RTW 83/1 | RTW · DRK Musterstadt | Status: 3 – Einsatz übernommen"),
           f"a unit is added and its status is set: {units_row()}")
     check(wait_for(lambda: "Alles gesendet" in status(ben)), "unit and status are sent")
+    # Quick status change from the keyboard (UX-10).
+    ben.keys(CTRL + "k", "rtw")
+    check(wait_for(lambda: ben.js("return document.querySelector('#palette-list [aria-selected=true] .palette__label')?.innerText") == "RTW 83/1"),
+          "the palette finds a unit by call sign")
+    ben.keys(ENTER, "am einsatzort", ENTER)
+    check(wait_for(lambda: "Status: 4 – Am Einsatzort" in units_row()), f"a status is set from the palette: {units_row()}")
+    ben.keys(CTRL + "k", "patienten")
+    check(wait_for(lambda: ben.js("return [...document.querySelectorAll('#palette-list [role=option]')].map(o => o.getAttribute('aria-disabled') + ' ' + o.innerText.replace(/\\n/g, ' '))").count(
+          "true Ansicht Patienten Kein Zugriff in diesem Einsatz") == 1),
+          "in the palette, views without access are shown disabled with the reason")
+    ben.keys(ESCAPE)
     audit(ben, "Resources workspace", check)
     ben.shot(f"{WORK}/resources.png")
     ben.js("document.documentElement.dataset.theme = 'high-contrast'")

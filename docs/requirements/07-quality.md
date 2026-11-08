@@ -87,6 +87,15 @@ Tags: must, quality
 
 Needs: dsn
 
+#### UX-10 — Keyboard command palette
+`req~ux-10~1`
+
+When a user presses Ctrl+K (⌘K on Apple devices), ORDO shall open a search for views, patients, units and commands, from which the chosen entry runs with the keyboard alone.
+
+Tags: should, quality, m6
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline

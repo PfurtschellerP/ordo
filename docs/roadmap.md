@@ -18,8 +18,13 @@
 1. Which open tactical-symbol set (DV 102) can be used, and under which licence?
 2. Which organisations in Germany could be early test partners — first medical services
    for planned events (e.g. DRK, ASB, JUH, MHD), then fire brigades?
-3. Which DIVI MIND version should the ePCR be based on, and is its use licence-free?
+3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is
+   its use licence-free?
 4. Who can review data protection and medical-device questions before field use?
+5. Command structure ([ADR-0031](adr/0031-command-structure-from-doctrine.md), proposed):
+   start with the medical branch or with the general FwDV 100 tree? Derive access rights
+   from positions automatically?
+6. Should larger tablets in portrait also use the bottom bar (breakpoint now 48 rem)?
 
 ## Next steps
 
@@ -42,16 +47,25 @@ Done in phase 0:
 - Navigation: workspace launcher with role-based availability, view rail or bottom bar
   (milestone `m5`, ADR-0025); test directories moved to conventional places.
 
+- Patient care record (milestone `m6`): forms from the DE profile (identity, encounter,
+  history, vital signs, findings, measures, medication, disposition) with corrections,
+  photo for identification, master–detail editing without modal dialogs, routes with
+  back-button support; Ctrl+K command palette with quick actions; menu in the bottom bar
+  on phones; patient and unit lists as cards; [standards register](standards.md) and a
+  proposal for the command structure (ADR-0031).
+
 Next:
 
 1. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
-   connection (sync protocol draft 1); protected key storage in the app.
+   connection (sync protocol draft 1); protected key storage in the app; device storage
+   in IndexedDB instead of `localStorage` (room for photos, append-only writes).
 2. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
 3. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
    status codes from the DE profile, releasing units, UHS staff and location.
-4. Design the main tablet screens for the Med MVP with volunteers; on phones, show the
-   patient overview as a list of cards instead of a wide table.
+4. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+   now a list of cards; check forms and the record page with medics).
+5. Command structure as data (ADR-0031), once decided.
 
 Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
 before the first real field use:

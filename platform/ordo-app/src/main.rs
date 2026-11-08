@@ -2,6 +2,8 @@
 
 mod core;
 mod nav;
+mod palette;
+mod patients;
 mod text;
 mod views;
 

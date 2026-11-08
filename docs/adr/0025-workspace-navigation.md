@@ -45,5 +45,8 @@ Rules:
 
 ## More Information
 
+The position of the menu on phones is amended by
+[ADR-0026](0026-navigation-at-the-bottom-on-phones.md): there it sits in the bottom bar.
+
 Details: [5.5.3 Web app](../architecture/05-building-block-view.md#553-web-app-ordo-app),
 end-to-end test `tests/e2e/scenario.py`.

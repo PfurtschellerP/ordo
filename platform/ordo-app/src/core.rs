@@ -13,7 +13,7 @@ use ordo_contracts::TriageCategory;
 use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
-use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind};
+use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind, record};
 use ordo_sync::message::{self, ClientMessage, ServerMessage};
 use ordo_sync::{Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
@@ -23,6 +23,8 @@ use wasm_bindgen::closure::Closure;
 use web_sys::{BinaryType, CloseEvent, MessageEvent, WebSocket};
 
 use crate::text;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 
 const PAIRING_KEY: &str = "ordo.pairing";
 const REPLICA_KEY: &str = "ordo.replica";
@@ -64,6 +66,9 @@ pub struct Core {
     pub announcement: String,
     /// Last error, if any.
     pub error: Option<String>,
+    /// The device storage refused the last save (full or blocked): input is only kept
+    /// in memory until it is sent.
+    pub storage_failed: bool,
     socket: Option<WebSocket>,
 }
 
@@ -109,6 +114,7 @@ impl Core {
             connection: Connection::Offline,
             announcement: String::new(),
             error: None,
+            storage_failed: false,
             socket: None,
         })
     }
@@ -162,7 +168,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             if welcome {
                 c.push();
             }
-            save_replica(&c.replica);
+            c.storage_failed = save_replica(&c.replica).is_err();
         });
         revision.update(|r| *r += 1);
     });
@@ -340,6 +346,46 @@ pub fn set_status(
     )
 }
 
+// [impl->dsn~patient-care-record~1]
+/// Records values of one ePCR form for a patient (EPCR-1, EPCR-3). `replaces` names the
+/// entry a correction replaces (EPCR-4).
+pub fn record_entry(
+    core: Handle,
+    revision: RwSignal<u64>,
+    entry: &record::EntryRecorded,
+    announcement: String,
+) -> Result<(), String> {
+    let payload = entry.encode().map_err(|e| e.to_string())?;
+    self::record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        record::MODULE,
+        record::ENTRY_RECORDED,
+        &payload,
+        announcement,
+    )
+}
+
+// [impl->dsn~patient-photo~1]
+/// Adds a photo of a patient (PAT-8). The photo must already be downscaled.
+pub fn add_photo(
+    core: Handle,
+    revision: RwSignal<u64>,
+    photo: &record::PhotoAdded,
+) -> Result<(), String> {
+    let payload = photo.encode()?;
+    self::record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        record::MODULE,
+        record::PHOTO_ADDED,
+        &payload,
+        text::photo_added(&photo.tag),
+    )
+}
+
 /// Display name of a UHS by ID (the ID if unknown).
 pub fn uhs_name(core: Handle, id: &str) -> String {
     core.with_value(|c| {
@@ -378,7 +424,7 @@ fn record(
                     now_ms(),
                 )
                 .map_err(|e| e.to_string())?;
-            save_replica(&c.replica);
+            c.storage_failed = save_replica(&c.replica).is_err();
             c.announcement = announcement;
             c.push();
             Ok(())
@@ -426,6 +472,21 @@ pub fn save_pairing(pairing: &Pairing) {
     }
 }
 
+/// A per-device preference (e.g. the colour theme), not synchronised.
+pub fn preference(key: &str) -> Option<String> {
+    storage()?.get_item(key).ok()?
+}
+
+/// Saves or (with `None`) removes a per-device preference.
+pub fn set_preference(key: &str, value: Option<&str>) {
+    if let Some(storage) = storage() {
+        let _ = match value {
+            Some(value) => storage.set_item(key, value),
+            None => storage.remove_item(key),
+        };
+    }
+}
+
 /// Removes pairing and local data from this browser.
 pub fn forget_device() {
     if let Some(storage) = storage() {
@@ -434,17 +495,27 @@ pub fn forget_device() {
     }
 }
 
+/// Prefix of the Base64 storage format (older versions stored hex without prefix).
+const BASE64_PREFIX: &str = "b64:";
+
 // [impl->dsn~local-persistence~1]
 fn load_replica() -> Option<ReplicaState> {
-    let hex = storage()?.get_item(REPLICA_KEY).ok()??;
-    message::decode(&from_hex_vec(&hex)?).ok()
+    let text = storage()?.get_item(REPLICA_KEY).ok()??;
+    let bytes = match text.strip_prefix(BASE64_PREFIX) {
+        Some(b64) => BASE64.decode(b64).ok()?,
+        None => from_hex_vec(&text)?,
+    };
+    message::decode(&bytes).ok()
 }
 
 // [impl->dsn~local-persistence~1]
-fn save_replica(replica: &Replica) {
-    if let (Some(storage), Ok(bytes)) = (storage(), message::encode(&replica.snapshot())) {
-        let _ = storage.set_item(REPLICA_KEY, &to_hex(&bytes));
-    }
+/// Saves the replica. An error means the browser refused (storage full or blocked);
+/// the caller shows it, because unsaved input would be lost on reload (UX-5).
+fn save_replica(replica: &Replica) -> Result<(), ()> {
+    let storage = storage().ok_or(())?;
+    let bytes = message::encode(&replica.snapshot()).map_err(|_| ())?;
+    let text = format!("{BASE64_PREFIX}{}", BASE64.encode(bytes));
+    storage.set_item(REPLICA_KEY, &text).map_err(|_| ())
 }
 
 // ---------------------------------------------------------------------------
@@ -454,6 +525,17 @@ fn save_replica(replica: &Replica) {
 /// Milliseconds since the Unix epoch.
 pub fn now_ms() -> u64 {
     js_sys::Date::now() as u64
+}
+
+/// Local time of day, `HH:MM`, of a timestamp in milliseconds.
+pub fn clock(ms: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
+    format!("{:02}:{:02}", date.get_hours(), date.get_minutes())
+}
+
+/// The current local time of day, `HH:MM`.
+pub fn now_clock() -> String {
+    clock(now_ms())
 }
 
 /// Randomness from the browser (Web Crypto).
@@ -471,10 +553,6 @@ fn sync_url() -> Option<String> {
         "ws"
     };
     Some(format!("{scheme}://{}/sync", location.host().ok()?))
-}
-
-fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn from_hex_vec(text: &str) -> Option<Vec<u8>> {
