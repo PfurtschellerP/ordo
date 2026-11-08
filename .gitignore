@@ -29,3 +29,4 @@ platform/ordo-app/generated/
 # Python
 __pycache__/
 *.pyc
+deploy/demo/.data/

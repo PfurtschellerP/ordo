@@ -15,12 +15,8 @@
 
 ## Open questions
 
-1. Tactical symbols: ORDO should ship the official BBK symbols (2024). The brochure says it
-   may only be passed on free of charge; it is unclear whether that binds the symbols
-   (possibly below the threshold of originality, or an official work under § 5 (2) UrhG).
-   Ask the BBK for written confirmation that they may be used in open-source software (or
-   for an open licence such as CC BY 4.0). Fallback: draw them from the published
-   construction rules. Which states have introduced FwDV/DV 102?
+1. Tactical symbols: decided — ORDO ships the official BBK symbols (2024) with the source
+   named. Open: which states have introduced FwDV/DV 102?
 2. Which organisations in Germany could be early test partners — first medical services
    for planned events (e.g. DRK, ASB, JUH, MHD), then fire brigades?
 3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is
@@ -92,7 +88,27 @@ Done in phase 0:
   axe-core for the browser tests in Firefox, Chromium and WebKit; ePCR forms as an HL7
   FHIR Questionnaire (ADR-0037).
 
-Next:
+Next — feedback of practitioners on the screenshots (2026-11-08), Med first:
+
+- MANV workspace: Vorsichtung and Sichtung, patient collection point, treatment area,
+  transport organisation, overview for the medical command (LNA/OrgL).
+- "Betroffene" (unharmed, affected people) as a category of their own.
+- Transport priority for SK I and SK II, documented separately from the triage category
+  (Bavaria, NRW and Austria decouple them); which categories may get it, and its levels,
+  come from the state or country profile.
+- Treatment places within a UHS (Behandlungsplätze); patients are assigned to places.
+- Triage catalogues and algorithms (PRIOR, mSTaRT, …): constraint "no clinical decision
+  support" (EU MDR) — see the open decision in the reply of 2026-11-08.
+- Situation map (Lagekarte) with the official tactical symbols (ADR-0006: MapLibre,
+  PMTiles); positions of units and people with call signs. Browsers report positions only
+  while the app is open (iOS: foreground only); continuous tracking needs a native shell
+  or the positions of the BOS digital radios. Privacy: only during the deployment, visible
+  to the person, limited retention.
+- Vital signs from patient monitors (corpuls C3 first): interface to be clarified with
+  the manufacturer; open standards to prefer: IEEE 11073 SDC, HL7 FHIR. Values are
+  documented, never interpreted (no alarms).
+
+Then:
 
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): post-quantum plan with crypto agility and hybrid TLS check (ADR-0042);
