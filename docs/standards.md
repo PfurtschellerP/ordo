@@ -45,12 +45,13 @@ source, it is marked *(secondary)*; replace it when the official source is known
 | Standard | Publisher, edition | Status | Use in ORDO |
 |---|---|---|---|
 | [EN 301 549](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/en_301549v030201p.pdf) | ETSI/CEN/CENELEC, V3.2.1 (2021-03) | followed | Accessibility target ([ADR-0020](adr/0020-accessibility-target.md)) |
-| [WCAG 2.2](https://www.w3.org/TR/WCAG22/) | W3C Recommendation, level AA | followed | Checked in CI by the rendered-page audit (`tests/e2e/audit.py`) |
+| [WCAG 2.2](https://www.w3.org/TR/WCAG22/) | W3C Recommendation, level AA | followed | Checked in CI with axe-core and our own checks (`tests/e2e/support/audit.ts`) |
 | [BITV 2.0](https://www.gesetze-im-internet.de/bitv_2_0/) | Germany | followed | Accessibility duty of public bodies in Germany; met through EN 301 549 |
 | [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/) | W3C | followed | Disclosure (menu), [combobox](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) and [modal dialog](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) (command palette, [ADR-0030](adr/0030-command-palette.md)) |
 | [HTML Media Capture](https://www.w3.org/TR/html-media-capture/) | W3C | followed | Taking a patient photo with the device camera, without extra permissions |
 | Mobile navigation patterns: [Android adaptive navigation](https://developer.android.com/develop/ui/compose/layouts/adaptive/build-adaptive-navigation) (Material 3), Apple Human Interface Guidelines (tab bars) | Google, Apple | followed | Bottom bar on phones, rail on wider screens ([ADR-0026](adr/0026-navigation-at-the-bottom-on-phones.md)) |
 | [Modal and nonmodal dialogs](https://nngroup.com/articles/modal-nonmodal-dialog/) | Nielsen Norman Group | reference | Records are edited in place, not in modal dialogs ([ADR-0029](adr/0029-edit-records-in-place.md)) |
+| [axe-core](https://github.com/dequelabs/axe-core) | Deque, 4.14 | followed | Automated WCAG 2.2 A/AA checks of every view in the browser tests |
 | [W3C Design Tokens Format](https://www.designtokens.org/) | W3C Community Group, 2025.10 | followed | Design system ([ADR-0021](adr/0021-design-system.md)) |
 
 ## Data, security and engineering

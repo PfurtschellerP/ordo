@@ -45,4 +45,7 @@ is widely known from other tools, and does not conflict with screen-reader keys.
 
 ## More Information
 
+Amended by [ADR-0036](0036-language-independent-shortcuts.md): key names and command
+names are English in every language.
+
 App: `platform/ordo-app/src/palette.rs`. Standards: [register](../standards.md#accessibility-and-user-interface).

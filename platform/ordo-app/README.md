@@ -21,4 +21,4 @@ Prototype limitations:
   protection.
 - Texts are German in `src/text.rs`; they move to Fluent translation files later.
 
-End-to-end UI test: `python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-ui`.
+End-to-end UI test: Playwright in `tests/e2e/`, see [tests/README.md](../../tests/README.md#end-to-end-tests).

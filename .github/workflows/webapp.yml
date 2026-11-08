@@ -1,7 +1,8 @@
 name: Web app
 
 # Builds the Leptos app with Trunk and runs the end-to-end UI scenario
-# (tests/e2e/scenario.py) in headless Firefox against a real `ordo serve`.
+# (tests/e2e/scenario.spec.ts, Playwright) in Firefox, Chromium and WebKit against a real
+# `ordo serve`.
 on:
   push:
     branches: [main]
@@ -59,8 +60,22 @@ jobs:
         run: trunk build --release
       - name: Build the server
         run: cargo build --locked -p ordo-server
-      - name: Run the UI scenario
-        run: python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist "$RUNNER_TEMP/ui"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+      - name: Install Playwright and the browsers
+        working-directory: tests/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps firefox chromium webkit
+      - name: Run the UI scenario in Firefox, Chromium and WebKit
+        working-directory: tests/e2e
+        env:
+          ORDO_E2E_SHOTS: ${{ runner.temp }}/ui
+          ORDO_E2E_WORK: ${{ runner.temp }}/work
+        run: npx playwright test
       - name: Bundle size to the job summary
         if: always()
         run: |
@@ -76,6 +91,8 @@ jobs:
         with:
           name: ui-screenshots
           path: |
-            ${{ runner.temp }}/ui/*.png
-            ${{ runner.temp }}/ui/server.log
+            ${{ runner.temp }}/ui/
+            ${{ runner.temp }}/work/*/server.log
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
           if-no-files-found: ignore

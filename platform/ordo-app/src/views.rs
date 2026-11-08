@@ -2,6 +2,9 @@
 //! link and a live region; all colours and sizes come from design tokens.
 
 use leptos::prelude::*;
+use leptos_router::NavigateOptions;
+use leptos_router::components::Router;
+use leptos_router::hooks::{use_location, use_navigate};
 use ordo_contracts::TriageCategory::{self, Deceased, Expectant, Immediate, Minor, Urgent};
 use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
@@ -51,9 +54,13 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
     let pairing = RwSignal::new(core::load_pairing());
-    move || match pairing.get() {
-        None => view! { <PairingForm pairing /> }.into_any(),
-        Some(p) => view! { <Workspace pairing=p on_unpair=move || pairing.set(None) /> }.into_any(),
+    view! {
+        <Router>
+            {move || match pairing.get() {
+                None => view! { <PairingForm pairing /> }.into_any(),
+                Some(p) => view! { <Workspace pairing=p on_unpair=move || pairing.set(None) /> }.into_any(),
+            }}
+        </Router>
     }
 }
 
@@ -144,63 +151,47 @@ pub(crate) fn apply_theme(theme: &str) {
     core::set_preference(THEME_KEY, (!theme.is_empty()).then_some(theme));
 }
 
-/// Navigation state shared by all views: the route lives in the URL fragment.
+/// Programmatic navigation for all views; the route itself is the URL path, managed by
+/// `leptos_router` (history, back button, link handling).
 #[derive(Clone, Copy)]
 pub(crate) struct Nav {
-    /// The current route.
-    pub route: RwSignal<nav::Route>,
+    navigate: StoredValue<Navigate, LocalStorage>,
 }
 
+/// The router's navigation function.
+type Navigate = Box<dyn Fn(&str, NavigateOptions)>;
+
 impl Nav {
-    /// Starts from the URL fragment, else from the last route used on this device.
-    fn start() -> Self {
-        let from_hash = web_sys::window()
-            .and_then(|w| w.location().hash().ok())
-            .and_then(|h| nav::Route::from_hash(&h));
-        let route = from_hash.unwrap_or_else(|| {
-            core::preference(NAV_KEY)
-                .and_then(|saved| {
-                    let (w, v) = saved.split_once('/')?;
-                    Some(nav::Route::view(w, v))
-                })
-                .unwrap_or_else(|| {
-                    nav::Route::view(nav::WORKSPACES[0].id, nav::WORKSPACES[0].views[0].id)
-                })
-        });
-        let nav = Self {
-            route: RwSignal::new(route),
-        };
-        // Back and forward buttons, links to `#/…`.
-        let handle = window_event_listener(leptos::ev::hashchange, move |_| {
-            if let Some(route) = web_sys::window()
-                .and_then(|w| w.location().hash().ok())
-                .and_then(|h| nav::Route::from_hash(&h))
-                && route != nav.route.get_untracked()
-            {
-                core::set_preference(
-                    NAV_KEY,
-                    Some(&format!("{}/{}", route.workspace, route.view)),
-                );
-                nav.route.set(route);
-            }
-        });
-        on_cleanup(move || handle.remove());
-        nav
+    fn new() -> Self {
+        let navigate = use_navigate();
+        Self {
+            navigate: StoredValue::new_local(Box::new(navigate)),
+        }
     }
 
     /// Goes to `route` and adds it to the browser history.
     pub fn go(self, route: nav::Route) {
-        core::set_preference(
-            NAV_KEY,
-            Some(&format!("{}/{}", route.workspace, route.view)),
-        );
-        if let Some(location) = web_sys::window().map(|w| w.location())
-            && location.hash().ok().as_deref() != Some(route.to_hash().as_str())
-        {
-            let _ = location.set_hash(&route.to_hash());
-        }
-        self.route.set(route);
+        self.navigate
+            .with_value(|n| n(&route.to_path(), NavigateOptions::default()));
     }
+
+    /// Goes to `route`, replacing the current history entry.
+    fn replace(self, route: nav::Route) {
+        self.navigate.with_value(|n| {
+            n(
+                &route.to_path(),
+                NavigateOptions {
+                    replace: true,
+                    ..Default::default()
+                },
+            )
+        });
+    }
+}
+
+/// Runs `f` once the view has updated after a navigation.
+pub(crate) fn after_render(f: impl FnOnce() + 'static) {
+    set_timeout(f, std::time::Duration::from_millis(60));
 }
 
 // [impl->dsn~workspace-navigation~2]
@@ -215,31 +206,52 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
     };
     let revision = RwSignal::new(0u64);
     core::connect(core, revision);
-    let nav = Nav::start();
+    let nav = Nav::new();
     provide_context(patients::Drafts::default());
     let open = RwSignal::new(false);
     let palette = RwSignal::new(false);
+    let pathname = use_location().pathname;
+    let route = Memo::new(move |_| nav::Route::from_path(&pathname.get()));
+    let saved = core::preference(NAV_KEY).and_then(|s| {
+        let (w, v) = s.split_once('/')?;
+        Some(nav::Route::view(w, v))
+    });
 
-    // The shown workspace: the chosen one if accessible, otherwise the first accessible.
+    // The shown workspace: the one in the URL if accessible, else the last used one, else
+    // the first accessible one.
     let current = Memo::new(move |_| {
         revision.track();
-        let chosen = nav::workspace(&nav.route.with(|r| r.workspace.clone()))
-            .filter(|w| access(core, w).is_ok());
-        chosen
+        let usable = |id: &str| nav::workspace(id).filter(|w| access(core, w).is_ok());
+        route
+            .with(|r| r.as_ref().and_then(|r| usable(&r.workspace)))
+            .or_else(|| saved.as_ref().and_then(|r| usable(&r.workspace)))
             .or_else(|| nav::WORKSPACES.iter().find(|w| access(core, w).is_ok()))
             .map(|w| w.id)
     });
     let current_view = Memo::new(move |_| {
         let workspace = nav::workspace(current.get()?)?;
-        let id = nav.route.with(|r| r.view.clone());
+        let id = route.with(|r| r.as_ref().map(|r| r.view.clone()));
         workspace
             .views
             .iter()
-            .find(|v| v.id == id)
+            .find(|v| Some(v.id) == id.as_deref())
             .or_else(|| workspace.views.first())
             .map(|v| v.id)
     });
-    let record = Memo::new(move |_| nav.route.with(|r| r.record.clone()));
+    let record = Memo::new(move |_| route.with(|r| r.as_ref().and_then(|r| r.record.clone())));
+    // Keep the URL on what is shown (e.g. `/` or a workspace without access), and remember
+    // the last workspace and view on this device.
+    Effect::new(move |_| {
+        let (Some(w), Some(v)) = (current.get(), current_view.get()) else {
+            return;
+        };
+        let shown = route.with(|r| r.as_ref().is_some_and(|r| r.workspace == w && r.view == v));
+        if shown {
+            core::set_preference(NAV_KEY, Some(&format!("{w}/{v}")));
+        } else {
+            nav.replace(nav::Route::view(w, v));
+        }
+    });
     let choose = move |w: &'static nav::Workspace| {
         open.set(false);
         nav.go(nav::Route::view(w.id, w.views[0].id));
@@ -258,9 +270,9 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
         .and_then(|w| w.navigator().platform().ok())
         .is_some_and(|p| p.starts_with("Mac") || p.starts_with("iP"));
     let shortcut = if mac {
-        text::SHORTCUT_PALETTE_MAC
+        palette::SHORTCUT_MAC
     } else {
-        text::SHORTCUT_PALETTE
+        palette::SHORTCUT
     };
     // Ctrl+K / ⌘K opens and closes the command palette from anywhere (UX-10).
     let keys = window_event_listener(leptos::ev::keydown, move |ev| {
@@ -390,12 +402,8 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
                                         view! {
                                             <a
                                                 class="views__item"
-                                                href=nav::Route::view(w.id, v.id).to_hash()
+                                                href=nav::Route::view(w.id, v.id).to_path()
                                                 aria-current=move || selected().then_some("page")
-                                                on:click=move |ev| {
-                                                    ev.prevent_default();
-                                                    nav.go(nav::Route::view(w.id, v.id));
-                                                }
                                             >
                                                 {v.label}
                                             </a>
@@ -411,7 +419,7 @@ fn Workspace(pairing: Pairing, on_unpair: impl Fn() + Clone + 'static) -> impl I
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
                     (Some("med.uhs"), _) => {
-                        view! { <patients::PatientsView core revision nav record=Signal::derive(move || record.get()) /> }.into_any()
+                        view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
                     (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),

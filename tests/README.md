@@ -10,22 +10,34 @@ span several crates or the running system live here.
 | Benchmarks | `<crate>/benches/`, e.g. `platform/ordo-server/benches/` | `cargo bench -p ordo-server` |
 | Acceptance tests across crates | [`acceptance/`](acceptance/): server and devices on a simulated network | `cargo test -p ordo-acceptance` |
 | Acceptance scenarios (Gherkin) | [`acceptance/features/`](acceptance/features/) | become executable with the MVP |
-| End-to-end tests in the browser | [`e2e/`](e2e/): real `ordo serve`, web app, headless Firefox | see below |
+| End-to-end tests in the browser | [`e2e/`](e2e/): real `ordo serve`, web app, Firefox, Chromium and WebKit | see below |
 
 ## End-to-end tests
 
-`e2e/scenario.py` drives the web app in headless Firefox through Firefox's built-in
-remote protocol (Marionette); it needs Python 3 and Firefox, nothing else.
-`e2e/audit.py` checks the rendered pages in every theme and at two widths: text contrast,
-table layout, touch-target size and reflow.
+[`e2e/scenario.spec.ts`](e2e/scenario.spec.ts) drives the web app with
+[Playwright](https://playwright.dev) in Firefox, Chromium and WebKit (the engine of
+Safari and of every browser on iPads), against a real `ordo serve`. It uses real key
+presses, file uploads, phone-sized viewports and the browser's back button.
+
+[`e2e/support/audit.ts`](e2e/support/audit.ts) checks every view in every theme at phone
+and laptop width: [axe-core](https://github.com/dequelabs/axe-core) for WCAG 2.2 A/AA,
+plus our own checks for what axe does not cover (44 px touch targets, reflow, broken
+table rows, fixed bars covering content). Playwright's Firefox build crashes inside axe
+on some pages, so axe runs in Chromium and WebKit, and Firefox runs our own checks.
 
 ```sh
 cargo build -p ordo-server
 (cd platform/ordo-app && trunk build --release)
-python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-e2e
+cd tests/e2e
+npm ci
+npx playwright install --with-deps firefox chromium webkit
+npx playwright test                    # all three browsers
+npx playwright test --project=firefox  # one browser
 ```
 
-Screenshots and the server log end up in the work directory (last argument).
+`ORDO_BIN` and `ORDO_APP_DIST` override the paths of the server and the app;
+screenshots go to `tests/e2e/screenshots/<browser>/`, failure traces to
+`tests/e2e/test-results/` (`npx playwright show-trace …`).
 
 ## Traceability
 

@@ -152,8 +152,6 @@ pub fn description(category: TriageCategory) -> &'static str {
 // Navigation and header
 pub const MENU: &str = "Menü";
 pub const SEARCH: &str = "Suchen";
-pub const SHORTCUT_PALETTE: &str = "Strg+K";
-pub const SHORTCUT_PALETTE_MAC: &str = "⌘K";
 pub const STORAGE_FAILED: &str = "Gerätespeicher voll oder gesperrt: Eingaben bleiben nur bis zum Senden erhalten. Nicht neu laden.";
 
 // Appearance (UX-3)

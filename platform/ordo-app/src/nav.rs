@@ -8,6 +8,8 @@
 //! Prototype: the definitions are Rust constants; later they come from package and
 //! profile data, so organisations can adapt them without code.
 
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
+
 use crate::text;
 
 /// A view within a workspace.
@@ -16,6 +18,8 @@ pub struct View {
     pub id: &'static str,
     /// Label.
     pub label: &'static str,
+    /// English name, found by the command palette in every language (ADR-0036).
+    pub name: &'static str,
 }
 
 /// A workspace: the environment of one role.
@@ -43,10 +47,12 @@ pub const WORKSPACES: &[Workspace] = &[
             View {
                 id: "patients",
                 label: "Patienten",
+                name: "patients",
             },
             View {
                 id: "uhs",
                 label: "UHS verwalten",
+                name: "manage uhs",
             },
         ],
     },
@@ -59,10 +65,12 @@ pub const WORKSPACES: &[Workspace] = &[
             View {
                 id: "counts",
                 label: "Patientenzahlen",
+                name: "patient counts",
             },
             View {
                 id: "units",
                 label: text::TAB_RESOURCES,
+                name: "units",
             },
         ],
     },
@@ -86,8 +94,8 @@ pub fn packages() -> Vec<(&'static str, Vec<&'static Workspace>)> {
 }
 
 /// Where the user is: workspace, view and optionally one record (e.g. a patient). It is
-/// kept in the URL fragment (`#/med.uhs/patients/DE-0042`), so the browser's and the
-/// phone's back button work and a view can be reopened after a reload.
+/// the URL path (`/med.uhs/patients/DE-0042`), handled by `leptos_router`, so the
+/// browser's and the phone's back button work and a view can be reopened after a reload.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Route {
     /// Workspace ID.
@@ -97,6 +105,13 @@ pub struct Route {
     /// Record within the view, e.g. a triage tag number.
     pub record: Option<String>,
 }
+
+/// Characters escaped in a path segment: everything except unreserved ones (RFC 3986).
+const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'~');
 
 impl Route {
     /// A route to a view.
@@ -116,20 +131,26 @@ impl Route {
         }
     }
 
-    /// The URL fragment, with `#`.
-    pub fn to_hash(&self) -> String {
-        let mut hash = format!("#/{}/{}", encode(&self.workspace), encode(&self.view));
+    /// The URL path.
+    pub fn to_path(&self) -> String {
+        let segment = |s: &str| utf8_percent_encode(s, SEGMENT).to_string();
+        let mut path = format!("/{}/{}", segment(&self.workspace), segment(&self.view));
         if let Some(record) = &self.record {
-            hash.push('/');
-            hash.push_str(&encode(record));
+            path.push('/');
+            path.push_str(&segment(record));
         }
-        hash
+        path
     }
 
-    /// Reads a URL fragment; `None` if it is not a route.
-    pub fn from_hash(hash: &str) -> Option<Self> {
-        let path = hash.strip_prefix('#').unwrap_or(hash).strip_prefix('/')?;
-        let mut parts = path.split('/');
+    /// Reads a URL path; `None` if it is not a route (e.g. `/`).
+    pub fn from_path(path: &str) -> Option<Self> {
+        let decode = |s: &str| {
+            percent_decode_str(s)
+                .decode_utf8()
+                .ok()
+                .map(|c| c.into_owned())
+        };
+        let mut parts = path.strip_prefix('/')?.split('/');
         let workspace = decode(parts.next()?)?;
         let view = decode(parts.next()?)?;
         let record = match parts.next() {
@@ -147,56 +168,26 @@ impl Route {
     }
 }
 
-/// Percent-encodes everything except unreserved characters (RFC 3986).
-fn encode(text: &str) -> String {
-    text.bytes()
-        .map(|b| {
-            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
-                (b as char).to_string()
-            } else {
-                format!("%{b:02X}")
-            }
-        })
-        .collect()
-}
-
-fn decode(text: &str) -> Option<String> {
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            let hex = text.get(i + 1..i + 3)?;
-            out.push(u8::from_str_radix(hex, 16).ok()?);
-            i += 3;
-        } else {
-            out.push(bytes[i]);
-            i += 1;
-        }
-    }
-    String::from_utf8(out).ok()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn routes_survive_the_url_fragment() {
+    fn routes_survive_the_url_path() {
         let route = Route::record("med.uhs", "patients", "DE 0042/ä");
-        assert_eq!(route.to_hash(), "#/med.uhs/patients/DE%200042%2F%C3%A4");
-        assert_eq!(Route::from_hash(&route.to_hash()), Some(route));
+        assert_eq!(route.to_path(), "/med.uhs/patients/DE%200042%2F%C3%A4");
+        assert_eq!(Route::from_path(&route.to_path()), Some(route));
         let view = Route::view("command.situation", "units");
-        assert_eq!(Route::from_hash(&view.to_hash()), Some(view));
+        assert_eq!(Route::from_path(&view.to_path()), Some(view));
     }
 
     #[test]
-    fn other_fragments_are_not_routes() {
-        assert_eq!(Route::from_hash(""), None);
-        assert_eq!(Route::from_hash("#main"), None);
-        assert_eq!(Route::from_hash("#/med.uhs"), None);
-        assert_eq!(Route::from_hash("#/a/b/c/d"), None);
-        assert_eq!(Route::from_hash("#/a/b/%zz"), None);
+    fn other_paths_are_not_routes() {
+        assert_eq!(Route::from_path(""), None);
+        assert_eq!(Route::from_path("/"), None);
+        assert_eq!(Route::from_path("/med.uhs"), None);
+        assert_eq!(Route::from_path("/a/b/c/d"), None);
+        assert_eq!(Route::from_path("/a/b/%FF"), None);
     }
 
     #[test]

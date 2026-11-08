@@ -390,8 +390,8 @@ unavailable ones in place, disabled, with the reason. On wide screens a rail hol
 menu at its top and the views of the current workspace below; on phones and tablets in
 portrait, one bar at the bottom holds the views and, at its end, the menu, which opens
 upwards; the content never lies beneath the bar. The header shows the workspace as page
-heading, search, incident and connection. The route (workspace, view, record) lives in the
-URL fragment, so the back button works; a device opens the last used workspace, or the
+heading, search, incident and connection. The route (workspace, view, record) is the URL
+path, handled by Leptos' router, so the back button works; a device opens the last used workspace, or the
 first one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md),
 [ADR-0026](../adr/0026-navigation-at-the-bottom-on-phones.md)).
 

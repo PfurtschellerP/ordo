@@ -91,7 +91,7 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | view | One screen of a workspace, chosen in the rail or the bottom bar |
 | menu (launcher) | Switches workspaces; at the top of the rail, or at the end of the bottom bar on phones |
 | command palette | Search for views, patients, units and commands, opened with Ctrl+K / ⌘K |
-| route | Workspace, view and record, kept in the URL fragment (`#/med.uhs/patients/…`) |
+| route | Workspace, view and record, as the URL path (`/med.uhs/patients/…`) |
 | snapshot form, series form | ePCR form with one current value per field, or with timed entries |
 | connector | Versioned contract for data crossing a package border, published as events |
 | adapter | Integration with an external system |

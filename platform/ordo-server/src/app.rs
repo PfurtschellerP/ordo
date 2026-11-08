@@ -68,17 +68,23 @@ impl App {
         use axum::http::{HeaderName, HeaderValue};
         use tower_http::services::{ServeDir, ServeFile};
         use tower_http::set_header::SetResponseHeaderLayer;
-        let mut router = Router::new()
+        let api = Router::new()
             .route("/sync", get(sync))
             .route("/healthz", get(|| async { "ok\n" }))
             .route("/readyz", get(readyz))
             .route("/metrics", get(metrics))
             .with_state(self);
-        if let Some(dir) = app_dir {
-            // Unknown paths fall back to index.html, so the app handles its own routes.
-            let files = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
-            router = router.fallback_service(files);
-        }
+        let router = match app_dir {
+            Some(dir) => {
+                // Unknown paths fall back to index.html, so the app handles its own routes.
+                let files = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+                Router::new()
+                    .fallback_service(files)
+                    .layer(axum::middleware::from_fn(cache_control))
+                    .merge(api)
+            }
+            None => api,
+        };
         let header = |name: &'static str, value: &'static str| {
             SetResponseHeaderLayer::if_not_present(
                 HeaderName::from_static(name),
@@ -229,4 +235,49 @@ pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as u64)
+}
+
+/// Cache policy for the web app: files with a content hash in their name never change and
+/// are cached for a year; everything else (app shell, service worker, manifest) is
+/// revalidated on every load, so updates arrive at once and offline starts come from the
+/// service worker rather than from a stale HTTP cache.
+async fn cache_control(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let hashed = is_hashed_asset(request.uri().path());
+    let mut response = next.run(request).await;
+    let value = if hashed {
+        "public, max-age=31536000, immutable"
+    } else {
+        "no-cache"
+    };
+    response
+        .headers_mut()
+        .entry(axum::http::header::CACHE_CONTROL)
+        .or_insert(axum::http::HeaderValue::from_static(value));
+    response
+}
+
+/// Whether a path names a build asset with a content hash (Trunk: `name-<16 hex>`).
+fn is_hashed_asset(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or_default();
+    let stem = name.split('.').next().unwrap_or_default();
+    stem.split(['-', '_'])
+        .any(|part| part.len() == 16 && part.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::is_hashed_asset;
+
+    #[test]
+    fn only_hashed_assets_are_cached_for_long() {
+        assert!(is_hashed_asset("/ordo-app-4047fc351e362fcb_bg.wasm"));
+        assert!(is_hashed_asset("/app-4f18922c059077f8.css"));
+        assert!(!is_hashed_asset("/"));
+        assert!(!is_hashed_asset("/index.html"));
+        assert!(!is_hashed_asset("/sw.js"));
+        assert!(!is_hashed_asset("/med.uhs/patients/DE-0042"));
+    }
 }

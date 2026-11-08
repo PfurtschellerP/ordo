@@ -21,10 +21,9 @@
 3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is
    its use licence-free?
 4. Who can review data protection and medical-device questions before field use?
-5. Command structure ([ADR-0031](adr/0031-command-structure-from-doctrine.md), proposed):
-   start with the medical branch or with the general FwDV 100 tree? Derive access rights
-   from positions automatically?
-6. Should larger tablets in portrait also use the bottom bar (breakpoint now 48 rem)?
+5. Should larger tablets in portrait also use the bottom bar (breakpoint now 48 rem)?
+6. Should the ePCR forms move to the HL7 FHIR Questionnaire format, so existing form
+   editors can be used ([ADR-0032](adr/0032-reuse-open-source-first.md))?
 
 ## Next steps
 
@@ -53,19 +52,30 @@ Done in phase 0:
   back-button support; Ctrl+K command palette with quick actions; menu in the bottom bar
   on phones; patient and unit lists as cards; [standards register](standards.md) and a
   proposal for the command structure (ADR-0031).
+- Decisions: command structure follows the doctrine, medical branch first and compatible
+  with FwDV 100; access follows roles, never people (ADR-0031); roles and permissions as
+  Cedar policies (ADR-0035); shortcuts and command names the same in every language
+  (ADR-0036); open source first (ADR-0032).
+- Reuse instead of own code: Leptos' router (paths, back button), Playwright with
+  axe-core for the browser tests in Firefox, Chromium and WebKit.
 
 Next:
 
-1. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
-   connection (sync protocol draft 1); protected key storage in the app; device storage
-   in IndexedDB instead of `localStorage` (room for photos, append-only writes).
-2. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
+1. Login and roles: OpenID Connect with an existing identity provider; pairing by QR code
+   with the OAuth 2.0 Device Authorization Grant (RFC 8628) instead of the seed file
+   (ORG-3); authentication of the connection (sync protocol draft 1); roles and
+   permissions as Cedar policies (ADR-0035); protected key storage in the app. The login
+   ADR also covers working offline (cached tokens, field server without internet).
+2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
+   ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
+   content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).
+3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-3. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
+4. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
    status codes from the DE profile, releasing units, UHS staff and location.
-4. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-5. Command structure as data (ADR-0031), once decided.
+6. Command structure as data, medical branch first (ADR-0031).
 
 Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
 before the first real field use:

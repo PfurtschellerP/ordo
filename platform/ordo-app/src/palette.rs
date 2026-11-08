@@ -7,6 +7,9 @@
 //!
 //! Need to know: patients are found by triage tag number only. Searching by name is a
 //! separate, logged function for authorised roles (PAT-7).
+//!
+//! Language: keys and command names are the same in every language (ADR-0036). Every
+//! command has a stable English name, which is always searched besides the label.
 
 use leptos::prelude::*;
 use ordo_contracts::TriageCategory;
@@ -18,6 +21,34 @@ use crate::nav::{self, Route};
 use crate::patients::{FORMS, record_route};
 use crate::text;
 use crate::views::{CATEGORIES, Nav, access, apply_theme, click, focus, uhs_list};
+use ordo_med_patients::record::FormKind;
+
+/// The shortcut, with English key names in every language (ADR-0036).
+pub const SHORTCUT: &str = "Ctrl+K";
+/// The shortcut on Apple devices.
+pub const SHORTCUT_MAC: &str = "⌘K";
+
+/// English core meanings of unit status codes, for typed commands (`status on scene`).
+const STATUS_NAMES: [(&str, &str); 7] = [
+    ("1", "available radio"),
+    ("2", "available station"),
+    ("3", "en route"),
+    ("4", "on scene"),
+    ("6", "unavailable"),
+    ("7", "transporting patient"),
+    ("8", "at destination"),
+];
+
+/// English name of a triage category (its core meaning).
+fn category_name(category: TriageCategory) -> &'static str {
+    match category {
+        TriageCategory::Immediate => "immediate",
+        TriageCategory::Urgent => "urgent",
+        TriageCategory::Minor => "minor",
+        TriageCategory::Expectant => "expectant",
+        TriageCategory::Deceased => "deceased",
+    }
+}
 
 /// What an entry does.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,6 +80,8 @@ pub struct Item {
     pub label: String,
     /// Further text, also searched.
     pub detail: String,
+    /// Stable English name of a command, searched in every language (ADR-0036).
+    pub name: String,
     /// Why the entry cannot be used now.
     pub disabled: Option<&'static str>,
     /// What it does.
@@ -120,7 +153,10 @@ pub fn rank(query: &str, items: Vec<Item>) -> Vec<Item> {
         .into_iter()
         .enumerate()
         .filter_map(|(n, item)| {
-            let haystack = format!("{} {} {}", item.label, item.detail, item.group);
+            let haystack = format!(
+                "{} {} {} {}",
+                item.label, item.detail, item.group, item.name
+            );
             let label_bonus = u32::from(score(query, &item.label).is_some());
             score(query, &haystack).map(|s| (s * 2 + label_bonus, n, item))
         })
@@ -137,10 +173,19 @@ fn item(group: &'static str, label: String, action: Action) -> Item {
     Item {
         group,
         label,
+        name: String::new(),
         detail: String::new(),
         disabled: None,
         action,
         suggested: false,
+    }
+}
+
+impl Item {
+    /// Sets the stable English name (ADR-0036).
+    fn named(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
     }
 }
 
@@ -163,66 +208,64 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
             for w in nav::WORKSPACES {
                 let reason = access(core, w).err();
                 for v in w.views {
+                    let go = Action::Go(Route::view(w.id, v.id));
                     list.push(Item {
                         detail: format!("{} – {}", w.package, w.label),
                         disabled: reason,
                         suggested: true,
-                        ..item(
-                            text::GROUP_VIEWS,
-                            v.label.to_owned(),
-                            Action::Go(Route::view(w.id, v.id)),
-                        )
+                        ..item(text::GROUP_VIEWS, v.label.to_owned(), go).named(v.name)
                     });
                 }
             }
             let actions = [
                 (
                     text::ACTION_REGISTER,
+                    "register patient",
                     Route::view("med.uhs", "patients"),
                     "tag",
                     med_access,
                 ),
                 (
                     text::ACTION_CREATE_UHS,
+                    "create uhs",
                     Route::view("med.uhs", "uhs"),
                     "uhs-name",
                     med_access,
                 ),
                 (
                     text::ACTION_ADD_UNIT,
+                    "add unit",
                     Route::view("command.situation", "units"),
                     "unit-call-sign",
                     command_access,
                 ),
             ];
-            for (label, route, target, allowed) in actions {
+            for (label, name, route, target, allowed) in actions {
+                let go = Action::GoFocus(route, target.to_owned());
                 list.push(Item {
                     disabled: allowed.err(),
                     suggested: true,
-                    ..item(
-                        text::GROUP_ACTIONS,
-                        label.to_owned(),
-                        Action::GoFocus(route, target.to_owned()),
-                    )
+                    ..item(text::GROUP_ACTIONS, label.to_owned(), go).named(name)
                 });
             }
             for (id, label) in text::THEMES {
-                list.push(item(
-                    text::GROUP_ACTIONS,
-                    text::theme_set(label),
-                    Action::Theme(id),
-                ));
+                let name = format!("theme {}", if id.is_empty() { "auto" } else { id });
+                list.push(
+                    item(
+                        text::GROUP_ACTIONS,
+                        text::theme_set(label),
+                        Action::Theme(id),
+                    )
+                    .named(name),
+                );
             }
             if med_access.is_ok() {
                 let names: std::collections::HashMap<String, String> =
                     uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
                 for p in PatientRegister::from_events(&events(med::COMPARTMENT)).patients() {
+                    let uhs = names.get(&p.uhs).unwrap_or(&p.uhs);
                     list.push(Item {
-                        detail: format!(
-                            "{} · {}",
-                            text::label(p.category()),
-                            names.get(&p.uhs).unwrap_or(&p.uhs)
-                        ),
+                        detail: format!("{} · {uhs}", text::label(p.category())),
                         ..item(
                             text::GROUP_PATIENTS,
                             p.tag.clone(),
@@ -232,10 +275,8 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                 }
             }
             if command_access.is_ok() {
-                for u in UnitRegister::from_events(&events(units::COMPARTMENT))
-                    .units
-                    .into_values()
-                {
+                let register = UnitRegister::from_events(&events(units::COMPARTMENT));
+                for u in register.units.into_values() {
                     let status = u.status.as_ref().map_or_else(
                         || text::NO_STATUS.to_owned(),
                         |s| text::status_label(&s.status),
@@ -257,43 +298,34 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
             let current = PatientRegister::from_events(&events(med::COMPARTMENT))
                 .patient(tag)
                 .map(|p| p.category());
+            let group = text::GROUP_PATIENTS;
             let mut list = vec![
                 item(
-                    text::GROUP_PATIENTS,
+                    group,
                     text::ACTION_OPEN_RECORD.to_owned(),
                     Action::Go(record.clone()),
-                ),
+                )
+                .named("open record"),
                 item(
-                    text::GROUP_PATIENTS,
+                    group,
                     text::ACTION_TAKE_PHOTO.to_owned(),
                     Action::GoFocus(record.clone(), "photo-camera".to_owned()),
-                ),
+                )
+                .named("photo"),
             ];
-            list.extend(
-                FORMS
-                    .forms
-                    .iter()
-                    .filter(|f| f.kind == ordo_med_patients::record::FormKind::Series)
-                    .map(|f| {
-                        item(
-                            text::GROUP_PATIENTS,
-                            text::action_entry(&f.label),
-                            Action::GoClick(record.clone(), format!("new-{}", f.id)),
-                        )
-                    }),
-            );
-            list.extend(
-                CATEGORIES
-                    .into_iter()
-                    .filter(|c| Some(*c) != current)
-                    .map(|c| {
-                        item(
-                            text::GROUP_PATIENTS,
-                            text::action_retriage(c),
-                            Action::Retriage(tag.clone(), c),
-                        )
-                    }),
-            );
+            for f in FORMS.forms.iter().filter(|f| f.kind == FormKind::Series) {
+                let go = Action::GoClick(record.clone(), format!("new-{}", f.id));
+                list.push(
+                    item(group, text::action_entry(&f.label), go).named(format!("add {}", f.id)),
+                );
+            }
+            for c in CATEGORIES.into_iter().filter(|c| Some(*c) != current) {
+                let action = Action::Retriage(tag.clone(), c);
+                list.push(
+                    item(group, text::action_retriage(c), action)
+                        .named(format!("retriage {}", category_name(c))),
+                );
+            }
             for i in &mut list {
                 i.detail = text::patient_title(tag);
                 i.suggested = true;
@@ -302,14 +334,17 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
         }
         Page::Unit(unit) => text::STATUS_CODES
             .iter()
-            .map(|(code, _)| Item {
-                detail: unit.clone(),
-                suggested: true,
-                ..item(
-                    text::GROUP_UNITS,
-                    text::action_status(code),
-                    Action::SetStatus(unit.clone(), (*code).to_owned()),
-                )
+            .map(|(code, _)| {
+                let name = STATUS_NAMES.iter().find(|(c, _)| c == code).map_or_else(
+                    || format!("status {code}"),
+                    |(c, n)| format!("status {c} {n}"),
+                );
+                let action = Action::SetStatus(unit.clone(), (*code).to_owned());
+                Item {
+                    detail: unit.clone(),
+                    suggested: true,
+                    ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
+                }
             })
             .collect(),
     }
@@ -449,7 +484,13 @@ pub fn Palette(
             id="palette"
             class="palette"
             aria-labelledby="palette-title"
-            on:close=move |_| open.set(false)
+            on:close=move |_| {
+                // A late `close` event of an earlier closing must not close the palette
+                // again after it was reopened (seen in Chromium).
+                if dialog.get_untracked().is_some_and(|d| !d.open()) {
+                    open.set(false);
+                }
+            }
             on:click=move |ev| {
                 // A click on the backdrop (outside the content) closes the palette.
                 if ev.target() == ev.current_target() {
@@ -509,6 +550,7 @@ pub fn Palette(
                                         <span class="palette__group">{item.group}</span>
                                         <span class="palette__label">{item.label.clone()}</span>
                                         <span class="palette__detail">{item.disabled.map_or(item.detail.clone(), str::to_owned)}</span>
+                                        {(!item.name.is_empty()).then(|| view! { <span class="palette__name" lang="en">{item.name.clone()}</span> })}
                                     </li>
                                 }
                             })
@@ -519,7 +561,7 @@ pub fn Palette(
                 <p class="palette__keys" aria-hidden="true">
                     <kbd>"↑"</kbd><kbd>"↓"</kbd> " " {text::PALETTE_KEYS} " · "
                     <kbd>"Enter"</kbd> " " {text::PALETTE_RUN} " · "
-                    <kbd>"⌫"</kbd> " " {text::PALETTE_BACK} " · "
+                    <kbd>"Backspace"</kbd> " " {text::PALETTE_BACK} " · "
                     <kbd>"Esc"</kbd> " " {text::PALETTE_CLOSE}
                 </p>
             </div>
@@ -531,11 +573,11 @@ pub fn Palette(
 mod tests {
     use super::*;
 
-    fn entry(label: &str, detail: &str) -> Item {
+    fn entry(label: &str, detail: &str, name: &str) -> Item {
         Item {
             detail: detail.to_owned(),
             suggested: label.starts_with('V'),
-            ..item(text::GROUP_ACTIONS, label.to_owned(), Action::Theme(""))
+            ..item(text::GROUP_ACTIONS, label.to_owned(), Action::Theme("")).named(name)
         }
     }
 
@@ -559,9 +601,9 @@ mod tests {
     #[test]
     fn results_are_ranked_and_suggestions_shown_without_query() {
         let items = vec![
-            entry("Vitalwerte eintragen", "Patient DE-0042"),
-            entry("Patient registrieren", ""),
-            entry("Einsatzmittel", "Einsatzleitung"),
+            entry("Vitalwerte eintragen", "Patient DE-0042", "add vitals"),
+            entry("Patient registrieren", "", "register patient"),
+            entry("Einsatzmittel", "Einsatzleitung", "units"),
         ];
         let labels = |list: Vec<Item>| list.into_iter().map(|i| i.label).collect::<Vec<_>>();
         assert_eq!(
@@ -577,6 +619,25 @@ mod tests {
             labels(rank("einsatz", items.clone())),
             vec!["Einsatzmittel"]
         );
-        assert!(rank("xyz", items).is_empty());
+        assert!(rank("xyz", items.clone()).is_empty());
+        // ADR-0036: the English names work in every UI language.
+        assert_eq!(
+            labels(rank("register", items.clone())),
+            vec!["Patient registrieren"]
+        );
+        assert_eq!(
+            labels(rank("add vitals", items)),
+            vec!["Vitalwerte eintragen"]
+        );
+    }
+
+    #[test]
+    fn every_status_code_has_an_english_name() {
+        for (code, _) in text::STATUS_CODES {
+            assert!(
+                STATUS_NAMES.iter().any(|(c, _)| *c == code),
+                "status {code}"
+            );
+        }
     }
 }

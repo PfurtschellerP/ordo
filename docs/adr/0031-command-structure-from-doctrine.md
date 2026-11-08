@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-08
 ---
 
@@ -43,8 +43,21 @@ So yes: the hierarchy is written down, and its principles agree across countries
 
 ## Decision Outcome
 
-Proposed option: "Command structure as incident data", because it follows the doctrine,
+Chosen option: "Command structure as incident data", because it follows the doctrine,
 fits every country through profiles, and keeps each organisation's own chain of command.
+
+Decided on 2026-11-08:
+
+* **Start with the medical branch** (medical command → sectors such as patient collection
+  point, treatment area / UHS, transport organisation). Wherever it touches the general
+  command structure (incident command, sectors, sub-sectors, staff functions, names and
+  levels), it is checked against FwDV 100, so the medical branch fits into the general tree
+  later without changes.
+* **Access follows roles, never people.** People hold positions; positions and
+  organisational functions (e.g. "medic") give **roles**; roles are allowed to do things.
+  There is no direct mapping from a person to an access right. Organisations can define
+  their own roles in their profile layer without changing code. Roles and permissions are
+  policies evaluated by Cedar ([ADR-0035](0035-authorization-with-cedar.md)).
 
 * **Positions** are created during the incident as it grows: incident command, sectors
   (by area or task), sub-sectors, staff functions (S1–S6) and liaison officers. The
@@ -55,9 +68,10 @@ fits every country through profiles, and keeps each organisation's own chain of 
 * **People hold positions.** A person can hold several positions; every handover is an
   event with time and both people (incident log).
 * **Units and UHS are assigned to positions** (e.g. a UHS to the treatment-area lead).
-* **Access follows positions.** A position grants the compartments it needs (e.g. the
-  medical sector grants `med.clinical` for its UHS); the menu shows the workspaces of all
-  positions a person holds (ADR-0025). This replaces the manual grants of the prototype.
+* **Access follows roles.** A position gives roles; roles have permissions (e.g. the
+  role of a treatment-area lead may read `med.clinical` of its UHS); the menu shows the
+  workspaces of all roles a person holds (ADR-0025). This replaces the manual grants of
+  the prototype.
 * **Span of control** is shown, never enforced: ORDO can point out that a leader has more
   than five direct subordinates, as the doctrine suggests, but decisions stay with people.
 
@@ -66,13 +80,6 @@ fits every country through profiles, and keeps each organisation's own chain of 
 * Good, because ORDO mirrors how responders already think and work.
 * Good, because access rights stay correct when people hand over a position.
 * Bad, because positions, assignments and handovers add events and screens.
-
-### Open points for the decision
-
-1. Start with the medical branch (medical command → sectors → UHS) or with the general
-   FwDV 100 tree?
-2. Should access rights be derived from positions automatically (recommended), or stay
-   separate grants that positions only suggest?
 
 ## More Information
 

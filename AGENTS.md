@@ -20,7 +20,7 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `platform/` | Platform crates: `ordo-core`, `ordo-crypto`, `ordo-sync`, `ordo-contracts`, `ordo-tokens` |
 | `modules/`, `packages/` | Shared modules (`units`) and service packages (`med/patients`) |
 | `tests/acceptance/` | Cross-crate acceptance tests (simulated network) and Gherkin `features/` |
-| `tests/e2e/` | Browser end-to-end scenario and rendered-page audit (headless Firefox) |
+| `tests/e2e/` | Browser end-to-end scenario and rendered-page audit (Playwright, axe-core; Firefox, Chromium, WebKit) |
 | `platform/ordo-app/` | Web app (Leptos → WebAssembly, Trunk); user-visible texts in `src/text.rs` |
 
 Read only the files you need; each document is split into small parts on purpose.
@@ -45,7 +45,7 @@ All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and im
 cargo run -p ordo-server -- serve                          # needs ORDO_* variables, see --help
 docker build -f deploy/Containerfile -t ordo:local .         # container image
 (cd platform/ordo-app && trunk build --release)             # web app (needs trunk, wasm-bindgen-cli)
-python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-ui   # UI test (Firefox)
+(cd tests/e2e && npm ci && npx playwright test)              # UI test: Playwright + axe-core
 ```
 
 ## Rules that must never be broken
@@ -61,9 +61,10 @@ python3 tests/e2e/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo
    version.
 4. **Accessibility: EN 301 549 / WCAG 2.2 AA.** Never use colour alone. Use design tokens,
    never hard-coded colours or sizes. Semantic HTML first, ARIA only where needed.
-5. **Open standards first** ([ADR-0022](docs/adr/0022-open-standards-first.md)). Before
-   adding a format, protocol or tool, check whether an open standard exists and fits.
-   Record the choice in an ADR.
+5. **Open standards and open source first** ([ADR-0022](docs/adr/0022-open-standards-first.md),
+   [ADR-0032](docs/adr/0032-reuse-open-source-first.md)). Before adding a format, protocol,
+   component or tool, check whether an open standard and a maintained open-source project
+   exist and fit. Don't re-implement what they cover. Record the choice in an ADR.
 6. **No regional code.** Nothing country- or organisation-specific in `platform/` or
    modules; it belongs in profiles.
 7. **Dependencies point downwards.** Platform ← shared modules ← service packages.

@@ -22,7 +22,7 @@ use wasm_bindgen::JsCast;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
-use crate::views::{CATEGORIES, Nav, TriageBadge, focus, uhs_list};
+use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
 const VIEW: &str = "patients";
@@ -185,9 +185,10 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
                     view! {
                         <p class="notice">
                             {text::patient_title(&tag)} " " {text::REGISTERED} " "
-                            <a href=route.to_hash() on:click=move |ev| {
+                            <a href=route.to_path() on:click=move |ev| {
                                 ev.prevent_default();
                                 nav.go(route.clone());
+                                after_render(|| focus("record-title"));
                             }>{text::ACTION_OPEN_RECORD}</a>
                         </p>
                     }
@@ -274,12 +275,12 @@ fn PatientList(
                                         <a
                                             class="patient-card"
                                             data-tag=tag.clone()
-                                            href=route.to_hash()
+                                            href=route.to_path()
                                             aria-current=current
                                             on:click=move |ev| {
                                                 ev.prevent_default();
                                                 nav.go(route.clone());
-                                                focus("record-title");
+                                                after_render(|| focus("record-title"));
                                             }
                                         >
                                             <span class="patient-card__head">
@@ -332,10 +333,10 @@ fn PatientRecord(
     };
     let back = Route::view(WORKSPACE, VIEW);
     let back_link = view! {
-        <a class="back-link" href=back.to_hash() on:click=move |ev| {
+        <a class="back-link" href=back.to_path() on:click=move |ev| {
             ev.prevent_default();
             nav.go(back.clone());
-            focus("board-title");
+            after_render(|| focus("board-title"));
         }>
             <span aria-hidden="true">"←"</span>{text::ALL_PATIENTS}
         </a>

@@ -37,6 +37,8 @@ ciborium = "0.2"
 console_error_panic_hook = "0.1"
 js-sys = "0.3"
 leptos = { version = "0.8", features = ["csr"] }
+leptos_router = "0.8"
+percent-encoding = "2"
 ed25519-dalek = "3"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 getrandom = "0.4"

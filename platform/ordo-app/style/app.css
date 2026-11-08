@@ -56,6 +56,10 @@
   }
 
   .form { display: grid; gap: var(--ordo-space-3); }
+  /* Form controls never get wider than their container (reflow at 320 px). */
+  .form > * { min-width: 0; }
+  input, select, textarea { max-width: 100%; }
+  .form > input[type="text"], .form > select { width: 100%; }
   .row { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
   .row > input { flex: 1 1 16rem; }
 
@@ -267,7 +271,7 @@
     position: absolute; top: calc(100% + var(--ordo-space-2)); left: 0; z-index: 20;
     width: min(44rem, calc(100vw - 2 * var(--ordo-space-4)));
     max-height: calc(100vh - 8rem); overflow-y: auto;
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--ordo-space-5);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: var(--ordo-space-5);
     padding: var(--ordo-space-5);
     background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
@@ -359,7 +363,7 @@
     list-style: none; margin: 0; padding: 0;
   }
   .patient-list, .unit-list, .count-list { display: grid; gap: var(--ordo-space-3); }
-  .unit-list { grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+  .unit-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);
     color: var(--ordo-color-text-primary); text-decoration: none;
@@ -380,6 +384,8 @@
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-medium);
   }
+  .unit-card, .count-card { grid-template-columns: minmax(0, 1fr); }
+  .unit-card select { width: 100%; }
   .unit-card h3, .count-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
   .unit-card p, .count-card p { margin: 0; }
   .unit-card__details { color: var(--ordo-color-text-secondary); }
@@ -432,7 +438,7 @@
   .hint { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); margin: 0; }
   .hint:empty { display: none; }
 
-  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--ordo-space-2) var(--ordo-space-4); margin: 0; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 100%), 1fr)); gap: var(--ordo-space-2) var(--ordo-space-4); margin: 0; }
   .facts div { min-width: 0; }
   .facts dt { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
   .facts dd { margin: 0; font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; white-space: pre-line; }
@@ -488,15 +494,17 @@
   .palette__option[aria-selected="true"] { border-color: var(--ordo-component-button-primary-background); background: var(--ordo-color-surface-default); }
   .palette__option[aria-disabled="true"] { cursor: not-allowed; }
   .palette__option[aria-disabled="true"] .palette__label { color: var(--ordo-color-text-secondary); }
-  .palette__group { grid-row: span 2; font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); min-width: 6rem; }
+  .palette__group { grid-row: span 3; font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); min-width: 6rem; }
   .palette__label { font-weight: var(--ordo-font-weight-bold); }
   .palette__detail { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
   .palette__detail:empty { display: none; }
+  .palette__name { grid-column: 2; font-family: var(--ordo-font-family-mono); font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); }
   .palette__count { margin: 0; color: var(--ordo-color-text-secondary); }
   .palette__keys { margin: 0; color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
   @media (max-width: 40rem) {
     .palette { margin-top: var(--ordo-space-4); }
     .palette__group { grid-row: auto; grid-column: 1 / -1; }
+    .palette__name { grid-column: 1 / -1; }
     .palette__keys { display: none; }
   }
   @media (forced-colors: active) {
