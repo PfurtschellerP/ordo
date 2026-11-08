@@ -14,6 +14,8 @@ sent when the connection returns.
 
 Prototype limitations:
 
+- The app shell is kept on the device by a service worker (`sw.js`), so ORDO starts
+  without a connection; it is installable via `manifest.webmanifest`.
 - Pairing by typing the device key (from `ordo generate-device-key`); QR pairing follows.
 - Browser storage (`localStorage`) holds the device key and data keys without extra
   protection.

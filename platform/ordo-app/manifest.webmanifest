@@ -1,0 +1,11 @@
+{
+  "name": "ORDO",
+  "short_name": "ORDO",
+  "description": "Koordination von Einsatzkräften vor Ort",
+  "lang": "de",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d5cc0"
+}

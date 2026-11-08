@@ -7,6 +7,12 @@
     <title>ORDO</title>
     <link data-trunk rel="css" href="generated/ordo-tokens.css">
     <link data-trunk rel="css" href="style/app.css">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link data-trunk rel="copy-file" href="manifest.webmanifest">
+    <link data-trunk rel="copy-file" href="sw.js">
+    <script>
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+    </script>
     <link data-trunk rel="rust" data-bin="ordo-app" data-cargo-profile="release-wasm" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals">
   </head>
   <body></body>

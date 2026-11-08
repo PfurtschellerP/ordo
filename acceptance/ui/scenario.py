@@ -109,12 +109,15 @@ try:
           "re-triage is announced to screen readers")
     check(wait_for(lambda: "Alles gesendet" in status(anna)), "re-triage is sent")
 
+    # [itest->dsn~offline-app-shell~1]
+    check(wait_for(lambda: anna.js("return !!navigator.serviceWorker.controller"), 15),
+          "the app shell is installed for offline use")
     server.terminate(); server.wait()
     check(wait_for(lambda: "Offline" in status(anna)), "loss of connection is shown")
     register(anna, "DE-0045", 2)
     check("1 Eingabe noch nicht gesendet" in status(anna), f"pending input is shown: {status(anna)}")
     # [itest->dsn~local-persistence~1]
-    anna.go(URL)  # reload while offline
+    anna.go(URL)  # reload while the server is down: the app must start from the device
     check(wait_for(lambda: any(r.startswith("DE-0045") and "noch nicht gesendet" in r for r in rows(anna))),
           "offline registration survives a reload")
     server = start_server()

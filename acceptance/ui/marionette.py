@@ -6,6 +6,9 @@ class Firefox:
         os.makedirs(profile, exist_ok=True)
         with open(os.path.join(profile, "user.js"), "w") as f:
             f.write(f'user_pref("marionette.port", {port});\n')
+            # No HTTP cache: offline starts must come from the app's service worker.
+            f.write('user_pref("browser.cache.disk.enable", false);\n')
+            f.write('user_pref("browser.cache.memory.enable", false);\n')
         self.proc = subprocess.Popen(["firefox", "--headless", "--no-remote", "--marionette",
                                       "--profile", profile], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(100):

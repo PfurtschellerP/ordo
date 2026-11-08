@@ -286,3 +286,21 @@ Needs: impl, itest
 
 Tags: must, m3
 
+#### Offline app shell
+`dsn~offline-app-shell~1`
+
+A service worker keeps the app shell on the device: on installation it stores
+`index.html` and every file it references (Trunk's content-hashed assets). Page loads go
+to the network first and fall back to the stored shell; hashed assets come from the store
+first. So ORDO starts and shows the locally stored data even when the server is
+unreachable, e.g. after the browser was restarted at the scene. Sync traffic (WebSocket)
+and health endpoints are not intercepted. A web app manifest makes the app installable.
+
+Covers:
+
+* [req~ux-5~1](../requirements/07-quality.md#ux-5--no-lost-input)
+
+Needs: impl, itest
+
+Tags: must, m3
+
