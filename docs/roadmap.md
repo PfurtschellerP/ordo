@@ -71,10 +71,11 @@ Done in phase 0:
 Next:
 
 1. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)): device list and
-   revocation (SEC-4), periodic re-login that never locks people out offline (due only
-   when the identity provider is reachable, with a grace period), protected key storage in
-   the browser (WebCrypto, non-extractable keys), an admin view for roles and for Dex's
-   local accounts.
+   revocation (SEC-4); background re-verification on the server, where access ends only
+   on positive evidence and never because a service is unreachable
+   ([ADR-0040](adr/0040-access-ends-only-on-positive-evidence.md), proposed); protected key
+   storage in the browser (WebCrypto, non-extractable keys); an admin view for roles,
+   "last verified" and Dex's local accounts.
 2. Storage: device storage as SQLite on OPFS in a worker, after a short spike
    ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
    content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).
