@@ -372,13 +372,24 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
         let device = DeviceId(Ulid::from_parts(1, 1).unwrap());
-        assert!(store.save_device(&device, &user("anna"), &[1; 32], 1).await.unwrap());
         assert!(
-            store.save_device(&device, &user("anna"), &[2; 32], 2).await.unwrap(),
+            store
+                .save_device(&device, &user("anna"), &[1; 32], 1)
+                .await
+                .unwrap()
+        );
+        assert!(
+            store
+                .save_device(&device, &user("anna"), &[2; 32], 2)
+                .await
+                .unwrap(),
             "the same person may pair the device again with a new key"
         );
         assert!(
-            !store.save_device(&device, &user("mallory"), &[3; 32], 3).await.unwrap(),
+            !store
+                .save_device(&device, &user("mallory"), &[3; 32], 3)
+                .await
+                .unwrap(),
             "another person may not take the device ID over"
         );
         let devices = store.load_devices().await.unwrap();
@@ -391,13 +402,32 @@ mod tests {
         let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
         let server: ServerName = "ordo.example.org".parse().unwrap();
         let medic = vec!["medic".to_owned()];
-        let a = store.identity("https://id", "sub-1", "anna", &server, &medic).await.unwrap();
-        let b = store.identity("https://id", "sub-2", "anna", &server, &[]).await.unwrap();
-        let again = store.identity("https://id", "sub-1", "renamed", &server, &[]).await.unwrap();
+        let a = store
+            .identity("https://id", "sub-1", "anna", &server, &medic)
+            .await
+            .unwrap();
+        let b = store
+            .identity("https://id", "sub-2", "anna", &server, &[])
+            .await
+            .unwrap();
+        let again = store
+            .identity("https://id", "sub-1", "renamed", &server, &[])
+            .await
+            .unwrap();
         assert_eq!(a, user("anna"));
-        assert_eq!(b, user("anna-2"), "another person with the same name gets a number");
-        assert_eq!(again, a, "the user ID stays when the name at the provider changes");
+        assert_eq!(
+            b,
+            user("anna-2"),
+            "another person with the same name gets a number"
+        );
+        assert_eq!(
+            again, a,
+            "the user ID stays when the name at the provider changes"
+        );
         let roles = store.load_roles().await.unwrap();
-        assert!(roles.contains(&(user("anna"), Vec::new())), "roles follow the latest login");
+        assert!(
+            roles.contains(&(user("anna"), Vec::new())),
+            "roles follow the latest login"
+        );
     }
 }
