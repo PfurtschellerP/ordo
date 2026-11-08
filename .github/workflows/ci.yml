@@ -56,6 +56,35 @@ jobs:
             cat target/design/contrast-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  traceability:
+    name: Requirements tracing (OpenFastTrace)
+    runs-on: ubuntu-24.04
+    env:
+      OFT_VERSION: 4.11.0
+      OFT_SHA256: f094cd314f0fc4236f513f66fb39260a16f72e2320beb6b4fdeb7940b9b8cf87
+      # Current milestone; see docs/requirements/README.md
+      MILESTONE: m0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download OpenFastTrace and verify its checksum
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/oft.jar" \
+            "https://github.com/itsallcode/openfasttrace/releases/download/${OFT_VERSION}/openfasttrace-${OFT_VERSION}.jar"
+          echo "${OFT_SHA256}  $RUNNER_TEMP/oft.jar" | sha256sum --check
+      - name: Trace requirements of the current milestone
+        run: |
+          set -o pipefail
+          java -version
+          java -jar "$RUNNER_TEMP/oft.jar" trace -t "_,${MILESTONE}" docs platform | tee "$RUNNER_TEMP/trace.txt"
+      - name: Publish trace to the job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/trace.txt" ]; then
+            { echo '## Requirements tracing'; echo '```'; cat "$RUNNER_TEMP/trace.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   licences:
     name: Licences (REUSE)
     runs-on: ubuntu-24.04

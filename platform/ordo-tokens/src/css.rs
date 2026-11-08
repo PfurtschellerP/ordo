@@ -31,6 +31,7 @@ pub fn var_name(prefix: &str, path: &str) -> String {
 }
 
 /// Generates the complete style sheet.
+// [impl->dsn~css-themes~1]
 pub fn generate(system: &DesignSystem) -> Result<String, Error> {
     let prefix = &system.manifest.prefix;
     let (default_entry, default_tokens) = system.theme(&system.manifest.default_theme)?;

@@ -5,8 +5,8 @@ the open [W3C Design Tokens format](https://www.designtokens.org/tr/2025.10/) (D
 2025.10). Because the format is a standard, designers can also edit the tokens with
 their own tools (e.g. Tokens Studio for Figma, Style Dictionary, Terrazzo).
 
-Architecture: [docs/architecture.md §10](../docs/architecture.md). Requirements:
-[§5.8 Accessibility, §5.9 Design system](../docs/requirements.md).
+Architecture: [chapter 8.6](../docs/architecture/08-concepts.md#86-design-system-and-accessibility).
+Requirements: [§5.8 Accessibility, §5.9 Design system](../docs/requirements/07-quality.md#58-accessibility).
 
 ## Files
 

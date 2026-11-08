@@ -20,9 +20,18 @@ Built first for volunteer organisations in Germany, designed to be international
 
 ## Documentation
 
-- [Requirements](docs/requirements.md)
-- [Architecture](docs/architecture.md)
-- [Specifications](spec/README.md)
+- [Requirements](docs/requirements/README.md) — traceable items (OpenFastTrace), EARS wording
+- [Architecture](docs/architecture/README.md) — arc42 chapters
+- [Decisions](docs/adr/README.md) — architecture decision records (MADR)
+- [Glossary](docs/glossary.md) — domain terms, English ↔ German
+- [Roadmap](docs/roadmap.md) — phases, open questions, next steps
+- [Specifications](spec/README.md) — open interface specifications
+- [Design system](design/README.md) — design tokens, themes, contrast
+- [AGENTS.md](AGENTS.md) — instructions for AI coding agents
+
+ORDO uses **open standards wherever they exist and fit**
+([ADR-0022](docs/adr/0022-open-standards-first.md)); the list of standards in use is in
+[architecture chapter 4.3](docs/architecture/04-solution-strategy.md#43-open-standards-in-use).
 
 ## Licence
 

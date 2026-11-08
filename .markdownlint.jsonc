@@ -1,0 +1,9 @@
+// Markdown style for ORDO documentation (markdownlint).
+{
+  // Compact tables (|---|---|) are used throughout.
+  "MD060": false,
+  // Long table rows and prose lines are fine.
+  "MD013": false,
+  // OpenFastTrace items use "#### LABEL — Title" headings followed by an ID line.
+  "MD036": false
+}

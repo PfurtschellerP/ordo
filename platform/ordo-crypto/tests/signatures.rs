@@ -46,6 +46,7 @@ fn body(n: u128) -> EventBody {
     }
 }
 
+// [utest->dsn~signed-events~1]
 #[test]
 fn signed_event_survives_transport_and_verifies() {
     let signer = signer(1);
@@ -76,6 +77,7 @@ fn wrong_key_fails_verification() {
     );
 }
 
+// [utest->dsn~signed-events~1]
 #[test]
 fn events_with_unknown_fields_still_verify() {
     // A newer sender adds a field this version doesn't know. The body bytes are kept
@@ -96,6 +98,7 @@ fn events_with_unknown_fields_still_verify() {
     assert_eq!(forwarded.body, event.body);
 }
 
+// [utest->dsn~hash-chain~1]
 #[test]
 fn chain_detects_changes_removals_and_reordering() {
     let signer = signer(1);

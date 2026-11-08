@@ -91,6 +91,7 @@ ulid_id! {
 // Text identifiers
 // ---------------------------------------------------------------------------
 
+// [impl->dsn~qualified-identifiers~1]
 macro_rules! text_id {
     ($(#[$meta:meta])* $name:ident, $kind:literal, $check:path) => {
         $(#[$meta])*
@@ -377,6 +378,7 @@ fn check_event_type(value: &str) -> Check {
     check_segments(value, 2, true)
 }
 
+// [utest->dsn~qualified-identifiers~1]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -151,6 +151,7 @@ fn trailing_bytes_are_rejected() {
     assert_eq!(EventBody::decode(&bytes), Err(CodecError::TrailingBytes));
 }
 
+// [utest->dsn~qualified-identifiers~1]
 #[test]
 fn invalid_identifiers_are_rejected_when_decoding() {
     let Value::Map(mut entries) = to_value(&sample_body(plain()).encode().unwrap()) else {

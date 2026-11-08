@@ -11,7 +11,7 @@ SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 # Documentation is CC BY 4.0.
 [[annotations]]
-path = ["docs/**", "README.md"]
+path = ["docs/**", "README.md", "AGENTS.md", "CLAUDE.md", "SECURITY.md", "design/README.md"]
 SPDX-FileCopyrightText = "ORDO contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
 

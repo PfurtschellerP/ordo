@@ -1,0 +1,487 @@
+# 8. Crosscutting concepts
+
+> Part of the [ORDO architecture](README.md) (arc42).
+
+## 8.1 Events and ordering
+
+Every change is stored as an immutable **event**. Shown as JSON for readability; on the
+wire and in storage it is **CBOR**.
+
+```json
+{
+  "id": "01JC8Z6K4Q8M3N2P1R0S9T8V7W",
+  "incident": "01JC8Z5…@ordo.drk-musterstadt.de",
+  "origin": "ordo.drk-musterstadt.de",
+  "compartment": "med.clinical",
+  "module": "med.epcr",
+  "type": "epcr.vitalsRecorded",
+  "schemaVersion": 1,
+  "author": { "user": "anna@ordo.drk-musterstadt.de", "device": "01JC7…" },
+  "hlc": "2026-11-08T14:02:11.480Z-0001-device12",
+  "payload": "<encrypted with the compartment key>",
+  "signature": "<Ed25519 signature of origin>"
+}
+```
+
+- The **envelope** (IDs, origin, compartment, module, type, author, clock) is small and
+  readable by the server, so it can order, route and check permissions.
+- Identifiers are **globally unique and qualified with their server**, and every event
+  is **signed**, from day one, so that installations can federate later without
+  migrating data ([8.4](#84-federation)).
+- The **payload** of protected compartments is encrypted with that compartment's key
+  ([8.2](#82-data-compartments)).
+- The current state is a **projection** of the events, built per module.
+
+### 8.1.1 Ordering and conflicts
+
+- Each event carries a **hybrid logical clock** (HLC): close to real time but
+  consistently ordered even when device clocks differ.
+- The incident's **home server** ([8.4](#84-federation)) assigns a **sequence number** per incident and
+  compartment. Clients replay
+  their unconfirmed local events on top of it.
+
+| Kind of data | Rule | Example |
+|---|---|---|
+| Log entries, radio messages, ePCR entries | Never conflict, all are kept | Two medics document at the same time |
+| Simple fields | Last writer wins (by HLC), per field | Unit status changed on two tablets |
+| Collections | Add and remove are separate events | Two units added to a sector at once |
+| Critical changes | Last writer wins **and** a visible notice | Two people re-triage the same patient |
+
+Events of modules a device doesn't know (older version, module switched off) are
+stored and forwarded untouched, so mixed versions in the field never lose data.
+
+### 8.1.2 Design items
+
+#### Qualified identifiers
+`dsn~qualified-identifiers~1`
+
+Identifiers are validated value types in `ordo-core`. Users, incidents and keys are qualified with their server name (`localpart@server`, `ULID@server`, `name@server`); organisations are identified by their server name; events and devices use ULIDs (16 bytes). Values are validated when they are created and when they are decoded, following `spec/sync/event.cddl`, so an invalid identifier cannot exist in memory.
+
+Covers:
+
+* [req~fed-7~1](../requirements/06-federation-and-interfaces.md#fed-7--globally-unique-identifiers)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+#### Signed events
+`dsn~signed-events~1`
+
+Events travel as `[body bytes, signature]`. The Ed25519 signature covers the context `ORDO event v1`, a zero byte and the body bytes exactly as sent. Receivers verify before accepting and forward the body bytes unchanged, so signatures stay valid across relays and across versions that add fields ([spec §4](../../spec/sync/event.md)).
+
+Covers:
+
+* [req~fed-6~1](../requirements/06-federation-and-interfaces.md#fed-6--verifiable-origin-and-integrity)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+#### Hash chain
+`dsn~hash-chain~1`
+
+The home server orders events per incident and compartment and chains them: chain = BLAKE3 derive-key `ORDO chain v1` over previous chain ‖ event hash, starting from 32 zero bytes. Anyone holding the sequence can recompute the chain and detect changed, removed or reordered events ([spec §6](../../spec/sync/event.md)).
+
+Covers:
+
+* [req~fed-6~1](../requirements/06-federation-and-interfaces.md#fed-6--verifiable-origin-and-integrity)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+## 8.2 Data compartments
+
+A **compartment** is a separately protected part of an incident's data. Every event
+belongs to exactly one.
+
+| Compartment | Content | Who can read | Retention (default, DE) |
+|---|---|---|---|
+| `incident` | Units, sectors, tasks, map, log, connector data | Everyone taking part in the incident | Configurable (e.g. 1–3 years) |
+| `med.clinical` | Patient identity, triage details, ePCR, transport details | Assigned medical staff, medical leads | ≥ 10 years (medical documentation) |
+| `med.ops` | UHS staff planning, internal med logistics | Med package users | As `incident` |
+| `police.restricted` | Police-only information (later) | Police users | Per police rules |
+| `fire.ops` | Fire-internal data, e.g. BA monitoring details | Fire package users | As `incident` |
+
+Each compartment has its own:
+
+- **Access rules** — checked on the server for every event and every read.
+- **Sync scope** — the server sends a device only the compartments its user may read.
+  A fire tablet never receives, and therefore never stores, patient records.
+- **Encryption key** — one data key per incident and compartment. Keys are given to
+  authorised devices encrypted for that device's own key (X25519), and are removed when
+  a device is revoked or a role ends.
+- **Retention** — closed incidents are deleted or anonymised per compartment, so ePCR
+  data can be kept 10 years while operational data is deleted earlier.
+
+**Trust model (proposed, ADR 014):** the server is trusted and can decrypt (needed for
+reports, PDF handover, FHIR export and backups), but keeps compartment keys separate
+and logs every decryption. Full end-to-end encryption (server can't read clinical data)
+is possible later with the same structure, at the cost of server-side features.
+
+## 8.3 Connectors
+
+A **connector** is a versioned contract for information that crosses a package border.
+Technically, a connector is a set of **published events** in the shared `incident`
+compartment:
+
+```mermaid
+flowchart LR
+  subgraph MED["Med package (med.clinical)"]
+    P["patient registered / re-triaged / transported"]
+  end
+  P -- "derived on the med device" --> C["med.patientCounts.v1<br/>{ uhs: 'UHS 1', sk1: 3, sk2: 5, sk3: 12, deceased: 0 }"]
+  C -- "incident compartment" --> CMD["Fire command workspace"]
+  C --> POL["Police liaison workspace"]
+```
+
+- The **providing** package derives connector events from its own data, on the device
+  where the change happens. So it also works offline at the scene.
+- Connector events contain **only what the contract allows**: counts and statuses,
+  never clinical details (CONN-3).
+- **Consuming** packages depend only on the contract crate (`ordo-contracts`), never on
+  the providing package.
+- Contracts are **versioned** (`.v1`, `.v2`); a provider can publish several versions
+  during a transition.
+- Requests across services (e.g. Fire → Med "responder injured") are connector events
+  that create a **task** visible to both sides (CONN-4).
+- The list of all connectors with their fields and purpose is generated from the
+  contract crate and shown to administrators (CONN-2).
+
+First contracts:
+
+| Contract | From → to | Content |
+|---|---|---|
+| `med.patientCounts.v1` | Med → all | Counts per triage category and location |
+| `med.transportStatus.v1` | Med → all | Transports: unit, destination hospital, status — no patient data |
+| `fire.responderInjured.v1` | Fire → Med | Request for care: location, unit, urgency |
+| `command.dangerZones.v1` | Command → all | Danger zones, staging areas, sectors |
+| `command.routes.v1` | Command/Police → all | Cordons, access and exit routes |
+
+## 8.4 Federation
+
+**Goal:** ORDO installations run by different organisations work together on the same
+incident, without a central server — in the spirit of Matrix, but focused on what
+emergency services need.
+
+### 8.4.1 Why not build directly on Matrix?
+
+Matrix is a serious option: proven, federated, end-to-end encrypted, with Rust server
+implementations; in Germany it is the basis of the health sector's TI-Messenger and of
+the Bundeswehr's BwMessenger. But for ORDO's core data the fit is poor:
+
+| Aspect | Matrix | ORDO needs |
+|---|---|---|
+| Who can federate | Open by default | Closed: only explicitly trusted partners |
+| Ordering | Event graph with state resolution, no single authority | A simple, clear order per incident — an incident has a lead organisation anyway |
+| Data model | Rooms and messages; app data as custom events | Compartments, projections, retention per compartment, offline-first devices |
+| Resources | Homeservers are comparatively heavy | Must run on a Raspberry Pi in a vehicle |
+
+**Proposal (ADR 016):** an own, focused federation protocol that borrows Matrix's good
+ideas (server identity via domain names, signed events, open specification). Plus a
+**Matrix adapter** later for messaging with TI-Messenger, BwMessenger or Element — where
+Matrix is strongest.
+
+### 8.4.2 Model
+
+```mermaid
+flowchart LR
+  subgraph DRK["ordo.drk-musterstadt.de (home of incident)"]
+    S1["ORDO server"]
+  end
+  subgraph FF["ordo.ff-musterstadt.de"]
+    S2["ORDO server"]
+  end
+  subgraph LK["ordo.landkreis-muster.de"]
+    S3["ORDO server"]
+  end
+  S2 <-- "incident + connectors<br/>(agreement: no med.clinical)" --> S1
+  S3 <-- "incident + med.clinical<br/>(agreement: medical lead)" --> S1
+```
+
+- **Server identity:** each installation has a domain name and a signing key pair
+  (Ed25519), published at `https://<domain>/.well-known/ordo`.
+- **Global identifiers:** users and organisations are qualified with their server
+  (e.g. `anna@ordo.drk-musterstadt.de`); incidents and events have globally unique IDs.
+- **Signed events:** every event is signed by its origin, so every installation can
+  verify where an event comes from and that it is unchanged — even when relayed.
+- **Home per incident:** the leading organisation's server is the incident's *home* and
+  assigns the order. Other servers replicate the incident for the compartments their
+  users may read. The home can be handed over (e.g. the county takes over command);
+  the handover is an event like any other.
+- **Same protocol as devices:** to the home, a partner server behaves like a large
+  client — with an outbox, continuing to work when the home is unreachable and catching
+  up later. A network split between organisations is the same case as a tablet without
+  coverage, which ORDO handles anyway.
+- **Closed by default:** a federation agreement per partner states which compartments
+  and roles may cross. Compartment keys are given only to partner servers that host
+  authorised users; `med.clinical` normally stays with medical organisations.
+
+### 8.4.3 Now vs later
+
+| Built now (cheap, avoids migrations later) | Built later (phase 4) |
+|---|---|
+| Globally unique, server-qualified identifiers | Server discovery and key exchange |
+| Server signing keys; signed events | Federation agreements (admin UI) |
+| "Home" concept in the sync protocol | Server-to-server endpoints |
+| Sync protocol that doesn't distinguish device vs server peers | Home handover; conformance tests |
+
+## 8.5 Security
+
+- **Transport:** TLS everywhere (rustls); ACME / Let's Encrypt or local certificates.
+- **Compartments:** separate access rules, sync scope, keys and retention ([8.2](#82-data-compartments)).
+- **Devices:** own key pair per device, paired via QR code; revocation removes keys and
+  stops sync. Devices with clinical data lock automatically (PIN / biometrics).
+- **Permissions** are checked on the server for every event; the client checks them only
+  for quick feedback.
+- **Guests** get a time-limited link for one incident, `incident` compartment only.
+- **Integrity:** events hash-chained per incident and compartment (BLAKE3).
+- **Access logging:** every read of a clinical record is an audit event.
+- **Memory safety:** no `unsafe` in ORDO's own code except reviewed FFI; `cargo audit`
+  and `cargo deny` in CI.
+
+## 8.6 Design system and accessibility
+
+Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).
+The design system is the main tool to get there: if the shared components are
+accessible, every module built from them is too.
+
+### 8.6.1 Why the UI technology matters
+
+Leptos renders **real HTML elements** into the page. Screen readers, keyboard
+navigation, browser zoom and operating-system contrast settings therefore work as on
+any good website. UI frameworks that paint everything onto a canvas would make most of
+this impossible; this rules them out for ORDO.
+
+The one canvas ORDO needs is the **map** (MapLibre). It gets an accessible companion:
+every map object also appears in a list view with the same actions (A11Y-5), and map
+objects can be reached by keyboard.
+
+### 8.6.2 Building blocks (open source)
+
+| Area | Choice | Licence | Why |
+|---|---|---|---|
+| Token format | **W3C Design Tokens format (DTCG 2025.10)**, JSON | open specification | Tool-independent standard; also read by Style Dictionary, Tokens Studio (Figma) and Terrazzo, so designers can work with their own tools |
+| Token build | Small Rust tool **`ordo-tokens`**: DTCG → CSS custom properties (+ Rust constants), with contrast checks | AGPL-3.0 | Keeps the build Rust-only; because the format is standard, Style Dictionary can be used instead at any time |
+| Typeface | **Atkinson Hyperlegible Next** and **Mono** (Braille Institute) | SIL OFL 1.1 | Designed for low-vision readers; clearly distinguishes 0/O and 1/l/I — important for call signs and triage tag numbers |
+| Icons | **Lucide** | ISC | Large, consistent, actively maintained set. Tactical symbols (DV 102) come from the profiles, not from the icon set |
+| Components | Own components in **`ordo-ui`**, built to the **WAI-ARIA Authoring Practices**. Headless Leptos libraries (e.g. RustForWeb's Radix port, Leptix) are evaluated in the prototype and adopted only if maintained and passing our tests | AGPL-3.0 | The Rust UI ecosystem is young; accessibility must not depend on an unmaintained crate |
+| Styling | Plain CSS: custom properties for tokens, cascade layers, no CSS framework | — | Small and fast; themes are just different property values |
+| Automated tests | **axe-core** run by **Playwright** in CI | MPL-2.0 / Apache-2.0 | Catches a large share of WCAG errors on every change |
+| Manual tests | NVDA, Orca, VoiceOver, TalkBack per release; expert audit (e.g. BITV-Test) before the first release for public bodies | — | Automated checks find only part of the problems |
+| Documents | **Typst ≥ 0.14**: tagged PDFs by default, PDF/UA-1 export | Apache-2.0 | EN 301 549 clause 10 (documents) |
+
+### 8.6.3 Tokens and themes
+
+```mermaid
+flowchart LR
+  P["Primitive tokens<br/>colour.red.600, space.4, font.size.3"] --> S["Semantic tokens<br/>surface.default, text.primary,<br/>action.primary, safety.triage.immediate"]
+  S --> C["Component tokens<br/>button.background, triageBadge.immediate.border"]
+  T1["Theme: day"] -. overrides .-> S
+  T2["Theme: night"] -. overrides .-> S
+  T3["Theme: high contrast"] -. overrides .-> S
+  T4["Organisation theme<br/>(branding)"] -. overrides .-> S
+```
+
+- **Primitive** tokens are raw values (colours, spacing, sizes). **Semantic** tokens give
+  them a meaning (`text.primary`, `action.danger`). **Component** tokens bind meanings to
+  parts of components.
+- **Themes override semantic tokens only.** ORDO ships *day*, *night* and *high
+  contrast*. An organisation theme is one more layer on top, like profile layers ([8.8.3](#883-layering)).
+- **Safety tokens are protected.** Tokens under `safety.*` (triage categories, alarms,
+  unit-status meaning) keep their hue in every theme, and organisation themes can't
+  change them. Their *lightness* may differ between day and night so that contrast
+  holds in both.
+- **Checked automatically:** `ordo-tokens` computes the contrast of every text/background
+  and control/background pair defined in the system, for every theme, and fails the build
+  below WCAG thresholds (4.5:1 text, 3:1 large text and UI parts). An organisation theme
+  that fails is rejected when it is loaded.
+- **Operating-system settings are respected:** `prefers-color-scheme` picks day or night,
+  `prefers-contrast: more` picks high contrast, `forced-colors` (Windows contrast themes)
+  falls back to system colours, `prefers-reduced-motion` turns off animation.
+- The user can always override the choice in the app (e.g. force night mode in the
+  command vehicle).
+
+### 8.6.4 Rules every component follows
+
+- Native HTML elements first (`button`, `input`, `table`, `dialog`); ARIA only where HTML
+  has no equivalent.
+- Visible focus indicator in every theme; logical focus order; focus moves sensibly
+  after dialogs and actions.
+- Every control has a visible label; error messages are text, linked to the field.
+- Touch targets ≥ 12 mm (about 46 CSS px), well above the WCAG 2.5.8 minimum.
+- **Colour plus text plus shape** for all status information. Example: a triage badge
+  shows the colour, the label from the profile ("SK I") and a distinct shape per
+  category.
+- Live regions announce important changes (new patient in UHS, alarm) to screen-reader
+  users without moving focus.
+- Alarms: visual + sound + vibration, never flashing more than three times per second.
+- Layouts reflow down to 320 CSS px and work at 200 % text size.
+- All user-visible text comes from translation files (Fluent), with `lang` set
+  correctly, including for patient-facing texts in other languages.
+
+### 8.6.5 Design-system documentation
+
+A component gallery (built with ORDO itself, served by `ordo serve --gallery`) shows
+every component in every theme, with usage and accessibility notes. It is also the page
+the automated accessibility tests run against.
+
+### 8.6.6 Design items
+
+#### Design-token layers
+`dsn~design-token-layers~1`
+
+`ordo-tokens` reads token files in the W3C Design Tokens format (DTCG 2025.10), resolves aliases with cycle and type checks, and layers them: base files (primitive and component tokens) plus one theme file, plus optionally an organisation layer on top. Theme files may only add semantic tokens, and all themes must define the same tokens.
+
+Covers:
+
+* [req~ds-2~1](../requirements/07-quality.md#ds-2--design-tokens)
+* [req~ds-6~1](../requirements/07-quality.md#ds-6--layered-themes)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+#### Theme validation
+`dsn~theme-validation~1`
+
+For every theme, `ordo-tokens` checks all pairs in `design/contrast.toml` with the WCAG 2 contrast ratio, never rounding up; transparent colours are composited over their background. An organisation layer may only change existing semantic tokens of its base theme, never tokens in protected groups (`color.safety`), and must pass the same pairs; otherwise it is rejected.
+
+Covers:
+
+* [req~ds-4~1](../requirements/07-quality.md#ds-4--themes-cannot-break-accessibility-or-safety)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+#### CSS themes
+`dsn~css-themes~1`
+
+`ordo-tokens` generates CSS custom properties: base tokens and the default theme in `:root`, every other theme under `:root[data-theme="…"]`, automatic selection through `prefers-color-scheme` and `prefers-contrast` when the page sets no theme, and all durations set to 0 ms under `prefers-reduced-motion`. Aliases become `var()` references, so switching a theme switches only the semantic tokens.
+
+Covers:
+
+* [req~ds-3~1](../requirements/07-quality.md#ds-3--themes)
+
+Needs: impl, utest
+
+Tags: must, m0
+
+## 8.7 Open specifications
+
+All of ORDO's interfaces are published as **open, versioned specifications**,
+separate from the code — like the Matrix specification — so other systems, including
+commercial control-centre or hospital software, can talk to ORDO.
+
+| Specification | Covers | Format |
+|---|---|---|
+| Client–server API | Login, master data, admin (HTTP) | OpenAPI 3.1 |
+| Sync protocol | WebSocket messages, event envelope | AsyncAPI 3 + CDDL (RFC 8610) for the CBOR structures |
+| Federation API | Discovery, keys, server-to-server sync | OpenAPI 3.1 + AsyncAPI 3 |
+| Connector contracts | Data crossing package borders | CDDL; JSON Schema generated |
+| Profile format | Regional profiles | JSON Schema (validates the TOML files) |
+
+- **Spec-first** for the sync protocol, federation and connectors: the spec is the
+  contract, the Rust code implements it, and CI checks that they match.
+- **Conformance test suite** in the repository that any implementation can run.
+- **Versioning:** each specification has its own semantic version; servers announce
+  supported versions in `/.well-known/ordo`.
+- **Licence:** CC BY 4.0 for spec texts, Apache-2.0 for schemas and the
+  conformance suite. Permissive on purpose: anyone may implement the interfaces, while
+  ORDO's own code stays AGPL.
+
+## 8.8 Regional profiles
+
+Everything country- or organisation-specific is **configuration data**, packaged as a
+profile. Core, modules and packages contain no regional data (I18N-4).
+
+### 8.8.1 Profile packages
+
+```
+profiles/de/
+├── profile.toml               # manifest
+├── unit-types.toml
+├── status-codes.toml
+├── command-structure.toml
+├── incident-keywords.csv
+├── task-templates.toml
+├── med/
+│   ├── triage-categories.toml
+│   ├── discharge-outcomes.toml
+│   ├── epcr-forms/            # DIVI MIND-based forms
+│   └── hospital-types.toml
+├── terminology/
+│   ├── de.ftl                 # UI wording (Fluent)
+│   └── en.ftl
+└── symbols/                   # tactical symbols (SVG)
+```
+
+```toml
+# profiles/de/profile.toml
+id = "de"
+name = "Deutschland"
+version = "1.0.0"   # content version
+format = 1          # profile format version (I18N-8)
+extends = []        # a state profile would say: extends = ["de"]
+languages = ["de", "en"]
+```
+
+```toml
+# profiles/de/med/triage-categories.toml
+[[category]]
+id = "de.triage.sk1"
+label = "SK I"
+colour = "red"
+meaning = "immediate"      # core meaning used by the software
+```
+
+### 8.8.2 Catalogues are the extension points
+
+Each catalogue type is defined (schema + meaning) by the module that uses it. A new
+module brings its own catalogue types; the loader doesn't change.
+
+| Catalogue | Module | Core meaning |
+|---|---|---|
+| `unit-types` | units | unit category (fire, EMS, police, technical, command, …) |
+| `status-codes` | units | available, en_route, on_scene, deployed, unavailable, … |
+| `command-structure` | command | level and role names |
+| `incident-keywords` | incidents | incident category |
+| `task-templates` | tasks | — |
+| `symbols` | map | symbol per unit type, status, map object |
+| `triage-categories` | med.patients | immediate, urgent, minor, expectant, deceased |
+| `discharge-outcomes` | med.uhs | released, transported, refused, deceased |
+| `epcr-forms` | med.epcr | form fields mapped to record fields |
+| `hospital-types` | med.hospitals | capabilities (trauma centre, paediatrics, burns, …) |
+| `terminology` | app | UI wording |
+| `workspaces` | app | role → views and layout |
+
+The software works with the core meaning (`immediate`); users see the regional label
+("SK I", "T1", "P1", …). That is what lets one codebase serve many countries.
+
+### 8.8.3 Layering
+
+```
+de  →  de-by (Bavaria)  →  org: e.g. a local medical service
+```
+
+- Every entry has a stable ID. A child layer can **add**, **override** or **hide**
+  entries.
+- The organisation layer is edited in the admin UI and stored as a profile layer.
+- The resolver produces a versioned **effective profile** with a content hash; incidents
+  record the hash they started with.
+- `ordo profile validate` / `ordo profile resolve` check profiles locally and in CI.
+
+### 8.8.4 First profile: Germany (DE)
+
+| Item | DE profile |
+|---|---|
+| Command structure | FwDV 100: Einsatzleitung, Einsatzabschnitte, Untereinsatzabschnitte |
+| Tactical symbols | DV 102 / *Taktische Zeichen* (open-licensed set to be identified) |
+| Unit types | HLF, LF, TLF, DLK, ELW, RTW, NEF, KTW, … |
+| Status codes | Status 1–9 (FMS/TMS) |
+| Crew strength | Tactical notation, e.g. 1/8/**9** |
+| Triage | *Sichtungskategorien* SK I–IV, plus deceased |
+| Patient record | Based on DIVI MIND |
+| Language | German (English UI available) |

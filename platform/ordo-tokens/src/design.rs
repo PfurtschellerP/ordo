@@ -135,6 +135,7 @@ pub struct DesignSystem {
     pairs: Vec<ContrastPair>,
 }
 
+// [impl->dsn~design-token-layers~1]
 impl DesignSystem {
     /// Loads `design.toml`, `contrast.toml` and all token files from `dir`.
     pub fn load(dir: &Path) -> Result<Self, Error> {
@@ -208,6 +209,7 @@ impl DesignSystem {
     ///
     /// The overlay may only change existing semantic tokens of that theme, never tokens
     /// in protected groups, and the result must still pass every contrast pair.
+    // [impl->dsn~theme-validation~1]
     pub fn check_overlay(
         &self,
         base_theme: &str,

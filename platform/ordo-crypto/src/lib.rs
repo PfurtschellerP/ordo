@@ -32,6 +32,7 @@ pub enum CryptoError {
 }
 
 /// Signs events with one Ed25519 key.
+// [impl->dsn~signed-events~1]
 pub struct EventSigner {
     key: SigningKey,
     kid: KeyId,
@@ -67,6 +68,7 @@ impl EventSigner {
 }
 
 /// Verifies the signature of an event over its body bytes as received.
+// [impl->dsn~signed-events~1]
 pub fn verify(event: &SignedEvent, key: &VerifyingKey) -> Result<(), CryptoError> {
     let signature = ed25519_dalek::Signature::from_bytes(&event.signature.val);
     key.verify_strict(&signing_message(&event.body), &signature)
@@ -95,6 +97,7 @@ pub fn chain_next(previous: &[u8; 32], event_hash: &[u8; 32]) -> [u8; 32] {
 
 /// The ordered event sequence of one incident compartment, as kept by its home server.
 #[derive(Debug, Clone)]
+// [impl->dsn~hash-chain~1]
 pub struct Chain {
     last_seq: u64,
     head: [u8; 32],
@@ -158,6 +161,7 @@ pub enum ChainError {
 
 /// Checks that `events` form an unbroken chain starting at sequence number 1, and
 /// returns the resulting chain.
+// [impl->dsn~hash-chain~1]
 pub fn verify_chain<'a>(
     events: impl IntoIterator<Item = &'a SequencedEvent>,
 ) -> Result<Chain, ChainError> {

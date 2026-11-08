@@ -105,6 +105,7 @@ fn valid_system_passes() {
     assert!((report.themes[0].results[0].ratio - 21.0).abs() < 1e-6);
 }
 
+// [utest->dsn~theme-validation~1]
 #[test]
 fn low_contrast_is_reported_not_hidden() {
     let system = load(&[
@@ -124,6 +125,7 @@ fn low_contrast_is_reported_not_hidden() {
 /// (description, files, expected part of the error message)
 type ErrorCase = (&'static str, Vec<(&'static str, String)>, &'static str);
 
+// [utest->dsn~design-token-layers~1]
 #[test]
 fn structural_errors() {
     let cases: Vec<ErrorCase> = vec![
@@ -231,6 +233,7 @@ fn organisation_theme_cannot_break_contrast() {
     assert!(!report.passes());
 }
 
+// [utest->dsn~theme-validation~1]
 #[test]
 fn organisation_theme_cannot_touch_safety_tokens() {
     let overlay = format!(
@@ -255,6 +258,7 @@ fn organisation_theme_cannot_add_or_override_base_tokens() {
     assert!(matches!(error, Error::UnknownOverride { .. }), "{error}");
 }
 
+// [utest->dsn~css-themes~1]
 #[test]
 fn css_output_layers_themes() {
     let css = css::generate(&valid()).unwrap();

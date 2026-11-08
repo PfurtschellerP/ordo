@@ -6,7 +6,7 @@
 //!
 //! The same checks are used at runtime to validate organisation themes (branding), so
 //! that no theme can break accessibility or change safety-relevant colours
-//! (architecture §10.3).
+//! (docs/architecture/08-concepts.md, section 8.6.3).
 
 pub mod color;
 pub mod css;
