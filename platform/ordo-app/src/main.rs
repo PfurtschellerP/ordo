@@ -1,6 +1,7 @@
 //! ORDO web app (prototype). Build with Trunk, see Trunk.toml.
 
 mod core;
+mod devices;
 mod nav;
 mod palette;
 mod patients;

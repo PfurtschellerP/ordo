@@ -6,7 +6,10 @@
 
 ; ---------------------------------------------------------------- device → server
 
-client-message = { "hello": hello } / { "push": [* signed-event] }
+client-message = { "hello": hello }
+               / { "push": [* signed-event] }
+               / "listDevices"                ; own devices, all with manage_devices
+               / { "revokeDevice": device-id } ; own device, any with manage_devices
 
 hello = {
   "user": user-id,
@@ -30,6 +33,7 @@ server-message = { "challenge": challenge }
                / { "refused": rejection }
                / { "deliver": delivery }
                / { "rejected": rejected }
+               / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {
@@ -41,8 +45,16 @@ welcome = {
   "denied": [* stream-ref],
   "protected": [* compartment-id],
   "keys": [* key-grant],
+  ? "permissions": [* tstr],       ; beyond compartments, e.g. "manage_devices"
   ? "valid_until": uint,           ; end of this device's login (ms since 1970); the
                                    ; device locks itself afterwards, also offline
+}
+
+device-info = {
+  "device": device-id,
+  "user": user-id,
+  ? "paired": uint,                ; when it was paired (ms since 1970)
+  ? "valid_until": uint,           ; end of its login (ms since 1970)
 }
 
 stream-ref = {
@@ -71,6 +83,7 @@ rejected = {
 }
 
 rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
+          / "revoked"
           / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId"

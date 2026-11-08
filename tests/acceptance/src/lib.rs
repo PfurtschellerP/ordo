@@ -40,6 +40,9 @@ pub struct Device {
 pub const MEDICS: [&str; 2] = ["anna", "clara"];
 /// The incident commander, without access to clinical data.
 pub const COMMANDER: &str = "ben";
+/// An administrator: manages all devices, reads no incident data. Has no device unless a
+/// test adds one.
+pub const ADMIN: &str = "dora";
 
 /// The simulated world: one home server, several devices, one incident.
 pub struct World {
@@ -68,6 +71,7 @@ impl World {
             policy = policy.allow(&user(medic), &["incident", "med.clinical"]);
         }
         policy = policy.allow(&user(COMMANDER), &["incident"]);
+        policy = policy.admin(&user(ADMIN));
         let hub_device = DeviceId(Ulid::from_parts(now, 999).unwrap());
         let mut hub = Hub::new(
             HubConfig {

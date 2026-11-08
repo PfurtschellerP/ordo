@@ -71,6 +71,8 @@ const ADDED_COLUMNS: &[&str] = &[
     "ALTER TABLE devices ADD COLUMN valid_until INTEGER",
     // The identity provider's renewal token, wrapped with the master key (ADR-0040).
     "ALTER TABLE identities ADD COLUMN refresh BLOB",
+    // When a device was revoked (SEC-4); revoked devices are refused for good.
+    "ALTER TABLE devices ADD COLUMN revoked_ms INTEGER",
 ];
 
 /// The server's database.
@@ -147,6 +149,16 @@ impl Store {
                         .bind(stream.1.as_str())
                         .bind(key_id.as_str())
                         .bind(wrapped)
+                        .execute(&mut *tx)
+                        .await?;
+                }
+                // [impl->dsn~device-revocation~1]
+                Change::Revoked { device } => {
+                    // Devices paired by hand (seed) have no row; they stay revoked in the
+                    // hub until the server restarts, then their seed entry must be removed.
+                    sqlx::query("UPDATE devices SET revoked_ms = ? WHERE device_id = ?")
+                        .bind(ms(crate::app::now_ms()))
+                        .bind(device.ulid().to_string())
                         .execute(&mut *tx)
                         .await?;
                 }
@@ -294,7 +306,8 @@ impl Store {
             "INSERT INTO devices (device_id, user_id, public_key, paired_ms, valid_until)
              VALUES (?, ?, ?, ?, ?)
              ON CONFLICT (device_id) DO UPDATE SET public_key = excluded.public_key,
-                 paired_ms = excluded.paired_ms, valid_until = excluded.valid_until
+                 paired_ms = excluded.paired_ms, valid_until = excluded.valid_until,
+                 revoked_ms = NULL
              WHERE devices.user_id = excluded.user_id",
         )
         .bind(device.ulid().to_string())
@@ -305,6 +318,43 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(saved.rows_affected() == 1)
+    }
+
+    /// Revoked devices.
+    pub async fn load_revoked(&self) -> Result<Vec<DeviceId>, StoreError> {
+        let rows = sqlx::query("SELECT device_id FROM devices WHERE revoked_ms IS NOT NULL")
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|row| {
+                let device: String = row.get("device_id");
+                device
+                    .parse::<Ulid>()
+                    .map(DeviceId)
+                    .map_err(|e| StoreError::Invalid(e.to_string()))
+            })
+            .collect()
+    }
+
+    /// When each device was paired (ms).
+    pub async fn load_paired(&self) -> Result<Vec<(DeviceId, u64)>, StoreError> {
+        let rows = sqlx::query("SELECT device_id, paired_ms FROM devices WHERE revoked_ms IS NULL")
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|row| {
+                let device: String = row.get("device_id");
+                let paired: i64 = row.get("paired_ms");
+                Ok((
+                    DeviceId(
+                        device
+                            .parse::<Ulid>()
+                            .map_err(|e| StoreError::Invalid(e.to_string()))?,
+                    ),
+                    u64::try_from(paired).unwrap_or_default(),
+                ))
+            })
+            .collect()
     }
 
     /// Sets the end of the login of all devices of `user` (re-verified or ended).
@@ -375,9 +425,12 @@ impl Store {
     pub async fn load_devices(
         &self,
     ) -> Result<Vec<(DeviceId, UserId, [u8; 32], Option<u64>)>, StoreError> {
-        let rows = sqlx::query("SELECT device_id, user_id, public_key, valid_until FROM devices")
-            .fetch_all(&self.pool)
-            .await?;
+        let rows = sqlx::query(
+            "SELECT device_id, user_id, public_key, valid_until FROM devices
+             WHERE revoked_ms IS NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
         rows.into_iter()
             .map(|row| {
                 let invalid = |e: String| StoreError::Invalid(e);
@@ -491,6 +544,30 @@ mod tests {
         assert_eq!(devices, vec![(device, user("anna"), [2; 32], Some(200))]);
         store.set_valid_until(&user("anna"), 5).await.unwrap();
         assert_eq!(store.load_devices().await.unwrap()[0].3, Some(5));
+    }
+
+    // [utest->dsn~device-revocation~1]
+    #[tokio::test]
+    async fn a_revoked_device_stays_revoked_after_a_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ordo.db");
+        let device = DeviceId(Ulid::from_parts(1, 1).unwrap());
+        {
+            let store = Store::open(&path).await.unwrap();
+            store
+                .save_device(&device, &user("anna"), &[1; 32], 1, 100)
+                .await
+                .unwrap();
+            let master = DataKey::from_bytes([7; 32]);
+            store
+                .save(&[Change::Revoked { device }], &master)
+                .await
+                .unwrap();
+        }
+        let store = Store::open(&path).await.unwrap();
+        assert_eq!(store.load_revoked().await.unwrap(), vec![device]);
+        assert!(store.load_devices().await.unwrap().is_empty());
+        assert!(store.load_paired().await.unwrap().is_empty());
     }
 
     #[tokio::test]

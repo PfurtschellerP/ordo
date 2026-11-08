@@ -43,6 +43,10 @@ but ORDO does not support or test that; prefer your provider's OpenID Connect.
 
 Changes to `dex.yaml` take effect after `docker compose restart dex`.
 
+**Lost or stolen device:** its person revokes it under *Organisation – Geräte* on any of
+their other devices; accounts in the group `admin` see and revoke every device. The device
+is cut off at once and deletes its key and data as soon as it connects again.
+
 ## Field servers without internet
 
 Devices that were paired before the deployment keep working without the identity provider

@@ -16,6 +16,25 @@ pub enum ClientMessage {
     Hello(Hello),
     /// Events from the device's outbox.
     Push(Vec<SignedEvent>),
+    /// Asks for the paired devices: one's own, or all with permission `manage_devices`.
+    ListDevices,
+    /// Revokes a device (one's own, or any with permission `manage_devices`).
+    RevokeDevice(DeviceId),
+}
+
+/// A paired device, as listed for its person or an admin (SEC-4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceInfo {
+    /// The device.
+    pub device: DeviceId,
+    /// Its person.
+    pub user: UserId,
+    /// When it was paired (ms), if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paired: Option<u64>,
+    /// End of its login (ms), if limited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<u64>,
 }
 
 /// Identifies the device, proves its key and asks for streams.
@@ -67,6 +86,8 @@ pub enum ServerMessage {
     Deliver(Delivery),
     /// An event from the device was not accepted.
     Rejected(Rejected),
+    /// The paired devices the user may see (answer to `listDevices` and `revokeDevice`).
+    Devices(Vec<DeviceInfo>),
 }
 
 /// Which streams the device gets, and the keys it needs.
@@ -80,6 +101,10 @@ pub struct Welcome {
     pub protected: Vec<CompartmentId>,
     /// Data keys for protected compartments the user may read.
     pub keys: Vec<KeyGrant>,
+    /// What the user may do beyond reading and writing compartments, e.g.
+    /// `manage_devices`; the app shows or hides functions accordingly (ADR-0035).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub permissions: Vec<String>,
     /// Until when (ms since the Unix epoch) the login of this device is valid; the device
     /// locks itself afterwards, also offline, until the person logs in again (ADR-0040).
     /// `None`: no limit (devices paired by hand for development).
@@ -155,6 +180,8 @@ pub enum Rejection {
     NotAuthenticated,
     /// The login of this device has expired or was ended; the person must log in again.
     LoginExpired,
+    /// The device was revoked (lost, stolen, retired); it deletes its local data.
+    Revoked,
     /// Author in the event doesn't match the connected user and device.
     WrongAuthor,
     /// The signature is not valid.
@@ -180,4 +207,41 @@ pub fn encode<T: Serialize>(message: &T) -> Result<Vec<u8>, CodecError> {
 /// Decodes a message from CBOR.
 pub fn decode<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, CodecError> {
     codec::from_cbor(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ordo_core::Ulid;
+
+    // [utest->dsn~device-revocation~1]
+    #[test]
+    fn device_messages_match_the_schema() {
+        // A unit variant is a plain text string in CBOR: "listDevices" (11 bytes).
+        let mut expected = vec![0x6b];
+        expected.extend_from_slice(b"listDevices");
+        assert_eq!(encode(&ClientMessage::ListDevices).unwrap(), expected);
+
+        let device = DeviceId(Ulid::from_parts(1, 2).unwrap());
+        let revoke = ClientMessage::RevokeDevice(device);
+        assert_eq!(
+            decode::<ClientMessage>(&encode(&revoke).unwrap()).unwrap(),
+            revoke
+        );
+        let list = ServerMessage::Devices(vec![DeviceInfo {
+            device,
+            user: "anna@ordo.example.org".parse().unwrap(),
+            paired: Some(1),
+            valid_until: None,
+        }]);
+        assert_eq!(
+            decode::<ServerMessage>(&encode(&list).unwrap()).unwrap(),
+            list
+        );
+        let revoked = ServerMessage::Refused(Rejection::Revoked);
+        assert_eq!(
+            decode::<ServerMessage>(&encode(&revoked).unwrap()).unwrap(),
+            revoked
+        );
+    }
 }

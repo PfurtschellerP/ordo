@@ -10,12 +10,17 @@ pub trait AccessPolicy: Send {
     fn can_read(&self, user: &UserId, incident: &IncidentId, compartment: &CompartmentId) -> bool;
     /// Whether `user` may write to `compartment` of `incident`.
     fn can_write(&self, user: &UserId, incident: &IncidentId, compartment: &CompartmentId) -> bool;
+    /// Whether `user` may see and revoke the devices of everyone (not only their own).
+    fn can_manage_devices(&self, _user: &UserId) -> bool {
+        false
+    }
 }
 
 /// A fixed table of compartments per user, valid for all incidents (prototype).
 #[derive(Debug, Clone, Default)]
 pub struct StaticPolicy {
     grants: HashMap<UserId, HashSet<CompartmentId>>,
+    admins: HashSet<UserId>,
 }
 
 impl StaticPolicy {
@@ -29,7 +34,19 @@ impl StaticPolicy {
     }
 }
 
+impl StaticPolicy {
+    /// Lets `user` manage the devices of everyone.
+    pub fn admin(mut self, user: &UserId) -> Self {
+        self.admins.insert(user.clone());
+        self
+    }
+}
+
 impl AccessPolicy for StaticPolicy {
+    fn can_manage_devices(&self, user: &UserId) -> bool {
+        self.admins.contains(user)
+    }
+
     fn can_read(&self, user: &UserId, _: &IncidentId, compartment: &CompartmentId) -> bool {
         self.grants
             .get(user)

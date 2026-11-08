@@ -13,8 +13,8 @@ use ordo_crypto::{Chain, EventSigner};
 
 use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, random_u128};
 use crate::message::{
-    Challenge, ClientMessage, Delivery, Hello, KeyGrant, Rejected, Rejection, ServerMessage,
-    StreamRef, Subscription, Welcome,
+    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, KeyGrant, Rejected, Rejection,
+    ServerMessage, StreamRef, Subscription, Welcome,
 };
 use crate::policy::AccessPolicy;
 
@@ -48,6 +48,11 @@ pub enum Change {
         key_id: KeyId,
         /// The key.
         key: DataKey,
+    },
+    /// A device was revoked (SEC-4).
+    Revoked {
+        /// The device.
+        device: DeviceId,
     },
 }
 
@@ -90,6 +95,8 @@ struct RegisteredDevice {
     key: VerifyingKey,
     /// End of the device's login (ms); `None` for devices without a limit.
     valid_until: Option<u64>,
+    /// When it was paired (ms), if known.
+    paired: Option<u64>,
 }
 
 impl RegisteredDevice {
@@ -126,6 +133,8 @@ pub struct Hub<P> {
     sessions: BTreeMap<SessionId, Session>,
     /// Challenges sent to connections that have not said hello yet.
     challenges: HashMap<SessionId, [u8; 32]>,
+    /// Revoked devices: refused for good, and told to delete their data.
+    revoked: HashSet<DeviceId>,
     derivers: Vec<Box<dyn Deriver>>,
     changes: Vec<Change>,
 }
@@ -151,6 +160,7 @@ impl<P: AccessPolicy> Hub<P> {
             keys: HashMap::new(),
             sessions: BTreeMap::new(),
             challenges: HashMap::new(),
+            revoked: HashSet::new(),
             derivers: Vec::new(),
             changes: Vec::new(),
         }
@@ -237,14 +247,80 @@ impl<P: AccessPolicy> Hub<P> {
         key: VerifyingKey,
         valid_until: Option<u64>,
     ) {
+        let paired = self.devices.get(&device).and_then(|d| d.paired);
         self.devices.insert(
             device,
             RegisteredDevice {
                 user,
                 key,
                 valid_until,
+                paired,
             },
         );
+        self.revoked.remove(&device);
+    }
+
+    /// Records when a device was paired (for the device list).
+    pub fn set_paired(&mut self, device: &DeviceId, paired_ms: u64) {
+        if let Some(d) = self.devices.get_mut(device) {
+            d.paired = Some(paired_ms);
+        }
+    }
+
+    /// Restores a revoked device (from storage).
+    pub fn restore_revoked(&mut self, device: DeviceId) {
+        self.devices.remove(&device);
+        self.revoked.insert(device);
+    }
+
+    // [impl->dsn~device-revocation~1]
+    /// The devices `user` may see: all with `manage_devices`, else their own.
+    fn device_list(&self, user: &UserId) -> Vec<DeviceInfo> {
+        let all = self.policy.can_manage_devices(user);
+        let mut list: Vec<DeviceInfo> = self
+            .devices
+            .iter()
+            .filter(|(_, d)| all || &d.user == user)
+            .map(|(id, d)| DeviceInfo {
+                device: *id,
+                user: d.user.clone(),
+                paired: d.paired,
+                valid_until: d.valid_until,
+            })
+            .collect();
+        list.sort_by(|a, b| (&a.user, a.device).cmp(&(&b.user, b.device)));
+        list
+    }
+
+    // [impl->dsn~device-revocation~1]
+    /// Revokes `device` on behalf of `user` (their own device, or any with
+    /// `manage_devices`): its sessions are cut with `revoked`, and it is refused from now
+    /// on. Returns `false` if the user may not.
+    fn revoke(&mut self, user: &UserId, device: DeviceId, out: &mut Vec<Outgoing>) -> bool {
+        let allowed = self
+            .devices
+            .get(&device)
+            .is_some_and(|d| &d.user == user || self.policy.can_manage_devices(user));
+        if !allowed {
+            return false;
+        }
+        self.devices.remove(&device);
+        self.revoked.insert(device);
+        self.changes.push(Change::Revoked { device });
+        let cut: Vec<SessionId> = self
+            .sessions
+            .iter()
+            .filter(|(_, s)| s.device == device)
+            .map(|(id, _)| *id)
+            .collect();
+        for session in cut {
+            self.sessions.remove(&session);
+            out.push(Outgoing {
+                session,
+                message: ServerMessage::Refused(Rejection::Revoked),
+            });
+        }
+        true
     }
 
     // [impl->dsn~access-timeout~1]
@@ -320,15 +396,46 @@ impl<P: AccessPolicy> Hub<P> {
         message: ClientMessage,
         now_ms: u64,
     ) -> Vec<Outgoing> {
+        if let ClientMessage::Hello(hello) = message {
+            return self.hello(session, hello, now_ms);
+        }
+        // A connection does not outlive the login of its device.
+        let expired = self.expire(now_ms);
+        if let Some(refusal) = expired.iter().find(|o| o.session == session) {
+            return vec![refusal.clone()];
+        }
+        let Some(user) = self.sessions.get(&session).map(|s| s.user.clone()) else {
+            return match message {
+                ClientMessage::Push(events) => self.push(session, events, now_ms),
+                _ => vec![Outgoing {
+                    session,
+                    message: ServerMessage::Refused(Rejection::NotConnected),
+                }],
+            };
+        };
         match message {
-            ClientMessage::Hello(hello) => self.hello(session, hello, now_ms),
-            ClientMessage::Push(events) => {
-                // A connection does not outlive the login of its device.
-                let expired = self.expire(now_ms);
-                if let Some(refusal) = expired.iter().find(|o| o.session == session) {
-                    return vec![refusal.clone()];
+            ClientMessage::Hello(_) => unreachable!("handled above"),
+            ClientMessage::Push(events) => self.push(session, events, now_ms),
+            ClientMessage::ListDevices => vec![Outgoing {
+                session,
+                message: ServerMessage::Devices(self.device_list(&user)),
+            }],
+            ClientMessage::RevokeDevice(device) => {
+                let mut out = Vec::new();
+                if !self.revoke(&user, device, &mut out) {
+                    return vec![Outgoing {
+                        session,
+                        message: ServerMessage::Refused(Rejection::Forbidden),
+                    }];
                 }
-                self.push(session, events, now_ms)
+                // The requester gets the new list, unless it revoked its own connection.
+                if self.sessions.contains_key(&session) {
+                    out.push(Outgoing {
+                        session,
+                        message: ServerMessage::Devices(self.device_list(&user)),
+                    });
+                }
+                out
             }
         }
     }
@@ -346,6 +453,11 @@ impl<P: AccessPolicy> Hub<P> {
         let Some(challenge) = self.challenges.remove(&session) else {
             return refuse(Rejection::NotAuthenticated);
         };
+        // [impl->dsn~device-revocation~1]
+        // A revoked device is told so (and deletes its data), whatever it proves.
+        if self.revoked.contains(&hello.device) {
+            return refuse(Rejection::Revoked);
+        }
         let Some(device) = self
             .devices
             .get(&hello.device)
@@ -374,6 +486,11 @@ impl<P: AccessPolicy> Hub<P> {
             denied: Vec::new(),
             protected: self.config.protected.clone(),
             keys: Vec::new(),
+            permissions: if self.policy.can_manage_devices(&hello.user) {
+                vec!["manage_devices".to_owned()]
+            } else {
+                Vec::new()
+            },
             valid_until,
         };
         let mut deliveries = Vec::new();

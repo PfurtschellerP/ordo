@@ -108,10 +108,11 @@ impl App {
         {
             return Ok(false);
         }
-        self.hub
-            .lock()
-            .await
-            .register_device_until(device, user.clone(), key, Some(valid_until));
+        {
+            let mut hub = self.hub.lock().await;
+            hub.register_device_until(device, user.clone(), key, Some(valid_until));
+            hub.set_paired(&device, now_ms());
+        }
         self.set_valid_until(&user, valid_until).await?;
         Ok(true)
     }
@@ -222,12 +223,18 @@ impl App {
         self.metrics
             .events
             .fetch_add(new_events as u64, Ordering::Relaxed);
-        let sessions = self.sessions.lock().expect("session registry lock");
+        let mut sessions = self.sessions.lock().expect("session registry lock");
         for out in outgoing {
             if matches!(out.message, ServerMessage::Rejected(_)) {
                 self.metrics.rejected.fetch_add(1, Ordering::Relaxed);
             }
-            if let Some(sender) = sessions.get(&out.session) {
+            // A refusal ends the connection: it is sent, then the connection closes.
+            let sender = if matches!(out.message, ServerMessage::Refused(_)) {
+                sessions.remove(&out.session)
+            } else {
+                sessions.get(&out.session).cloned()
+            };
+            if let Some(sender) = sender {
                 let _ = sender.send(out.message);
             }
         }

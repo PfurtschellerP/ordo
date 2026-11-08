@@ -399,6 +399,31 @@ Needs: impl, utest, itest
 
 Tags: must, m9
 
+#### Device revocation
+`dsn~device-revocation~1`
+
+A person sees and revokes their own devices; the role permission `manage_devices` (Cedar,
+default role `admin`) extends this to all devices of the organisation. The welcome lists
+such permissions, so the app knows which view to offer. The sync connection carries the
+requests (`listDevices`, `revokeDevice`) and the answer (`devices`), so they need the same
+device proof as everything else. Revoking removes the device key from the hub, records the
+revocation in the store (it survives restarts), and cuts the device's open connections
+with `revoked`. A revoked device that connects again is told `revoked` before its proof is
+checked, deletes its key and all local data (remote wipe), and stops reconnecting.
+Unpairing a device revokes it as well, if the server can be reached.
+
+Limits: a device that never connects again keeps its data until the screen lock (SEC-13)
+or the access timeout (SEC-12) makes it unusable; the key cannot be copied off the device
+once it is stored non-extractably (next step).
+
+Covers:
+
+* [req~sec-4~2](../requirements/07-quality.md#sec-4--device-revocation)
+
+Needs: impl, utest, itest
+
+Tags: must, m9
+
 ## 8.6 Design system and accessibility
 
 Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).

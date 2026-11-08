@@ -172,6 +172,12 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             .map_err(|e| StoreError::Invalid(format!("device key: {e}")))?;
         hub.register_device_until(device, user, key, Some(valid_until.unwrap_or(0)));
     }
+    for (device, paired) in store.load_paired().await? {
+        hub.set_paired(&device, paired);
+    }
+    for device in store.load_revoked().await? {
+        hub.restore_revoked(device);
+    }
     hub.add_deriver(PatientCountsDeriver::default());
 
     // Restore keys first, then events in sequence order.

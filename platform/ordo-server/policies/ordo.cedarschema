@@ -19,3 +19,17 @@ action read, write appliesTo {
   resource: [Compartment],
   context: Request,
 };
+
+// Organisation-wide actions: not tied to an incident.
+entity Organisation;
+
+type OrganisationRequest = {
+  roles: Set<String>,
+};
+
+// See and revoke the devices of everyone (everyone may manage their own devices).
+action manage_devices appliesTo {
+  principal: [User],
+  resource: [Organisation],
+  context: OrganisationRequest,
+};

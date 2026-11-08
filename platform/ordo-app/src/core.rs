@@ -14,7 +14,7 @@ use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
 use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind, record};
-use ordo_sync::message::{self, ClientMessage, Rejection, ServerMessage};
+use ordo_sync::message::{self, ClientMessage, DeviceInfo, Rejection, ServerMessage};
 use ordo_sync::{Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
@@ -73,6 +73,14 @@ pub struct Core {
     pub storage_failed: bool,
     /// The server refused the device because its login expired or was ended (ADR-0040).
     pub login_expired: bool,
+    /// The device was revoked: its data is deleted, it does not connect again (SEC-4).
+    pub revoked: bool,
+    /// The devices the user may see, as last listed by the server.
+    pub devices: Option<Vec<DeviceInfo>>,
+    /// A revocation sent, announced once the server's new list no longer has the device.
+    revoking: Option<DeviceId>,
+    /// The view was closed: do not reconnect.
+    stopped: bool,
     socket: Option<WebSocket>,
 }
 
@@ -120,6 +128,10 @@ impl Core {
             error: None,
             storage_failed: false,
             login_expired: false,
+            revoked: false,
+            devices: None,
+            revoking: None,
+            stopped: false,
             socket: None,
         })
     }
@@ -139,8 +151,15 @@ impl Core {
     }
 }
 
-/// Opens the connection and keeps it open: reconnects after a loss.
+/// Opens the connection and keeps it open: reconnects after a loss, until the device view
+/// is closed or the device was revoked.
 pub fn connect(core: Handle, revision: RwSignal<u64>) {
+    if core
+        .try_with_value(|c| c.stopped || c.revoked)
+        .unwrap_or(true)
+    {
+        return;
+    }
     let Some(url) = sync_url() else { return };
     let Ok(socket) = WebSocket::new(&url) else {
         schedule_reconnect(core, revision);
@@ -164,6 +183,15 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         };
         let welcome = matches!(message, ServerMessage::Welcome(_));
         core.update_value(|c| {
+            if let ServerMessage::Devices(list) = &message {
+                if let Some(device) = c.revoking
+                    && list.iter().all(|d| d.device != device)
+                {
+                    c.revoking = None;
+                    c.announcement = text::device_revoked(&short_device(&device));
+                }
+                c.devices = Some(list.clone());
+            }
             match c.replica.receive(message, now_ms()) {
                 Ok(()) => {
                     c.error = None;
@@ -172,8 +200,19 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                         c.login_expired = false;
                     }
                 }
-                Err(ordo_sync::SyncError::Refused(Rejection::LoginExpired)) => {
+                // An unknown device logs in again, which pairs it anew.
+                Err(ordo_sync::SyncError::Refused(
+                    Rejection::LoginExpired | Rejection::UnknownDevice,
+                )) => {
                     c.login_expired = true;
+                }
+                // [impl->dsn~device-revocation~1]
+                // Revoked: delete the key and all data on this device (remote wipe).
+                Err(ordo_sync::SyncError::Refused(Rejection::Revoked)) => {
+                    forget_device();
+                    c.revoked = true;
+                    c.devices = None;
+                    return;
                 }
                 Err(error) => c.error = Some(error.to_string()),
             }
@@ -208,6 +247,38 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         c.socket = Some(socket);
     });
     revision.update(|r| *r += 1);
+}
+
+/// Closes the connection for good (the device view is closed).
+pub fn disconnect(core: Handle) {
+    core.update_value(|c| {
+        c.stopped = true;
+        if let Some(socket) = c.socket.take() {
+            let _ = socket.close();
+        }
+    });
+}
+
+// [impl->dsn~device-revocation~1]
+/// Asks the server for the devices the user may see; the answer lands in `Core::devices`.
+pub fn list_devices(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::ListDevices));
+}
+
+// [impl->dsn~device-revocation~1]
+/// Revokes a device. The server cuts it off and sends the new list; revoking this device
+/// itself wipes it.
+pub fn revoke_device(core: Handle, device: DeviceId) {
+    core.update_value(|c| {
+        c.revoking = Some(device);
+        c.send(&ClientMessage::RevokeDevice(device));
+    });
+}
+
+/// A short, readable form of a device ID: its last six characters (the random part).
+pub fn short_device(device: &DeviceId) -> String {
+    let id = device.ulid().to_string();
+    id[id.len() - 6..].to_owned()
 }
 
 fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
@@ -681,6 +752,18 @@ pub fn now_ms() -> u64 {
 pub fn clock(ms: u64) -> String {
     let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
     format!("{:02}:{:02}", date.get_hours(), date.get_minutes())
+}
+
+/// Local date and time, `DD.MM.YYYY, HH:MM`, of a timestamp in milliseconds.
+pub fn date_time(ms: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
+    format!(
+        "{:02}.{:02}.{}, {}",
+        date.get_date(),
+        date.get_month() + 1,
+        date.get_full_year(),
+        clock(ms)
+    )
 }
 
 /// The current local time of day, `HH:MM`.

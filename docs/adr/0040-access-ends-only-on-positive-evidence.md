@@ -50,7 +50,7 @@ Chosen option: "Timeout since the last successful verification", decided on 2026
 * Good, because revocations and refusals by the identity provider still take effect.
 * Bad, because a person disabled upstream keeps access until the timeout if the upstream
   cannot be asked; compensated by the bounded timeout, device keys that cannot be copied,
-  the screen lock on devices with clinical data (SEC-4), local revocation and the audit
+  the screen lock on devices with clinical data (SEC-13), local revocation and the audit
   trail.
 
 ## More Information

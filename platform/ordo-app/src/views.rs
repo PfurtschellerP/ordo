@@ -10,7 +10,7 @@ use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
-use crate::{nav, palette, patients, text};
+use crate::{devices, nav, palette, patients, text};
 
 /// Triage categories in display order.
 pub(crate) const CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Deceased];
@@ -390,6 +390,7 @@ fn Device(
     };
     let revision = RwSignal::new(0u64);
     core::connect(core, revision);
+    on_cleanup(move || core::disconnect(core));
     // Check the end of the login every minute, also without connection.
     if let Ok(tick) = set_interval_with_handle(
         move || revision.update(|r| *r += 1),
@@ -401,15 +402,45 @@ fn Device(
         revision.track();
         core.with_value(|c| c.login_expired || c.replica.login_expired(core::now_ms()))
     });
+    let revoked = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.revoked)
+    });
+    let on_unpair = StoredValue::new(on_unpair);
+    let unpair = move || on_unpair.with_value(|f| f());
+    let relogin = StoredValue::new(pairing);
     view! {
         <Show
-            when=move || !locked.get()
-            fallback=move || view! { <PairingForm pairing=paired login_error=None relogin=pairing.clone() /> }
+            when=move || !revoked.get()
+            fallback=move || view! { <Revoked on_pair_again=unpair /> }
         >
-            <Workspace core revision on_unpair=on_unpair.clone() />
+            <Show
+                when=move || !locked.get()
+                fallback=move || view! { <PairingForm pairing=paired login_error=None relogin=relogin.get_value() /> }
+            >
+                <Workspace core revision on_unpair=unpair />
+            </Show>
         </Show>
     }
     .into_any()
+}
+
+// [impl->dsn~device-revocation~1]
+/// Shown after the server reported this device as revoked: its key and data are gone.
+#[component]
+fn Revoked(on_pair_again: impl Fn() + 'static) -> impl IntoView {
+    after_render(|| focus("revoked-title"));
+    view! {
+        <main id="main" class="page page--narrow" tabindex="-1">
+            <section class="card" aria-labelledby="revoked-title">
+                <h1 id="revoked-title" tabindex="-1">{text::REVOKED_TITLE}</h1>
+                <p role="alert" class="notice notice--warning">{text::REVOKED_TEXT}</p>
+                <button type="button" class="button button--primary" on:click=move |_| on_pair_again()>
+                    {text::PAIR_AGAIN}
+                </button>
+            </section>
+        </main>
+    }
 }
 
 #[component]
@@ -470,7 +501,11 @@ fn Workspace(
         focus("main");
     };
     let incident = core.with_value(|c| c.incident.to_string());
+    // Unpairing deletes the key on this device; if the server can be reached, it forgets
+    // the device as well (SEC-4), so it no longer appears in the device list.
     let unpair = move |_| {
+        let device = core.with_value(|c| c.replica.device());
+        core::revoke_device(core, device);
         core::forget_device();
         on_unpair();
     };
@@ -635,6 +670,7 @@ fn Workspace(
                     }
                     (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),
+                    (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
             </main>

@@ -844,3 +844,97 @@ fn access_ends_when_the_login_expires_and_returns_after_renewal() {
         matches!(&out[0].message, ServerMessage::Welcome(w) if w.valid_until == Some(now + 48 * 60 * minute))
     );
 }
+
+// [itest->dsn~device-revocation~1]
+/// People see and revoke their own devices, an administrator all of them. A revoked device
+/// is cut off at once and refused from then on, even with a valid proof and after a
+/// restart of the server.
+#[test]
+fn revoked_devices_are_cut_off_and_refused() {
+    use ordo_sync::Change;
+    use ordo_sync::message::ServerMessage;
+    let mut world = World::new();
+    world.add_device("dora", 9);
+    world.sync();
+    let anna = world.replica("anna").device();
+    let ben = world.replica("ben").device();
+    let devices = |out: &[ordo_sync::Outgoing]| -> Vec<ordo_core::DeviceId> {
+        match out {
+            [o] => match &o.message {
+                ServerMessage::Devices(list) => list.iter().map(|d| d.device).collect(),
+                other => panic!("expected the device list, got {other:?}"),
+            },
+            other => panic!("expected one message, got {other:?}"),
+        }
+    };
+
+    // Anna sees only her own device and may not revoke Ben's.
+    let hello = world.hello("anna", 50);
+    let out = world.hub.handle(50, hello, world.now);
+    assert!(matches!(&out[0].message, ServerMessage::Welcome(w) if w.permissions.is_empty()));
+    let now = world.now;
+    assert_eq!(
+        devices(&world.hub.handle(50, ClientMessage::ListDevices, now)),
+        [anna]
+    );
+    let out = world.hub.handle(50, ClientMessage::RevokeDevice(ben), now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Forbidden));
+
+    // The administrator sees all devices and revokes Anna's.
+    let hello = world.hello("dora", 60);
+    let out = world.hub.handle(60, hello, now);
+    assert!(
+        matches!(&out[0].message, ServerMessage::Welcome(w) if w.permissions == ["manage_devices"])
+    );
+    assert_eq!(
+        devices(&world.hub.handle(60, ClientMessage::ListDevices, now)).len(),
+        4
+    );
+    let out = world.hub.handle(60, ClientMessage::RevokeDevice(anna), now);
+    let cut: Vec<_> = out
+        .iter()
+        .filter(|o| o.message == ServerMessage::Refused(Rejection::Revoked))
+        .map(|o| o.session)
+        .collect();
+    assert_eq!(
+        cut.len(),
+        2,
+        "both connections of Anna's device are cut: {out:?}"
+    );
+    assert!(
+        out.iter()
+            .any(|o| o.session == 60
+                && matches!(&o.message, ServerMessage::Devices(l) if l.len() == 3)),
+        "the administrator gets the new list"
+    );
+    let changes = world.hub.take_changes();
+    assert!(
+        changes
+            .iter()
+            .any(|c| matches!(c, Change::Revoked { device } if *device == anna)),
+        "the revocation is stored"
+    );
+
+    // A valid proof does not help: the device is told it was revoked.
+    world.set_online("anna", false);
+    let hello = world.hello("anna", 70);
+    let out = world.hub.handle(70, hello, now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
+
+    // Ben revokes his own device (e.g. a lost phone): his connection ends, too.
+    let hello = world.hello("ben", 80);
+    world.hub.handle(80, hello, now);
+    let out = world.hub.handle(80, ClientMessage::RevokeDevice(ben), now);
+    assert!(
+        out.iter()
+            .all(|o| o.message == ServerMessage::Refused(Rejection::Revoked)),
+        "{out:?}"
+    );
+
+    // After a restart, the stored revocation still holds.
+    let mut restarted = World::new();
+    restarted.hub.restore_revoked(anna);
+    let hello = restarted.hello("anna", 1);
+    let out = restarted.hub.handle(1, hello, restarted.now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
+}

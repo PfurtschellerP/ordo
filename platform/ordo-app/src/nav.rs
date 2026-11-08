@@ -74,6 +74,18 @@ pub const WORKSPACES: &[Workspace] = &[
             },
         ],
     },
+    // Every user sees their own devices; with `manage_devices`, all of them.
+    Workspace {
+        id: "org.devices",
+        package: text::TAB_ORGANISATION,
+        label: text::DEVICES,
+        requires: &[],
+        views: &[View {
+            id: "devices",
+            label: text::DEVICES,
+            name: "devices",
+        }],
+    },
 ];
 
 /// The workspace with `id`.
@@ -195,6 +207,6 @@ mod tests {
         for w in WORKSPACES {
             assert!(!w.views.is_empty(), "{}", w.id);
         }
-        assert_eq!(packages().len(), 2);
+        assert_eq!(packages().len(), 3);
     }
 }

@@ -95,7 +95,7 @@ the build fails.
 | 6 — Patient record | `m6` | Patient care record from the profile (EPCR-1…4), photo for identification (PAT-8), keyboard command palette (UX-10) |
 | 7 — Login, step 1 | `m7` | Connections prove the device key (SEC-11); access by roles with Cedar policies (SEC-2) |
 | 8 — Login, step 2 | `m8` | Login with OpenID Connect (SEC-3), pairing by QR code (ORG-3) |
-| 9 — Access timeout | `m9` | Device logins expire after a timeout, renewed in the background (SEC-12) |
+| 9 — Login, step 3 | `m9` | Device logins expire after a timeout, renewed in the background (SEC-12); lost devices are revoked and wiped (SEC-4) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at

@@ -45,6 +45,48 @@ pub fn pending(n: usize) -> String {
 
 pub const TAB_MED: &str = "Sanität";
 pub const TAB_COMMAND: &str = "Einsatzleitung";
+pub const TAB_ORGANISATION: &str = "Organisation";
+
+pub const DEVICES: &str = "Geräte";
+pub const DEVICES_INTRO_OWN: &str = "Die eigenen gekoppelten Geräte. Ein verlorenes oder gestohlenes Gerät hier sperren: Es wird sofort getrennt und löscht seine Daten, sobald es sich wieder verbindet.";
+pub const DEVICES_INTRO_ALL: &str = "Alle gekoppelten Geräte der Organisation. Ein verlorenes oder gestohlenes Gerät hier sperren: Es wird sofort getrennt und löscht seine Daten, sobald es sich wieder verbindet.";
+pub const DEVICES_OFFLINE: &str = "Die Geräteliste ist nur mit Verbindung zum Server verfügbar.";
+pub const DEVICES_LOADING: &str = "Geräteliste wird geladen …";
+pub const DEVICES_EMPTY: &str = "Keine gekoppelten Geräte.";
+pub const THIS_DEVICE: &str = "dieses Gerät";
+pub const DEVICE_PERSON: &str = "Person";
+pub const DEVICE_PAIRED: &str = "Gekoppelt";
+pub const DEVICE_VALID_UNTIL: &str = "Anmeldung gültig bis";
+pub const UNKNOWN: &str = "unbekannt";
+pub const REVOKE: &str = "Sperren";
+pub const REVOKE_CONFIRM: &str = "Ja, sperren";
+pub const REVOKED_TITLE: &str = "Gerät gesperrt";
+pub const REVOKED_TEXT: &str = "Dieses Gerät wurde gesperrt. Sein Schlüssel und alle Einsatzdaten wurden von diesem Gerät gelöscht. Um es wieder zu nutzen, das Gerät neu koppeln.";
+pub const PAIR_AGAIN: &str = "Neu koppeln";
+
+pub fn device_name(short: &str) -> String {
+    format!("Gerät …{short}")
+}
+
+pub fn revoke_label(short: &str) -> String {
+    format!("Sperren: Gerät …{short}")
+}
+
+pub fn revoke_question(short: &str, own: bool) -> String {
+    if own {
+        format!(
+            "Dieses Gerät (…{short}) sperren? Es wird sofort getrennt, und alle Daten darauf werden gelöscht, auch noch nicht gesendete Eingaben."
+        )
+    } else {
+        format!(
+            "Gerät …{short} sperren? Es wird sofort getrennt und löscht alle Daten darauf, sobald es sich verbindet. Noch nicht gesendete Eingaben auf dem Gerät gehen verloren."
+        )
+    }
+}
+
+pub fn device_revoked(short: &str) -> String {
+    format!("Gerät …{short} gesperrt")
+}
 
 pub const REGISTER_TITLE: &str = "Patient registrieren";
 pub const REGISTER_TAG: &str = "Nummer der Patientenanhängekarte";

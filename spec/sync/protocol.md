@@ -28,7 +28,7 @@ message per frame.
    unused challenge, or with a proof that does not verify against the device's registered
    key; and (`refused: unknownDevice`) if the device is not paired with that user. A
    challenge is used once, so a recorded hello cannot be replayed. Nothing is sent to a
-   refused connection.
+   refused connection; the server closes it after the refusal.
 4. The server answers `welcome`:
    - `granted`: streams the user may read. The server then sends every event the device
      is missing (`deliver`).
@@ -36,6 +36,8 @@ message per frame.
      denied stream to this connection.
    - `protected`: compartments whose payloads must be sealed.
    - `keys`: data keys of granted protected streams.
+   - `permissions` (optional): what the user may do beyond compartments, e.g.
+     `manage_devices` (§6).
    - `valid_until` (optional): the end of this device's login. The device locks itself
      afterwards, also offline, until the person logs in again. The server MUST refuse
      (`refused: loginExpired`) a hello of a device whose login has ended, and MUST end open
@@ -75,11 +77,28 @@ The server MAY publish events it derives from a stream, e.g. connector events su
 `med.patientCounts.v1` ([ADR-0024](../../docs/adr/0024-server-derived-connectors.md)).
 They are signed by the server and ordered like any other event.
 
-## 6. Changes and open points
+## 6. Devices
+
+After the welcome, a device MAY send `listDevices`; the server answers `devices` with the
+devices of the connection's user, or of all users if the user has the permission
+`manage_devices`. `revokeDevice` revokes a device under the same rule; otherwise the server
+MUST refuse it (`refused: forbidden`). On a revocation the server MUST:
+
+- store it before answering, so it survives a restart;
+- end every open connection of the revoked device with `refused: revoked`;
+- answer the requester with the new `devices` list (unless it revoked itself);
+- refuse every later hello of that device with `refused: revoked`, before checking its
+  proof.
+
+A device that receives `refused: revoked` MUST delete its device key and all local data
+of ORDO, and MUST NOT reconnect. Pairing it again creates a new device.
+
+## 7. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
 (§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
-(`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md)).
+(`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md));
+devices are listed and revoked over the connection (§6, `permissions`, `revoked`).
 
 Open for draft 2:
 

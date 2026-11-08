@@ -74,6 +74,8 @@ pub struct Replica {
     challenge: Option<[u8; 32]>,
     /// End of this device's login, as the server said in its last welcome (ADR-0040).
     valid_until: Option<u64>,
+    /// Permissions beyond compartments, from the last welcome (e.g. `manage_devices`).
+    permissions: Vec<String>,
 }
 
 impl Replica {
@@ -99,6 +101,7 @@ impl Replica {
             rejected: Vec::new(),
             challenge: None,
             valid_until: None,
+            permissions: Vec::new(),
         }
     }
 
@@ -239,6 +242,11 @@ impl Replica {
         self.valid_until
     }
 
+    /// Whether the server granted a permission beyond compartments, e.g. `manage_devices`.
+    pub fn has_permission(&self, permission: &str) -> bool {
+        self.permissions.iter().any(|p| p == permission)
+    }
+
     /// Whether the server granted the stream.
     pub fn is_granted(&self, incident: &IncidentId, compartment: &str) -> bool {
         compartment
@@ -344,6 +352,7 @@ impl Replica {
             ServerMessage::Welcome(welcome) => {
                 self.protected = Some(welcome.protected);
                 self.valid_until = welcome.valid_until;
+                self.permissions = welcome.permissions;
                 for sub in welcome.granted {
                     self.granted.insert((sub.incident, sub.compartment));
                 }
@@ -361,6 +370,8 @@ impl Replica {
                 Ok(())
             }
             ServerMessage::Refused(reason) => Err(SyncError::Refused(reason)),
+            // The device list is for the app, not for the replica.
+            ServerMessage::Devices(_) => Ok(()),
             ServerMessage::Rejected(rejected) => {
                 self.outbox
                     .retain(|(_, e)| e.decode_body().map(|b| b.id) != Ok(rejected.event));

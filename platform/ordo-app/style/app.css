@@ -93,6 +93,11 @@
     color: var(--ordo-component-button-primary-text);
   }
   .button--primary:hover { background: var(--ordo-component-button-primary-background-hover); }
+  .button--danger {
+    background: var(--ordo-component-button-danger-background);
+    border-color: var(--ordo-component-button-danger-background);
+    color: var(--ordo-component-button-danger-text);
+  }
   .button--quiet { margin-inline-start: auto; }
   .button--small { min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-3); }
 
@@ -362,11 +367,11 @@
 
 /* Lists of cards instead of wide tables: they reflow on any width (A11Y-6). */
 @layer components {
-  .patient-list, .unit-list, .count-list, .count-card__counts, .history, .entries {
+  .patient-list, .unit-list, .device-list, .count-list, .count-card__counts, .history, .entries {
     list-style: none; margin: 0; padding: 0;
   }
-  .patient-list, .unit-list, .count-list { display: grid; gap: var(--ordo-space-3); }
-  .unit-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
+  .patient-list, .unit-list, .device-list, .count-list { display: grid; gap: var(--ordo-space-3); }
+  .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);
     color: var(--ordo-color-text-primary); text-decoration: none;
@@ -381,16 +386,19 @@
   .patient-card__name { font-weight: var(--ordo-font-weight-bold); }
   .patient-card__meta { color: var(--ordo-color-text-secondary); }
 
-  .unit-card, .count-card {
+  .unit-card, .device-card, .count-card {
     display: grid; gap: var(--ordo-space-2); align-content: start; padding: var(--ordo-space-3) var(--ordo-space-4);
     background: var(--ordo-color-surface-default);
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-medium);
   }
-  .unit-card, .count-card { grid-template-columns: minmax(0, 1fr); }
+  .unit-card, .device-card, .count-card { grid-template-columns: minmax(0, 1fr); }
   .unit-card select { width: 100%; }
-  .unit-card h3, .count-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
-  .unit-card p, .count-card p { margin: 0; }
+  .unit-card h3, .device-card h3, .count-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
+  .unit-card p, .device-card p, .count-card p { margin: 0; }
+  .device-card__action { justify-self: start; }
+  .device-card__confirm { display: grid; gap: var(--ordo-space-2); }
+  .device-card__buttons { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .unit-card__details { color: var(--ordo-color-text-secondary); }
   .count-card__counts { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2) var(--ordo-space-4); }
   .count-card__counts li { display: inline-flex; align-items: center; gap: var(--ordo-space-2); }

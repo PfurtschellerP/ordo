@@ -246,10 +246,19 @@ Tags: must, quality, m8
 
 Needs: dsn
 
-#### SEC-4 — Device revocation and lock
-`req~sec-4~1`
+#### SEC-4 — Device revocation
+`req~sec-4~2`
 
-Lost or stolen devices can be revoked remotely; devices with clinical data lock automatically and require a PIN or biometrics
+When a person revokes one of their devices, or an administrator revokes any device, ORDO shall cut the device's connections at once, refuse it from then on, and make it delete its key and data at its next connection.
+
+Tags: must, quality, m9
+
+Needs: dsn
+
+#### SEC-13 — Device lock
+`req~sec-13~1`
+
+While a device holds clinical data and is not used, ORDO shall lock it automatically and unlock it only with a PIN or biometrics. (Split from SEC-4.)
 
 Tags: must, quality
 
@@ -622,7 +631,7 @@ Needs: dsn
 #### A11Y-8 — Accessible locking
 `req~a11y-8~1`
 
-Automatic locking (SEC-4) warns beforehand, never loses data, and unlocking needs no memory or puzzle test (WCAG 2.2.1, 3.3.8)
+Automatic locking (SEC-13) warns beforehand, never loses data, and unlocking needs no memory or puzzle test (WCAG 2.2.1, 3.3.8)
 
 Tags: must, quality
 

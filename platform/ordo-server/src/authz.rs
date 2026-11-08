@@ -21,7 +21,8 @@ use ordo_sync::AccessPolicy;
 pub const SCHEMA: &str = include_str!("../policies/ordo.cedarschema");
 
 /// Policies shipped with ORDO and its packages: (file name, text).
-pub const DEFAULT_POLICIES: [(&str, &str); 2] = [
+pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
+    ("admin.cedar", include_str!("../policies/admin.cedar")),
     ("command.cedar", include_str!("../policies/command.cedar")),
     (
         "med.cedar",
@@ -187,7 +188,36 @@ impl RolePolicy {
     }
 }
 
+impl RolePolicy {
+    /// Whether `user` may do the organisation-wide `action`, e.g. `manage_devices`.
+    pub fn allows_organisation(&self, user: &UserId, action: &str) -> bool {
+        let roles = self.roles.of(user);
+        let context = Context::from_pairs([(
+            "roles".to_owned(),
+            RestrictedExpression::new_set(roles.into_iter().map(RestrictedExpression::new_string)),
+        )]);
+        let Ok(context) = context else { return false };
+        let Ok(request) = Request::new(
+            uid("User", user.as_str()),
+            uid("Action", action),
+            uid("Organisation", "organisation"),
+            context,
+            Some(&self.schema),
+        ) else {
+            return false;
+        };
+        self.authorizer
+            .is_authorized(&request, &self.policies, &Entities::empty())
+            .decision()
+            == Decision::Allow
+    }
+}
+
 impl AccessPolicy for RolePolicy {
+    fn can_manage_devices(&self, user: &UserId) -> bool {
+        self.allows_organisation(user, "manage_devices")
+    }
+
     fn can_read(&self, user: &UserId, incident: &IncidentId, compartment: &CompartmentId) -> bool {
         self.allows(user, "read", incident, compartment)
     }
@@ -253,6 +283,22 @@ mod tests {
         assert!(
             !p.can_read(&user("nobody"), &incident, &shared),
             "no roles: nothing"
+        );
+        assert!(
+            !p.can_manage_devices(&user("anna")),
+            "medics manage only their own devices"
+        );
+    }
+
+    // [utest->dsn~device-revocation~1]
+    #[test]
+    fn admins_manage_all_devices() {
+        let roles = Roles::new([(user("dora"), vec!["admin".to_owned()])]);
+        let p = RolePolicy::new(roles, &[]).expect("valid");
+        assert!(p.can_manage_devices(&user("dora")));
+        assert!(
+            !p.can_read(&user("dora"), &incident(), &compartment("med.clinical")),
+            "an admin is not a medic"
         );
     }
 

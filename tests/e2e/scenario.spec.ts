@@ -2,7 +2,8 @@
 // and WebKit (Playwright). Scenarios from tests/acceptance/features/: register patients,
 // required triage choice, patient record with photo, keyboard command palette, offline
 // registration with reload and resend, command sees counts but no patient data, phone
-// layout with bottom navigation. Every view is audited (support/audit.ts).
+// layout with bottom navigation, login timeout, revoking a lost device. Every view is
+// audited (support/audit.ts).
 import os from "node:os";
 import path from "node:path";
 import { Browser, expect, Page, test } from "@playwright/test";
@@ -36,6 +37,7 @@ let incident: string;
 let anna: Page;
 let ben: Page;
 let phone: Page;
+let dora: Page;
 let shots: string;
 
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
@@ -55,6 +57,7 @@ test.beforeAll(async ({ browser }, info) => {
   anna = await newDevice(browser);
   ben = await newDevice(browser);
   phone = await newDevice(browser);
+  dora = await newDevice(browser);
 });
 
 test.afterAll(async () => {
@@ -362,5 +365,38 @@ test("ORDO in the browser", async () => {
     await ben.clock.setSystemTime(Date.now());
     await ben.clock.fastForward("01:05");
     await expect(ben.locator(".app-header__title"), "the device unlocks within its login").toBeVisible();
+  });
+
+  // [itest->dsn~device-revocation~1]
+  await test.step("a lost device is revoked and deletes its data", async () => {
+    // Ben sees only his own device.
+    await ben.locator("#launcher-button").click();
+    await ben.locator(".launcher__item", { hasText: "Geräte" }).click();
+    await expect.poll(() => title(ben)).toContain("Organisation – Geräte");
+    await expect(ben.locator(".device-card"), "a person sees their own devices").toHaveCount(1);
+    await expect(ben.locator(".device-card h3")).toContainText("dieses Gerät");
+    await expect(ben.locator(".device-card dt", { hasText: "Person" }), "no person shown for own devices").toHaveCount(0);
+
+    // Dora, an administrator, sees all devices; she has no incident data, so she starts here.
+    await loginPair(dora, server, "dora@example.org", incident);
+    await expect.poll(() => title(dora), { message: "an admin starts in Organisation – Geräte" }).toContain("Organisation – Geräte");
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(3);
+    await audit(dora, "Devices");
+    const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
+    await tablet.getByRole("button", { name: /^Sperren/ }).click();
+    await expect(dora.getByRole("button", { name: "Ja, sperren" }), "focus moves to the confirmation").toBeFocused();
+    await audit(dora, "Revoke confirmation", [1200]);
+    await shot(dora, "devices-revoke");
+    await dora.getByRole("button", { name: "Ja, sperren" }).click();
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(2);
+    await expect.poll(() => announced(dora)).toContain("gesperrt");
+
+    // Ben's tablet is cut off at once and deletes its key and data.
+    await expect(ben.getByRole("heading", { name: "Gerät gesperrt" }), "the tablet learns it was revoked").toBeVisible();
+    expect(await ben.evaluate(() => [localStorage.getItem("ordo.pairing"), localStorage.getItem("ordo.replica")]), "remote wipe").toEqual([null, null]);
+    await audit(ben, "Device revoked", [1200]);
+    await shot(ben, "device-revoked");
+    await ben.getByRole("button", { name: "Neu koppeln" }).click();
+    await expect(ben.getByRole("button", { name: "Anmelden" }), "the tablet can be paired again").toBeVisible();
   });
 });

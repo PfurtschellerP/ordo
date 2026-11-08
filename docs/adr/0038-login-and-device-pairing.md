@@ -68,5 +68,6 @@ installation, and ORDO talks only to it; LDAP and SAML are not supported.
 
 Built in steps: (1) device proof on every connection and roles with Cedar (done);
 (2) OpenID Connect login, key registration and QR pairing with Dex (done; groups of the
-identity provider become roles); (3) device revocation, re-login and protected key storage
-in the browser. Protocol: [spec/sync/protocol.md](../../spec/sync/protocol.md).
+identity provider become roles); (3) access timeout and re-login (ADR-0040), device list and
+revocation with remote wipe (done), protected key storage in the browser. Protocol:
+[spec/sync/protocol.md](../../spec/sync/protocol.md).
