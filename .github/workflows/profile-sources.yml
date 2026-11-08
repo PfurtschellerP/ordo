@@ -36,6 +36,15 @@ jobs:
           code=$?
           echo "code=$code" >> "$GITHUB_OUTPUT"
           [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
+      - name: Close the review issue when everything is confirmed
+        if: steps.watch.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number -q '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue close "$number" --comment "All sources unchanged on $(date -u +%F)."
+          fi
       - name: Open or update the review issue
         if: steps.watch.outputs.code == '2'
         env:
