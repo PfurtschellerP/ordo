@@ -1,0 +1,7 @@
+target/
+.git/
+**/*.db
+**/*.db-*
+**/master.key
+deploy/compose/**/seed.toml
+deploy/compose/**/.env

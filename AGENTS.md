@@ -32,10 +32,15 @@ cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto -p ordo-
 cargo run -p ordo-tokens -- check                         # design tokens + WCAG contrast
 cargo deny check                                          # dependency licences, advisories
 reuse lint                                                # licence information per file
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2 docs platform modules packages acceptance
 ```
 
-All of these run in CI (`.github/workflows/ci.yml`) and must pass.
+All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and image:
+
+```sh
+cargo run -p ordo-server -- serve                          # needs ORDO_* variables, see --help
+docker build -f deploy/Containerfile -t ordo:local .         # container image
+```
 
 ## Rules that must never be broken
 
@@ -68,7 +73,7 @@ All of these run in CI (`.github/workflows/ci.yml`) and must pass.
   (`impl`) and tests (`utest`). Add coverage tags as plain comments:
   `// [impl->dsn~<name>~<revision>]` above the implementing item,
   `// [utest->dsn~<name>~<revision>]` above the test.
-- CI traces items tagged with the milestones so far (`m0`, `m1`). Adding a requirement to
+- CI traces items tagged with the milestones so far (`m0`, `m1`, `m2`). Adding a requirement to
   a milestone means tagging it **and** its design items. Unit tests use `utest`,
   acceptance tests in `acceptance/` use `itest`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when

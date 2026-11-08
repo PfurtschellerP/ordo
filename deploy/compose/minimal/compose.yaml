@@ -1,0 +1,54 @@
+# ORDO — minimal setup: one ORDO server (SQLite) behind Caddy with automatic HTTPS.
+# See README.md in this folder.
+name: ordo
+
+services:
+  ordo:
+    build:
+      context: ../../..
+      dockerfile: deploy/Containerfile
+    image: ordo:local
+    environment:
+      ORDO_SERVER_NAME: ${ORDO_DOMAIN:?set ORDO_DOMAIN in .env}
+      ORDO_MASTER_KEY_FILE: /run/secrets/ordo_master_key
+      ORDO_SEED_FILE: /config/seed.toml
+    secrets:
+      - ordo_master_key
+    volumes:
+      - ordo-data:/data
+      - ./seed.toml:/config/seed.toml:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [internal]
+
+  caddy:
+    image: docker.io/library/caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
+    environment:
+      ORDO_DOMAIN: ${ORDO_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      ordo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [internal]
+
+secrets:
+  ordo_master_key:
+    file: ./master.key
+
+volumes:
+  ordo-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:

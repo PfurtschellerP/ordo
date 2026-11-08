@@ -6,6 +6,7 @@ members = [
   "platform/ordo-tokens",
   "platform/ordo-contracts",
   "platform/ordo-sync",
+  "platform/ordo-server",
   "modules/units",
   "packages/med/patients",
   "acceptance",
@@ -27,16 +28,25 @@ ordo-sync = { path = "platform/ordo-sync" }
 ordo-units = { path = "modules/units" }
 ordo-med-patients = { path = "packages/med/patients" }
 
+axum = { version = "0.8", features = ["ws"] }
 blake3 = "1"
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
 ed25519-dalek = "2"
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+getrandom = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11"
 serde_json = { version = "1", features = ["preserve_order"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite-bundled"] }
+tempfile = "3"
 thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+tokio-tungstenite = "0.30"
 zeroize = { version = "1", features = ["derive"] }
 toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

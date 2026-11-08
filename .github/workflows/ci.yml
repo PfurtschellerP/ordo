@@ -65,7 +65,7 @@ jobs:
       OFT_VERSION: 4.11.0
       OFT_SHA256: f094cd314f0fc4236f513f66fb39260a16f72e2320beb6b4fdeb7940b9b8cf87
       # Milestones traced so far; see docs/requirements/README.md
-      MILESTONES: m0,m1
+      MILESTONES: m0,m1,m2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,6 +86,39 @@ jobs:
           if [ -f "$RUNNER_TEMP/trace.txt" ]; then
             { echo '## Requirements tracing'; echo '```'; cat "$RUNNER_TEMP/trace.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  container:
+    name: Container image (build and smoke test)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build image
+        run: docker build -f deploy/Containerfile -t ordo:ci .
+      - name: Start a container
+        run: |
+          docker run --rm --entrypoint /usr/local/bin/ordo ordo:ci generate-key > "$RUNNER_TEMP/master.key"
+          chmod 644 "$RUNNER_TEMP/master.key"
+          docker run -d --name ordo --read-only -p 8080:8080 \
+            -e ORDO_SERVER_NAME=localhost \
+            -e ORDO_MASTER_KEY_FILE=/run/master.key \
+            -v "$RUNNER_TEMP/master.key:/run/master.key:ro" \
+            ordo:ci
+      - name: Check health, readiness, metrics and user
+        run: |
+          for i in $(seq 30); do curl -fsS http://localhost:8080/readyz && break; sleep 1; done
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/metrics | grep -q '^ordo_sessions 0$'
+          test "$(docker inspect --format '{{.Config.User}}' ordo:ci)" = "65532:65532"
+          for i in $(seq 30); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' ordo)" = healthy ] && break; sleep 2
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' ordo)" = healthy
+          echo "Image size: $(docker image inspect --format '{{.Size}}' ordo:ci | numfmt --to=iec)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Container logs
+        if: always()
+        run: docker logs ordo || true
 
   licences:
     name: Licences (REUSE)

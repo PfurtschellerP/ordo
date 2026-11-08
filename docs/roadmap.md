@@ -27,14 +27,16 @@ Done in phase 0:
 
 - Workspace, CI, specs (event envelope, sync protocol draft 0), design tokens and themes.
 - Sync logic with compartments, sealed payloads, units and patients modules, server-derived
-  patient counts; nine acceptance tests on a simulated network (milestone `m1`).
+  patient counts; acceptance tests on a simulated network (milestone `m1`).
+- Server `ordo serve`: WebSocket, SQLite, health/readiness/metrics, wrapped keys, restart
+  without data loss; container image and minimal Docker Compose setup (milestone `m2`).
 
 Next:
 
-1. **Server binary:** `ordo serve` with axum (WebSocket), SQLite persistence, health
-   endpoints, container image and the minimal Docker Compose setup.
-2. **Minimal Leptos app:** patient registration and UHS board (Med), counts view
-   (command); offline storage in the browser.
-3. Field-near test: two tablets and a server, network on/off; measure bundle size and
-   memory.
+1. **Minimal Leptos app:** patient registration and UHS board (Med), counts view
+   (command); offline storage in the browser; served by `ordo serve`.
+2. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
+   connection (sync protocol draft 1).
+3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
+   bundle size and memory.
 4. Design the main tablet screens for the Med MVP with volunteers.

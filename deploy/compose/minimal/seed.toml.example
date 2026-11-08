@@ -1,0 +1,16 @@
+# Users, their compartments and paired devices (prototype; later: admin UI and QR pairing).
+# Create a device key pair with:  docker compose run --rm --no-deps ordo generate-device-key
+# The public key goes here, the private key into the device.
+
+[[user]]
+id = "anna@ordo.example.org"
+compartments = ["incident", "med.clinical"]
+
+[[user]]
+id = "ben@ordo.example.org"
+compartments = ["incident"]
+
+[[device]]
+id = "01JCA0000000000000000000A1"
+user = "anna@ordo.example.org"
+public_key = "0000000000000000000000000000000000000000000000000000000000000000"

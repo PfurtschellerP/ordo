@@ -51,3 +51,54 @@ same program, scaled out.
   split into separate services only if measurements show it is worth it.
 
 Every record carries an `organisation_id` from day one (multi-tenancy).
+
+## 7.5 Current implementation
+
+| Part | State |
+|---|---|
+| `ordo serve` (`platform/ordo-server`) | WebSocket sync at `/sync`, SQLite storage, `/healthz`, `/readyz`, `/metrics`, JSON logs, graceful shutdown |
+| Container image (`deploy/Containerfile`) | Static binary on distroless, non-root (65532), read-only file system possible, built-in health check |
+| Compose — minimal (`deploy/compose/minimal/`) | ORDO + Caddy (automatic HTTPS) |
+| Compose — full, Helm, multi-arch release images | Planned |
+
+### 7.5.1 Design items
+
+#### Environment configuration
+`dsn~environment-configuration~1`
+
+`ordo serve` reads all settings from environment variables (`ORDO_SERVER_NAME`, `ORDO_LISTEN`, `ORDO_DATA_DIR`, `ORDO_MASTER_KEY_FILE`, `ORDO_SEED_FILE`, `ORDO_PROTECTED`, `ORDO_LOG_FORMAT`); secrets are read from files so they can be mounted as container secrets. Nothing is baked into the image.
+
+Covers:
+
+* [req~ops-7~1](../requirements/07-quality.md#ops-7--external-configuration)
+
+Needs: impl, itest
+
+Tags: must, m2
+
+#### Store before send
+`dsn~store-before-send~1`
+
+For every message the server lets the hub decide, stores all resulting changes (new events, new keys) in one SQLite transaction, and only then sends the resulting messages — while the hub is still locked, so every device receives deliveries in sequence order. If storing fails, nothing is sent and the server stops so that it is restarted; devices still have the events in their outbox and send them again.
+
+Covers:
+
+* [req~off-3~1](../requirements/07-quality.md#off-3--automatic-sync)
+
+Needs: impl, itest
+
+Tags: must, m2
+
+#### Wrapped keys at rest
+`dsn~wrapped-keys-at-rest~1`
+
+The server stores data keys and its own signing key only wrapped with the master key (XChaCha20-Poly1305, labelled per key), and events exactly as ordered, so clinical payloads stay sealed in the database. The master key comes from a file outside the database; without it, stored keys cannot be opened and the server refuses to start.
+
+Covers:
+
+* [req~sec-10~2](../requirements/07-quality.md#sec-10--health-data-protection)
+
+Needs: impl, itest
+
+Tags: must, m2
+

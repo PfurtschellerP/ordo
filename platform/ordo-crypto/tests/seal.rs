@@ -74,3 +74,26 @@ fn wrong_key_changed_data_or_other_event_fail() {
         Err(CryptoError::CannotOpen)
     );
 }
+
+#[test]
+fn wrapped_keys_need_the_right_key_and_label() {
+    use ordo_crypto::seal::{unwrap, wrap};
+    let kek = DataKey::from_bytes([1; 32]);
+    let wrapped = wrap(&kek, [2; 24], "data-key/incident-1/med.clinical", &[9; 32]);
+    assert_eq!(
+        unwrap(&kek, "data-key/incident-1/med.clinical", &wrapped).unwrap(),
+        [9; 32]
+    );
+    assert_eq!(
+        unwrap(&kek, "data-key/incident-2/med.clinical", &wrapped),
+        Err(CryptoError::CannotOpen)
+    );
+    assert_eq!(
+        unwrap(
+            &DataKey::from_bytes([3; 32]),
+            "data-key/incident-1/med.clinical",
+            &wrapped
+        ),
+        Err(CryptoError::CannotOpen)
+    );
+}

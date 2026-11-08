@@ -144,6 +144,8 @@ pub enum Rejection {
     ClockAhead,
     /// The client sent a push before hello.
     NotConnected,
+    /// An event with this ID but different content was already ordered.
+    DuplicateId,
 }
 
 /// Encodes a message as CBOR.

@@ -45,8 +45,9 @@ For each pushed event the server MUST check, in this order, and reject otherwise
 | Protected streams: sealed with the current key; other streams: plain | `wrongSealing` |
 | The event's clock is not too far ahead | `clockAhead` |
 
-An event the server has already ordered (same event ID) MUST be ignored, without
-rejection. Resending is therefore always safe.
+An event the server has already ordered (same event ID, same body) MUST be ignored,
+without rejection; resending is therefore always safe. An event with a known ID but a
+different body MUST be rejected with `duplicateId`.
 
 Accepted events are ordered and delivered (`deliver`) to every connection granted the
 stream — including the sender, which then removes them from its outbox.

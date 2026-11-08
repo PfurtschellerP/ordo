@@ -1,0 +1,6 @@
+# Automatic HTTPS for ORDO_DOMAIN (Let's Encrypt; local CA for "localhost").
+# WebSocket connections to /sync are proxied as well.
+{$ORDO_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy ordo:8080
+}

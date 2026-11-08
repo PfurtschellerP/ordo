@@ -449,3 +449,106 @@ fn unknown_device_is_refused() {
         ServerMessage::Refused(Rejection::UnknownDevice)
     );
 }
+
+/// A hub restored from its recorded changes continues exactly where it stopped:
+/// events, data keys and derived state.
+#[test]
+fn hub_restored_from_its_changes_continues_seamlessly() {
+    use ordo_sync::Change;
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0042", Immediate);
+    world.sync();
+    let changes = world.hub.take_changes();
+    assert!(
+        changes.iter().any(|c| matches!(c, Change::Key { .. })),
+        "the data key must be recorded"
+    );
+    assert!(changes.iter().any(|c| matches!(c, Change::Event { .. })));
+
+    // A fresh world (new hub) restored from the recorded changes.
+    let mut restored = World::new();
+    for change in &changes {
+        if let Change::Key {
+            stream,
+            key_id,
+            key,
+        } = change
+        {
+            restored
+                .hub
+                .restore_key(stream.clone(), key_id.clone(), key.clone());
+        }
+    }
+    for change in changes {
+        if let Change::Event { stream, event } = change {
+            restored.hub.restore_event(stream, event).unwrap();
+        }
+    }
+    assert!(
+        restored.hub.take_changes().is_empty(),
+        "restoring records nothing new"
+    );
+    restored.sync();
+    assert_eq!(
+        register_of(&mut restored, "clara")
+            .patient("DE-0042")
+            .unwrap()
+            .category(),
+        Immediate
+    );
+    restored.tick(60_000); // the test's deterministic randomness would repeat event IDs
+    register(&mut restored, "anna", "DE-0043", Urgent);
+    restored.sync();
+    assert_eq!(
+        counts_of(&mut restored, "ben"),
+        [(1, 1, 0)],
+        "derived state was restored"
+    );
+}
+
+/// Reusing an event ID for different content is rejected, resending is not.
+#[test]
+fn reused_event_id_with_other_content_is_rejected() {
+    use ordo_sync::message::ServerMessage;
+    let mut world = World::new();
+    world.sync();
+    set_status(&mut world, "ben", "RTW 1", "2", None);
+    let ClientMessage::Push(events) = world.replica("ben").push().unwrap() else {
+        unreachable!()
+    };
+    let original = events[0].clone();
+    world.sync(); // ordered
+    let mut other = original.decode_body().unwrap();
+    other.payload = Payload::Plain(
+        StatusChanged {
+            unit: "RTW 1".into(),
+            status: "4".into(),
+            replaces: None,
+        }
+        .encode()
+        .unwrap(),
+    );
+    let signer = ordo_crypto::EventSigner::new(
+        ordo_crypto::ed25519_dalek::SigningKey::from_bytes(&[3; 32]),
+        "device-ben@ordo.drk-musterstadt.de".parse().unwrap(),
+    );
+    let hello = world.replica("ben").hello();
+    world.hub.handle(900, hello, world.now);
+    let resend = world
+        .hub
+        .handle(900, ClientMessage::Push(vec![original]), world.now);
+    assert!(
+        resend.is_empty(),
+        "resending the same event is silently ignored"
+    );
+    let reuse = world.hub.handle(
+        900,
+        ClientMessage::Push(vec![signer.sign(&other).unwrap()]),
+        world.now,
+    );
+    assert!(matches!(
+        reuse.as_slice(),
+        [o] if matches!(&o.message, ServerMessage::Rejected(r) if r.reason == Rejection::DuplicateId)
+    ));
+}

@@ -343,7 +343,7 @@ Needs: dsn
 
 All configuration via environment variables or a config file; nothing baked into the image
 
-Tags: must, quality
+Tags: must, quality, m2
 
 Needs: dsn
 

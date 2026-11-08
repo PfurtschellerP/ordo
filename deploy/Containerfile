@@ -1,0 +1,32 @@
+# ORDO server image: static binary on a minimal base (no shell, non-root, ~20–30 MB).
+# Build from the repository root:
+#   docker build -f deploy/Containerfile -t ordo .
+# Base images are pinned by digest; Dependabot keeps them current.
+
+FROM docker.io/library/rust:1.97-alpine@sha256:3c38f3f82c2f3d73da3b38e18d279393a04cb43ddded0e35088a8c3324d40900 AS build
+RUN apk add --no-cache musl-dev
+# Use the toolchain of the image instead of the one in rust-toolchain.toml (which would
+# download a second toolchain plus the WebAssembly target).
+ENV RUSTUP_TOOLCHAIN=${RUST_VERSION} \
+    CARGO_TERM_COLOR=never
+WORKDIR /src
+COPY . .
+RUN cargo build --release --locked -p ordo-server --bin ordo \
+ && mkdir -p /out/data \
+ && cp target/release/ordo /out/ordo
+
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+LABEL org.opencontainers.image.title="ORDO server" \
+      org.opencontainers.image.description="Open-source on-scene coordination for emergency services" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.source="https://github.com/PfurtschellerP/ordo"
+COPY --from=build /out/ordo /usr/local/bin/ordo
+COPY --from=build --chown=65532:65532 /out/data /data
+USER 65532:65532
+ENV ORDO_DATA_DIR=/data \
+    ORDO_LISTEN=0.0.0.0:8080
+EXPOSE 8080
+VOLUME ["/data"]
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD ["/usr/local/bin/ordo", "healthcheck"]
+ENTRYPOINT ["/usr/local/bin/ordo"]
+CMD ["serve"]

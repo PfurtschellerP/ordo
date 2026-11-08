@@ -100,3 +100,37 @@ pub fn open(
         )
         .map_err(|_| CryptoError::CannotOpen)
 }
+
+/// Prefix of the additional authenticated data for wrapped keys.
+const WRAP_CONTEXT: &[u8] = b"ORDO key wrap v1\0";
+
+/// Encrypts a secret (e.g. a data key) with a key-encryption key for storage. `label`
+/// names what is wrapped and must be given again to unwrap it. Returns nonce ‖ ciphertext.
+pub fn wrap(kek: &DataKey, nonce: [u8; 24], label: &str, secret: &[u8]) -> Vec<u8> {
+    let cipher = XChaCha20Poly1305::new(&kek.0.into());
+    let aad = [WRAP_CONTEXT, label.as_bytes()].concat();
+    let ct = cipher
+        .encrypt(
+            &XNonce::from(nonce),
+            Payload {
+                msg: secret,
+                aad: &aad,
+            },
+        )
+        .expect("XChaCha20-Poly1305 encryption cannot fail for in-memory buffers");
+    [nonce.as_slice(), &ct].concat()
+}
+
+/// Decrypts a secret wrapped with [`wrap`].
+pub fn unwrap(kek: &DataKey, label: &str, wrapped: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    if wrapped.len() < 24 {
+        return Err(CryptoError::CannotOpen);
+    }
+    let (nonce, ct) = wrapped.split_at(24);
+    let nonce: [u8; 24] = nonce.try_into().map_err(|_| CryptoError::CannotOpen)?;
+    let cipher = XChaCha20Poly1305::new(&kek.0.into());
+    let aad = [WRAP_CONTEXT, label.as_bytes()].concat();
+    cipher
+        .decrypt(&XNonce::from(nonce), Payload { msg: ct, aad: &aad })
+        .map_err(|_| CryptoError::CannotOpen)
+}

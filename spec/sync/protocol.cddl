@@ -61,3 +61,4 @@ rejected = {
 
 rejection = "malformed" / "unknownDevice" / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
+          / "duplicateId"

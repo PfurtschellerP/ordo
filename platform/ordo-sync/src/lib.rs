@@ -15,6 +15,6 @@ mod replica;
 
 pub use applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey};
 pub use error::SyncError;
-pub use hub::{Hub, HubConfig, Outgoing, SessionId};
+pub use hub::{Change, Hub, HubConfig, Outgoing, RestoreError, SessionId};
 pub use policy::{AccessPolicy, StaticPolicy};
 pub use replica::Replica;

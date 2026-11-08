@@ -30,6 +30,50 @@ pub struct Outgoing {
     pub message: ServerMessage,
 }
 
+/// Something the hub changed that must be stored before messages are sent.
+#[derive(Debug, Clone)]
+pub enum Change {
+    /// A newly ordered event.
+    Event {
+        /// Its stream.
+        stream: StreamKey,
+        /// The event.
+        event: SequencedEvent,
+    },
+    /// A newly created data key.
+    Key {
+        /// Its stream.
+        stream: StreamKey,
+        /// Name of the key.
+        key_id: KeyId,
+        /// The key.
+        key: DataKey,
+    },
+}
+
+/// Stored data could not be restored.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum RestoreError {
+    /// Sequence numbers are not consecutive.
+    #[error("stream {stream}: expected sequence number {expected}, found {found}")]
+    Gap {
+        /// The stream.
+        stream: String,
+        /// Expected sequence number.
+        expected: u64,
+        /// Found sequence number.
+        found: u64,
+    },
+    /// The hash chain doesn't match: stored data was changed.
+    #[error("stream {stream}: hash chain broken at sequence number {seq}")]
+    BrokenChain {
+        /// The stream.
+        stream: String,
+        /// Sequence number.
+        seq: u64,
+    },
+}
+
 /// Configuration of a hub.
 #[derive(Debug, Clone)]
 pub struct HubConfig {
@@ -50,7 +94,8 @@ struct RegisteredDevice {
 struct Stream {
     chain: Chain,
     events: Vec<SequencedEvent>,
-    ids: HashSet<EventId>,
+    /// Event ID → event hash, to tell resends from conflicting reuse of an ID.
+    ids: HashMap<EventId, [u8; 32]>,
 }
 
 struct Session {
@@ -72,6 +117,7 @@ pub struct Hub<P> {
     keys: HashMap<StreamKey, (KeyId, DataKey)>,
     sessions: BTreeMap<SessionId, Session>,
     derivers: Vec<Box<dyn Deriver>>,
+    changes: Vec<Change>,
 }
 
 impl<P: AccessPolicy> Hub<P> {
@@ -95,7 +141,69 @@ impl<P: AccessPolicy> Hub<P> {
             keys: HashMap::new(),
             sessions: BTreeMap::new(),
             derivers: Vec::new(),
+            changes: Vec::new(),
         }
+    }
+
+    /// Changes since the last call. The server stores them before it sends the messages
+    /// returned by [`Hub::handle`]; if storing fails, it must not send them.
+    pub fn take_changes(&mut self) -> Vec<Change> {
+        std::mem::take(&mut self.changes)
+    }
+
+    /// Restores a stored data key (before restoring events).
+    pub fn restore_key(&mut self, stream: StreamKey, key_id: KeyId, key: DataKey) {
+        self.keys.insert(stream, (key_id, key));
+    }
+
+    /// Restores a stored event. Events of a stream must come in sequence order; the hash
+    /// chain is checked. Derivers see source events again, so their state is rebuilt,
+    /// but their output is discarded because derived events are restored as well.
+    pub fn restore_event(
+        &mut self,
+        stream: StreamKey,
+        event: SequencedEvent,
+    ) -> Result<(), RestoreError> {
+        let name = format!("{}/{}", stream.0, stream.1);
+        let entry = self.streams.entry(stream.clone()).or_default();
+        let expected = entry.chain.last_seq() + 1;
+        if event.seq != expected {
+            return Err(RestoreError::Gap {
+                stream: name,
+                expected,
+                found: event.seq,
+            });
+        }
+        let recomputed = entry.chain.append(event.event.clone());
+        if recomputed.chain != event.chain {
+            return Err(RestoreError::BrokenChain {
+                stream: name,
+                seq: event.seq,
+            });
+        }
+        let body = event.event.decode_body().ok();
+        if let Some(body) = &body {
+            entry
+                .ids
+                .insert(body.id, ordo_crypto::event_hash(&event.event));
+        }
+        entry.events.push(event.clone());
+        if let Some(body) = body {
+            let _ = self.clock.observe(&body.hlc, body.hlc.wall_ms);
+            if self.derivers.iter().any(|d| d.source() == &stream.1)
+                && let Some(payload) = self.open_payload(&stream, &body)
+            {
+                let applied = AppliedEvent {
+                    seq: Some(event.seq),
+                    body,
+                    payload,
+                };
+                for deriver in self.derivers.iter_mut().filter(|d| d.source() == &stream.1) {
+                    let _ = deriver.on_event(&applied);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// The public key of the hub's own events.
@@ -301,8 +409,12 @@ impl<P: AccessPolicy> Hub<P> {
             return Err(reject(Rejection::Forbidden));
         }
         let key = (body.incident.clone(), body.compartment.clone());
-        if self.streams.get(&key).is_some_and(|s| s.ids.contains(&id)) {
-            return Ok(None);
+        if let Some(known) = self.streams.get(&key).and_then(|s| s.ids.get(&id)) {
+            return if *known == ordo_crypto::event_hash(&event) {
+                Ok(None) // the same event sent again
+            } else {
+                Err(reject(Rejection::DuplicateId))
+            };
         }
         let payload = self
             .open_payload(&key, &body)
@@ -321,7 +433,7 @@ impl<P: AccessPolicy> Hub<P> {
 
     // [impl->dsn~sealed-payloads~1]
     /// Checks the sealing rule and returns the plaintext payload.
-    fn open_payload(&mut self, key: &StreamKey, body: &EventBody) -> Option<Vec<u8>> {
+    fn open_payload(&self, key: &StreamKey, body: &EventBody) -> Option<Vec<u8>> {
         match (&body.payload, self.is_protected(&key.1)) {
             (Payload::Plain(bytes), false) => Some(bytes.clone()),
             (Payload::Sealed(sealed), true) => {
@@ -345,9 +457,15 @@ impl<P: AccessPolicy> Hub<P> {
         let id = event.decode_body().map(|b| b.id).ok();
         let sequenced = stream.chain.append(event);
         if let Some(id) = id {
-            stream.ids.insert(id);
+            stream
+                .ids
+                .insert(id, ordo_crypto::event_hash(&sequenced.event));
         }
         stream.events.push(sequenced.clone());
+        self.changes.push(Change::Event {
+            stream: key.clone(),
+            event: sequenced.clone(),
+        });
         sequenced
     }
 
@@ -426,6 +544,11 @@ impl<P: AccessPolicy> Hub<P> {
         let data_key = DataKey::from_bytes(bytes);
         self.keys
             .insert(key.clone(), (id.clone(), data_key.clone()));
+        self.changes.push(Change::Key {
+            stream: key.clone(),
+            key_id: id.clone(),
+            key: data_key.clone(),
+        });
         (id, data_key)
     }
 
