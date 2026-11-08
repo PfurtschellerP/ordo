@@ -38,6 +38,8 @@ pub struct ThemeEntry {
     pub file: String,
     /// CSS media query that selects this theme automatically.
     pub media: Option<String>,
+    /// CSS `color-scheme` (`light` or `dark`), for browser-drawn controls.
+    pub color_scheme: Option<String>,
 }
 
 /// One entry of `contrast.toml`.
@@ -296,6 +298,14 @@ impl DesignSystem {
             }
             if !names.insert(entry.name.as_str()) {
                 return Err(Error::theme(&entry.name, "is defined twice"));
+            }
+            if let Some(scheme) = &entry.color_scheme
+                && !matches!(scheme.as_str(), "light" | "dark")
+            {
+                return Err(Error::theme(
+                    &entry.name,
+                    "color_scheme must be light or dark",
+                ));
             }
         }
         let (_, default_tokens) = self.theme(&m.default_theme).map_err(|_| {

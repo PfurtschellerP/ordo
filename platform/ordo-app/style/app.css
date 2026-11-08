@@ -81,7 +81,6 @@
     color: var(--ordo-color-text-primary);
     font: inherit; font-weight: var(--ordo-font-weight-bold);
     cursor: pointer;
-    transition: background-color var(--ordo-motion-duration-fast);
   }
   .button--primary {
     background: var(--ordo-component-button-primary-background);

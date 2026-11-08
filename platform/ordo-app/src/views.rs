@@ -328,7 +328,8 @@ fn UhsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                             <td>{uhs}</td>
                                             <td>{history}</td>
                                             <td>{if pending { text::NOT_SENT } else { text::SENT }}</td>
-                                            <td class="retriage">
+                                            <td>
+                                                <div class="retriage">
                                                 {CATEGORIES
                                                     .into_iter()
                                                     .filter(|c| *c != category)
@@ -348,6 +349,7 @@ fn UhsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                                         }
                                                     })
                                                     .collect_view()}
+                                                </div>
                                             </td>
                                         </tr>
                                     }

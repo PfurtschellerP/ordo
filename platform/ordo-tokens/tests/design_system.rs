@@ -306,6 +306,8 @@ fn ordo_design_system_passes() {
 
     let css = css::generate(&system).unwrap();
     assert!(css.contains("--ordo-color-safety-triage-immediate-on-fill:"));
+    assert!(css.contains(":root[data-theme=\"night\"] {\n  color-scheme: dark;"));
+    assert!(css.contains(":root {\n  color-scheme: light;"));
     assert!(css.contains(
         "--ordo-font-family-sans: \"Atkinson Hyperlegible Next\", system-ui, sans-serif;"
     ));

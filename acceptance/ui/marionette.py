@@ -47,6 +47,9 @@ class Firefox:
         self.cmd("WebDriver:Navigate", {"url": url})
 
     def shot(self, path):
+        end = time.time() + 5
+        while time.time() < end and self.js("return document.getAnimations().length") > 0:
+            time.sleep(0.05)
         png = self.cmd("WebDriver:TakeScreenshot", {"full": True})["value"]
         open(path, "wb").write(base64.b64decode(png))
 

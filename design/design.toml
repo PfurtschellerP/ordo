@@ -14,16 +14,21 @@ default_theme = "day"
 
 # Themes, in the order their media queries apply: later entries win.
 # Theme files may only add semantic tokens; all themes must define the same tokens.
+# color_scheme sets CSS color-scheme, so browser controls (radio buttons, scrollbars)
+# match the theme.
 [[theme]]
 name = "day"
 file = "themes/day.tokens.json"
+color_scheme = "light"
 
 [[theme]]
 name = "night"
 file = "themes/night.tokens.json"
+color_scheme = "dark"
 media = "(prefers-color-scheme: dark)"
 
 [[theme]]
 name = "high-contrast"
 file = "themes/high-contrast.tokens.json"
+color_scheme = "light"
 media = "(prefers-contrast: more)"

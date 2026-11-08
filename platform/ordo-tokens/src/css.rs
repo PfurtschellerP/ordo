@@ -44,6 +44,7 @@ pub fn generate(system: &DesignSystem) -> Result<String, Error> {
         &mut css,
         "",
         ":root",
+        default_entry.color_scheme.as_deref(),
         system.base.iter().chain(default_tokens),
         prefix,
         &resolver,
@@ -55,7 +56,15 @@ pub fn generate(system: &DesignSystem) -> Result<String, Error> {
         }
         let resolver = Resolver::new(system.base.iter().chain(tokens));
         let selector = format!(":root[data-theme=\"{}\"]", entry.name);
-        block(&mut css, "", &selector, tokens, prefix, &resolver)?;
+        block(
+            &mut css,
+            "",
+            &selector,
+            entry.color_scheme.as_deref(),
+            tokens,
+            prefix,
+            &resolver,
+        )?;
     }
 
     for (entry, tokens) in &system.themes {
@@ -66,6 +75,7 @@ pub fn generate(system: &DesignSystem) -> Result<String, Error> {
             &mut css,
             "  ",
             ":root:not([data-theme])",
+            entry.color_scheme.as_deref(),
             tokens,
             prefix,
             &resolver,
@@ -89,15 +99,20 @@ pub fn generate(system: &DesignSystem) -> Result<String, Error> {
     Ok(css)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn block<'a>(
     css: &mut String,
     indent: &str,
     selector: &str,
+    color_scheme: Option<&str>,
     tokens: impl IntoIterator<Item = &'a Token>,
     prefix: &str,
     resolver: &Resolver<'_>,
 ) -> Result<(), Error> {
     writeln!(css, "{indent}{selector} {{").ok();
+    if let Some(scheme) = color_scheme {
+        writeln!(css, "{indent}  color-scheme: {scheme};").ok();
+    }
     for token in tokens {
         let value = match &token.value {
             RawValue::Alias(target) => format!("var({})", var_name(prefix, target)),
