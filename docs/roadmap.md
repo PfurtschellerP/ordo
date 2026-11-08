@@ -104,6 +104,11 @@ Next — feedback of practitioners on the screenshots (2026-11-08), Med first:
   while the app is open (iOS: foreground only); continuous tracking needs a native shell
   or the positions of the BOS digital radios. Privacy: only during the deployment, visible
   to the person, limited retention.
+- Map editor (Lagekarte bearbeiten) with geofencing: draw sectors, hazard and restricted
+  areas, collection points as shapes with tactical symbols (GeoJSON, RFC 7946; drawing with
+  an open-source MapLibre plug-in such as Terra Draw); a geofence reports when a unit or
+  person enters or leaves an area. Every change is an event, so the map is shared and
+  works offline like the rest of the incident.
 - Vital signs from patient monitors (corpuls C3 first): interface to be clarified with
   the manufacturer; open standards to prefer: IEEE 11073 SDC, HL7 FHIR. Values are
   documented, never interpreted (no alarms).
