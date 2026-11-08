@@ -115,8 +115,28 @@ impl Client {
         let mut client = Self { socket, replica };
         let hello = client.replica.hello();
         client.send(hello).await;
+        // Wait for the welcome (not for a fixed time: CI runners can be slow).
+        client
+            .receive_until(|r| r.is_granted(&incident(), "incident"))
+            .await;
         client.settle().await;
         client
+    }
+
+    /// Receives until `done` holds; fails after 10 seconds.
+    async fn receive_until(&mut self, done: impl Fn(&Replica) -> bool) {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        while !done(&self.replica) {
+            let frame = tokio::time::timeout_at(deadline, self.socket.next())
+                .await
+                .expect("timed out waiting for the server")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                let message: ServerMessage = message::decode(&bytes).unwrap();
+                self.replica.receive(message, now()).unwrap();
+            }
+        }
     }
 
     async fn send(&mut self, message: ClientMessage) {
@@ -143,6 +163,7 @@ impl Client {
         if let Some(push) = self.replica.push() {
             self.send(push).await;
         }
+        self.receive_until(|r| r.outbox_len() == 0).await;
         self.settle().await;
     }
 
@@ -176,12 +197,20 @@ impl Client {
         )
     }
 
-    fn counts(&self) -> Vec<(u32, u32, u32)> {
-        patients::latest_counts(&self.replica.events(&incident(), "incident").unwrap())
-            .values()
-            .map(|c| (c.immediate, c.urgent, c.minor))
-            .collect()
+    async fn wait_for_counts(&mut self, expected: &[(u32, u32, u32)]) {
+        self.receive_until(|r| counts_of(r) == expected).await;
     }
+
+    fn counts(&self) -> Vec<(u32, u32, u32)> {
+        counts_of(&self.replica)
+    }
+}
+
+fn counts_of(replica: &Replica) -> Vec<(u32, u32, u32)> {
+    patients::latest_counts(&replica.events(&incident(), "incident").unwrap())
+        .values()
+        .map(|c| (c.immediate, c.urgent, c.minor))
+        .collect()
 }
 
 async fn http_get(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
@@ -213,9 +242,9 @@ async fn sync_over_websocket_survives_a_restart() {
     anna.sync().await;
     assert_eq!(anna.replica.outbox_len(), 0);
 
-    let ben = Client::connect(addr, replica("ben")).await;
+    let mut ben = Client::connect(addr, replica("ben")).await;
     assert!(!ben.replica.is_granted(&incident(), "med.clinical"));
-    assert_eq!(ben.counts(), [(1, 0, 0)]);
+    ben.wait_for_counts(&[(1, 0, 0)]).await;
     assert!(
         ben.replica
             .stored_events()
