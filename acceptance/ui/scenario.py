@@ -82,6 +82,8 @@ rows = lambda ff: ff.js("return [...document.querySelectorAll('#main tbody tr')]
 
 
 def register(ff, tag, index=None):
+    # The form appears once the server's welcome granted access (slow CI runners!).
+    assert wait_for(lambda: ff.js("return !!document.getElementById('tag')"), 15), "registration form missing"
     ff.js(FILL, "tag", tag)
     if index is not None:
         ff.js("document.querySelectorAll('input[name=category]')[arguments[0]].click()", index)
