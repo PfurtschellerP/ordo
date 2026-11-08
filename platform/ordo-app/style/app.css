@@ -345,8 +345,11 @@
     .views__item { flex: 1 1 0; justify-content: center; text-align: center; padding: 0 var(--ordo-space-2); min-width: 0; }
     .launcher { order: 2; flex: none; position: static; }
     .launcher__button { flex-direction: column; justify-content: center; gap: var(--ordo-space-1); height: 100%; padding: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-1); }
+    /* Anchored to the bar itself (the fixed .navigation is its containing block), so it
+       sits right above the bar whatever the bar's height (fonts, text size). */
     .launcher__panel {
-      position: fixed; left: 0; right: 0; top: auto; bottom: calc(4.5rem + env(safe-area-inset-bottom));
+      position: absolute; left: 0; right: 0; top: auto;
+      bottom: calc(100% + var(--ordo-size-border-thick)); /* above the bar's top border */
       width: auto; max-height: 70vh; border-radius: var(--ordo-radius-large) var(--ordo-radius-large) 0 0;
     }
     .search-button__keys { display: none; }

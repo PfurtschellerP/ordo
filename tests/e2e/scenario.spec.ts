@@ -231,6 +231,16 @@ test("ORDO in the browser", async () => {
     });
     expect(sheetBottom, "the menu opens upwards above the bar").toBeLessThanOrEqual(barTop + 1);
     expect(sheetTop).toBeGreaterThan(0);
+    // With larger text (WCAG 1.4.4) the bar grows; the menu must still sit above it.
+    const atLargeText = await anna.evaluate(() => {
+      document.documentElement.style.fontSize = "150%";
+      const p = document.getElementById("launcher-panel")!.getBoundingClientRect();
+      const n = document.querySelector(".navigation")!.getBoundingClientRect();
+      const result = [Math.round(p.bottom), Math.round(n.top)];
+      document.documentElement.style.fontSize = "";
+      return result;
+    });
+    expect(atLargeText[0], "at 150 % text size the menu still opens above the bar").toBeLessThanOrEqual(atLargeText[1] + 1);
     await shot(anna, "launcher-phone", false);
     await anna.locator("#launcher-button").click();
     await openRecord(anna, "DE-0042");
