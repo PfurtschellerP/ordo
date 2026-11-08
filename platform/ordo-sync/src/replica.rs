@@ -12,7 +12,29 @@ use ordo_crypto::{CHAIN_GENESIS, EventSigner, chain_next, event_hash};
 
 use crate::SyncError;
 use crate::applied::{AppliedEvent, Entropy, StreamKey, random_u128};
-use crate::message::{ClientMessage, Hello, Rejected, ServerMessage, Subscription};
+use crate::message::{ClientMessage, Hello, KeyGrant, Rejected, ServerMessage, Subscription};
+
+/// Everything a device stores locally, for saving and loading (e.g. browser storage).
+///
+/// Contains the compartment data keys. Stored at rest, it must be protected by the
+/// device (prototype limitation: the browser app stores it as is).
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReplicaState {
+    /// Compartments that must be sealed, once known.
+    pub protected: Option<Vec<CompartmentId>>,
+    /// Streams the device asks for.
+    pub wanted: Vec<StreamKey>,
+    /// Streams the server granted.
+    pub granted: Vec<StreamKey>,
+    /// Streams the server denied.
+    pub denied: Vec<StreamKey>,
+    /// Data keys.
+    pub keys: Vec<KeyGrant>,
+    /// Ordered events per stream.
+    pub streams: Vec<(StreamKey, Vec<SequencedEvent>)>,
+    /// Unconfirmed events.
+    pub outbox: Vec<(StreamKey, SignedEvent)>,
+}
 
 #[derive(Default)]
 struct LocalStream {
@@ -69,6 +91,65 @@ impl Replica {
             outbox: Vec::new(),
             rejected: Vec::new(),
         }
+    }
+
+    /// The local state, for saving.
+    pub fn snapshot(&self) -> ReplicaState {
+        ReplicaState {
+            protected: self.protected.clone(),
+            wanted: self.wanted.iter().cloned().collect(),
+            granted: self.granted.iter().cloned().collect(),
+            denied: self.denied.iter().cloned().collect(),
+            keys: self
+                .keys
+                .iter()
+                .map(|((incident, compartment), (key_id, key))| KeyGrant {
+                    incident: incident.clone(),
+                    compartment: compartment.clone(),
+                    key_id: key_id.clone(),
+                    key: *key.as_bytes(),
+                })
+                .collect(),
+            streams: self
+                .streams
+                .iter()
+                .map(|(key, stream)| (key.clone(), stream.events.clone()))
+                .collect(),
+            outbox: self.outbox.clone(),
+        }
+    }
+
+    /// Loads a saved state. Hash chains are checked again, so damaged storage is noticed.
+    pub fn restore(
+        user: UserId,
+        device: DeviceId,
+        signer: EventSigner,
+        entropy: impl Entropy + 'static,
+        state: ReplicaState,
+    ) -> Result<Self, SyncError> {
+        let mut replica = Self::new(user, device, signer, entropy);
+        replica.protected = state.protected;
+        replica.wanted = state.wanted.into_iter().collect();
+        replica.granted = state.granted.into_iter().collect();
+        replica.denied = state.denied.into_iter().collect();
+        for grant in state.keys {
+            replica.keys.insert(
+                (grant.incident, grant.compartment),
+                (grant.key_id, DataKey::from_bytes(grant.key)),
+            );
+        }
+        for (key, events) in state.streams {
+            for event in events {
+                let wall = event.event.decode_body()?.hlc.wall_ms;
+                replica.append(&key, event, wall)?;
+            }
+        }
+        for (key, event) in state.outbox {
+            let body = event.decode_body()?;
+            let _ = replica.clock.observe(&body.hlc, body.hlc.wall_ms);
+            replica.outbox.push((key, event));
+        }
+        Ok(replica)
     }
 
     /// The device this replica runs on.

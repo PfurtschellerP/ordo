@@ -64,13 +64,34 @@ impl App {
         self.failed.load(Ordering::SeqCst)
     }
 
-    pub(crate) fn router(self: Arc<Self>) -> Router {
-        Router::new()
+    pub(crate) fn router(self: Arc<Self>, app_dir: Option<&std::path::Path>) -> Router {
+        use axum::http::{HeaderName, HeaderValue};
+        use tower_http::services::{ServeDir, ServeFile};
+        use tower_http::set_header::SetResponseHeaderLayer;
+        let mut router = Router::new()
             .route("/sync", get(sync))
             .route("/healthz", get(|| async { "ok\n" }))
             .route("/readyz", get(readyz))
             .route("/metrics", get(metrics))
-            .with_state(self)
+            .with_state(self);
+        if let Some(dir) = app_dir {
+            // Unknown paths fall back to index.html, so the app handles its own routes.
+            let files = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+            router = router.fallback_service(files);
+        }
+        let header = |name: &'static str, value: &'static str| {
+            SetResponseHeaderLayer::if_not_present(
+                HeaderName::from_static(name),
+                HeaderValue::from_static(value),
+            )
+        };
+        router
+            .layer(header("x-content-type-options", "nosniff"))
+            .layer(header("referrer-policy", "no-referrer"))
+            .layer(header(
+                "content-security-policy",
+                "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+            ))
     }
 
     // [impl->dsn~store-before-send~1]

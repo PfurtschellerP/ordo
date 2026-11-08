@@ -170,6 +170,11 @@ impl PatientRegister {
         self.patients.get(tag)
     }
 
+    /// All patients, sorted by triage tag number.
+    pub fn patients(&self) -> impl Iterator<Item = &Patient> {
+        self.patients.values()
+    }
+
     /// Number of registered patients.
     pub fn len(&self) -> usize {
         self.patients.len()

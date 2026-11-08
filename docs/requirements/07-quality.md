@@ -47,7 +47,7 @@ Needs: dsn
 
 No data entry is lost when the app is closed, the device sleeps or the network drops
 
-Tags: must, quality
+Tags: must, quality, m3
 
 Needs: dsn
 
@@ -552,7 +552,7 @@ Needs: dsn
 
 Colour is never the only carrier of meaning (WCAG 1.4.1): triage categories, unit status and alarms always combine colour with text and a shape or pattern — about 8 % of men have a colour-vision deficiency
 
-Tags: must, quality
+Tags: must, quality, m3
 
 Needs: dsn
 

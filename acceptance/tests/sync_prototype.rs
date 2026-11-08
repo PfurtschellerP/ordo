@@ -552,3 +552,76 @@ fn reused_event_id_with_other_content_is_rejected() {
         [o] if matches!(&o.message, ServerMessage::Rejected(r) if r.reason == Rejection::DuplicateId)
     ));
 }
+
+// [itest->dsn~local-persistence~1]
+/// A device can save its state (e.g. in the browser), load it later and continue.
+#[test]
+fn replica_state_survives_saving_and_loading() {
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0042", Immediate);
+    world.sync();
+    world.set_online("anna", false);
+    register(&mut world, "anna", "DE-0043", Urgent); // stays in the outbox
+
+    let state = world.replica("anna").snapshot();
+    let bytes = ordo_sync::message::encode(&state).unwrap();
+    let state: ordo_sync::ReplicaState = ordo_sync::message::decode(&bytes).unwrap();
+    let user: ordo_core::UserId = "anna@ordo.drk-musterstadt.de".parse().unwrap();
+    let device = world.devices["anna"].replica.device();
+    let signer = ordo_crypto::EventSigner::new(
+        ordo_crypto::ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+        "device-anna@ordo.drk-musterstadt.de".parse().unwrap(),
+    );
+    let loaded = ordo_sync::Replica::restore(
+        user,
+        device,
+        signer,
+        ordo_acceptance::test_entropy(77),
+        state,
+    )
+    .unwrap();
+    world.devices.get_mut("anna").unwrap().replica = loaded;
+
+    assert_eq!(world.replica("anna").outbox_len(), 1);
+    assert_eq!(
+        register_of(&mut world, "anna").len(),
+        2,
+        "both patients visible after loading"
+    );
+    world.set_online("anna", true);
+    world.sync();
+    assert_eq!(world.replica("anna").outbox_len(), 0);
+    assert_eq!(register_of(&mut world, "clara").len(), 2);
+}
+
+/// Damaged local storage is noticed when loading.
+#[test]
+fn damaged_saved_state_is_rejected() {
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0042", Immediate);
+    world.sync();
+    let mut state = world.replica("anna").snapshot();
+    let stream = state
+        .streams
+        .iter_mut()
+        .find(|(_, events)| !events.is_empty())
+        .unwrap();
+    let last = stream.1[0].event.body.len() - 1;
+    stream.1[0].event.body[last] ^= 1;
+    let user: ordo_core::UserId = "anna@ordo.drk-musterstadt.de".parse().unwrap();
+    let device = world.devices["anna"].replica.device();
+    let signer = ordo_crypto::EventSigner::new(
+        ordo_crypto::ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+        "device-anna@ordo.drk-musterstadt.de".parse().unwrap(),
+    );
+    let result = ordo_sync::Replica::restore(
+        user,
+        device,
+        signer,
+        ordo_acceptance::test_entropy(77),
+        state,
+    );
+    assert!(result.is_err());
+}

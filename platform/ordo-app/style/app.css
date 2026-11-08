@@ -1,0 +1,202 @@
+/* ORDO app styles. Only design tokens (--ordo-*) for colours, sizes and motion, so all
+   themes and organisation themes apply (architecture 8.6). */
+
+@layer base, components, utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    background: var(--ordo-component-body-background);
+    color: var(--ordo-component-body-text);
+    font-family: var(--ordo-component-body-font-family);
+    font-size: 100%; /* respect the user's text size */
+    line-height: var(--ordo-component-body-line-height);
+  }
+
+  body { margin: 0; font-size: var(--ordo-component-body-font-size); }
+
+  h1, h2 { line-height: var(--ordo-font-line-height-heading); margin: 0 0 var(--ordo-space-4); }
+  h1 { font-size: var(--ordo-font-size-6); }
+  h2 { font-size: var(--ordo-font-size-5); }
+  p { margin: 0 0 var(--ordo-space-4); }
+
+  :focus-visible {
+    outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color);
+    outline-offset: var(--ordo-component-focus-ring-offset);
+  }
+}
+
+@layer components {
+  .page { padding: var(--ordo-space-5); display: grid; gap: var(--ordo-space-5); max-width: 80rem; margin: 0 auto; }
+  .page--narrow { max-width: 40rem; }
+  .page:focus { outline: none; }
+
+  .skip-link {
+    position: absolute; left: var(--ordo-space-2); top: -10rem;
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-link);
+    padding: var(--ordo-space-3); z-index: 10;
+  }
+  .skip-link:focus { top: var(--ordo-space-2); }
+
+  .app-header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-4);
+    padding: var(--ordo-space-3) var(--ordo-space-5);
+    background: var(--ordo-color-surface-raised);
+    border-bottom: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .app-header__name { margin: 0; font-weight: var(--ordo-font-weight-bold); font-size: var(--ordo-font-size-5); }
+
+  .card {
+    background: var(--ordo-color-surface-raised);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+    padding: var(--ordo-space-5);
+  }
+
+  .form { display: grid; gap: var(--ordo-space-3); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
+  .row > input { flex: 1 1 16rem; }
+
+  label, legend { font-weight: var(--ordo-font-weight-bold); }
+
+  input[type="text"], input[type="password"] {
+    min-height: var(--ordo-component-input-min-height);
+    padding: 0 var(--ordo-space-3);
+    background: var(--ordo-component-input-background);
+    color: var(--ordo-component-input-text);
+    border: var(--ordo-size-border-thick) solid var(--ordo-component-input-border);
+    border-radius: var(--ordo-radius-small);
+    font: inherit;
+  }
+  .input--code, .code { font-family: var(--ordo-font-family-mono); }
+
+  .button {
+    min-height: var(--ordo-component-button-min-height);
+    min-width: var(--ordo-component-button-min-height);
+    padding: 0 var(--ordo-component-button-padding-inline);
+    border-radius: var(--ordo-component-button-radius);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    background: var(--ordo-color-surface-default);
+    color: var(--ordo-color-text-primary);
+    font: inherit; font-weight: var(--ordo-font-weight-bold);
+    cursor: pointer;
+    transition: background-color var(--ordo-motion-duration-fast);
+  }
+  .button--primary {
+    background: var(--ordo-component-button-primary-background);
+    border-color: var(--ordo-component-button-primary-background);
+    color: var(--ordo-component-button-primary-text);
+  }
+  .button--primary:hover { background: var(--ordo-component-button-primary-background-hover); }
+  .button--quiet { margin-inline-start: auto; }
+  .button--small { min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-3); }
+
+  .tabs { display: flex; gap: var(--ordo-space-2); }
+  .tab {
+    min-height: var(--ordo-component-button-min-height);
+    padding: 0 var(--ordo-space-4);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-small);
+    background: var(--ordo-color-surface-default);
+    color: var(--ordo-color-text-primary);
+    font: inherit; cursor: pointer;
+  }
+  .tab[aria-pressed="true"] {
+    background: var(--ordo-component-button-primary-background);
+    border-color: var(--ordo-component-button-primary-background);
+    color: var(--ordo-component-button-primary-text);
+    font-weight: var(--ordo-font-weight-bold);
+  }
+
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-4); }
+  .status__dot {
+    width: 1rem; height: 1rem; border-radius: 50%;
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+  }
+  .status[data-state="online"] .status__dot { background: var(--ordo-color-feedback-success-text); }
+  .status[data-state="connecting"] .status__dot { background: var(--ordo-color-feedback-warning-text); }
+  .status[data-state="offline"] .status__dot { background: transparent; }
+  .status__pending { color: var(--ordo-color-text-secondary); }
+
+  .choices { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); border: 0; padding: 0; margin: 0; }
+  .choices legend { margin-bottom: var(--ordo-space-2); }
+  .choice { display: inline-flex; align-items: center; gap: var(--ordo-space-2); min-height: var(--ordo-size-touch-target); cursor: pointer; }
+  .choice input { width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--ordo-color-action-primary-background); }
+
+  /* Triage badge: colour + label + shape (A11Y-3). */
+  .triage {
+    display: inline-flex; align-items: center; gap: var(--ordo-space-2);
+    min-height: 2.25rem; padding: 0 var(--ordo-space-3);
+    border: var(--ordo-component-triage-badge-border-width) solid;
+    border-radius: var(--ordo-radius-small);
+    font-weight: var(--ordo-font-weight-bold); white-space: nowrap;
+  }
+  .triage__shape { display: inline-block; width: 0.9em; height: 0.9em; background: currentColor; }
+  .triage--immediate {
+    background: var(--ordo-component-triage-badge-immediate-background);
+    color: var(--ordo-component-triage-badge-immediate-text);
+    border-color: var(--ordo-component-triage-badge-immediate-border);
+  }
+  .triage--immediate .triage__shape { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .triage--urgent {
+    background: var(--ordo-component-triage-badge-urgent-background);
+    color: var(--ordo-component-triage-badge-urgent-text);
+    border-color: var(--ordo-component-triage-badge-urgent-border);
+  }
+  .triage--urgent .triage__shape { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .triage--minor {
+    background: var(--ordo-component-triage-badge-minor-background);
+    color: var(--ordo-component-triage-badge-minor-text);
+    border-color: var(--ordo-component-triage-badge-minor-border);
+  }
+  .triage--minor .triage__shape { border-radius: 50%; }
+  .triage--expectant {
+    background: var(--ordo-component-triage-badge-expectant-background);
+    color: var(--ordo-component-triage-badge-expectant-text);
+    border-color: var(--ordo-component-triage-badge-expectant-border);
+  }
+  .triage--deceased {
+    background: var(--ordo-component-triage-badge-deceased-background);
+    color: var(--ordo-component-triage-badge-deceased-text);
+    border-color: var(--ordo-component-triage-badge-deceased-border);
+  }
+  .triage--deceased .triage__shape {
+    clip-path: polygon(20% 0, 50% 30%, 80% 0, 100% 20%, 70% 50%, 100% 80%, 80% 100%, 50% 70%, 20% 100%, 0 80%, 30% 50%, 0 20%);
+  }
+
+  .table { width: 100%; border-collapse: collapse; }
+  .table th, .table td {
+    text-align: start; padding: var(--ordo-space-2) var(--ordo-space-3);
+    border-bottom: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    vertical-align: middle;
+  }
+  .table .number { text-align: center; font-variant-numeric: tabular-nums; }
+  .table td.number { font-size: var(--ordo-font-size-4); }
+  .table .total { font-weight: var(--ordo-font-weight-bold); }
+  .retriage { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+
+  .notice { padding: var(--ordo-space-4); background: var(--ordo-color-feedback-info-surface); color: var(--ordo-color-feedback-info-text); border-radius: var(--ordo-radius-medium); }
+  .error:empty { display: none; }
+  .error { color: var(--ordo-color-feedback-error-text); background: var(--ordo-color-feedback-error-surface); padding: var(--ordo-space-2) var(--ordo-space-3); border-radius: var(--ordo-radius-small); margin: 0; }
+
+  /* Narrow screens: tables scroll inside their card instead of breaking the layout (reflow, A11Y-6). */
+  @media (max-width: 40rem) {
+    .card { overflow-x: auto; }
+    .app-header { padding: var(--ordo-space-3); }
+  }
+
+  /* Windows contrast themes: keep shapes and borders visible. */
+  @media (forced-colors: active) {
+    .triage { border-color: CanvasText; }
+    .triage__shape { background: CanvasText; }
+    .tab[aria-pressed="true"] { outline: 3px solid Highlight; }
+  }
+}
+
+@layer utilities {
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}

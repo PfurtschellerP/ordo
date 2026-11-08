@@ -1,0 +1,11 @@
+# Build:  cd platform/ordo-app && trunk build --release
+# Serve:  ORDO_APP_DIR=platform/ordo-app/dist ordo serve
+[build]
+target = "index.html"
+dist = "dist"
+
+# Generate the design-token style sheet (and check contrast) before every build.
+[[hooks]]
+stage = "pre_build"
+command = "cargo"
+command_arguments = ["run", "--quiet", "--locked", "-p", "ordo-tokens", "--", "build", "--design", "../../design", "--out", "generated"]

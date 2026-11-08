@@ -17,7 +17,8 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `design/` | Design tokens (W3C DTCG), themes, contrast pairs |
 | `platform/` | Platform crates: `ordo-core`, `ordo-crypto`, `ordo-sync`, `ordo-contracts`, `ordo-tokens` |
 | `modules/`, `packages/` | Shared modules (`units`) and service packages (`med/patients`) |
-| `acceptance/` | Simulation harness and acceptance tests (scenarios from `docs/requirements/acceptance/`) |
+| `acceptance/` | Simulation harness and acceptance tests; `acceptance/ui/`: UI scenario in headless Firefox |
+| `platform/ordo-app/` | Web app (Leptos → WebAssembly, Trunk); user-visible texts in `src/text.rs` |
 
 Read only the files you need; each document is split into small parts on purpose.
 
@@ -32,7 +33,7 @@ cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto -p ordo-
 cargo run -p ordo-tokens -- check                         # design tokens + WCAG contrast
 cargo deny check                                          # dependency licences, advisories
 reuse lint                                                # licence information per file
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3 docs platform modules packages acceptance
 ```
 
 All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and image:
@@ -40,6 +41,8 @@ All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and im
 ```sh
 cargo run -p ordo-server -- serve                          # needs ORDO_* variables, see --help
 docker build -f deploy/Containerfile -t ordo:local .         # container image
+(cd platform/ordo-app && trunk build --release)             # web app (needs trunk, wasm-bindgen-cli)
+python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/ordo-ui   # UI test (Firefox)
 ```
 
 ## Rules that must never be broken
@@ -73,7 +76,7 @@ docker build -f deploy/Containerfile -t ordo:local .         # container image
   (`impl`) and tests (`utest`). Add coverage tags as plain comments:
   `// [impl->dsn~<name>~<revision>]` above the implementing item,
   `// [utest->dsn~<name>~<revision>]` above the test.
-- CI traces items tagged with the milestones so far (`m0`, `m1`, `m2`). Adding a requirement to
+- CI traces items tagged with the milestones so far (`m0` … `m3`). Adding a requirement to
   a milestone means tagging it **and** its design items. Unit tests use `utest`,
   acceptance tests in `acceptance/` use `itest`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when

@@ -152,7 +152,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     let addr = listener.local_addr()?;
     let (stop, stopped) = watch::channel(false);
     let app = Arc::new(App::new(hub, store, master, stop.clone()));
-    let router = app.clone().router();
+    let router = app.clone().router(config.app_dir.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");
     let task = tokio::spawn(async move {
         axum::serve(listener, router)

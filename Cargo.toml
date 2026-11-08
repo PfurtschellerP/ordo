@@ -7,6 +7,7 @@ members = [
   "platform/ordo-contracts",
   "platform/ordo-sync",
   "platform/ordo-server",
+  "platform/ordo-app",
   "modules/units",
   "packages/med/patients",
   "acceptance",
@@ -32,6 +33,9 @@ axum = { version = "0.8", features = ["ws"] }
 blake3 = "1"
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
+console_error_panic_hook = "0.1"
+js-sys = "0.3"
+leptos = { version = "0.8", features = ["csr"] }
 ed25519-dalek = "3"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 getrandom = "0.4"
@@ -45,6 +49,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal
 tokio-tungstenite = "0.30"
 zeroize = { version = "1", features = ["derive"] }
 toml = "1"
+tower-http = { version = "0.7", features = ["fs", "set-header"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["BinaryType", "CloseEvent", "Crypto", "Location", "MessageEvent", "Storage", "UrlSearchParams", "WebSocket", "Window"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
@@ -60,8 +67,10 @@ lto = true
 codegen-units = 1
 strip = true
 
-# Size-optimised profile for the WebAssembly app.
+# Size-optimised profile for the WebAssembly app. Not stripped: wasm-bindgen and wasm-opt
+# need the target-features section; wasm-opt removes what is not needed.
 [profile.release-wasm]
 inherits = "release"
 opt-level = "z"
 panic = "abort"
+strip = false

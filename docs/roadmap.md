@@ -31,15 +31,17 @@ Done in phase 0:
 - Server `ordo serve`: WebSocket, SQLite, health/readiness/metrics, wrapped keys, restart
   without data loss; container image and minimal Docker Compose setup (milestone `m2`).
 
+- First web app (milestone `m3`): pairing, Med workspace (registration, UHS board,
+  re-triage), command workspace (patient counts), offline with reload, served by
+  `ordo serve`; UI scenario in headless Firefox in CI.
+
 Next:
 
-1. **Minimal Leptos app:** patient registration and UHS board (Med), counts view
-   (command); offline storage in the browser; served by `ordo serve`.
-2. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
-   connection (sync protocol draft 1).
-3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
+1. Device pairing by QR code instead of the seed file (ORG-3); authentication of the
+   connection (sync protocol draft 1); protected key storage in the app.
+2. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-4. Design the main tablet screens for the Med MVP with volunteers.
+3. Design the main tablet screens for the Med MVP with volunteers.
 
 Scaling and availability ([architecture 7.6](architecture/07-deployment-view.md#76-performance-and-availability)),
 before the first real field use:

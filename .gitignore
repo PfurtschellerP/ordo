@@ -18,3 +18,7 @@ pkg/
 .idea/
 *.swp
 .DS_Store
+
+# Web app build output
+platform/ordo-app/dist/
+platform/ordo-app/generated/

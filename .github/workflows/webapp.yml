@@ -1,0 +1,79 @@
+name: Web app
+
+# Builds the Leptos app with Trunk and runs the end-to-end UI scenario
+# (acceptance/ui/scenario.py) in headless Firefox against a real `ordo serve`.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "platform/**"
+      - "modules/**"
+      - "packages/**"
+      - "design/**"
+      - "acceptance/ui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/webapp.yml"
+  pull_request:
+    paths:
+      - "platform/**"
+      - "modules/**"
+      - "packages/**"
+      - "design/**"
+      - "acceptance/ui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/webapp.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  webapp:
+    name: Build app and run UI scenario
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install Trunk and the matching wasm-bindgen
+        run: |
+          WASM_BINDGEN=$(grep -A1 'name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')
+          cargo install --locked trunk --version 0.22.1
+          cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN"
+      - name: Build the app
+        working-directory: platform/ordo-app
+        run: trunk build --release
+      - name: Build the server
+        run: cargo build --locked -p ordo-server
+      - name: Run the UI scenario
+        run: python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist "$RUNNER_TEMP/ui"
+      - name: Bundle size to the job summary
+        if: always()
+        run: |
+          {
+            echo "## Web app bundle"
+            for f in platform/ordo-app/dist/*.wasm platform/ordo-app/dist/*.js platform/ordo-app/dist/*.css; do
+              [ -f "$f" ] && echo "- $(basename "$f"): $(stat -c %s "$f" | numfmt --to=iec) raw, $(gzip -9c "$f" | wc -c | numfmt --to=iec) gzip"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshots and server log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-screenshots
+          path: |
+            ${{ runner.temp }}/ui/*.png
+            ${{ runner.temp }}/ui/server.log
+          if-no-files-found: ignore

@@ -8,6 +8,11 @@ all-features = true
 # Fail on known security vulnerabilities and on yanked crates.
 version = 2
 yanked = "deny"
+ignore = [
+  # paste is unmaintained (no known vulnerability). It is a compile-time macro used by
+  # Leptos (either_of). Revisit when Leptos replaces it.
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained compile-time dependency of Leptos, no known vulnerability" },
+]
 
 [licenses]
 # Only licences compatible with AGPL-3.0-or-later.
@@ -17,6 +22,7 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "BSL-1.0", # Boost Software License: permissive, GPL-compatible (xxhash-rust via Leptos)
   "CC0-1.0",
   "ISC",
   "MIT",

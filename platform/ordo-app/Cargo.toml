@@ -1,0 +1,26 @@
+[package]
+name = "ordo-app"
+description = "ORDO web app (Leptos, WebAssembly): prototype with Med and command workspaces"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+console_error_panic_hook.workspace = true
+js-sys.workspace = true
+leptos.workspace = true
+ordo-contracts.workspace = true
+ordo-core.workspace = true
+ordo-crypto.workspace = true
+ordo-med-patients.workspace = true
+ordo-sync.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen.workspace = true
+web-sys.workspace = true
+
+[lints]
+workspace = true

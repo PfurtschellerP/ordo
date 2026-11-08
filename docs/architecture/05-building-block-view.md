@@ -254,3 +254,35 @@ Needs: impl, itest
 
 Tags: must, m1
 
+### 5.5.3 Web app `ordo-app`
+
+Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `ordo serve`
+(`ORDO_APP_DIR`). Prototype workspaces: Med (registration, UHS board) and command
+(patient counts). Texts in German (DE profile) in one file, to move to Fluent later.
+
+#### Local persistence
+`dsn~local-persistence~1`
+
+The app saves the replica state (ordered events, outbox, data keys) to browser storage after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Prototype limitation: browser storage is not additionally encrypted.
+
+Covers:
+
+* [req~ux-5~1](../requirements/07-quality.md#ux-5--no-lost-input)
+
+Needs: impl, itest
+
+Tags: must, m3
+
+#### Triage badge
+`dsn~triage-badge~1`
+
+Every triage category is shown as a badge with colour (safety tokens), the profile label as text and a distinct shape (diamond, triangle, circle, square, cross); a visually hidden description gives screen-reader users the meaning. The connection status combines a coloured dot with text. In forced-colours mode the shape and border remain.
+
+Covers:
+
+* [req~a11y-3~1](../requirements/07-quality.md#a11y-3--not-colour-alone)
+
+Needs: impl, itest
+
+Tags: must, m3
+

@@ -22,6 +22,8 @@ pub struct Config {
     /// Compartments whose payloads must be sealed (`ORDO_PROTECTED`, default
     /// `med.clinical`, comma-separated).
     pub protected: Vec<CompartmentId>,
+    /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
+    pub app_dir: Option<PathBuf>,
 }
 
 /// Users and devices. Prototype: read from a file; later managed in the admin UI and
@@ -164,6 +166,7 @@ impl Config {
             master_key,
             seed,
             protected,
+            app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
         })
     }
 }

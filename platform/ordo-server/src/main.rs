@@ -21,6 +21,7 @@ Environment for `serve`:
   ORDO_DATA_DIR          Data directory (default /data)
   ORDO_SEED_FILE         Users and devices (TOML, optional)
   ORDO_PROTECTED         Protected compartments (default med.clinical)
+  ORDO_APP_DIR           Built web app, served at / (optional)
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {
@@ -33,11 +34,19 @@ fn main() -> ExitCode {
         }
         Some("generate-device-key") => {
             let key = SigningKey::from_bytes(&random::<32>());
-            println!("private_key = \"{}\"", to_hex(&key.to_bytes()));
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_millis() as u64);
+            let id = ordo_core::Ulid::from_parts(now, u128::from_be_bytes(random::<16>()))
+                .expect("time fits");
+            println!("# for the seed file:");
+            println!("id = \"{id}\"");
             println!(
                 "public_key = \"{}\"",
                 to_hex(key.verifying_key().as_bytes())
             );
+            println!("# for the device only — keep secret:");
+            println!("private_key = \"{}\"", to_hex(&key.to_bytes()));
             ExitCode::SUCCESS
         }
         Some("healthcheck") => healthcheck(),
