@@ -239,7 +239,42 @@ Needs: impl, itest
 
 Tags: must, m1
 
+#### Unit register
+`dsn~unit-register~1`
+
+Units (vehicles, teams, other resources) join an incident with `units.added` (call sign,
+type, organisation) in the `incident` compartment; their status follows the
+lost-update-aware status board. Every device computes the same register. Still missing
+for UNIT-1…6: units from master data, crew strength, status codes from the profile,
+releasing units — the item is therefore not yet part of a milestone.
+
+Covers:
+
+* [req~unit-1~1](../requirements/02-shared.md#unit-1--add-units)
+
+Needs: impl, itest
+
+Tags: must
+
 ### 5.5.2 Med module `med.patients`
+
+#### UHS registry
+`dsn~uhs-registry~1`
+
+On-site care units are set up with `uhs.created` events (module `med.uhs`: ID, name,
+kind, capacity) in the shared `incident` compartment, because they are not clinical and
+command needs names and capacities next to the patient counts. Patients and the
+`med.patientCounts.v1` connector refer to the UHS by ID. The Med workspace lists every
+UHS with its load (patients / capacity); registration asks for the UHS explicitly; the
+command workspace shows counts and load per UHS.
+
+Covers:
+
+* [req~uhs-4~1](../requirements/04-med.md#uhs-4--several-uhs)
+
+Needs: impl, itest
+
+Tags: must, m4
 
 #### Patient triage history
 `dsn~patient-triage-history~1`

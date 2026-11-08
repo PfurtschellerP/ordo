@@ -101,7 +101,7 @@ Needs: dsn
 
 ORDO shall support several UHS per incident and show the load of all of them (patients versus capacity) in one overview.
 
-Tags: must, med
+Tags: must, med, m4
 
 Needs: dsn
 

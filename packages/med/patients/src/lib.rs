@@ -21,6 +21,69 @@ pub const REGISTERED: &str = "patients.registered";
 /// Event type: a patient was re-triaged.
 pub const RETRIAGED: &str = "patients.retriaged";
 
+/// Module of the on-site care units (UHS, treatment areas, collection points).
+pub const UHS_MODULE: &str = "med.uhs";
+/// Event type: an on-site care unit was set up.
+pub const UHS_CREATED: &str = "uhs.created";
+/// UHS definitions are not clinical: they live in the shared incident compartment, so
+/// command sees names and capacities next to the patient counts.
+pub const UHS_COMPARTMENT: &str = "incident";
+
+/// Kind of on-site care unit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UhsKind {
+    /// Unfallhilfsstelle (UHS), e.g. at a planned event.
+    Uhs,
+    /// Behandlungsplatz in a mass-casualty incident.
+    TreatmentArea,
+    /// Patientenablage.
+    CollectionPoint,
+}
+
+/// Payload of `uhs.created` (UHS-1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UhsCreated {
+    /// Stable ID, referenced by patients and counts.
+    pub id: String,
+    /// Display name, e.g. "UHS Bühne Nord".
+    pub name: String,
+    /// Kind.
+    pub kind: UhsKind,
+    /// Number of patients it can take.
+    pub capacity: u32,
+}
+
+impl UhsCreated {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+// [impl->dsn~uhs-registry~1]
+/// The on-site care units of an incident, in order of creation (first wins per ID).
+pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
+    let mut created: Vec<(Hlc, UhsCreated)> = incident_events
+        .iter()
+        .filter(|e| {
+            e.body.module.as_str() == UHS_MODULE && e.body.event_type.as_str() == UHS_CREATED
+        })
+        .filter_map(|e| {
+            codec::from_cbor::<UhsCreated>(&e.payload)
+                .ok()
+                .map(|u| (e.body.hlc, u))
+        })
+        .collect();
+    created.sort_by_key(|(hlc, _)| *hlc);
+    let mut seen = std::collections::HashSet::new();
+    created
+        .into_iter()
+        .map(|(_, u)| u)
+        .filter(|u| seen.insert(u.id.clone()))
+        .collect()
+}
+
 /// Payload of `patients.registered`: the minimum needed (requirement PAT-1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registered {
@@ -28,7 +91,7 @@ pub struct Registered {
     pub tag: String,
     /// Triage category.
     pub category: TriageCategory,
-    /// On-site care unit.
+    /// ID of the on-site care unit ([`UhsCreated::id`]).
     pub uhs: String,
 }
 

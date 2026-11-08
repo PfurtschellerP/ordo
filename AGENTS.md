@@ -33,7 +33,7 @@ cargo build --target wasm32-unknown-unknown -p ordo-core -p ordo-crypto -p ordo-
 cargo run -p ordo-tokens -- check                         # design tokens + WCAG contrast
 cargo deny check                                          # dependency licences, advisories
 reuse lint                                                # licence information per file
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages acceptance
 ```
 
 All of these run in CI (`.github/workflows/ci.yml`) and must pass. Server and image:
@@ -76,7 +76,7 @@ python3 acceptance/ui/scenario.py target/debug/ordo platform/ordo-app/dist /tmp/
   (`impl`) and tests (`utest`). Add coverage tags as plain comments:
   `// [impl->dsn~<name>~<revision>]` above the implementing item,
   `// [utest->dsn~<name>~<revision>]` above the test.
-- CI traces items tagged with the milestones so far (`m0` … `m3`). Adding a requirement to
+- CI traces items tagged with the milestones so far (`m0` … `m4`). Adding a requirement to
   a milestone means tagging it **and** its design items. Unit tests use `utest`,
   acceptance tests in `acceptance/` use `itest`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when

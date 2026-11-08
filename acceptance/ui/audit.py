@@ -48,6 +48,7 @@ for (const el of document.querySelectorAll('body *')) {
   if (!visible(el)) continue;
   let text = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(' ').trim();
   if (el.matches('input[type=text], input[type=password]')) text = el.value || '';
+  if (el.matches('select')) text = el.options[el.selectedIndex]?.text || '';
   if (!text) continue;
   const cs = getComputedStyle(el);
   const bg = background(el);
@@ -73,7 +74,7 @@ for (const cell of document.querySelectorAll('td, th')) {
 }
 
 // Touch targets
-for (const el of document.querySelectorAll('button, input[type=text], input[type=password], a.skip-link')) {
+for (const el of document.querySelectorAll('button, select, input[type=text], input[type=password], a.skip-link')) {
   if (!visible(el) || el.matches('a.skip-link')) continue;
   const h = el.getBoundingClientRect().height;
   if (h < 44) problems.push(`touch target ${h.toFixed(0)} px < 44 px: ${describe(el, el.innerText || el.id)}`);

@@ -13,9 +13,10 @@ use ordo_contracts::TriageCategory;
 use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
-use ordo_med_patients::{self as patients, Registered, Retriaged};
+use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind};
 use ordo_sync::message::{self, ClientMessage, ServerMessage};
 use ordo_sync::{Replica, ReplicaState};
+use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
@@ -212,12 +213,15 @@ pub fn register(
     }
     .encode()
     .map_err(|e| e.to_string())?;
+    let announcement = text::registered(tag, category, &uhs_name(core, uhs));
     record(
         core,
         revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
         patients::REGISTERED,
         &payload,
-        text::registered(tag, category),
+        announcement,
     )
 }
 
@@ -234,18 +238,128 @@ pub fn retriage(
     }
     .encode()
     .map_err(|e| e.to_string())?;
+    let announcement = text::retriaged(tag, category);
     record(
         core,
         revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
         patients::RETRIAGED,
         &payload,
-        text::retriaged(tag, category),
+        announcement,
     )
 }
 
+/// Sets up an on-site care unit (UHS-1).
+pub fn create_uhs(
+    core: Handle,
+    revision: RwSignal<u64>,
+    name: &str,
+    capacity: u32,
+) -> Result<(), String> {
+    let mut random = [0u8; 16];
+    entropy(&mut random);
+    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let payload = UhsCreated {
+        id: format!("uhs-{id}"),
+        name: name.to_owned(),
+        kind: UhsKind::Uhs,
+        capacity,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::UHS_COMPARTMENT,
+        patients::UHS_MODULE,
+        patients::UHS_CREATED,
+        &payload,
+        text::uhs_created(name),
+    )
+}
+
+/// Adds a unit (vehicle, team, other resource) to the incident (UNIT-1).
+pub fn add_unit(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: &str,
+    unit_type: &str,
+    organisation: &str,
+) -> Result<(), String> {
+    let payload = UnitAdded {
+        unit: unit.to_owned(),
+        unit_type: unit_type.to_owned(),
+        organisation: organisation.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        units::COMPARTMENT,
+        units::MODULE,
+        units::ADDED,
+        &payload,
+        text::unit_added(unit),
+    )
+}
+
+/// Sets the status of a unit, recording which status it replaces (lost-update detection).
+pub fn set_status(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: &str,
+    status: &str,
+) -> Result<(), String> {
+    let replaces = core.with_value(|c| {
+        let events = c
+            .replica
+            .events(&c.incident, units::COMPARTMENT)
+            .unwrap_or_default();
+        UnitRegister::from_events(&events)
+            .units
+            .get(unit)
+            .and_then(|u| u.status.as_ref().map(|s| s.since))
+    });
+    let payload = StatusChanged {
+        unit: unit.to_owned(),
+        status: status.to_owned(),
+        replaces,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        units::COMPARTMENT,
+        units::MODULE,
+        units::STATUS_CHANGED,
+        &payload,
+        text::status_set(unit, status),
+    )
+}
+
+/// Display name of a UHS by ID (the ID if unknown).
+pub fn uhs_name(core: Handle, id: &str) -> String {
+    core.with_value(|c| {
+        let events = c
+            .replica
+            .events(&c.incident, patients::UHS_COMPARTMENT)
+            .unwrap_or_default();
+        patients::uhs_list(&events)
+            .into_iter()
+            .find(|u| u.id == id)
+            .map_or_else(|| id.to_owned(), |u| u.name)
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
 fn record(
     core: Handle,
     revision: RwSignal<u64>,
+    compartment: &str,
+    module: &str,
     event_type: &str,
     payload: &[u8],
     announcement: String,
@@ -256,8 +370,8 @@ fn record(
             c.replica
                 .record(
                     &incident,
-                    patients::COMPARTMENT,
-                    patients::MODULE,
+                    compartment,
+                    module,
                     event_type,
                     1,
                     payload,

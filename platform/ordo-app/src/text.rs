@@ -54,8 +54,75 @@ pub const COUNTS_TITLE: &str = "Patienten je UHS";
 pub const COUNTS_EMPTY: &str = "Noch keine Patientenzahlen.";
 pub const COL_TOTAL: &str = "Gesamt";
 
-pub fn registered(tag: &str, category: TriageCategory) -> String {
-    format!("Patient {tag} registriert: {}", label(category))
+pub fn registered(tag: &str, category: TriageCategory, uhs: &str) -> String {
+    format!("Patient {tag} registriert: {}, {uhs}", label(category))
+}
+
+pub fn uhs_created(name: &str) -> String {
+    format!("{name} angelegt")
+}
+
+pub fn unit_added(unit: &str) -> String {
+    format!("Einsatzmittel {unit} hinzugefügt")
+}
+
+pub fn status_set(unit: &str, status: &str) -> String {
+    format!("{unit}: Status {}", status_label(status))
+}
+
+pub const TAB_RESOURCES: &str = "Einsatzmittel";
+
+pub const UHS_TITLE: &str = "Unfallhilfsstellen";
+pub const UHS_EMPTY: &str = "Noch keine UHS angelegt.";
+pub const UHS_NAME: &str = "Name der UHS";
+pub const UHS_CAPACITY: &str = "Kapazität (Patienten)";
+pub const UHS_SUBMIT: &str = "UHS anlegen";
+pub const UHS_CHOOSE: &str = "UHS wählen";
+pub const NO_UHS: &str = "Zuerst eine UHS anlegen.";
+pub const COL_LOAD: &str = "Belegung";
+pub fn load(patients: u32, capacity: u32) -> String {
+    format!("{patients} / {capacity}")
+}
+
+pub const UNITS_TITLE: &str = "Einsatzmittel";
+pub const UNITS_EMPTY: &str = "Noch keine Einsatzmittel.";
+pub const UNIT_CALL_SIGN: &str = "Funkrufname";
+pub const UNIT_TYPE: &str = "Typ (z. B. RTW, KTW, Sanitätstrupp)";
+pub const UNIT_ORGANISATION: &str = "Organisation";
+pub const UNIT_SUBMIT: &str = "Einsatzmittel hinzufügen";
+pub const COL_CALL_SIGN: &str = "Funkrufname";
+pub const COL_TYPE: &str = "Typ";
+pub const COL_ORGANISATION: &str = "Organisation";
+pub const COL_STATUS: &str = "Status";
+pub const COL_SET_STATUS: &str = "Status setzen";
+pub const NO_STATUS: &str = "–";
+pub fn set_status_label(unit: &str) -> String {
+    format!("Status von {unit} setzen")
+}
+pub fn lost_update(unit: &str, overwritten: &str, kept: &str) -> String {
+    format!(
+        "Achtung {unit}: Status {} wurde gleichzeitig durch {} ersetzt. Bitte prüfen.",
+        status_label(overwritten),
+        status_label(kept)
+    )
+}
+
+/// Status codes of the DE profile (FMS/TMS), prototype subset.
+pub const STATUS_CODES: [(&str, &str); 7] = [
+    ("1", "Einsatzbereit über Funk"),
+    ("2", "Einsatzbereit auf Wache"),
+    ("3", "Einsatz übernommen"),
+    ("4", "Am Einsatzort"),
+    ("6", "Nicht einsatzbereit"),
+    ("7", "Patient aufgenommen"),
+    ("8", "Am Transportziel"),
+];
+
+pub fn status_label(code: &str) -> String {
+    STATUS_CODES
+        .iter()
+        .find(|(c, _)| *c == code)
+        .map_or_else(|| code.to_owned(), |(c, label)| format!("{c} – {label}"))
 }
 
 pub fn retriaged(tag: &str, category: TriageCategory) -> String {

@@ -625,3 +625,119 @@ fn damaged_saved_state_is_rejected() {
     );
     assert!(result.is_err());
 }
+
+/// Several on-site care units and units (vehicles, teams) in one incident.
+// [itest->dsn~uhs-registry~1]
+#[test]
+fn several_uhs_and_units_in_one_incident() {
+    use ordo_med_patients::{UhsCreated, UhsKind};
+    use ordo_units::{UnitAdded, UnitRegister};
+    let mut world = World::new();
+    world.sync();
+    let incident = world.incident.clone();
+    for (id, name, capacity) in [("uhs-a", "UHS Bühne Nord", 10), ("uhs-b", "UHS Eingang", 5)] {
+        let payload = UhsCreated {
+            id: id.into(),
+            name: name.into(),
+            kind: UhsKind::Uhs,
+            capacity,
+        }
+        .encode()
+        .unwrap();
+        let now = world.now;
+        world
+            .replica("anna")
+            .record(
+                &incident,
+                "incident",
+                patients::UHS_MODULE,
+                patients::UHS_CREATED,
+                1,
+                &payload,
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    }
+    let add = |world: &mut World, user: &str, unit: &str, unit_type: &str| {
+        let payload = UnitAdded {
+            unit: unit.into(),
+            unit_type: unit_type.into(),
+            organisation: "DRK Musterstadt".into(),
+        }
+        .encode()
+        .unwrap();
+        let (incident, now) = (world.incident.clone(), world.now);
+        world
+            .replica(user)
+            .record(
+                &incident,
+                "incident",
+                units::MODULE,
+                units::ADDED,
+                1,
+                &payload,
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    };
+    add(&mut world, "ben", "RTW 1", "RTW");
+    add(&mut world, "ben", "San-Trupp 2", "Sanitätstrupp");
+    for (tag, category, uhs) in [
+        ("DE-0042", Immediate, "uhs-a"),
+        ("DE-0043", Urgent, "uhs-b"),
+        ("DE-0044", Minor, "uhs-b"),
+    ] {
+        let payload = Registered {
+            tag: tag.into(),
+            category,
+            uhs: uhs.into(),
+        }
+        .encode()
+        .unwrap();
+        let now = world.now;
+        world
+            .replica("anna")
+            .record(
+                &incident,
+                patients::COMPARTMENT,
+                patients::MODULE,
+                patients::REGISTERED,
+                1,
+                &payload,
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    }
+    set_status(&mut world, "ben", "RTW 1", "3", None);
+    world.sync();
+
+    // Command sees both UHS with names and capacity, and counts per UHS.
+    let events = world.replica("ben").events(&incident, "incident").unwrap();
+    let list = patients::uhs_list(&events);
+    assert_eq!(
+        list.iter()
+            .map(|u| (u.name.as_str(), u.capacity))
+            .collect::<Vec<_>>(),
+        [("UHS Bühne Nord", 10), ("UHS Eingang", 5)]
+    );
+    let counts = patients::latest_counts(&events);
+    assert_eq!(
+        (
+            counts["uhs-a"].immediate,
+            counts["uhs-b"].urgent,
+            counts["uhs-b"].minor
+        ),
+        (1, 1, 1)
+    );
+
+    // Units with type, organisation and status, on every device.
+    let register = UnitRegister::from_events(&events);
+    assert_eq!(register.units.len(), 2);
+    assert_eq!(register.units["RTW 1"].status.as_ref().unwrap().status, "3");
+    assert_eq!(register.units["San-Trupp 2"].unit_type, "Sanitätstrupp");
+    let anna_events = world.replica("anna").events(&incident, "incident").unwrap();
+    assert_eq!(UnitRegister::from_events(&anna_events), register);
+}

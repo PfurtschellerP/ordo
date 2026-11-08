@@ -17,6 +17,78 @@ pub const MODULE: &str = "units";
 pub const COMPARTMENT: &str = "incident";
 /// Event type of a status change.
 pub const STATUS_CHANGED: &str = "units.statusChanged";
+/// Event type: a unit (vehicle, team or other resource) joined the incident.
+pub const ADDED: &str = "units.added";
+
+/// Payload of `units.added` (UNIT-1, UNIT-2).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnitAdded {
+    /// Call sign, e.g. "Rotkreuz Musterstadt 83/1".
+    pub unit: String,
+    /// Type from the profile, e.g. "RTW", "KTW", "HLF", "Sanitätstrupp".
+    pub unit_type: String,
+    /// Organisation, e.g. "DRK Musterstadt".
+    pub organisation: String,
+}
+
+impl UnitAdded {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// A unit of the incident with its current status.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unit {
+    /// Call sign.
+    pub unit: String,
+    /// Type.
+    pub unit_type: String,
+    /// Organisation.
+    pub organisation: String,
+    /// Current status, if one was set.
+    pub status: Option<UnitStatus>,
+}
+
+/// All units of an incident with their status, computed from events.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct UnitRegister {
+    /// Units by call sign.
+    pub units: BTreeMap<String, Unit>,
+    /// Status changes made without knowing the previous one.
+    pub lost_updates: Vec<LostUpdate>,
+}
+
+impl UnitRegister {
+    /// Computes the register. A unit added twice keeps its first entry.
+    pub fn from_events(events: &[AppliedEvent]) -> Self {
+        let mut added: Vec<(Hlc, UnitAdded)> = events
+            .iter()
+            .filter(|e| e.body.module.as_str() == MODULE && e.body.event_type.as_str() == ADDED)
+            .filter_map(|e| {
+                codec::from_cbor::<UnitAdded>(&e.payload)
+                    .ok()
+                    .map(|a| (e.body.hlc, a))
+            })
+            .collect();
+        added.sort_by_key(|(hlc, _)| *hlc);
+        let board = StatusBoard::from_events(events);
+        let mut units = BTreeMap::new();
+        for (_, a) in added {
+            units.entry(a.unit.clone()).or_insert(Unit {
+                status: board.units.get(&a.unit).cloned(),
+                unit: a.unit,
+                unit_type: a.unit_type,
+                organisation: a.organisation,
+            });
+        }
+        Self {
+            units,
+            lost_updates: board.lost_updates,
+        }
+    }
+}
 
 /// Payload of `units.statusChanged`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -82,9 +82,27 @@ status = lambda ff: ff.js("return document.querySelector('.status')?.innerText.r
 rows = lambda ff: ff.js("return [...document.querySelectorAll('#main tbody tr')].map(r => r.cells[0].innerText + ' ' + r.cells[1].innerText.split('\\n')[0] + ' ' + r.cells[4].innerText)")
 
 
-def register(ff, tag, index=None):
+SELECT = """
+const [id, text] = arguments;
+const el = document.getElementById(id) || document.querySelector(`select[aria-label="${id}"]`);
+const option = [...el.options].find(o => o.text.startsWith(text));
+el.value = option.value; el.dispatchEvent(new Event('change', {bubbles: true}));
+"""
+
+
+def create_uhs(ff, name, capacity):
+    assert wait_for(lambda: ff.js("return !!document.getElementById('uhs-name')"), 15), "UHS form missing"
+    ff.js(FILL, "uhs-name", name)
+    ff.js(FILL, "uhs-capacity", str(capacity))
+    ff.js(CLICK_TEXT, "UHS anlegen")
+    time.sleep(0.5)
+
+
+def register(ff, tag, index=None, uhs=None):
     # The form appears once the server's welcome granted access (slow CI runners!).
     assert wait_for(lambda: ff.js("return !!document.getElementById('tag')"), 15), "registration form missing"
+    if uhs:
+        ff.js(SELECT, "uhs", uhs)
     ff.js(FILL, "tag", tag)
     if index is not None:
         ff.js("document.querySelectorAll('input[name=category]')[arguments[0]].click()", index)
@@ -101,8 +119,13 @@ try:
     audit(anna, "Pairing page", check)
     incident = pair(anna, "anna@localhost", keys["anna"])
     check(wait_for(lambda: "Verbunden" in status(anna)), "medic device connects")
-    for tag, i in (("DE-0042", 0), ("DE-0043", 1), ("DE-0044", 1)):
-        register(anna, tag, i)
+    create_uhs(anna, "UHS Bühne Nord", 10)
+    create_uhs(anna, "UHS Eingang", 5)
+    # [itest->dsn~uhs-registry~1]
+    check(wait_for(lambda: anna.js("return document.querySelectorAll('.load-list__item').length") == 2),
+          "two UHS are set up and listed with their load")
+    for tag, i, uhs in (("DE-0042", 0, "UHS Bühne Nord"), ("DE-0043", 1, "UHS Bühne Nord"), ("DE-0044", 1, "UHS Eingang")):
+        register(anna, tag, i, uhs)
     check(wait_for(lambda: "Alles gesendet" in status(anna)), "registrations are sent")
     check(len(rows(anna)) == 3, f"UHS board lists 3 patients: {rows(anna)}")
 
@@ -120,7 +143,7 @@ try:
           "the app shell is installed for offline use")
     server.terminate(); server.wait()
     check(wait_for(lambda: "Offline" in status(anna)), "loss of connection is shown")
-    register(anna, "DE-0045", 2)
+    register(anna, "DE-0045", 2, "UHS Eingang")
     check("1 Eingabe noch nicht gesendet" in status(anna), f"pending input is shown: {status(anna)}")
     # [itest->dsn~local-persistence~1]
     anna.go(URL)  # reload while the server is down: the app must start from the device
@@ -145,11 +168,28 @@ try:
           "command device has no access to patient data")
     ben.js(CLICK_TEXT, "Einsatzleitung")
     counts = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].map(r => [...r.cells].map(c => c.innerText.split('\\n')[0]).join(' '))")
-    check(wait_for(lambda: counts() == ["UHS 1 2 1 1 0 0 4"]), f"command sees counts SK I 2, SK II 1, SK III 1: {counts()}")
+    check(wait_for(lambda: counts() == ["UHS Bühne Nord 1 1 0 0 0 2 2 / 10", "UHS Eingang 1 0 1 0 0 2 2 / 5"]),
+          f"command sees counts and load per UHS: {counts()}")
     stored = ben.js("return localStorage.getItem('ordo.replica') || ''")
     check(stored != "" and "44452d30303432" not in stored, "command device stores no triage tag number")
     audit(ben, "Command workspace", check)
     ben.shot(f"{WORK}/command.png")
+
+    # Resources: add a vehicle and set its status (UNIT-1, UNIT-3).
+    ben.js(CLICK_TEXT, "Einsatzmittel")
+    assert wait_for(lambda: ben.js("return !!document.getElementById('unit-call-sign')")), "resources form missing"
+    ben.js(FILL, "unit-call-sign", "RTW 83/1")
+    ben.js(FILL, "unit-type", "RTW")
+    ben.js(FILL, "unit-organisation", "DRK Musterstadt")
+    ben.js(CLICK_TEXT, "Einsatzmittel hinzufügen")
+    assert wait_for(lambda: ben.js("return !!document.querySelector('select[aria-label=\"Status von RTW 83/1 setzen\"]')")), "unit row missing"
+    ben.js(SELECT, "Status von RTW 83/1 setzen", "3 ")
+    units_row = lambda: ben.js("return [...document.querySelectorAll('#main tbody tr')].map(r => [...r.cells].slice(0, 4).map(c => c.innerText).join(' | ')).join('; ')")
+    check(wait_for(lambda: units_row() == "RTW 83/1 | RTW | DRK Musterstadt | 3 – Einsatz übernommen"),
+          f"a unit is added and its status is set: {units_row()}")
+    check(wait_for(lambda: "Alles gesendet" in status(ben)), "unit and status are sent")
+    audit(ben, "Resources workspace", check)
+    ben.shot(f"{WORK}/resources.png")
     ben.js("document.documentElement.dataset.theme = 'high-contrast'")
     ben.shot(f"{WORK}/command-high-contrast.png")
 finally:

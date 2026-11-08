@@ -89,6 +89,7 @@ the build fails.
 | 1 — Sync prototype | `m1` | Compartment-scoped sync (SEC-9), sealed health data (SEC-10), automatic sync (OFF-3), no lost changes (OFF-4), triage history (PAT-3), patient counts for command (PAT-6), minimum connector data (CONN-3) |
 | 2 — Server | `m2` | Configuration from the environment (OPS-7); store-before-send and wrapped keys strengthen OFF-3 and SEC-10 |
 | 3 — First app | `m3` | No lost input (UX-5), colour never the only carrier of meaning (A11Y-3) |
+| 4 — Several UHS | `m4` | Several on-site care units with a load overview (UHS-4) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -97,5 +98,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3 docs platform modules packages acceptance
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4 docs platform modules packages acceptance
 ```
