@@ -496,6 +496,28 @@ Needs: impl, utest, itest
 
 Tags: must, m12
 
+#### Attachments
+`dsn~attachments~1`
+
+Attachments are encrypted on the device and named by the BLAKE3 hash of their ciphertext
+([ADR-0033](../adr/0033-attachments-in-an-object-store.md)). A device asks over its
+authenticated sync connection for a ticket (`blobTicket`: incident, compartment, hash,
+size, direction); the server grants it if the user may write (upload) or read (download)
+that stream, and for downloads only if the attachment was uploaded to that stream. The
+bytes travel over HTTP, `PUT`/`GET /blobs/<hash>` with `Authorization: Bearer <ticket>`;
+tickets are valid ten minutes, upload tickets once. The server checks size and hash, stores
+the bytes with `object_store` under `blobs/<2 hex>/<hash>` (local directory
+`<ORDO_DATA_DIR>/blobs`; S3-compatible stores follow with Garage) and records the stream in
+the `blobs` table. Largest attachment: `ORDO_MAX_BLOB_MB` (default 20).
+
+Covers:
+
+* [req~off-6~1](../requirements/07-quality.md#off-6--attachments)
+
+Needs: impl, itest
+
+Tags: must, m13
+
 #### Treatment places
 `dsn~treatment-places~1`
 

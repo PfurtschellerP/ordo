@@ -121,14 +121,25 @@ the order ORDO, identity provider, Gravatar
 ([ADR-0047](../../docs/adr/0047-profile-pictures.md)), and MUST accept only JPEG, PNG or
 WebP images of at most 128 KiB.
 
-## 9. Changes and open points
+## 9. Attachments
+
+Attachments are encrypted on the device and named by the BLAKE3 hash of their ciphertext
+([ADR-0033](../../docs/adr/0033-attachments-in-an-object-store.md)). A device asks for a
+ticket with `blobTicket`. The server MUST grant an upload ticket only if the user may write
+the given stream and the size is within its limit, and a download ticket only if the user
+may read the stream and the attachment was uploaded to it. The bytes travel over HTTP:
+`PUT /blobs/<hash>` and `GET /blobs/<hash>` (lower-case hex) with
+`Authorization: Bearer <ticket>`. The server MUST refuse an upload whose size or BLAKE3
+hash differs from the name (HTTP 422), and use an upload ticket only once.
+
+## 10. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
 (§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
 (`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md));
 devices are listed and revoked over the connection (§6, `permissions`, `revoked`);
 incidents and roles per incident (§7, `listIncidents`, `rolesChanged`); profile pictures
-(§8).
+(§8); attachments (§9).
 
 Open for draft 2:
 

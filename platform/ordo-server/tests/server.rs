@@ -13,7 +13,7 @@ use ordo_med_patients::{self as patients, PatientRegister, Registered};
 use ordo_server::config::to_hex;
 use ordo_server::{Config, Running, ServerError, start};
 use ordo_sync::Replica;
-use ordo_sync::message::{self, ClientMessage, ServerMessage};
+use ordo_sync::message::{self, BlobRequest, ClientMessage, ServerMessage};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -175,6 +175,31 @@ impl Client {
         }
     }
 
+    /// Asks for an attachment ticket and waits for the answer.
+    async fn blob_ticket(&mut self, hash: [u8; 32], size: u64, upload: bool) -> Option<String> {
+        self.send(ClientMessage::BlobTicket(BlobRequest {
+            incident: incident(),
+            compartment: "med.clinical".parse().unwrap(),
+            hash,
+            size,
+            upload,
+        }))
+        .await;
+        loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), self.socket.next())
+                .await
+                .expect("timed out waiting for the ticket")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                match message::decode::<ServerMessage>(&bytes).unwrap() {
+                    ServerMessage::BlobTicket(t) if t.hash == hash => return t.ticket,
+                    other => self.replica.receive(other, now()).unwrap(),
+                }
+            }
+        }
+    }
+
     async fn sync(&mut self) {
         if let Some(push) = self.replica.push() {
             self.send(push).await;
@@ -227,6 +252,111 @@ fn counts_of(replica: &Replica) -> Vec<(u32, u32, u32)> {
         .values()
         .map(|c| (c.immediate, c.urgent, c.minor))
         .collect()
+}
+
+/// A raw HTTP request with an optional ticket and body: (status, body).
+async fn http(
+    addr: std::net::SocketAddr,
+    method: &str,
+    path: &str,
+    ticket: Option<&str>,
+    body: &[u8],
+) -> (u16, Vec<u8>) {
+    let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+    let auth = ticket.map_or_else(String::new, |t| format!("Authorization: Bearer {t}\r\n"));
+    let head = format!(
+        "{method} {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n{auth}Content-Length: {}\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(head.as_bytes()).await.unwrap();
+    stream.write_all(body).await.unwrap();
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response).await.unwrap();
+    let text = String::from_utf8_lossy(&response);
+    let status = text.split_whitespace().nth(1).unwrap().parse().unwrap();
+    let start = response
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map_or(response.len(), |i| i + 4);
+    (status, response[start..].to_vec())
+}
+
+// [itest->dsn~attachments~1]
+/// Attachments: a medic uploads an encrypted attachment of the clinical stream with a
+/// ticket; another medic downloads it; the commander gets no ticket; a ticket is bound to
+/// its hash and direction; content that does not match its hash is refused.
+#[tokio::test(flavor = "multi_thread")]
+async fn attachments_follow_the_rules_of_their_stream() {
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [6; 32]);
+    let running = start_server(dir.path()).await.unwrap();
+    let addr = running.addr;
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    anna.settle().await;
+    let blob = b"ciphertext of a photo".to_vec();
+    let hash = *blake3::hash(&blob).as_bytes();
+    let path = format!("/blobs/{}", blob_hex(&hash));
+
+    let upload = anna
+        .blob_ticket(hash, blob.len() as u64, true)
+        .await
+        .expect("medic may upload");
+    let mut wrong = blob.clone();
+    wrong[0] ^= 1;
+    assert_eq!(
+        http(addr, "PUT", &path, Some(&upload), &wrong).await.0,
+        422,
+        "content that does not match its hash is refused"
+    );
+    let upload = anna
+        .blob_ticket(hash, blob.len() as u64, true)
+        .await
+        .unwrap();
+    assert_eq!(http(addr, "PUT", &path, Some(&upload), &blob).await.0, 201);
+    assert_eq!(
+        http(addr, "PUT", &path, Some(&upload), &blob).await.0,
+        403,
+        "an upload ticket is used once"
+    );
+
+    let mut clara = Client::connect(addr, replica("clara")).await;
+    clara.settle().await;
+    let download = clara
+        .blob_ticket(hash, 0, false)
+        .await
+        .expect("medic may download");
+    assert_eq!(
+        http(addr, "GET", &path, Some(&download), b"").await,
+        (200, blob.clone())
+    );
+    assert_eq!(
+        http(addr, "GET", &path, None, b"").await.0,
+        403,
+        "no ticket, no attachment"
+    );
+    assert_eq!(
+        http(addr, "PUT", &path, Some(&download), &blob).await.0,
+        403,
+        "a download ticket does not upload"
+    );
+
+    let mut ben = Client::connect(addr, replica("ben")).await;
+    ben.settle().await;
+    assert_eq!(
+        ben.blob_ticket(hash, 0, false).await,
+        None,
+        "the commander gets no clinical attachments"
+    );
+    let unknown = *blake3::hash(b"never uploaded").as_bytes();
+    assert_eq!(
+        clara.blob_ticket(unknown, 0, false).await,
+        None,
+        "no ticket for an attachment that is not in the stream"
+    );
+}
+
+fn blob_hex(hash: &[u8; 32]) -> String {
+    hash.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 async fn http_get(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
@@ -358,7 +488,10 @@ async fn the_database_holds_no_clinical_plaintext() {
 
     let mut bytes = Vec::new();
     for entry in std::fs::read_dir(dir.path().join("data")).unwrap() {
-        bytes.extend(std::fs::read(entry.unwrap().path()).unwrap());
+        let path = entry.unwrap().path();
+        if path.is_file() {
+            bytes.extend(std::fs::read(path).unwrap());
+        }
     }
     assert!(!bytes.is_empty());
     assert!(

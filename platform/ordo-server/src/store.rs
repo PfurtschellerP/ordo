@@ -63,6 +63,16 @@ const SCHEMA: &[&str] = &[
         public_key BLOB NOT NULL,
         paired_ms INTEGER NOT NULL
     ) STRICT",
+    // Attachments (ADR-0033): the stream each one belongs to; the encrypted bytes are in
+    // the object store, named by their BLAKE3 hash.
+    "CREATE TABLE IF NOT EXISTS blobs (
+        hash TEXT NOT NULL,
+        incident TEXT NOT NULL,
+        compartment TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        stored_ms INTEGER NOT NULL,
+        PRIMARY KEY (hash, incident, compartment)
+    ) STRICT",
     // Profile pictures per source: `ordo` (uploaded), `provider` (identity provider's
     // `picture`), `gravatar` (ADR-0047).
     "CREATE TABLE IF NOT EXISTS avatars (
@@ -222,6 +232,40 @@ impl Store {
                 Ok((stream, event))
             })
             .collect()
+    }
+
+    /// Records that the attachment `hash` belongs to a stream (after its upload).
+    pub async fn add_blob(
+        &self,
+        hash: &str,
+        stream: &StreamKey,
+        size: u64,
+        now_ms: u64,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO blobs (hash, incident, compartment, size, stored_ms) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(hash)
+        .bind(stream.0.to_string())
+        .bind(stream.1.as_str())
+        .bind(i64::try_from(size).unwrap_or(i64::MAX))
+        .bind(ms(now_ms))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Whether the attachment `hash` belongs to the stream.
+    pub async fn blob_in(&self, hash: &str, stream: &StreamKey) -> Result<bool, StoreError> {
+        let row =
+            sqlx::query("SELECT 1 FROM blobs WHERE hash = ? AND incident = ? AND compartment = ?")
+                .bind(hash)
+                .bind(stream.0.to_string())
+                .bind(stream.1.as_str())
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(row.is_some())
     }
 
     /// Sets (`Some`) or removes (`None`) the profile picture of `user` from `source`.

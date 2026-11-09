@@ -15,13 +15,14 @@ use futures_util::{SinkExt, StreamExt};
 use ordo_core::{DeviceId, ServerName, UserId};
 use ordo_crypto::ed25519_dalek::VerifyingKey;
 use ordo_crypto::seal::DataKey;
-use ordo_sync::message::{self, Avatar, ClientMessage, ServerMessage};
+use ordo_sync::message::{self, Avatar, BlobRequest, BlobTicket, ClientMessage, ServerMessage};
 use ordo_sync::{Hub, SessionId};
 
 use crate::authz::RolePolicy;
 use crate::login::{self, Login};
 use tokio::sync::{Mutex, mpsc, watch};
 
+use crate::blobs::Blobs;
 use crate::store::{AvatarSource, Store, StoreError};
 
 /// Shared state of the running server.
@@ -37,6 +38,8 @@ pub struct App {
     pub(crate) access_timeout: std::time::Duration,
     /// Look up profile pictures at Gravatar (ADR-0047).
     pub(crate) gravatar: bool,
+    /// Attachments (ADR-0033).
+    pub(crate) blobs: Blobs,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
@@ -62,6 +65,7 @@ impl App {
         login: Option<Login>,
         access_timeout: std::time::Duration,
         gravatar: bool,
+        blobs: Blobs,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -72,6 +76,7 @@ impl App {
             login,
             access_timeout,
             gravatar,
+            blobs,
             sessions: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
@@ -176,6 +181,14 @@ impl App {
             .route("/auth/device", post(login::device_start))
             .route("/auth/device/{id}", get(login::device_status))
             .route("/auth/device/{id}/qr.svg", get(login::device_qr))
+            .route(
+                "/blobs/{hash}",
+                get(crate::blobs::get).put(crate::blobs::put).layer(
+                    axum::extract::DefaultBodyLimit::max(
+                        usize::try_from(self.blobs.max_bytes).unwrap_or(usize::MAX),
+                    ),
+                ),
+            )
             .with_state(self);
         let router = match app_dir {
             Some(dir) => {
@@ -212,6 +225,9 @@ impl App {
         if let ClientMessage::GetAvatars(_) | ClientMessage::SetAvatar(_) = &message {
             return self.avatars(session, message).await;
         }
+        if let ClientMessage::BlobTicket(request) = message {
+            return self.blob_ticket(session, request).await;
+        }
         let mut hub = self.hub.lock().await;
         let outgoing = hub.handle(session, message, now_ms());
         let changes = hub.take_changes();
@@ -237,6 +253,53 @@ impl App {
             if let Some(sender) = sender {
                 let _ = sender.send(out.message);
             }
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~attachments~1]
+    /// Answers `blobTicket`: a ticket if the user may write (upload) or read (download) the
+    /// attachment's stream, and — for downloads — the attachment belongs to that stream.
+    async fn blob_ticket(
+        &self,
+        session: SessionId,
+        request: BlobRequest,
+    ) -> Result<(), StoreError> {
+        let allowed = {
+            let hub = self.hub.lock().await;
+            hub.session_user(session).is_some_and(|user| {
+                hub.can_access(
+                    &user,
+                    &request.incident,
+                    &request.compartment,
+                    request.upload,
+                )
+            })
+        };
+        let stream = (request.incident.clone(), request.compartment.clone());
+        let allowed = allowed
+            && if request.upload {
+                request.size <= self.blobs.max_bytes
+            } else {
+                self.store
+                    .blob_in(&crate::blobs::hex(&request.hash), &stream)
+                    .await?
+            };
+        let ticket = allowed.then(|| {
+            self.blobs
+                .issue(request.hash, request.size, request.upload, stream)
+        });
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::BlobTicket(BlobTicket {
+                hash: request.hash,
+                upload: request.upload,
+                ticket,
+            }));
         }
         Ok(())
     }

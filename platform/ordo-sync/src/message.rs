@@ -26,6 +26,40 @@ pub enum ClientMessage {
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
     SetAvatar(AvatarImage),
+    /// Asks for a ticket to upload or download an attachment (ADR-0033).
+    BlobTicket(BlobRequest),
+}
+
+/// A request for an attachment ticket. Attachments are encrypted on the device and named
+/// by the BLAKE3 hash of their ciphertext; each belongs to a stream (incident and
+/// compartment), whose need-to-know rules decide (ADR-0033).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlobRequest {
+    /// The incident.
+    pub incident: IncidentId,
+    /// The compartment of the event that refers to the attachment.
+    pub compartment: CompartmentId,
+    /// BLAKE3 hash of the ciphertext.
+    #[serde(with = "fixed_bytes")]
+    pub hash: [u8; 32],
+    /// Size in bytes (for uploads; ignored for downloads).
+    pub size: u64,
+    /// Upload (`true`) or download.
+    pub upload: bool,
+}
+
+/// The answer to a [`BlobRequest`]: a ticket for `PUT`/`GET /blobs/<hash>` (header
+/// `Authorization: Bearer <ticket>`), or none if not allowed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlobTicket {
+    /// The attachment.
+    #[serde(with = "fixed_bytes")]
+    pub hash: [u8; 32],
+    /// Upload or download.
+    pub upload: bool,
+    /// The ticket, valid for a few minutes; `None`: not allowed (or too large).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
 }
 
 /// An uploaded profile picture: JPEG, PNG or WebP, at most [`MAX_AVATAR_BYTES`].
@@ -152,6 +186,8 @@ pub enum ServerMessage {
     Incidents(Vec<IncidentSummary>),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
+    /// Answer to `blobTicket`.
+    BlobTicket(BlobTicket),
 }
 
 /// Which streams the device gets, and the keys it needs.

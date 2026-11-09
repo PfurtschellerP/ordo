@@ -284,6 +284,24 @@ impl<P: AccessPolicy> Hub<P> {
         self.revoked.insert(device);
     }
 
+    /// Whether `user` may read (or, with `write`, write) `compartment` of `incident`, with
+    /// their roles in it: for attachments, which follow the rules of their stream.
+    pub fn can_access(
+        &self,
+        user: &UserId,
+        incident: &IncidentId,
+        compartment: &CompartmentId,
+        write: bool,
+    ) -> bool {
+        let roles = self.registry.roles(user, incident);
+        if write {
+            self.policy
+                .can_write(user, incident, compartment, "", &roles)
+        } else {
+            self.policy.can_read(user, incident, compartment, &roles)
+        }
+    }
+
     /// The user of an authenticated connection.
     pub fn session_user(&self, session: SessionId) -> Option<UserId> {
         self.sessions.get(&session).map(|s| s.user.clone())
@@ -455,7 +473,11 @@ impl<P: AccessPolicy> Hub<P> {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
             // Profile pictures are kept by the server's store, not by the hub.
-            ClientMessage::GetAvatars(_) | ClientMessage::SetAvatar(_) => Vec::new(),
+            // Profile pictures and attachments are kept by the server's stores, not by the
+            // hub (it checks access with `can_access`).
+            ClientMessage::GetAvatars(_)
+            | ClientMessage::SetAvatar(_)
+            | ClientMessage::BlobTicket(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),

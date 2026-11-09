@@ -11,6 +11,7 @@ client-message = { "hello": hello }
                / "listDevices"                ; own devices, all with manage_devices
                / { "revokeDevice": device-id } ; own device, any with manage_devices
                / "listIncidents"              ; incidents with a role; all for planners
+               / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
 
@@ -39,6 +40,7 @@ server-message = { "challenge": challenge }
                / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
                / { "incidents": [* incident-summary] } ; answer to listIncidents
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
+               / { "blobTicket": blob-ticket } ; answer to blobTicket
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {
@@ -62,6 +64,23 @@ device-info = {
   "user": user-id,
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
+}
+
+; Attachments: encrypted on the device, named by the BLAKE3 hash of the ciphertext.
+blob-request = {
+  "incident": incident-id,
+  "compartment": compartment-id,   ; of the event that refers to the attachment
+  "hash": bstr .size 32,
+  "size": uint,                    ; bytes, for uploads
+  "upload": bool,
+}
+
+; A ticket for PUT / GET /blobs/<hex hash> with "Authorization: Bearer <ticket>";
+; absent if not allowed. Valid ten minutes; upload tickets once.
+blob-ticket = {
+  "hash": bstr .size 32,
+  "upload": bool,
+  ? "ticket": tstr,
 }
 
 ; Profile picture, resolved by the server: uploaded in ORDO, else the identity provider's

@@ -40,6 +40,9 @@ pub struct Config {
     /// (`ORDO_GRAVATAR`, `on` or `off`, default `on`; ADR-0047). Devices never contact
     /// Gravatar themselves.
     pub gravatar: bool,
+    /// Largest attachment in bytes (`ORDO_MAX_BLOB_MB`, default 20, 1 to 200; ADR-0033).
+    /// Attachments are stored in `<ORDO_DATA_DIR>/blobs`.
+    pub max_blob_bytes: u64,
 }
 
 /// Default access timeout in hours (ADR-0040).
@@ -225,7 +228,17 @@ impl Config {
             Some("off" | "false" | "0") => false,
             Some(_) => return Err(ConfigError::invalid("ORDO_GRAVATAR", "expected on or off")),
         };
+        let max_blob_mb = match get("ORDO_MAX_BLOB_MB") {
+            None => 20,
+            Some(text) => text
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|m| (1..=200).contains(m))
+                .ok_or_else(|| ConfigError::invalid("ORDO_MAX_BLOB_MB", "expected 1 to 200"))?,
+        };
         Ok(Self {
+            max_blob_bytes: max_blob_mb * 1024 * 1024,
             gravatar,
             admins,
             access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),

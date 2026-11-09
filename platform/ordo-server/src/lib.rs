@@ -6,6 +6,7 @@
 
 mod app;
 pub mod authz;
+mod blobs;
 pub mod config;
 mod login;
 pub mod store;
@@ -211,6 +212,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         login,
         config.access_timeout,
         config.gravatar,
+        blobs::Blobs::local(&config.data_dir.join("blobs"), config.max_blob_bytes)?,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());

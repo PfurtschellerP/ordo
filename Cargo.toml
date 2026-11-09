@@ -62,6 +62,8 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal
 tokio-tungstenite = "0.30"
 zeroize = { version = "1", features = ["derive"] }
 toml = "1"
+# Attachments (ADR-0033): local directory now; S3-compatible stores with Garage later.
+object_store = { version = "0.14", default-features = false, features = ["fs"] }
 toml_edit = "0.25"
 time = { version = "0.3", features = ["std"] }
 tower-http = { version = "0.7", features = ["fs", "set-header"] }

@@ -29,6 +29,11 @@ Environment for `serve`:
   ORDO_PUBLIC_URL        Address of ORDO, e.g. https://ordo.example.org
   ORDO_ACCESS_TIMEOUT_HOURS  How long a device login lasts without re-verification
                          (default 48, from 24 to 720 = 1 to 30 days)
+  ORDO_ADMINS            Administrators by user name, comma-separated, e.g. dora
+                         (plan incidents, grant roles)
+  ORDO_GRAVATAR          Profile pictures from Gravatar: on (default) or off
+  ORDO_MAX_BLOB_MB       Largest attachment in MB (default 20, 1 to 200); attachments
+                         are stored in <ORDO_DATA_DIR>/blobs
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {

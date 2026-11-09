@@ -145,6 +145,15 @@ Needs: dsn
 
 ### 5.3 Performance
 
+#### OFF-6 — Attachments
+`req~off-6~1`
+
+When a device adds an attachment (photo, document, recording), ORDO shall encrypt it on the device, store it on the server only as ciphertext named by its hash, and hand it only to devices whose users may read the stream it belongs to; large attachments shall not travel with the events.
+
+Tags: must, quality, m13
+
+Needs: dsn
+
 #### PERF-1 — Older tablets
 `req~perf-1~1`
 
