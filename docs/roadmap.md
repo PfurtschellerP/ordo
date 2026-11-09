@@ -90,6 +90,11 @@ Done in phase 0:
 
 Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
+Order of the next steps: (1) roles and views; (2) "Betroffene", transport priority and
+treatment places; (3) storage: attachments as encrypted blobs in an object store (local
+directory, or a fully open-source S3-compatible store, reference Garage; ADR-0033) and
+device storage as SQLite on OPFS (ADR-0034); then the rest of this backlog.
+
 **Done already:** palette quick actions bring the opened form into view with the cursor
 in its first field; the app is installable as a PWA (it lacked icons); incidents are
 planned ahead and roles granted per incident (milestone `m11`, ADR-0046): after logging
@@ -184,16 +189,13 @@ Then:
    Scorecard (ADR-0043); later the device lock with WebAuthn PRF or PIN (SEC-13).
 2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
-3. Storage: device storage as SQLite on OPFS in a worker, after a short spike
-   ([ADR-0034](adr/0034-device-storage-sqlite-opfs.md)); attachments as encrypted,
-   content-addressed blobs in an object store ([ADR-0033](adr/0033-attachments-in-an-object-store.md)).
-4. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
+3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-5. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
+4. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
    status codes from the DE profile, releasing units, UHS staff and location.
-6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-7. Command structure as data, medical branch first (ADR-0031).
+6. Command structure as data, medical branch first (ADR-0031).
 
 Later, after the features above:
 

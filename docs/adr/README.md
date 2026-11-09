@@ -37,8 +37,8 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0030](0030-command-palette.md) | Command palette and keyboard shortcuts | accepted, amended by 0036 | 2026-11-08 |
 | [0031](0031-command-structure-from-doctrine.md) | Command structure as data, following the official doctrine | accepted | 2026-11-08 |
 | [0032](0032-reuse-open-source-first.md) | Use existing open-source building blocks before building our own | accepted | 2026-11-08 |
-| [0033](0033-attachments-in-an-object-store.md) | Attachments: encrypted, content-addressed blobs in an object store | proposed | 2026-11-08 |
-| [0034](0034-device-storage-sqlite-opfs.md) | Device storage: SQLite on the browser's file system, in a worker | proposed | 2026-11-08 |
+| [0033](0033-attachments-in-an-object-store.md) | Attachments: encrypted, content-addressed blobs in an object store | accepted | 2026-11-09 |
+| [0034](0034-device-storage-sqlite-opfs.md) | Device storage: SQLite on the browser's file system, in a worker | accepted | 2026-11-09 |
 | [0035](0035-authorization-with-cedar.md) | Roles and permissions as Cedar policies | accepted | 2026-11-08 |
 | [0036](0036-language-independent-shortcuts.md) | Shortcuts and command names are the same in every language | accepted | 2026-11-08 |
 | [0037](0037-epcr-forms-as-fhir-questionnaire.md) | ePCR forms as an HL7 FHIR Questionnaire | accepted | 2026-11-08 |

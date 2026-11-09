@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-08
+status: accepted
+date: 2026-11-09
 ---
 
 # Attachments: encrypted, content-addressed blobs in an object store
@@ -21,7 +21,8 @@ and federated.
 
 ## Decision Outcome
 
-Proposed option: "Events keep a reference; the blob lives in an object store", because
+Chosen option: "Events keep a reference; the blob lives in an object store" (accepted by
+the project lead on 2026-11-09), because
 the event log stays small and fast, and blob storage can scale on its own.
 
 * **Encrypted on the device.** The device encrypts each blob with a fresh random key
@@ -38,9 +39,15 @@ the event log stays small and fast, and blob storage can scale on its own.
   the event. The device keeps an upload queue like its event outbox. The server accepts
   the event before the blob arrives; other devices show "not loaded yet" until it does.
 * **Storage behind one interface.** The server uses the `object_store` crate (Apache
-  Arrow): a local directory by default (single binary), or any S3-compatible store for
-  high availability and distribution, e.g. Garage (designed for small geo-distributed
-  self-hosting) or Ceph. Devices keep blobs in the browser's file system (OPFS,
+  Arrow, Apache-2.0): a local directory by default (single binary, field servers), or an
+  S3-compatible store for high availability and distribution.
+* **Only fully open-source S3-compatible stores.** Supported and tested is what is free
+  software as a whole, without an open-core or commercial-only edition: the reference is
+  [Garage](https://garagehq.deuxfleurs.fr) (AGPL-3.0, Deuxfleurs; designed for small
+  geo-distributed self-hosting, runs on modest hardware), offered in the Compose bundle
+  and used in the tests. Ceph RGW (LGPL) and SeaweedFS (Apache-2.0) also qualify. MinIO
+  is not supported: its community edition lost its management features in 2025, binaries
+  stopped, and the repository was archived in February 2026. Devices keep blobs in the browser's file system (OPFS,
   [ADR-0034](0034-device-storage-sqlite-opfs.md)) and fetch full images on demand or for
   the patients of their own UHS.
 * **Federation.** Partner servers fetch blobs from the home server under the same
@@ -58,4 +65,5 @@ the event log stays small and fast, and blob storage can scale on its own.
 
 ## More Information
 
-Supersedes ADR-0028. Implemented together with the new device storage (roadmap).
+Supersedes ADR-0028. Implemented together with the new device storage (ADR-0034), right
+after the first MANV features (roadmap).

@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-08
+status: accepted
+date: 2026-11-09
 ---
 
 # Device storage: SQLite on the browser's file system, in a worker
@@ -19,7 +19,7 @@ Devices must keep a whole incident, with attachments, for days, offline.
 
 ## Decision Outcome
 
-Proposed option: "SQLite on OPFS in a worker", because it reuses SQLite, the same
+Chosen option (accepted by the project lead on 2026-11-09): "SQLite on OPFS in a worker", because it reuses SQLite, the same
 database the server uses by default: same schema and queries, append-only writes,
 storage in the gigabytes, and a mature engine instead of our own snapshot format.
 
