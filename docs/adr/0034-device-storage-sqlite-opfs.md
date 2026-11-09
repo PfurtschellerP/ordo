@@ -43,3 +43,26 @@ speed, and the worker boundary with Leptos. If the spike fails, IndexedDB is use
 
 Roadmap item 1. Replaces the local-persistence design of the prototype
 (architecture 5.5.3).
+
+### Spike results (2026-11-09)
+
+* **Building blocks** (all open source): [`rusqlite`](https://github.com/rusqlite/rusqlite)
+  0.41 (MIT) on `wasm32-unknown-unknown` via
+  [`sqlite-wasm-rs`](https://github.com/Spxg/sqlite-wasm-rs) 0.6 (MIT, SQLite compiled to
+  WebAssembly) and `sqlite-wasm-vfs` 0.3 with the `sahpool` VFS (OPFS sync access handles,
+  in a dedicated worker; no special HTTP headers needed). `sqlite-wasm-rs` can also build
+  SQLite3 Multiple Ciphers (MIT) to encrypt the whole database with the storage key of
+  ADR-0041.
+* **Works** in Firefox and Chromium: a worker opens a database in OPFS, writes, and finds
+  the rows again after a reload. WebKit (Safari, iPadOS) is to be confirmed in CI, where
+  WebKit runs.
+* **Size:** SQLite adds 1.08 MB of WebAssembly (484 KB compressed) to today's app (1.35 MB,
+  567 KB compressed): about 1 MB compressed in total, cached once by the offline app.
+* **Build:** compiling SQLite for WebAssembly needs `clang`; GitHub's runners have it,
+  developers install it (`dnf install clang`, `apt install clang`).
+* **Open point:** `sqlite-wasm-rs` 0.6.2 bundles SQLite 3.53.4, before the fix of
+  RUSTSEC-2026-0459. On the device the database lives in the app's own OPFS area, which
+  only the app's own code can write; update as soon as a release bundles 3.54.
+* **Decision:** go ahead with SQLite on OPFS (no IndexedDB fallback needed for the
+  browsers tested).
+
