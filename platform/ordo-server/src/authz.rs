@@ -30,6 +30,10 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
     ),
 ];
 
+/// The app's views and functions decided per incident (Cedar actions on the incident's
+/// shared compartment), see `ordo.cedarschema`.
+pub const INCIDENT_PERMISSIONS: [&str; 2] = ["view_situation", "edit_units"];
+
 /// A policy file could not be used.
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyError {
@@ -146,6 +150,19 @@ impl RolePolicy {
         compartment: &CompartmentId,
         incident_roles: &[String],
     ) -> bool {
+        self.allows_module(user, action, incident, compartment, "", incident_roles)
+    }
+
+    /// Like [`Self::allows`], for writing an event of `module` (e.g. `units`).
+    pub fn allows_module(
+        &self,
+        user: &UserId,
+        action: &str,
+        incident: &IncidentId,
+        compartment: &CompartmentId,
+        module: &str,
+        incident_roles: &[String],
+    ) -> bool {
         let mut roles = self.roles.of(user);
         roles.extend(incident_roles.iter().cloned());
         let context = Context::from_pairs([
@@ -158,6 +175,10 @@ impl RolePolicy {
             (
                 "incident".to_owned(),
                 RestrictedExpression::new_string(incident.to_string()),
+            ),
+            (
+                "module".to_owned(),
+                RestrictedExpression::new_string(module.to_owned()),
             ),
         ]);
         let Ok(context) = context else { return false };
@@ -231,9 +252,25 @@ impl AccessPolicy for RolePolicy {
         user: &UserId,
         incident: &IncidentId,
         compartment: &CompartmentId,
+        module: &str,
         roles: &[String],
     ) -> bool {
-        self.allows(user, "write", incident, compartment, roles)
+        self.allows_module(user, "write", incident, compartment, module, roles)
+    }
+
+    // [impl->dsn~views-by-role~1]
+    fn incident_permissions(
+        &self,
+        user: &UserId,
+        incident: &IncidentId,
+        roles: &[String],
+    ) -> Vec<String> {
+        let shared: CompartmentId = "incident".parse().expect("valid compartment");
+        INCIDENT_PERMISSIONS
+            .iter()
+            .filter(|action| self.allows(user, action, incident, &shared, roles))
+            .map(|action| (*action).to_owned())
+            .collect()
     }
 }
 
@@ -277,7 +314,7 @@ mod tests {
             p.can_read(&user("anna"), &incident, &clinical, &[]),
             "medics read clinical data"
         );
-        assert!(p.can_write(&user("anna"), &incident, &shared, &[]));
+        assert!(p.can_write(&user("anna"), &incident, &shared, "", &[]));
         assert!(
             p.can_read(&user("ben"), &incident, &shared, &[]),
             "commanders read incident data"
@@ -349,6 +386,33 @@ mod tests {
         );
     }
 
+    // [utest->dsn~views-by-role~1]
+    #[test]
+    fn views_and_unit_changes_follow_the_role() {
+        let p = policy(&[]).expect("valid");
+        let (incident, shared) = (incident(), compartment("incident"));
+        let erik = user("erik");
+        let medic = ["medic".to_owned()];
+        let commander = ["commander".to_owned()];
+        assert!(
+            p.incident_permissions(&erik, &incident, &medic).is_empty(),
+            "UHS crews: no situation view"
+        );
+        assert_eq!(
+            p.incident_permissions(&erik, &incident, &commander),
+            ["view_situation", "edit_units"]
+        );
+        assert!(
+            p.can_write(&erik, &incident, &shared, "med.uhs", &medic),
+            "medics manage UHS"
+        );
+        assert!(
+            !p.can_write(&erik, &incident, &shared, "units", &medic),
+            "but not units"
+        );
+        assert!(p.can_write(&erik, &incident, &shared, "units", &commander));
+    }
+
     // [utest->dsn~role-policies~1]
     #[test]
     fn organisations_add_roles_without_code() {
@@ -371,6 +435,7 @@ mod tests {
             &user("clara"),
             &incident(),
             &compartment("med.clinical"),
+            "",
             &[]
         ));
     }

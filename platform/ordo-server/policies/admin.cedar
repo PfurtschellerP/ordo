@@ -22,7 +22,15 @@ permit (
 when { context.roles.contains("planner") || context.roles.contains("admin") };
 
 // Planners see and edit the shared data of every incident (name, roster, units), never
-// clinical data.
+// clinical data, and use the incident command's views to prepare it.
+@id("admin.planner-views")
+permit (
+  principal,
+  action in [Action::"view_situation", Action::"edit_units"],
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("planner") || context.roles.contains("admin") };
+
 @id("admin.planner-incident")
 permit (
   principal,

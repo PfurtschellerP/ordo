@@ -297,11 +297,20 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
         if !c.replica.is_ready() {
             return Err(text::REASON_NOT_CONNECTED);
         }
-        if workspace.requires.iter().all(|comp| {
+        let readable = workspace.requires.iter().all(|comp| {
             c.incident
                 .as_ref()
                 .is_some_and(|i| c.replica.is_granted(i, comp))
-        }) {
+        });
+        // [impl->dsn~views-by-role~1]
+        // Views follow the roles in this incident (decided by the server's policies).
+        let permitted = workspace
+            .permission
+            .is_none_or(|p| c.incident.as_ref().is_some_and(|i| c.replica.may(i, p)))
+            || workspace
+                .or_organisation
+                .is_some_and(|p| c.replica.has_permission(p));
+        if readable && permitted {
             Ok(())
         } else {
             Err(text::REASON_NO_ACCESS)
@@ -964,6 +973,16 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 /// Units (vehicles, teams, other resources) with status (UNIT-1…3).
 #[component]
 fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    // [impl->dsn~views-by-role~1]
+    // Adding units and setting their status: incident command only (`edit_units`).
+    let can_edit = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, "edit_units"))
+        })
+    });
     let call_sign = RwSignal::new(String::new());
     let unit_type = RwSignal::new(String::new());
     let organisation = RwSignal::new(String::new());
@@ -1002,6 +1021,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }}
             {move || {
                 let units = register.get().units;
+                let editable = can_edit.get();
                 if units.is_empty() {
                     return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
                 }
@@ -1023,6 +1043,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         <h3 class="unit-card__name">{u.unit.clone()}</h3>
                                         <p class="unit-card__details">{details}</p>
                                         <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
+                                        {editable.then(|| view! {
                                         <select
                                             aria-label=text::set_status_label(&unit)
                                             on:change=move |ev| {
@@ -1038,6 +1059,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                                 .map(|(code, _)| view! { <option value=*code selected=*code == current>{text::status_label(code)}</option> })
                                                 .collect_view()}
                                         </select>
+                                        })}
                                     </li>
                                 }
                             })
@@ -1046,6 +1068,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 .into_any()
             }}
+            <Show when=move || can_edit.get()>
             <form on:submit=submit class="form form--inline">
                 <div class="field">
                     <label for="unit-call-sign">{text::UNIT_CALL_SIGN}</label>
@@ -1061,6 +1084,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </div>
                 <button type="submit" class="button">{text::UNIT_SUBMIT}</button>
             </form>
+            </Show>
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
     }

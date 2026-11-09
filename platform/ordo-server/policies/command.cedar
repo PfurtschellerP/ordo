@@ -10,6 +10,16 @@ permit (
 )
 when { context.roles.contains("commander") };
 
+// The incident command sees the situation of the whole incident (every UHS's load and
+// counts, never clinical details) and manages units.
+@id("command.commander-views")
+permit (
+  principal,
+  action in [Action::"view_situation", Action::"edit_units"],
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("commander") };
+
 // The incident command grants and withdraws roles in its incident (ADR-0046).
 @id("command.commander-assigns-roles")
 permit (

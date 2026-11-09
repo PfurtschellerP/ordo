@@ -15,14 +15,25 @@ pub trait AccessPolicy: Send {
         compartment: &CompartmentId,
         roles: &[String],
     ) -> bool;
-    /// Whether `user` may write to `compartment` of `incident`.
+    /// Whether `user` may write an event of `module` to `compartment` of `incident`.
     fn can_write(
         &self,
         user: &UserId,
         incident: &IncidentId,
         compartment: &CompartmentId,
+        module: &str,
         roles: &[String],
     ) -> bool;
+    /// The app's views and functions `user` may use in `incident` with `roles`, e.g.
+    /// `view_situation`, `edit_units`; the server sends them in the welcome.
+    fn incident_permissions(
+        &self,
+        _user: &UserId,
+        _incident: &IncidentId,
+        _roles: &[String],
+    ) -> Vec<String> {
+        Vec::new()
+    }
     /// Whether `user` may see and revoke the devices of everyone (not only their own).
     fn can_manage_devices(&self, _user: &UserId) -> bool {
         false
@@ -122,6 +133,7 @@ impl AccessPolicy for StaticPolicy {
         user: &UserId,
         incident: &IncidentId,
         compartment: &CompartmentId,
+        _module: &str,
         roles: &[String],
     ) -> bool {
         self.can_read(user, incident, compartment, roles)

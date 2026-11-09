@@ -326,21 +326,29 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
             }
             list
         }
-        Page::Unit(unit) => text::STATUS_CODES
-            .iter()
-            .map(|(code, _)| {
-                let name = STATUS_NAMES.iter().find(|(c, _)| c == code).map_or_else(
-                    || format!("status {code}"),
-                    |(c, n)| format!("status {c} {n}"),
-                );
-                let action = Action::SetStatus(unit.clone(), (*code).to_owned());
-                Item {
-                    detail: unit.clone(),
-                    suggested: true,
-                    ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
-                }
-            })
-            .collect(),
+        Page::Unit(unit) => {
+            let can_edit = core.with_value(|c| {
+                c.incident
+                    .as_ref()
+                    .is_some_and(|i| c.replica.may(i, "edit_units"))
+            });
+            text::STATUS_CODES
+                .iter()
+                .map(|(code, _)| {
+                    let name = STATUS_NAMES.iter().find(|(c, _)| c == code).map_or_else(
+                        || format!("status {code}"),
+                        |(c, n)| format!("status {c} {n}"),
+                    );
+                    let action = Action::SetStatus(unit.clone(), (*code).to_owned());
+                    Item {
+                        detail: unit.clone(),
+                        suggested: true,
+                        disabled: (!can_edit).then_some(text::REASON_NO_ACCESS),
+                        ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
+                    }
+                })
+                .collect()
+        }
     }
 }
 

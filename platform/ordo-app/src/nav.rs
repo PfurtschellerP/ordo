@@ -32,6 +32,11 @@ pub struct Workspace {
     pub label: &'static str,
     /// Compartments the user must be able to read.
     pub requires: &'static [&'static str],
+    /// A permission the user's roles must give in this incident (e.g. `view_situation`),
+    /// decided by the server's policies.
+    pub permission: Option<&'static str>,
+    /// An organisation permission that opens the workspace as well (e.g. `manage_devices`).
+    pub or_organisation: Option<&'static str>,
     /// Views, in navigation order. The first is the start view.
     pub views: &'static [View],
 }
@@ -43,6 +48,8 @@ pub const WORKSPACES: &[Workspace] = &[
         package: text::TAB_MED,
         label: "UHS",
         requires: &["incident", "med.clinical"],
+        permission: None,
+        or_organisation: None,
         views: &[
             View {
                 id: "patients",
@@ -61,6 +68,9 @@ pub const WORKSPACES: &[Workspace] = &[
         package: text::TAB_COMMAND,
         label: "Lage",
         requires: &["incident"],
+        // The incident command's view; UHS crews do not see it.
+        permission: Some("view_situation"),
+        or_organisation: None,
         views: &[
             View {
                 id: "counts",
@@ -79,12 +89,15 @@ pub const WORKSPACES: &[Workspace] = &[
             },
         ],
     },
-    // Every user sees their own devices; with `manage_devices`, all of them.
+    // The incident command sees its own devices; with `manage_devices` (administrators),
+    // all devices. UHS crews unpair their device in the menu.
     Workspace {
         id: "org.devices",
         package: text::TAB_ORGANISATION,
         label: text::DEVICES,
         requires: &[],
+        permission: Some("view_situation"),
+        or_organisation: Some("manage_devices"),
         views: &[View {
             id: "devices",
             label: text::DEVICES,

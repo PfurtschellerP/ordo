@@ -51,6 +51,8 @@ welcome = {
   "protected": [* compartment-id],
   "keys": [* key-grant],
   ? "permissions": [* tstr],       ; beyond compartments, e.g. "manage_devices"
+  ? "incident_permissions": [* { "incident": incident-id, "permissions": [* tstr] }],
+                                   ; views per incident, e.g. "view_situation"
   ? "valid_until": uint,           ; end of this device's login (ms since 1970); the
                                    ; device locks itself afterwards, also offline
 }

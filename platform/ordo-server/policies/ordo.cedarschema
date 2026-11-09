@@ -12,9 +12,22 @@ entity Compartment;
 type Request = {
   roles: Set<String>,
   incident: String,
+  // The module of the event being written, e.g. "units"; empty for reading and for the
+  // view permissions.
+  module: String,
 };
 
 action read, write appliesTo {
+  principal: [User],
+  resource: [Compartment],
+  context: Request,
+};
+
+// Views and functions of the app in an incident (resource: Compartment::"incident"); the
+// server tells each device which of them the user's roles allow.
+//   view_situation: the incident command's situation view (counts per UHS, units, roster)
+//   edit_units: add units and set their status
+action view_situation, edit_units appliesTo {
   principal: [User],
   resource: [Compartment],
   context: Request,

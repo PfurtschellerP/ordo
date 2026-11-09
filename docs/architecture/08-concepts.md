@@ -474,6 +474,27 @@ Needs: impl, utest, itest
 
 Tags: must, m11
 
+#### Views by role
+`dsn~views-by-role~1`
+
+What a person sees follows their roles in the incident, decided by Cedar on the server:
+the welcome lists, per incident, the app's views and functions the roles allow
+(`view_situation`, `edit_units`). The situation view (counts and load of every UHS, units,
+roster) and the device list need `view_situation` (the device list also opens with the
+organisation permission `manage_devices`); adding units and setting their status needs
+`edit_units`. The server enforces it for every event: the Cedar request carries the event's
+module, so the default policies let medics write the shared compartment except `units`.
+Default roles: `commander` sees the whole incident without clinical details; `medic` works
+in the UHS views only. Organisations widen or narrow this in their own policies.
+
+Covers:
+
+* [req~org-6~1](../requirements/02-shared.md#org-6--incidents-planned-ahead-roles-per-incident)
+
+Needs: impl, utest, itest
+
+Tags: must, m11
+
 ## 8.6 Design system and accessibility
 
 Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).

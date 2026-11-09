@@ -76,6 +76,8 @@ pub struct Replica {
     valid_until: Option<u64>,
     /// Permissions beyond compartments, from the last welcome (e.g. `manage_devices`).
     permissions: Vec<String>,
+    /// Views and functions per incident, from the last welcome (e.g. `view_situation`).
+    incident_permissions: Vec<crate::message::IncidentPermissions>,
 }
 
 impl Replica {
@@ -102,6 +104,7 @@ impl Replica {
             challenge: None,
             valid_until: None,
             permissions: Vec::new(),
+            incident_permissions: Vec::new(),
         }
     }
 
@@ -252,6 +255,13 @@ impl Replica {
         self.permissions.iter().any(|p| p == permission)
     }
 
+    /// Whether the user may use a view or function (e.g. `view_situation`) in `incident`.
+    pub fn may(&self, incident: &IncidentId, permission: &str) -> bool {
+        self.incident_permissions
+            .iter()
+            .any(|p| &p.incident == incident && p.permissions.iter().any(|q| q == permission))
+    }
+
     /// Whether the server granted the stream.
     pub fn is_granted(&self, incident: &IncidentId, compartment: &str) -> bool {
         compartment
@@ -358,6 +368,7 @@ impl Replica {
                 self.protected = Some(welcome.protected);
                 self.valid_until = welcome.valid_until;
                 self.permissions = welcome.permissions;
+                self.incident_permissions = welcome.incident_permissions;
                 for sub in welcome.granted {
                     let key = (sub.incident, sub.compartment);
                     self.denied.remove(&key);

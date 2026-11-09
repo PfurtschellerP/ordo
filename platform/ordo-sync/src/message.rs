@@ -58,6 +58,15 @@ pub fn is_avatar_image(bytes: &[u8]) -> bool {
             || (bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP"))
 }
 
+/// The app's views and functions a user may use in one incident.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncidentPermissions {
+    /// The incident.
+    pub incident: IncidentId,
+    /// Permission names, e.g. `view_situation`, `edit_units`.
+    pub permissions: Vec<String>,
+}
+
 /// An incident as listed for a person (ADR-0046).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IncidentSummary {
@@ -160,6 +169,10 @@ pub struct Welcome {
     /// `manage_devices`; the app shows or hides functions accordingly (ADR-0035).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub permissions: Vec<String>,
+    /// Per subscribed incident: the app's views and functions the user's roles allow there
+    /// (e.g. `view_situation`, `edit_units`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub incident_permissions: Vec<IncidentPermissions>,
     /// Until when (ms since the Unix epoch) the login of this device is valid; the device
     /// locks itself afterwards, also offline, until the person logs in again (ADR-0040).
     /// `None`: no limit (devices paired by hand for development).

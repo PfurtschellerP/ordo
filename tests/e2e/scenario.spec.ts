@@ -274,6 +274,9 @@ test("ORDO in the browser", async () => {
     expect(badges.every(Boolean), "every triage badge has a shape and a text label").toBe(true);
     await audit(anna, "Med workspace");
     await anna.locator("#launcher-button").click();
+    // [itest->dsn~views-by-role~1]
+    await expect(anna.locator("#reason-command-situation"), "UHS crews do not see the situation view").toHaveText("Kein Zugriff in diesem Einsatz");
+    await expect(anna.locator("#reason-org-devices"), "nor the device list").toHaveText("Kein Zugriff in diesem Einsatz");
     await audit(anna, "Launcher (medic)");
     await anna.locator("#launcher-button").click();
     await shot(anna, "med-day");

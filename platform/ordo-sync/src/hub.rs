@@ -14,8 +14,8 @@ use ordo_crypto::{Chain, EventSigner};
 use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, random_u128};
 use crate::incidents::{self, Effect, Registry};
 use crate::message::{
-    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentSummary, KeyGrant, Rejected,
-    Rejection, ServerMessage, StreamRef, Subscription, Welcome,
+    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentPermissions, IncidentSummary,
+    KeyGrant, Rejected, Rejection, ServerMessage, StreamRef, Subscription, Welcome,
 };
 use crate::policy::AccessPolicy;
 
@@ -544,10 +544,26 @@ impl<P: AccessPolicy> Hub<P> {
             .filter(|(_, allowed)| *allowed)
             .map(|(name, _)| name.to_owned())
             .collect(),
+            incident_permissions: Vec::new(),
             valid_until,
         };
         let mut deliveries = Vec::new();
         let mut streams = HashSet::new();
+        let incidents: BTreeSet<IncidentId> = hello
+            .subscriptions
+            .iter()
+            .map(|s| s.incident.clone())
+            .collect();
+        for incident in incidents {
+            let roles = self.registry.roles(&hello.user, &incident);
+            let permissions = self
+                .policy
+                .incident_permissions(&hello.user, &incident, &roles);
+            welcome.incident_permissions.push(IncidentPermissions {
+                incident,
+                permissions,
+            });
+        }
         for sub in hello.subscriptions {
             let key = (sub.incident.clone(), sub.compartment.clone());
             let roles = self.registry.roles(&hello.user, &sub.incident);
@@ -722,8 +738,13 @@ impl<P: AccessPolicy> Hub<P> {
                     }
                 }
         } else {
-            self.policy
-                .can_write(user, &body.incident, &body.compartment, &roles)
+            self.policy.can_write(
+                user,
+                &body.incident,
+                &body.compartment,
+                body.module.as_str(),
+                &roles,
+            )
         };
         if !allowed {
             return Err(reject(Rejection::Forbidden));

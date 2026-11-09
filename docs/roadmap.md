@@ -100,7 +100,9 @@ in its first field; the app is installable as a PWA (it lacked icons); incidents
 planned ahead and roles granted per incident (milestone `m11`, ADR-0046): after logging
 in, people see the incidents they have a role in, planners plan new ones, the incident's
 command manages the roster under *Einsatzleitung – Personal*; profile pictures, resolved
-ORDO → identity provider → Gravatar by the server (ADR-0047).
+ORDO → identity provider → Gravatar by the server (ADR-0047); views by role: the
+Einsatzleitung sees the whole incident (UHS load and counts, no clinical details), UHS crews
+only their UHS work, units are changed by the incident command only.
 
 *Incident and command (Einsatzleitung)*
 
@@ -108,11 +110,6 @@ ORDO → identity provider → Gravatar by the server (ADR-0047).
   templates for recurring deployments; roles from the profile instead of a fixed list;
   an admin view for organisation roles (planners); suggest registered people when
   granting roles.
-- **Roles and views (bug):** the Einsatzleitung sees the whole incident, including the
-  UHS; UHS crews see their UHS work only — no situation view, no device list, no editing
-  of units. Views are granted by permission (Cedar), not only by readable compartments.
-  Clinical details stay with medical roles (LNA, OrgL, UHS crews) unless an organisation's
-  policy grants more.
 - **Sectors (Einsatzabschnitte):** incident command, sectors and sub-sectors with their
   leaders (Einsatzabschnittsleiter), staff functions and liaison officers, per FwDV 100 and
   the state profile; shown as an organisation chart with the official tactical symbols.
