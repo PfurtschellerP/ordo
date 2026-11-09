@@ -113,13 +113,22 @@ A device receiving `rolesChanged` reconnects; for every stream listed as `denied
 new welcome it MUST delete that stream's events and key. `listIncidents` returns the
 incidents in which the user has a role, or all of them for `manage_incidents`.
 
-## 8. Changes and open points
+## 8. Profile pictures
+
+`getAvatars` asks for the pictures of several people; `setAvatar` sets (with `image`) or
+removes the user's own picture. The server answers `avatars`. It resolves each picture in
+the order ORDO, identity provider, Gravatar
+([ADR-0047](../../docs/adr/0047-profile-pictures.md)), and MUST accept only JPEG, PNG or
+WebP images of at most 128 KiB.
+
+## 9. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
 (§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
 (`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md));
 devices are listed and revoked over the connection (§6, `permissions`, `revoked`);
-incidents and roles per incident (§7, `listIncidents`, `rolesChanged`).
+incidents and roles per incident (§7, `listIncidents`, `rolesChanged`); profile pictures
+(§8).
 
 Open for draft 2:
 

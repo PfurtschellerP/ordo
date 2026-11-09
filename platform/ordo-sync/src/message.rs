@@ -22,6 +22,40 @@ pub enum ClientMessage {
     RevokeDevice(DeviceId),
     /// Asks for the incidents the user takes part in (all with `manage_incidents`).
     ListIncidents,
+    /// Asks for the profile pictures of these people (ADR-0047).
+    GetAvatars(Vec<UserId>),
+    /// Sets (or, without image, removes) the user's own profile picture in ORDO.
+    SetAvatar(AvatarImage),
+}
+
+/// An uploaded profile picture: JPEG, PNG or WebP, at most [`MAX_AVATAR_BYTES`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AvatarImage {
+    /// The image; `None` removes the picture uploaded in ORDO.
+    #[serde(with = "serde_bytes", default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<Vec<u8>>,
+}
+
+/// Largest profile picture in bytes.
+pub const MAX_AVATAR_BYTES: usize = 128 * 1024;
+
+/// The profile picture of a person, resolved by the server: uploaded in ORDO, else from
+/// the identity provider, else from Gravatar (ADR-0047).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Avatar {
+    /// The person.
+    pub user: UserId,
+    /// The image, if there is one.
+    #[serde(with = "serde_bytes", default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<Vec<u8>>,
+}
+
+/// Whether `bytes` is a JPEG, PNG or WebP image of acceptable size.
+pub fn is_avatar_image(bytes: &[u8]) -> bool {
+    bytes.len() <= MAX_AVATAR_BYTES
+        && (bytes.starts_with(&[0xff, 0xd8, 0xff])
+            || bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+            || (bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP"))
 }
 
 /// An incident as listed for a person (ADR-0046).
@@ -107,6 +141,8 @@ pub enum ServerMessage {
     Devices(Vec<DeviceInfo>),
     /// The incidents the user may open (answer to `listIncidents`).
     Incidents(Vec<IncidentSummary>),
+    /// Profile pictures (answer to `getAvatars` and `setAvatar`).
+    Avatars(Vec<Avatar>),
 }
 
 /// Which streams the device gets, and the keys it needs.
@@ -237,6 +273,22 @@ mod tests {
     use ordo_core::Ulid;
 
     // [utest->dsn~device-revocation~1]
+    #[test]
+    fn avatar_images_are_checked() {
+        assert!(is_avatar_image(&[0xff, 0xd8, 0xff, 0xe0]));
+        assert!(is_avatar_image(b"\x89PNG\r\n\x1a\nrest"));
+        assert!(is_avatar_image(b"RIFF\0\0\0\0WEBPVP8 "));
+        assert!(!is_avatar_image(b"<svg xmlns=..."), "no SVG (scripts)");
+        assert!(!is_avatar_image(&vec![0xff; MAX_AVATAR_BYTES + 1]));
+        let set = ClientMessage::SetAvatar(AvatarImage {
+            image: Some(vec![0xff, 0xd8, 0xff]),
+        });
+        assert_eq!(
+            decode::<ClientMessage>(&encode(&set).unwrap()).unwrap(),
+            set
+        );
+    }
+
     #[test]
     fn device_messages_match_the_schema() {
         // A unit variant is a plain text string in CBOR: "listDevices" (11 bytes).

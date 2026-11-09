@@ -15,14 +15,14 @@ use futures_util::{SinkExt, StreamExt};
 use ordo_core::{DeviceId, ServerName, UserId};
 use ordo_crypto::ed25519_dalek::VerifyingKey;
 use ordo_crypto::seal::DataKey;
-use ordo_sync::message::{self, ClientMessage, ServerMessage};
+use ordo_sync::message::{self, Avatar, ClientMessage, ServerMessage};
 use ordo_sync::{Hub, SessionId};
 
 use crate::authz::RolePolicy;
 use crate::login::{self, Login};
 use tokio::sync::{Mutex, mpsc, watch};
 
-use crate::store::{Store, StoreError};
+use crate::store::{AvatarSource, Store, StoreError};
 
 /// Shared state of the running server.
 pub struct App {
@@ -35,6 +35,8 @@ pub struct App {
     pub(crate) login: Option<Login>,
     /// How long a login lasts without re-verification (ADR-0040).
     pub(crate) access_timeout: std::time::Duration,
+    /// Look up profile pictures at Gravatar (ADR-0047).
+    pub(crate) gravatar: bool,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
@@ -59,6 +61,7 @@ impl App {
         server: ServerName,
         login: Option<Login>,
         access_timeout: std::time::Duration,
+        gravatar: bool,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -68,6 +71,7 @@ impl App {
             server,
             login,
             access_timeout,
+            gravatar,
             sessions: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
@@ -204,6 +208,10 @@ impl App {
     /// Sending happens while the hub is locked, so every device receives deliveries in
     /// sequence order.
     async fn handle(&self, session: SessionId, message: ClientMessage) -> Result<(), StoreError> {
+        // Profile pictures live in the store, not in the hub (ADR-0047).
+        if let ClientMessage::GetAvatars(_) | ClientMessage::SetAvatar(_) = &message {
+            return self.avatars(session, message).await;
+        }
         let mut hub = self.hub.lock().await;
         let outgoing = hub.handle(session, message, now_ms());
         let changes = hub.take_changes();
@@ -229,6 +237,41 @@ impl App {
             if let Some(sender) = sender {
                 let _ = sender.send(out.message);
             }
+        }
+        Ok(())
+    }
+
+    /// Answers `getAvatars` and `setAvatar` of an authenticated connection.
+    async fn avatars(&self, session: SessionId, message: ClientMessage) -> Result<(), StoreError> {
+        let Some(user) = self.hub.lock().await.session_user(session) else {
+            return Ok(()); // not authenticated: nothing
+        };
+        let users = match message {
+            ClientMessage::GetAvatars(mut users) => {
+                users.truncate(200);
+                users
+            }
+            ClientMessage::SetAvatar(set) => {
+                let image = set.image.filter(|i| ordo_sync::message::is_avatar_image(i));
+                self.store
+                    .set_avatar(&user, AvatarSource::Ordo, image.as_deref(), now_ms())
+                    .await?;
+                vec![user]
+            }
+            _ => return Ok(()),
+        };
+        let mut avatars = Vec::new();
+        for user in users {
+            let image = self.store.avatar(&user).await?;
+            avatars.push(Avatar { user, image });
+        }
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::Avatars(avatars));
         }
         Ok(())
     }

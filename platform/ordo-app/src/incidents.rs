@@ -210,6 +210,9 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 let (u, r) = (user.clone(), role.clone());
                                 view! {
                                     <li class="roster__entry">
+                                        {user.parse::<ordo_core::UserId>().ok().map(|id| view! {
+                                            <crate::profile::Avatar core revision user=id />
+                                        })}
                                         <span class="roster__person">{user.clone()}</span>
                                         <span class="roster__role">{text::role_label(&role)}</span>
                                         <Show when=move || manage.get()>

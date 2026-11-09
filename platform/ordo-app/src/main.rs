@@ -2,10 +2,12 @@
 
 mod core;
 mod devices;
+mod images;
 mod incidents;
 mod nav;
 mod palette;
 mod patients;
+mod profile;
 mod text;
 mod vault;
 mod views;

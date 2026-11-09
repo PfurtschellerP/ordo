@@ -284,6 +284,11 @@ impl<P: AccessPolicy> Hub<P> {
         self.revoked.insert(device);
     }
 
+    /// The user of an authenticated connection.
+    pub fn session_user(&self, session: SessionId) -> Option<UserId> {
+        self.sessions.get(&session).map(|s| s.user.clone())
+    }
+
     // [impl->dsn~incident-roles~1]
     /// The incidents `user` takes part in; all of them for planners.
     fn incident_list(&self, user: &UserId) -> Vec<IncidentSummary> {
@@ -449,6 +454,8 @@ impl<P: AccessPolicy> Hub<P> {
         match message {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
+            // Profile pictures are kept by the server's store, not by the hub.
+            ClientMessage::GetAvatars(_) | ClientMessage::SetAvatar(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),

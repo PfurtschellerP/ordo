@@ -25,6 +25,8 @@ use crate::text;
 use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
+/// Patient photos: longest edge and JPEG quality, tried in this order (ADR-0028).
+const PHOTO_STEPS: [(f64, f64); 4] = [(800.0, 0.75), (640.0, 0.7), (480.0, 0.6), (360.0, 0.5)];
 const VIEW: &str = "patients";
 
 /// The ePCR forms of the profile, checked at build time (see `build.rs`).
@@ -421,7 +423,7 @@ fn PhotoSection(
             error.set(None);
             let tag = tag.clone();
             spawn_local(async move {
-                match downscale(&file).await {
+                match crate::images::downscale(&file, &PHOTO_STEPS, record::MAX_PHOTO_BYTES).await {
                     Ok(data) => {
                         let photo = PhotoAdded {
                             tag,
@@ -459,50 +461,6 @@ fn PhotoSection(
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
     }
-}
-
-/// Downscales a photo on the device and re-encodes it as JPEG: small enough to travel in
-/// a sealed event, and without camera or location metadata (ADR-0028).
-async fn downscale(file: &web_sys::File) -> Result<Vec<u8>, &'static str> {
-    let window = web_sys::window().ok_or(text::PHOTO_FAILED)?;
-    let promise = window
-        .create_image_bitmap_with_blob(file)
-        .map_err(|_| text::PHOTO_FAILED)?;
-    let bitmap: web_sys::ImageBitmap = wasm_bindgen_futures::JsFuture::from(promise)
-        .await
-        .map_err(|_| text::PHOTO_FAILED)?
-        .dyn_into()
-        .map_err(|_| text::PHOTO_FAILED)?;
-    let (width, height) = (f64::from(bitmap.width()), f64::from(bitmap.height()));
-    let document = window.document().ok_or(text::PHOTO_FAILED)?;
-    let result = (|| {
-        for (edge, quality) in [(800.0, 0.75), (640.0, 0.7), (480.0, 0.6), (360.0, 0.5)] {
-            let scale = (edge / width.max(height)).min(1.0);
-            let (w, h) = ((width * scale).round(), (height * scale).round());
-            let canvas: web_sys::HtmlCanvasElement =
-                document.create_element("canvas").ok()?.dyn_into().ok()?;
-            canvas.set_width(w as u32);
-            canvas.set_height(h as u32);
-            let context: web_sys::CanvasRenderingContext2d =
-                canvas.get_context("2d").ok()??.dyn_into().ok()?;
-            context
-                .draw_image_with_image_bitmap_and_dw_and_dh(&bitmap, 0.0, 0.0, w, h)
-                .ok()?;
-            let url = canvas
-                .to_data_url_with_type_and_encoder_options(
-                    "image/jpeg",
-                    &wasm_bindgen::JsValue::from_f64(quality),
-                )
-                .ok()?;
-            let bytes = BASE64.decode(url.split_once(',')?.1).ok()?;
-            if bytes.len() <= record::MAX_PHOTO_BYTES {
-                return Some(Ok(bytes));
-            }
-        }
-        Some(Err(text::PHOTO_TOO_LARGE))
-    })();
-    bitmap.close();
-    result.unwrap_or(Err(text::PHOTO_FAILED))
 }
 
 #[component]

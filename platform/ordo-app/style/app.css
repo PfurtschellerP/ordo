@@ -381,6 +381,25 @@
     border-radius: var(--ordo-radius-medium);
   }
   .roster__person { font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; }
+
+  /* Profile pictures (ADR-0047): decorative, the name is always written next to them. */
+  .avatar {
+    inline-size: var(--ordo-component-button-min-height);
+    block-size: var(--ordo-component-button-min-height);
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .avatar--initials {
+    display: inline-grid; place-items: center;
+    background: var(--ordo-color-surface-sunken);
+    color: var(--ordo-color-text-primary);
+    font-size: var(--ordo-font-size-2); font-weight: var(--ordo-font-weight-bold);
+  }
+  .app-header__user { display: flex; align-items: center; gap: var(--ordo-space-2); margin: 0; }
+  .profile-picture { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); margin-block: var(--ordo-space-2); }
+  .profile-picture .error { flex-basis: 100%; }
   .roster__role { color: var(--ordo-color-text-secondary); }
   .roster__entry .button { margin-inline-start: auto; }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }

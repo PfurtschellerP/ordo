@@ -539,6 +539,7 @@ fn Workspace(
             .unwrap_or_default()
     });
     let user = core.with_value(|c| c.replica.user().to_string());
+    let me = core.with_value(|c| c.replica.user().clone());
     // Unpairing deletes the key on this device; if the server can be reached, it forgets
     // the device as well (SEC-4), so it no longer appears in the device list.
     let unpair = move |_| {
@@ -594,6 +595,11 @@ fn Workspace(
                     <span id="incident-name" title=incident.clone()>{incident_name}</span>
                 </p>
                 <ConnectionStatus core revision />
+                <p class="app-header__user">
+                    <crate::profile::Avatar core revision user=me.clone() />
+                    <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
+                    <span>{me.localpart().to_owned()}</span>
+                </p>
             </div>
         </header>
         <div class="layout">
@@ -662,7 +668,8 @@ fn Workspace(
                             .collect_view()}
                         <section class="launcher__package" aria-label=text::DEVICE>
                             <h3>{text::DEVICE}</h3>
-                            <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user}</strong></p>
+                            <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
+                            <crate::profile::ProfilePicture core revision />
                             <label for="theme">{text::APPEARANCE}</label>
                             <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
                                 let value = event_target_value(&ev);

@@ -210,6 +210,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         config.server_name.clone(),
         login,
         config.access_timeout,
+        config.gravatar,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());

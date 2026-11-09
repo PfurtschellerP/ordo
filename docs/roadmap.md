@@ -94,7 +94,8 @@ Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11
 in its first field; the app is installable as a PWA (it lacked icons); incidents are
 planned ahead and roles granted per incident (milestone `m11`, ADR-0046): after logging
 in, people see the incidents they have a role in, planners plan new ones, the incident's
-command manages the roster under *Einsatzleitung – Personal*.
+command manages the roster under *Einsatzleitung – Personal*; profile pictures, resolved
+ORDO → identity provider → Gravatar by the server (ADR-0047).
 
 *Incident and command (Einsatzleitung)*
 

@@ -76,6 +76,10 @@ pub struct Core {
     pub welcomes: u64,
     /// Reconnect at once after the connection closes (roles changed), not after a pause.
     reconnect_now: bool,
+    /// Profile pictures as `data:` URLs (`None`: the person has none), while the app runs.
+    pub avatars: std::collections::HashMap<UserId, Option<String>>,
+    /// Pictures asked for and not answered yet.
+    avatars_asked: std::collections::HashSet<UserId>,
     /// The device's local copy.
     pub replica: Replica,
     /// Connection state.
@@ -143,6 +147,8 @@ impl Core {
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
+            avatars: std::collections::HashMap::new(),
+            avatars_asked: std::collections::HashSet::new(),
             replica,
             connection: Connection::Offline,
             announcement: String::new(),
@@ -285,6 +291,15 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         };
         let welcome = matches!(message, ServerMessage::Welcome(_));
         core.update_value(|c| {
+            if let ServerMessage::Avatars(list) = &message {
+                for a in list {
+                    c.avatars_asked.remove(&a.user);
+                    c.avatars.insert(
+                        a.user.clone(),
+                        a.image.as_deref().map(crate::images::data_url),
+                    );
+                }
+            }
             if let ServerMessage::Incidents(list) = &message {
                 c.incidents = Some(list.clone());
             }
@@ -304,6 +319,8 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     if welcome {
                         c.login_expired = false;
                         c.welcomes += 1;
+                        // Questions of a lost connection are asked again.
+                        c.avatars_asked.clear();
                         c.finish_plan();
                     }
                 }
@@ -618,6 +635,33 @@ fn record(
         .unwrap_or_else(|| Err("App-Zustand nicht verfügbar".into()));
     revision.update(|r| *r += 1);
     result
+}
+
+/// Asks the server for the profile pictures of `users` it has not sent yet (ADR-0047).
+pub fn request_avatars(core: Handle, users: &[UserId]) {
+    core.update_value(|c| {
+        if !c.replica.is_ready() {
+            return;
+        }
+        let missing: Vec<UserId> = users
+            .iter()
+            .filter(|u| !c.avatars.contains_key(*u) && !c.avatars_asked.contains(*u))
+            .cloned()
+            .collect();
+        if !missing.is_empty() {
+            c.avatars_asked.extend(missing.iter().cloned());
+            c.send(&ClientMessage::GetAvatars(missing));
+        }
+    });
+}
+
+/// Sets (`Some`) or removes (`None`) the user's own profile picture.
+pub fn set_avatar(core: Handle, image: Option<Vec<u8>>) {
+    core.with_value(|c| {
+        c.send(&ClientMessage::SetAvatar(ordo_sync::message::AvatarImage {
+            image,
+        }));
+    });
 }
 
 /// The role of an incident's command: may grant roles (default policies).

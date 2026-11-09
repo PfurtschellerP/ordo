@@ -43,6 +43,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app::App;
 use crate::config::OidcConfig;
+use crate::store::AvatarSource;
 
 /// How long a started login or pairing stays valid.
 const PENDING_TTL: Duration = Duration::from_secs(600);
@@ -261,10 +262,81 @@ fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
     Some((device, key))
 }
 
+/// Fetches a profile picture: `Ok(None)` if there is none (HTTP 404), `Err` if it could
+/// not be fetched or is no acceptable image.
+async fn fetch_avatar(http: &reqwest::Client, url: &str) -> Result<Option<Vec<u8>>, ()> {
+    let mut response = http.get(url).send().await.map_err(|_| ())?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    if !response.status().is_success() {
+        return Err(());
+    }
+    let mut image = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| ())? {
+        image.extend_from_slice(&chunk);
+        if image.len() > ordo_sync::message::MAX_AVATAR_BYTES {
+            return Err(());
+        }
+    }
+    if ordo_sync::message::is_avatar_image(&image) {
+        Ok(Some(image))
+    } else {
+        Err(())
+    }
+}
+
+/// The Gravatar address of an e-mail address (SHA-256 of the trimmed, lower-case address;
+/// "404" when there is no picture).
+fn gravatar_url(email: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(email.trim().to_lowercase().as_bytes());
+    let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+    format!("https://gravatar.com/avatar/{hex}?s=256&d=404")
+}
+
+/// Refreshes the pictures from the identity provider and from Gravatar (ADR-0047). A
+/// source that has no picture any more is removed; one that cannot be reached keeps the
+/// stored picture.
+async fn refresh_avatars(
+    app: Arc<App>,
+    user: UserId,
+    picture: Option<String>,
+    email: Option<String>,
+) {
+    let Ok(http) = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .build()
+    else {
+        return;
+    };
+    let now = crate::app::now_ms();
+    let provider = match picture.filter(|u| u.starts_with("https://")) {
+        Some(url) => fetch_avatar(&http, &url).await,
+        None => Ok(None),
+    };
+    if let Ok(image) = provider {
+        let _ = app
+            .store
+            .set_avatar(&user, AvatarSource::Provider, image.as_deref(), now)
+            .await;
+    }
+    if app.gravatar
+        && let Some(email) = email
+        && let Ok(image) = fetch_avatar(&http, &gravatar_url(&email)).await
+    {
+        let _ = app
+            .store
+            .set_avatar(&user, AvatarSource::Gravatar, image.as_deref(), now)
+            .await;
+    }
+}
+
 // [impl->dsn~oidc-login~1]
 /// Registers the device of a person who logged in: user mapping, roles, device key.
 async fn finish(
-    app: &App,
+    app: &Arc<App>,
     claims: &Claims,
     renewal: Option<&RefreshToken>,
     device: DeviceId,
@@ -285,6 +357,17 @@ async fn finish(
             &[],
         )
         .await?;
+    // Profile pictures from the provider and Gravatar, in the background: a field server
+    // without internet must not slow the login down (ADR-0047).
+    tokio::spawn(refresh_avatars(
+        app.clone(),
+        user.clone(),
+        claims
+            .picture()
+            .and_then(|p| p.get(None))
+            .map(|u| u.as_str().to_owned()),
+        claims.email().map(|e| e.as_str().to_owned()),
+    ));
     if let Some(renewal) = renewal {
         app.store
             .set_refresh(
@@ -723,6 +806,15 @@ pub(crate) async fn device_qr(State(app): State<Arc<App>>, Path(id): Path<String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gravatar_uses_the_sha256_of_the_normalised_address() {
+        // Example from Gravatar's documentation of SHA-256 hashes.
+        assert_eq!(
+            gravatar_url(" MyEmailAddress@example.com "),
+            "https://gravatar.com/avatar/84059b07d4be67b806386c0aad8070a23f18836bbaae342275dc0a83414c32ee?s=256&d=404"
+        );
+    }
 
     #[test]
     fn user_names_fit_ordo_user_ids() {

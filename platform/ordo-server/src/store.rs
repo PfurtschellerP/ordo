@@ -63,6 +63,15 @@ const SCHEMA: &[&str] = &[
         public_key BLOB NOT NULL,
         paired_ms INTEGER NOT NULL
     ) STRICT",
+    // Profile pictures per source: `ordo` (uploaded), `provider` (identity provider's
+    // `picture`), `gravatar` (ADR-0047).
+    "CREATE TABLE IF NOT EXISTS avatars (
+        user_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        image BLOB NOT NULL,
+        updated_ms INTEGER NOT NULL,
+        PRIMARY KEY (user_id, source)
+    ) STRICT",
 ];
 
 /// Columns added after the first release of a table; adding them again fails harmlessly.
@@ -213,6 +222,53 @@ impl Store {
                 Ok((stream, event))
             })
             .collect()
+    }
+
+    /// Sets (`Some`) or removes (`None`) the profile picture of `user` from `source`.
+    pub async fn set_avatar(
+        &self,
+        user: &UserId,
+        source: AvatarSource,
+        image: Option<&[u8]>,
+        now_ms: u64,
+    ) -> Result<(), StoreError> {
+        match image {
+            Some(image) => {
+                sqlx::query(
+                    "INSERT INTO avatars (user_id, source, image, updated_ms) VALUES (?, ?, ?, ?)
+                     ON CONFLICT (user_id, source) DO UPDATE SET image = excluded.image,
+                         updated_ms = excluded.updated_ms",
+                )
+                .bind(user.as_str())
+                .bind(source.as_str())
+                .bind(image)
+                .bind(ms(now_ms))
+                .execute(&self.pool)
+                .await?;
+            }
+            None => {
+                sqlx::query("DELETE FROM avatars WHERE user_id = ? AND source = ?")
+                    .bind(user.as_str())
+                    .bind(source.as_str())
+                    .execute(&self.pool)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The profile picture of `user`: uploaded in ORDO, else from the identity provider,
+    /// else from Gravatar.
+    pub async fn avatar(&self, user: &UserId) -> Result<Option<Vec<u8>>, StoreError> {
+        let row = sqlx::query(
+            "SELECT image FROM avatars WHERE user_id = ?
+             ORDER BY CASE source WHEN 'ordo' THEN 0 WHEN 'provider' THEN 1 ELSE 2 END
+             LIMIT 1",
+        )
+        .bind(user.as_str())
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.get("image")))
     }
 
     /// The ORDO user of an identity-provider subject; creates the mapping on first login.
@@ -500,6 +556,27 @@ fn key_label(stream: &StreamKey, key_id: &KeyId) -> String {
     format!("data-key/{}/{}/{}", stream.0, stream.1, key_id)
 }
 
+/// Where a profile picture comes from (ADR-0047), in the order they are preferred.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AvatarSource {
+    /// Uploaded by the person in ORDO.
+    Ordo,
+    /// The identity provider's `picture` claim.
+    Provider,
+    /// Gravatar, by the hash of the e-mail address.
+    Gravatar,
+}
+
+impl AvatarSource {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ordo => "ordo",
+            Self::Provider => "provider",
+            Self::Gravatar => "gravatar",
+        }
+    }
+}
+
 /// 24 random bytes from the operating system.
 pub fn random_nonce() -> [u8; 24] {
     let mut nonce = [0u8; 24];
@@ -568,6 +645,47 @@ mod tests {
         assert_eq!(store.load_revoked().await.unwrap(), vec![device]);
         assert!(store.load_devices().await.unwrap().is_empty());
         assert!(store.load_paired().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_own_picture_wins_over_provider_and_gravatar() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let anna = user("anna");
+        assert_eq!(store.avatar(&anna).await.unwrap(), None);
+        store
+            .set_avatar(&anna, AvatarSource::Gravatar, Some(b"g"), 1)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.avatar(&anna).await.unwrap().as_deref(),
+            Some(&b"g"[..])
+        );
+        store
+            .set_avatar(&anna, AvatarSource::Provider, Some(b"p"), 2)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.avatar(&anna).await.unwrap().as_deref(),
+            Some(&b"p"[..])
+        );
+        store
+            .set_avatar(&anna, AvatarSource::Ordo, Some(b"o"), 3)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.avatar(&anna).await.unwrap().as_deref(),
+            Some(&b"o"[..])
+        );
+        store
+            .set_avatar(&anna, AvatarSource::Ordo, None, 4)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.avatar(&anna).await.unwrap().as_deref(),
+            Some(&b"p"[..]),
+            "removing the own picture falls back to the provider's"
+        );
     }
 
     #[tokio::test]

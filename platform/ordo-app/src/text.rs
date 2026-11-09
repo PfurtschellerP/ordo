@@ -31,6 +31,8 @@ pub const PAIR_INCIDENT: &str = "Einsatz-ID";
 pub const PAIR_SUBMIT: &str = "Koppeln";
 pub const UNPAIR: &str = "Gerät entkoppeln";
 pub const SIGNED_IN_AS: &str = "Angemeldet als";
+pub const AVATAR_CHANGE: &str = "Profilbild ändern";
+pub const AVATAR_REMOVE: &str = "Profilbild entfernen";
 pub const RETRY: &str = "Erneut versuchen";
 pub const STARTING: &str = "ORDO wird gestartet …";
 

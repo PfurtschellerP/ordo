@@ -24,6 +24,7 @@ ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 qrcode.workspace = true
 reqwest.workspace = true
+sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true

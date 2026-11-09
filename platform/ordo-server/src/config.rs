@@ -35,6 +35,11 @@ pub struct Config {
     /// Administrators by user name, e.g. `dora` for `dora@<server>` (`ORDO_ADMINS`,
     /// comma-separated). They plan incidents and grant roles (ADR-0046).
     pub admins: Vec<UserId>,
+    /// Whether the server looks up profile pictures at Gravatar by the hash of the
+    /// e-mail address, when neither ORDO nor the identity provider has one
+    /// (`ORDO_GRAVATAR`, `on` or `off`, default `on`; ADR-0047). Devices never contact
+    /// Gravatar themselves.
+    pub gravatar: bool,
 }
 
 /// Default access timeout in hours (ADR-0040).
@@ -215,7 +220,13 @@ impl Config {
                     .map_err(|e| ConfigError::invalid("ORDO_ADMINS", e.to_string()))
             })
             .collect::<Result<_, _>>()?;
+        let gravatar = match get("ORDO_GRAVATAR").as_deref().map(str::trim) {
+            None | Some("on" | "true" | "1") => true,
+            Some("off" | "false" | "0") => false,
+            Some(_) => return Err(ConfigError::invalid("ORDO_GRAVATAR", "expected on or off")),
+        };
         Ok(Self {
+            gravatar,
             admins,
             access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),
             server_name,

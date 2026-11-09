@@ -12,6 +12,7 @@ publish.workspace = true
 ordo-core.workspace = true
 ordo-crypto.workspace = true
 serde.workspace = true
+serde_bytes.workspace = true
 thiserror.workspace = true
 
 [lints]

@@ -11,6 +11,8 @@ client-message = { "hello": hello }
                / "listDevices"                ; own devices, all with manage_devices
                / { "revokeDevice": device-id } ; own device, any with manage_devices
                / "listIncidents"              ; incidents with a role; all for planners
+               / { "getAvatars": [* user-id] }
+               / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
 
 hello = {
   "user": user-id,
@@ -36,6 +38,7 @@ server-message = { "challenge": challenge }
                / { "rejected": rejected }
                / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
                / { "incidents": [* incident-summary] } ; answer to listIncidents
+               / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {
@@ -57,6 +60,13 @@ device-info = {
   "user": user-id,
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
+}
+
+; Profile picture, resolved by the server: uploaded in ORDO, else the identity provider's
+; picture, else Gravatar (ADR-0047). JPEG, PNG or WebP.
+avatar = {
+  "user": user-id,
+  ? "image": bstr,
 }
 
 incident-summary = {

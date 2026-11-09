@@ -2548,6 +2548,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "tempfile",
  "thiserror 2.0.21",
@@ -2566,6 +2567,7 @@ dependencies = [
  "ordo-core",
  "ordo-crypto",
  "serde",
+ "serde_bytes",
  "thiserror 2.0.21",
 ]
 

@@ -43,6 +43,7 @@ let phone: Page;
 let dora: Page;
 let shots: string;
 let annaFrames: ReturnType<typeof recordFrames>;
+let patientPhoto: Buffer;
 let benFrames: ReturnType<typeof recordFrames>;
 
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
@@ -181,9 +182,13 @@ test("ORDO in the browser", async () => {
       return canvas.toDataURL("image/png").split(",")[1];
     });
     await anna.locator("#photo-upload").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+    // Anna's own profile picture (ADR-0047): set in the menu, shown in her header.
+    await anna.locator("#avatar-upload").setInputFiles({ name: "me.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+    await expect(anna.locator(".app-header__user img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
     const photo = anna.locator("img.photo");
     await expect(photo, "a photo for identification is shown in the record").toBeVisible({ timeout: 20_000 });
     await expect.poll(() => photo.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+    patientPhoto = Buffer.from((await photo.getAttribute("src"))!.split(",")[1], "base64");
     const [width, height, bytes, prefix] = await photo.evaluate((i: HTMLImageElement) => [
       i.naturalWidth,
       i.naturalHeight,
@@ -322,6 +327,10 @@ test("ORDO in the browser", async () => {
     await qrPair(ben, phone, server, "ben@example.org");
     await openIncident(ben, INCIDENT);
     await phone.context().close();
+    await openView(ben, "Personal");
+    await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
+    await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
+    await openView(ben, "Patientenzahlen");
     // [itest->dsn~workspace-navigation~2]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
     await ben.locator("#launcher-button").click();
@@ -362,7 +371,7 @@ test("ORDO in the browser", async () => {
     const received = Buffer.concat(benFrames.received);
     expect(received.length).toBeGreaterThan(0);
     expect(
-      received.includes("DE-0042") || received.includes("Mustermann") || received.includes(Buffer.from([0xff, 0xd8, 0xff])),
+      received.includes("DE-0042") || received.includes("Mustermann") || received.includes(patientPhoto.subarray(patientPhoto.length - 400, patientPhoto.length - 336)),
       "the command device receives no triage tag number, no name and no photo",
     ).toBe(false);
     await audit(ben, "Command workspace");
