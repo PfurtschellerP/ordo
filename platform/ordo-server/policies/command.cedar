@@ -9,3 +9,12 @@ permit (
   resource == Compartment::"incident"
 )
 when { context.roles.contains("commander") };
+
+// The incident command grants and withdraws roles in its incident (ADR-0046).
+@id("command.commander-assigns-roles")
+permit (
+  principal,
+  action == Action::"assign_role",
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("commander") };

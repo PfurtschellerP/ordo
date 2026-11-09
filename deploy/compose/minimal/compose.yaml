@@ -19,6 +19,7 @@ services:
       ORDO_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       # How long a device login lasts without re-verification (ADR-0040).
       ORDO_ACCESS_TIMEOUT_HOURS: ${ORDO_ACCESS_TIMEOUT_HOURS:-48}
+      ORDO_ADMINS: ${ORDO_ADMINS:?set ORDO_ADMINS in .env}
     secrets:
       - ordo_master_key
       - oidc_client_secret

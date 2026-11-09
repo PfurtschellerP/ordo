@@ -75,13 +75,7 @@ pub fn PatientsView(
     nav: Nav,
     record: Signal<Option<String>>,
 ) -> impl IntoView {
-    let events = move || {
-        core.with_value(|c| {
-            c.replica
-                .events(&c.incident, med::COMPARTMENT)
-                .unwrap_or_default()
-        })
-    };
+    let events = move || core.with_value(|c| c.events(med::COMPARTMENT));
     let register = Memo::new(move |_| {
         revision.track();
         PatientRegister::from_events(&events())
@@ -227,9 +221,7 @@ fn PatientList(
             uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
         // Patients with changes that are still in the outbox.
         let pending: Vec<String> = core.with_value(|c| {
-            c.replica
-                .events(&c.incident, med::COMPARTMENT)
-                .unwrap_or_default()
+            c.events(med::COMPARTMENT)
                 .iter()
                 .filter(|e| e.seq.is_none())
                 .filter_map(tag_of)

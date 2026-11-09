@@ -15,7 +15,9 @@ import {
   fillForm,
   closePalette,
   openPalette,
+  grantRole,
   loginPair,
+  openIncident,
   openRecord,
   openView,
   qrPair,
@@ -34,7 +36,7 @@ import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
 let stopDex: () => void;
-let incident: string;
+const INCIDENT = "Sanitätsdienst Stadtfest";
 let anna: Page;
 let ben: Page;
 let phone: Page;
@@ -73,12 +75,34 @@ test.afterAll(async () => {
 // One test with steps: later steps build on earlier ones, and soft checks (audits)
 // report every finding of a run instead of stopping at the first.
 test("ORDO in the browser", async () => {
-  await test.step("a medic registers patients at several UHS", async () => {
-    await anna.goto(server.url);
-    await expect(anna.getByRole("button", { name: "Anmelden" })).toBeVisible();
-    await audit(anna, "Pairing page");
+  // [itest->dsn~incident-roles~1]
+  await test.step("a planner plans the incident and gives roles", async () => {
+    await dora.goto(server.url);
+    await expect(dora.getByRole("button", { name: "Anmelden" })).toBeVisible();
+    await audit(dora, "Pairing page");
     // [itest->dsn~oidc-login~1]
-    incident = await loginPair(anna, server, "anna@example.org");
+    await loginPair(dora, server, "dora@example.org");
+    await expect(dora.locator(".incident-card"), "no incident planned yet").toHaveCount(0);
+    await audit(dora, "Incident list", [1200, 320]);
+    await dora.locator("#plan-name").fill(INCIDENT);
+    await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
+    await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
+    await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
+    await openView(dora, "Personal");
+    await expect(dora.locator(".roster__entry"), "the planner is its commander").toHaveCount(1);
+    await grantRole(dora, "anna@localhost", "Sanitätsdienst");
+    await grantRole(dora, "ben@localhost", "Einsatzleitung");
+    await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
+    await expect(dora.locator("#incident-state")).toHaveText("Laufend");
+    await audit(dora, "Roster", [1200, 320]);
+    await shot(dora, "roster");
+  });
+
+  await test.step("a medic registers patients at several UHS", async () => {
+    await loginPair(anna, server, "anna@example.org");
+    await expect(anna.locator(".incident-card"), "Anna sees the incident she has a role in").toHaveCount(1);
+    await expect(anna.locator(".incident-card")).toContainText("Sanitätsdienst");
+    await openIncident(anna, INCIDENT);
     await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user").toHaveText("Angemeldet als anna@localhost");
     // [itest->dsn~device-storage-encryption~1]
     for (const item of ["ordo.pairing", "ordo.replica", "ordo.storage-key"]) {
@@ -295,7 +319,8 @@ test("ORDO in the browser", async () => {
 
   await test.step("command sees counts and resources, but no patient data", async () => {
     // [itest->dsn~qr-pairing~1]
-    await qrPair(ben, phone, server, "ben@example.org", incident);
+    await qrPair(ben, phone, server, "ben@example.org");
+    await openIncident(ben, INCIDENT);
     await phone.context().close();
     // [itest->dsn~workspace-navigation~2]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
@@ -408,9 +433,10 @@ test("ORDO in the browser", async () => {
     await expect(ben.locator(".device-card h3")).toContainText("dieses Gerät");
     await expect(ben.locator(".device-card dt", { hasText: "Person" }), "no person shown for own devices").toHaveCount(0);
 
-    // Dora, an administrator, sees all devices; she has no incident data, so she starts here.
-    await loginPair(dora, server, "dora@example.org", incident);
-    await expect.poll(() => title(dora), { message: "an admin starts in Organisation – Geräte" }).toContain("Organisation – Geräte");
+    // Dora, an administrator, sees all devices.
+    await dora.locator("#launcher-button").click();
+    await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
+    await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
     await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(3);
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });

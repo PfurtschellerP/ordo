@@ -195,13 +195,7 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
         nav::workspace("med.uhs").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
     let command_access = nav::workspace("command.situation")
         .map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
-    let events = |compartment: &str| {
-        core.with_value(|c| {
-            c.replica
-                .events(&c.incident, compartment)
-                .unwrap_or_default()
-        })
-    };
+    let events = |compartment: &str| core.with_value(|c| c.events(compartment));
     match page {
         Page::Root => {
             let mut list = Vec::new();
@@ -484,6 +478,9 @@ pub fn Palette(
             id="palette"
             class="palette"
             aria-labelledby="palette-title"
+            // Escape: the browser closes the dialog itself; `cancel` comes at once, `close`
+            // later. Updating the state on `cancel` lets an immediate Ctrl+K reopen it.
+            on:cancel=move |_: leptos::ev::Event| open.set(false)
             on:close=move |_| {
                 // A late `close` event of an earlier closing must not close the palette
                 // again after it was reopened (seen in Chromium).

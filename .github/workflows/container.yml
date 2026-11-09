@@ -70,6 +70,7 @@ jobs:
         env:
           ORDO_DOMAIN: localhost
           ORDO_OIDC_CLIENT_SECRET: ci-secret
+          ORDO_ADMINS: dora
         run: |
           docker compose config -q
           sed -e 's|replace with a bcrypt hash|$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W|' \

@@ -9,6 +9,7 @@
 mod applied;
 mod error;
 mod hub;
+pub mod incidents;
 pub mod message;
 pub mod policy;
 mod replica;

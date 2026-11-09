@@ -38,7 +38,7 @@ printf ordo-test-secret > "$data/oidc-secret"
   -v "$here/dex.yaml:/etc/dex/config.yaml:ro,Z" ghcr.io/dexidp/dex:v2.46.1 dex serve /etc/dex/config.yaml >/dev/null
 until curl -sf http://127.0.0.1:5556/dex/.well-known/openid-configuration >/dev/null; do sleep 0.5; done
 
-ORDO_SERVER_NAME=localhost ORDO_LISTEN="127.0.0.1:$port" ORDO_DATA_DIR="$data/data" \
+ORDO_ADMINS=dora ORDO_SERVER_NAME=localhost ORDO_LISTEN="127.0.0.1:$port" ORDO_DATA_DIR="$data/data" \
 ORDO_MASTER_KEY_FILE="$data/master.key" ORDO_SEED_FILE="$data/seed.toml" ORDO_APP_DIR="$dist" \
 ORDO_OIDC_ISSUER=http://127.0.0.1:5556/dex ORDO_OIDC_CLIENT_ID=ordo \
 ORDO_OIDC_CLIENT_SECRET_FILE="$data/oidc-secret" ORDO_PUBLIC_URL="http://127.0.0.1:$port" \
@@ -48,8 +48,8 @@ until curl -sf "http://127.0.0.1:$port/readyz" >/dev/null; do sleep 0.3; done
 
 cat <<INFO
 ORDO demo running: http://127.0.0.1:$port/
-Accounts (password "password"): anna@example.org (medic), ben@example.org (commander),
-dora@example.org (admin), eva@example.org (medic + commander).
+Accounts (password "password"): dora@example.org (administrator: plans incidents, gives
+roles), anna@example.org, ben@example.org, eva@example.org (roles come from the incident).
 Use a separate browser profile or private window per person. Log: $data/server.log
 Stop: $0 stop    Delete data: $0 reset
 INFO

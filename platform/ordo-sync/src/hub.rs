@@ -12,9 +12,10 @@ use ordo_crypto::seal::{self, DataKey, SealContext};
 use ordo_crypto::{Chain, EventSigner};
 
 use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, random_u128};
+use crate::incidents::{self, Effect, Registry};
 use crate::message::{
-    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, KeyGrant, Rejected, Rejection,
-    ServerMessage, StreamRef, Subscription, Welcome,
+    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentSummary, KeyGrant, Rejected,
+    Rejection, ServerMessage, StreamRef, Subscription, Welcome,
 };
 use crate::policy::AccessPolicy;
 
@@ -135,6 +136,8 @@ pub struct Hub<P> {
     challenges: HashMap<SessionId, [u8; 32]>,
     /// Revoked devices: refused for good, and told to delete their data.
     revoked: HashSet<DeviceId>,
+    /// Incidents and their rosters, from incident events (ADR-0046).
+    registry: Registry,
     derivers: Vec<Box<dyn Deriver>>,
     changes: Vec<Change>,
 }
@@ -161,6 +164,7 @@ impl<P: AccessPolicy> Hub<P> {
             sessions: BTreeMap::new(),
             challenges: HashMap::new(),
             revoked: HashSet::new(),
+            registry: Registry::default(),
             derivers: Vec::new(),
             changes: Vec::new(),
         }
@@ -211,6 +215,13 @@ impl<P: AccessPolicy> Hub<P> {
         entry.events.push(event.clone());
         if let Some(body) = body {
             let _ = self.clock.observe(&body.hlc, body.hlc.wall_ms);
+            if let Payload::Plain(payload) = &body.payload {
+                self.registry.apply(&AppliedEvent {
+                    seq: Some(event.seq),
+                    body: body.clone(),
+                    payload: payload.clone(),
+                });
+            }
             if self.derivers.iter().any(|d| d.source() == &stream.1)
                 && let Some(payload) = self.open_payload(&stream, &body)
             {
@@ -271,6 +282,28 @@ impl<P: AccessPolicy> Hub<P> {
     pub fn restore_revoked(&mut self, device: DeviceId) {
         self.devices.remove(&device);
         self.revoked.insert(device);
+    }
+
+    // [impl->dsn~incident-roles~1]
+    /// The incidents `user` takes part in; all of them for planners.
+    fn incident_list(&self, user: &UserId) -> Vec<IncidentSummary> {
+        let planner = self.policy.can_manage_incidents(user);
+        let mut list: Vec<IncidentSummary> = self
+            .registry
+            .iter()
+            .filter_map(|(id, incident)| {
+                let roles = self.registry.roles(user, id);
+                (planner || !roles.is_empty()).then(|| IncidentSummary {
+                    incident: id.clone(),
+                    name: incident.name.clone(),
+                    state: incident.state,
+                    manage: planner || self.policy.can_assign_roles(user, id, &roles),
+                    roles,
+                })
+            })
+            .collect();
+        list.sort_by(|a, b| (a.state, &a.name).cmp(&(b.state, &b.name)));
+        list
     }
 
     // [impl->dsn~device-revocation~1]
@@ -416,6 +449,10 @@ impl<P: AccessPolicy> Hub<P> {
         match message {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
+            ClientMessage::ListIncidents => vec![Outgoing {
+                session,
+                message: ServerMessage::Incidents(self.incident_list(&user)),
+            }],
             ClientMessage::ListDevices => vec![Outgoing {
                 session,
                 message: ServerMessage::Devices(self.device_list(&user)),
@@ -486,20 +523,30 @@ impl<P: AccessPolicy> Hub<P> {
             denied: Vec::new(),
             protected: self.config.protected.clone(),
             keys: Vec::new(),
-            permissions: if self.policy.can_manage_devices(&hello.user) {
-                vec!["manage_devices".to_owned()]
-            } else {
-                Vec::new()
-            },
+            permissions: [
+                (
+                    "manage_devices",
+                    self.policy.can_manage_devices(&hello.user),
+                ),
+                (
+                    "manage_incidents",
+                    self.policy.can_manage_incidents(&hello.user),
+                ),
+            ]
+            .into_iter()
+            .filter(|(_, allowed)| *allowed)
+            .map(|(name, _)| name.to_owned())
+            .collect(),
             valid_until,
         };
         let mut deliveries = Vec::new();
         let mut streams = HashSet::new();
         for sub in hello.subscriptions {
             let key = (sub.incident.clone(), sub.compartment.clone());
+            let roles = self.registry.roles(&hello.user, &sub.incident);
             if !self
                 .policy
-                .can_read(&hello.user, &sub.incident, &sub.compartment)
+                .can_read(&hello.user, &sub.incident, &sub.compartment, &roles)
             {
                 welcome.denied.push(StreamRef {
                     incident: sub.incident,
@@ -575,9 +622,13 @@ impl<P: AccessPolicy> Hub<P> {
                 .collect();
         };
         let (device, user) = (s.device, s.user.clone());
+        let mut roles_changed = HashSet::new();
         for event in events {
             match self.accept(&device, &user, event, now_ms) {
                 Ok(Some((key, sequenced, body))) => {
+                    if let Effect::Roles(changed) = self.registry.apply(&body) {
+                        roles_changed.insert(changed);
+                    }
                     new.entry(key.clone()).or_default().push(sequenced);
                     for (dkey, derived) in self.derive(&key, &body, now_ms) {
                         new.entry(dkey).or_default().push(derived);
@@ -602,6 +653,23 @@ impl<P: AccessPolicy> Hub<P> {
                         }),
                     });
                 }
+            }
+        }
+        // [impl->dsn~incident-roles~1]
+        // Whose roles changed reconnects, to receive what they may read now.
+        if !roles_changed.is_empty() {
+            let cut: Vec<SessionId> = self
+                .sessions
+                .iter()
+                .filter(|(_, s)| roles_changed.contains(&s.user))
+                .map(|(id, _)| *id)
+                .collect();
+            for sid in cut {
+                self.sessions.remove(&sid);
+                out.push(Outgoing {
+                    session: sid,
+                    message: ServerMessage::Refused(Rejection::RolesChanged),
+                });
             }
         }
         out
@@ -630,10 +698,27 @@ impl<P: AccessPolicy> Hub<P> {
             .ok_or(reject(Rejection::UnknownDevice))?;
         ordo_crypto::verify(&event, &registered.key)
             .map_err(|_| reject(Rejection::BadSignature))?;
-        if !self
-            .policy
-            .can_write(user, &body.incident, &body.compartment)
-        {
+        let roles = self.registry.roles(user, &body.incident);
+        let incident_event = body.module.as_str() == incidents::MODULE;
+        let allowed = if incident_event {
+            // [impl->dsn~incident-roles~1]
+            // Planning and rosters (ADR-0046): only planners plan; planners and those whose
+            // incident role allows it grant roles and change the state.
+            let exists = self.registry.get(&body.incident).is_some();
+            body.compartment.as_str() == incidents::COMPARTMENT
+                && match body.event_type.as_str() {
+                    incidents::PLANNED => !exists && self.policy.can_manage_incidents(user),
+                    _ => {
+                        exists
+                            && (self.policy.can_manage_incidents(user)
+                                || self.policy.can_assign_roles(user, &body.incident, &roles))
+                    }
+                }
+        } else {
+            self.policy
+                .can_write(user, &body.incident, &body.compartment, &roles)
+        };
+        if !allowed {
             return Err(reject(Rejection::Forbidden));
         }
         let key = (body.incident.clone(), body.compartment.clone());
@@ -647,6 +732,9 @@ impl<P: AccessPolicy> Hub<P> {
         let payload = self
             .open_payload(&key, &body)
             .ok_or(reject(Rejection::WrongSealing))?;
+        if incident_event && !incidents::is_valid(body.event_type.as_str(), &payload) {
+            return Err(reject(Rejection::Malformed));
+        }
         self.clock
             .observe(&body.hlc, now_ms)
             .map_err(|_| reject(Rejection::ClockAhead))?;

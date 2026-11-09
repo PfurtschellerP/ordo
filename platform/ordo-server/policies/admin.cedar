@@ -10,3 +10,23 @@ permit (
   resource == Organisation::"organisation"
 )
 when { context.roles.contains("admin") };
+
+// Planners prepare incidents and their rosters (ADR-0046); administrators are planners
+// too, so a new installation can start.
+@id("admin.manage-incidents")
+permit (
+  principal,
+  action == Action::"manage_incidents",
+  resource == Organisation::"organisation"
+)
+when { context.roles.contains("planner") || context.roles.contains("admin") };
+
+// Planners see and edit the shared data of every incident (name, roster, units), never
+// clinical data.
+@id("admin.planner-incident")
+permit (
+  principal,
+  action in [Action::"read", Action::"write"],
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("planner") || context.roles.contains("admin") };

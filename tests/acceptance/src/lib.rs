@@ -63,8 +63,6 @@ impl World {
     /// Medics (incident + med.clinical) and a commander (incident only), all online.
     pub fn new() -> Self {
         let server: ServerName = "ordo.drk-musterstadt.de".parse().unwrap();
-        let now = 1_762_600_000_000;
-        let incident = IncidentId::new(Ulid::from_parts(now, 1).unwrap(), &server);
         let user = |name: &str| UserId::new(name, &server).unwrap();
         let mut policy = StaticPolicy::default();
         for medic in MEDICS {
@@ -72,6 +70,16 @@ impl World {
         }
         policy = policy.allow(&user(COMMANDER), &["incident"]);
         policy = policy.admin(&user(ADMIN));
+        Self::with_policy(policy)
+    }
+
+    /// The same people and devices, with access decided by `policy` (e.g. by roles per
+    /// incident instead of fixed grants).
+    pub fn with_policy(policy: StaticPolicy) -> Self {
+        let server: ServerName = "ordo.drk-musterstadt.de".parse().unwrap();
+        let now = 1_762_600_000_000;
+        let incident = IncidentId::new(Ulid::from_parts(now, 1).unwrap(), &server);
+        let user = |name: &str| UserId::new(name, &server).unwrap();
         let hub_device = DeviceId(Ulid::from_parts(now, 999).unwrap());
         let mut hub = Hub::new(
             HubConfig {
@@ -213,7 +221,12 @@ impl World {
             }
             let message: ServerMessage =
                 message::decode(&message::encode(&message).unwrap()).unwrap();
-            device.replica.receive(message, now).unwrap();
+            match device.replica.receive(message, now) {
+                Ok(()) => {}
+                // The server ended the connection (e.g. roles changed): reconnect later.
+                Err(ordo_sync::SyncError::Refused(_)) => device.session = None,
+                Err(e) => panic!("{e}"),
+            }
         }
     }
 }

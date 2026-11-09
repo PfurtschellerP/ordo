@@ -113,8 +113,10 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     );
 
     // [impl->dsn~role-policies~1]
-    // Roles from the seed, permissions from Cedar policies (defaults plus the
-    // organisation's files); invalid policies stop the start.
+    // Organisation roles: administrators from the configuration, plus roles from the seed
+    // (development only). Roles in an incident come from its roster (ADR-0046); identity
+    // provider groups grant nothing. Permissions come from Cedar policies (defaults plus
+    // the organisation's files); invalid policies stop the start.
     let roles = authz::Roles::new(
         config
             .seed
@@ -122,8 +124,8 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             .iter()
             .map(|u| (u.id.clone(), u.roles.clone())),
     );
-    for (user, provider_roles) in store.load_roles().await? {
-        roles.add(&user, &provider_roles);
+    for admin in &config.admins {
+        roles.add(admin, &["admin".to_owned()]);
     }
     let mut extra = Vec::new();
     if let Some(dir) = &config.policy_dir {
@@ -194,12 +196,6 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let addr = listener.local_addr()?;
     let (stop, stopped) = watch::channel(false);
-    let seed_roles = config
-        .seed
-        .users
-        .iter()
-        .map(|u| (u.id.clone(), u.roles.clone()))
-        .collect();
     let login = match &config.oidc {
         Some(oidc) => Some(
             login::Login::new(oidc.clone())
@@ -212,8 +208,6 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         store,
         master,
         config.server_name.clone(),
-        roles,
-        seed_roles,
         login,
         config.access_timeout,
         stop.clone(),

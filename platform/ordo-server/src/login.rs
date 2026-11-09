@@ -270,7 +270,7 @@ async fn finish(
     device: DeviceId,
     key: VerifyingKey,
 ) -> Result<UserId, LoginError> {
-    let roles = claims.additional_claims().groups.clone();
+    // Identity only: roles are granted per incident in ORDO (ADR-0046).
     let wanted = user_name(
         claims.preferred_username().map(|u| u.as_str()),
         claims.email().map(|e| e.as_str()),
@@ -282,11 +282,9 @@ async fn finish(
             claims.subject().as_str(),
             &wanted,
             &app.server,
-            &roles,
+            &[],
         )
         .await?;
-    let base = app.seed_roles.get(&user).cloned().unwrap_or_default();
-    app.roles.set(&user, &base, &roles);
     if let Some(renewal) = renewal {
         app.store
             .set_refresh(
@@ -369,22 +367,10 @@ pub(crate) async fn reverify(app: &App) {
         let outcome = match request.request_async(&login.http).await {
             Ok(tokens) => {
                 let no_nonce = |_: Option<&Nonce>| Ok::<(), String>(());
-                if let Some(claims) = tokens
+                // The ID token is checked; roles do not come from it (ADR-0046).
+                let _ = tokens
                     .id_token()
-                    .and_then(|t| t.claims(&client.id_token_verifier(), no_nonce).ok())
-                {
-                    let roles = claims.additional_claims().groups.clone();
-                    let base = app.seed_roles.get(&user).cloned().unwrap_or_default();
-                    app.roles.set(&user, &base, &roles);
-                    let wanted = user.localpart().to_owned();
-                    if let Err(error) = app
-                        .store
-                        .identity(&issuer, &subject, &wanted, &app.server, &roles)
-                        .await
-                    {
-                        tracing::error!(%error, "storing roles failed");
-                    }
-                }
+                    .and_then(|t| t.claims(&client.id_token_verifier(), no_nonce).ok());
                 let renewed = tokens.refresh_token().map(|t| t.secret().as_str());
                 let stored = renewed.unwrap_or(token.secret().as_str());
                 if let Err(error) = app

@@ -72,6 +72,11 @@ pub const WORKSPACES: &[Workspace] = &[
                 label: text::TAB_RESOURCES,
                 name: "units",
             },
+            View {
+                id: "roster",
+                label: text::ROSTER,
+                name: "roster",
+            },
         ],
     },
     // Every user sees their own devices; with `manage_devices`, all of them.

@@ -359,11 +359,18 @@ impl Replica {
                 self.valid_until = welcome.valid_until;
                 self.permissions = welcome.permissions;
                 for sub in welcome.granted {
-                    self.granted.insert((sub.incident, sub.compartment));
+                    let key = (sub.incident, sub.compartment);
+                    self.denied.remove(&key);
+                    self.granted.insert(key);
                 }
+                // [impl->dsn~incident-roles~1]
+                // A stream the user may no longer read (e.g. a role was withdrawn): its
+                // data and key are deleted from the device (need to know).
                 for denied in welcome.denied {
                     let key = (denied.incident, denied.compartment);
                     self.granted.remove(&key);
+                    self.streams.remove(&key);
+                    self.keys.remove(&key);
                     self.denied.insert(key);
                 }
                 for grant in welcome.keys {
@@ -375,8 +382,8 @@ impl Replica {
                 Ok(())
             }
             ServerMessage::Refused(reason) => Err(SyncError::Refused(reason)),
-            // The device list is for the app, not for the replica.
-            ServerMessage::Devices(_) => Ok(()),
+            // Device and incident lists are for the app, not for the replica.
+            ServerMessage::Devices(_) | ServerMessage::Incidents(_) => Ok(()),
             ServerMessage::Rejected(rejected) => {
                 self.outbox
                     .retain(|(_, e)| e.decode_body().map(|b| b.id) != Ok(rejected.event));

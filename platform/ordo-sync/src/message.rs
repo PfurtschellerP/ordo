@@ -20,6 +20,23 @@ pub enum ClientMessage {
     ListDevices,
     /// Revokes a device (one's own, or any with permission `manage_devices`).
     RevokeDevice(DeviceId),
+    /// Asks for the incidents the user takes part in (all with `manage_incidents`).
+    ListIncidents,
+}
+
+/// An incident as listed for a person (ADR-0046).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncidentSummary {
+    /// The incident.
+    pub incident: IncidentId,
+    /// Its name.
+    pub name: String,
+    /// Planned, active or closed.
+    pub state: crate::incidents::IncidentState,
+    /// The person's roles in it.
+    pub roles: Vec<String>,
+    /// Whether the person may grant roles and change the state.
+    pub manage: bool,
 }
 
 /// A paired device, as listed for its person or an admin (SEC-4).
@@ -88,6 +105,8 @@ pub enum ServerMessage {
     Rejected(Rejected),
     /// The paired devices the user may see (answer to `listDevices` and `revokeDevice`).
     Devices(Vec<DeviceInfo>),
+    /// The incidents the user may open (answer to `listIncidents`).
+    Incidents(Vec<IncidentSummary>),
 }
 
 /// Which streams the device gets, and the keys it needs.
@@ -197,6 +216,9 @@ pub enum Rejection {
     NotConnected,
     /// An event with this ID but different content was already ordered.
     DuplicateId,
+    /// The person's roles changed: the device reconnects to get what it may read now
+    /// (ADR-0046). Not an error.
+    RolesChanged,
 }
 
 /// Encodes a message as CBOR.

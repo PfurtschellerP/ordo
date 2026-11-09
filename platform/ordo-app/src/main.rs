@@ -2,6 +2,7 @@
 
 mod core;
 mod devices;
+mod incidents;
 mod nav;
 mod palette;
 mod patients;

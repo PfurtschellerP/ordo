@@ -28,7 +28,6 @@ pub const PAIR_USER: &str = "Benutzer (name@server)";
 pub const PAIR_DEVICE: &str = "Geräte-ID";
 pub const PAIR_KEY: &str = "Privater Schlüssel des Geräts";
 pub const PAIR_INCIDENT: &str = "Einsatz-ID";
-pub const PAIR_NEW_INCIDENT: &str = "Neuen Einsatz anlegen";
 pub const PAIR_SUBMIT: &str = "Koppeln";
 pub const UNPAIR: &str = "Gerät entkoppeln";
 pub const SIGNED_IN_AS: &str = "Angemeldet als";
@@ -346,4 +345,64 @@ pub fn action_retriage(category: TriageCategory) -> String {
 }
 pub fn action_status(code: &str) -> String {
     format!("Status {}", status_label(code))
+}
+
+// Incidents and roles (ADR-0046)
+pub const INCIDENTS_TITLE: &str = "Einsätze";
+pub const INCIDENTS_INTRO: &str =
+    "Einsatz wählen. Rollen im Einsatz vergibt die Einsatzleitung oder die Einsatzplanung.";
+pub const INCIDENTS_LOADING: &str = "Einsätze werden geladen …";
+pub const INCIDENTS_OFFLINE: &str = "Die Einsatzliste ist nur mit Verbindung zum Server verfügbar.";
+pub const INCIDENTS_EMPTY: &str = "Noch kein Einsatz freigegeben. Die Einsatzleitung oder die Einsatzplanung gibt Personen eine Rolle im Einsatz.";
+pub const OPEN: &str = "Öffnen";
+pub const MY_ROLES: &str = "Rollen";
+pub const NO_ROLE: &str = "keine (Einsatzplanung)";
+pub const PLAN_TITLE: &str = "Einsatz planen";
+pub const PLAN_NAME: &str = "Name des Einsatzes";
+pub const PLAN_SUBMIT: &str = "Einsatz anlegen";
+pub const CHANGE_INCIDENT: &str = "Einsatz wechseln";
+pub const ROSTER: &str = "Personal";
+pub const ROSTER_TITLE: &str = "Personal und Rollen";
+pub const ROSTER_EMPTY: &str = "Noch niemand hat eine Rolle in diesem Einsatz.";
+pub const ROSTER_PERSON: &str = "Person (name@server)";
+pub const ROSTER_ROLE: &str = "Rolle";
+pub const GRANT: &str = "Rolle vergeben";
+pub const WITHDRAW: &str = "Entziehen";
+pub const INCIDENT_STATE: &str = "Status";
+pub const START_INCIDENT: &str = "Einsatz beginnen";
+pub const CLOSE_INCIDENT: &str = "Einsatz abschließen";
+
+/// Roles offered when granting (prototype; later from the profile).
+pub const ROLES: [(&str, &str); 2] = [("commander", "Einsatzleitung"), ("medic", "Sanitätsdienst")];
+
+pub fn role_label(role: &str) -> String {
+    ROLES
+        .iter()
+        .find(|(id, _)| *id == role)
+        .map_or_else(|| role.to_owned(), |(_, label)| (*label).to_owned())
+}
+
+pub fn state_label(state: ordo_sync::incidents::IncidentState) -> &'static str {
+    use ordo_sync::incidents::IncidentState::*;
+    match state {
+        Planned => "Geplant",
+        Active => "Laufend",
+        Closed => "Abgeschlossen",
+    }
+}
+
+pub fn role_granted(user: &str, role: &str) -> String {
+    format!("Rolle {} an {user} vergeben", role_label(role))
+}
+
+pub fn role_withdrawn(user: &str, role: &str) -> String {
+    format!("Rolle {} von {user} entzogen", role_label(role))
+}
+
+pub fn withdraw_label(user: &str, role: &str) -> String {
+    format!("Entziehen: {} von {user}", role_label(role))
+}
+
+pub fn incident_state_changed(state: ordo_sync::incidents::IncidentState) -> String {
+    format!("Einsatz: {}", state_label(state))
 }

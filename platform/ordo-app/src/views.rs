@@ -10,7 +10,7 @@ use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
-use crate::{devices, nav, palette, patients, text};
+use crate::{devices, incidents, nav, palette, patients, text};
 
 /// Triage categories in display order.
 pub(crate) const CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Deceased];
@@ -41,10 +41,7 @@ pub(crate) fn TriageBadge(category: TriageCategory) -> impl IntoView {
 /// The on-site care units of the incident (from the shared compartment).
 pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
     core.with_value(|c| {
-        let events = c
-            .replica
-            .events(&c.incident, med::UHS_COMPARTMENT)
-            .unwrap_or_default();
+        let events = c.events(med::UHS_COMPARTMENT);
         med::uhs_list(&events)
     })
 }
@@ -119,7 +116,6 @@ fn PairingForm(
             .or_else(core::incident_from_url)
             .unwrap_or_default(),
     );
-    let server = RwSignal::new(None::<String>);
     let login_enabled = RwSignal::new(None::<bool>);
     let error = RwSignal::new(login_error.map(|e| format!("{}: {e}", text::LOGIN_FAILED)));
     // (pairing ID, user code, address to open)
@@ -127,7 +123,6 @@ fn PairingForm(
     leptos::task::spawn_local(async move {
         match core::fetch_json("GET", "/auth/config", None).await {
             Ok(config) => {
-                server.set(config["server"].as_str().map(str::to_owned));
                 login_enabled.set(Some(config["login"].as_bool().unwrap_or(false)));
             }
             Err(e) => {
@@ -136,21 +131,6 @@ fn PairingForm(
             }
         }
     });
-    // The incident to open: the one entered, or a new one on this server.
-    let chosen_incident = move || {
-        let entered = incident.get_untracked().trim().to_owned();
-        if !entered.is_empty() {
-            return Some(entered);
-        }
-        let id = core::new_incident_id(&server.get_untracked()?)?;
-        incident.set(id.clone());
-        Some(id)
-    };
-    let new_incident = move |_| {
-        if let Some(id) = server.get().and_then(|s| core::new_incident_id(&s)) {
-            incident.set(id);
-        }
-    };
     // The device to log in with: the existing one (log in again) or a new key pair.
     let device_for_login = move || match relogin.get_value() {
         Some(p) => Some(core::PendingDevice {
@@ -158,7 +138,8 @@ fn PairingForm(
             private_key: p.private_key,
             incident: p.incident,
         }),
-        None => chosen_incident().and_then(|i| core::PendingDevice::create(&i)),
+        // The incident is chosen after logging in (ADR-0046); a shared link may name one.
+        None => core::PendingDevice::create(&incident.get_untracked()),
     };
     let login = move |_| {
         let Some(device) = device_for_login() else {
@@ -227,15 +208,6 @@ fn PairingForm(
                 {if is_relogin { text::RELOGIN_TITLE } else { text::PAIR_TITLE }}
             </h1>
             <p>{if is_relogin { text::RELOGIN_INTRO } else { text::PAIR_INTRO }}</p>
-            {(!is_relogin).then(|| view! {
-                <div class="form">
-                    <label for="incident">{text::PAIR_INCIDENT}</label>
-                    <div class="row">
-                        <input id="incident" type="text" spellcheck="false" bind:value=incident />
-                        <button type="button" class="button" on:click=new_incident>{text::PAIR_NEW_INCIDENT}</button>
-                    </div>
-                </div>
-            })}
             <p role="alert" class="error">{move || error.get()}</p>
             {move || match login_enabled.get() {
                 None => ().into_any(),
@@ -292,6 +264,7 @@ fn ManualPairing(pairing: RwSignal<Option<Pairing>>, incident: RwSignal<String>)
             device: device.get(),
             private_key: key.get(),
             incident: incident.get(),
+            plan: None,
         };
         match Core::new(&candidate) {
             Ok(_) => {
@@ -310,6 +283,8 @@ fn ManualPairing(pairing: RwSignal<Option<Pairing>>, incident: RwSignal<String>)
             <input id="device" type="text" autocomplete="off" spellcheck="false" required bind:value=device />
             <label for="key">{text::PAIR_KEY}</label>
             <input id="key" type="password" autocomplete="off" spellcheck="false" required bind:value=key />
+            <label for="incident">{text::PAIR_INCIDENT}</label>
+            <input id="incident" type="text" spellcheck="false" bind:value=incident />
             <p role="alert" class="error">{move || error.get()}</p>
             <button type="submit" class="button">{text::PAIR_SUBMIT}</button>
         </form>
@@ -322,11 +297,11 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
         if !c.replica.is_ready() {
             return Err(text::REASON_NOT_CONNECTED);
         }
-        if workspace
-            .requires
-            .iter()
-            .all(|comp| c.replica.is_granted(&c.incident, comp))
-        {
+        if workspace.requires.iter().all(|comp| {
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.is_granted(i, comp))
+        }) {
             Ok(())
         } else {
             Err(text::REASON_NO_ACCESS)
@@ -433,6 +408,16 @@ fn Device(
     });
     let on_unpair = StoredValue::new(on_unpair);
     let unpair = move || on_unpair.with_value(|f| f());
+    // Back to the incident list; the data of this incident stays on the device.
+    let change_incident = move || {
+        if let Some(mut p) = paired.get_untracked() {
+            p.incident.clear();
+            p.plan = None;
+            core::save_pairing(&p);
+            paired.set(Some(p));
+        }
+    };
+    let has_incident = core.with_value(|c| c.incident.is_some());
     let relogin = StoredValue::new(pairing);
     view! {
         <Show
@@ -443,7 +428,11 @@ fn Device(
                 when=move || !locked.get()
                 fallback=move || view! { <PairingForm pairing=paired login_error=None relogin=relogin.get_value() /> }
             >
-                <Workspace core revision on_unpair=unpair />
+                {if has_incident {
+                    view! { <Workspace core revision on_unpair=unpair on_change_incident=change_incident /> }.into_any()
+                } else {
+                    view! { <incidents::IncidentPicker core revision paired /> }.into_any()
+                }}
             </Show>
         </Show>
     }
@@ -473,6 +462,7 @@ fn Workspace(
     core: Handle,
     revision: RwSignal<u64>,
     on_unpair: impl Fn() + Clone + 'static,
+    on_change_incident: impl Fn() + Clone + 'static,
 ) -> impl IntoView {
     let nav = Nav::new();
     provide_context(patients::Drafts::default());
@@ -493,7 +483,13 @@ fn Workspace(
         route
             .with(|r| r.as_ref().and_then(|r| usable(&r.workspace)))
             .or_else(|| saved.as_ref().and_then(|r| usable(&r.workspace)))
-            .or_else(|| nav::WORKSPACES.iter().find(|w| access(core, w).is_ok()))
+            // Automatically only a workspace of the incident, never the device list: it is
+            // reachable before the incident is, and would stay chosen.
+            .or_else(|| {
+                nav::WORKSPACES
+                    .iter()
+                    .find(|w| !w.requires.is_empty() && access(core, w).is_ok())
+            })
             .map(|w| w.id)
     });
     let current_view = Memo::new(move |_| {
@@ -525,7 +521,23 @@ fn Workspace(
         nav.go(nav::Route::view(w.id, w.views[0].id));
         focus("main");
     };
-    let incident = core.with_value(|c| c.incident.to_string());
+    let incident = core.with_value(|c| {
+        c.incident
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default()
+    });
+    let incident_name = move || {
+        revision.track();
+        core.with_value(|c| c.incident_info().map(|i| i.name))
+            .unwrap_or_else(|| format!("{}…", incident.chars().take(10).collect::<String>()))
+    };
+    let incident = core.with_value(|c| {
+        c.incident
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default()
+    });
     let user = core.with_value(|c| c.replica.user().to_string());
     // Unpairing deletes the key on this device; if the server can be reached, it forgets
     // the device as well (SEC-4), so it no longer appears in the device list.
@@ -579,7 +591,7 @@ fn Workspace(
             <div class="app-header__state">
                 <p class="app-header__incident">
                     <span>{text::INCIDENT} ": "</span>
-                    <span class="code" title=incident.clone()>{incident.chars().take(10).collect::<String>()} "…"</span>
+                    <span id="incident-name" title=incident.clone()>{incident_name}</span>
                 </p>
                 <ConnectionStatus core revision />
             </div>
@@ -659,6 +671,10 @@ fn Workspace(
                             }>
                                 {text::THEMES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
                             </select>
+                            <button id="change-incident" type="button" class="button" on:click={
+                                let change = on_change_incident.clone();
+                                move |_| change()
+                            }>{text::CHANGE_INCIDENT}</button>
                             <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
                         </section>
                     </div>
@@ -696,6 +712,7 @@ fn Workspace(
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
                     (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
+                    (Some("command.situation"), Some("roster")) => view! { <incidents::RosterView core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),
                     (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
@@ -801,10 +818,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let rows = move || {
         revision.track();
         let counts = core.with_value(|c| {
-            let events = c
-                .replica
-                .events(&c.incident, med::COMPARTMENT)
-                .unwrap_or_default();
+            let events = c.events(med::COMPARTMENT);
             PatientRegister::from_events(&events).counts()
         });
         uhs_list(core)
@@ -865,10 +879,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         revision.track();
         let list = uhs_list(core);
         let counts = core.with_value(|c| {
-            let events = c
-                .replica
-                .events(&c.incident, "incident")
-                .unwrap_or_default();
+            let events = c.events("incident");
             med::latest_counts(&events)
         });
         list.into_iter()
@@ -967,10 +978,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let register = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {
-            let events = c
-                .replica
-                .events(&c.incident, units::COMPARTMENT)
-                .unwrap_or_default();
+            let events = c.events(units::COMPARTMENT);
             UnitRegister::from_events(&events)
         })
     });

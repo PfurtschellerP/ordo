@@ -2,9 +2,9 @@
 // against it; the server validates every policy against it when it starts.
 //
 // Principal: a user. Resource: a data compartment of an incident, e.g.
-// Compartment::"med.clinical". Context: the roles the user holds in this incident (from
-// the organisation and from positions in the command structure, ADR-0031) and the
-// incident ID. People never get permissions directly; roles do.
+// Compartment::"med.clinical". Context: the roles the user holds — organisation roles
+// plus the roles granted in this incident (ADR-0046) — and the incident ID. People never
+// get permissions directly; roles do.
 
 entity User;
 entity Compartment;
@@ -20,6 +20,14 @@ action read, write appliesTo {
   context: Request,
 };
 
+// Grant and withdraw roles in an incident and change its state (resource: the incident's
+// Compartment::"incident").
+action assign_role appliesTo {
+  principal: [User],
+  resource: [Compartment],
+  context: Request,
+};
+
 // Organisation-wide actions: not tied to an incident.
 entity Organisation;
 
@@ -29,6 +37,13 @@ type OrganisationRequest = {
 
 // See and revoke the devices of everyone (everyone may manage their own devices).
 action manage_devices appliesTo {
+  principal: [User],
+  resource: [Organisation],
+  context: OrganisationRequest,
+};
+
+// Plan incidents, see all of them, and grant roles in every incident (ADR-0046).
+action manage_incidents appliesTo {
   principal: [User],
   resource: [Organisation],
   context: OrganisationRequest,

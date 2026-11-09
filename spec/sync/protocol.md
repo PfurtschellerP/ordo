@@ -93,12 +93,33 @@ MUST refuse it (`refused: forbidden`). On a revocation the server MUST:
 A device that receives `refused: revoked` MUST delete its device key and all local data
 of ORDO, and MUST NOT reconnect. Pairing it again creates a new device.
 
-## 7. Changes and open points
+## 7. Incidents and roles
+
+Incidents and their rosters are events of the module `incidents` in the incident's
+`incident` compartment ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
+`incidents.planned` (`name`), `incidents.stateChanged` (`state`: planned, active, closed),
+`incidents.roleGranted` and `incidents.roleWithdrawn` (`user`, `role`). The server MUST:
+
+- accept `incidents.planned` only from a user with the permission `manage_incidents`, and
+  only as the first one of that incident;
+- accept the other incident events only for a planned incident, from a user with
+  `manage_incidents` or whose roles in that incident permit `assign_role`;
+- reject incident events with an invalid payload (`malformed`);
+- decide every access with the user's roles in that incident (roster) plus their
+  organisation roles;
+- end every connection of a user whose roles changed with `refused: rolesChanged`.
+
+A device receiving `rolesChanged` reconnects; for every stream listed as `denied` in the
+new welcome it MUST delete that stream's events and key. `listIncidents` returns the
+incidents in which the user has a role, or all of them for `manage_incidents`.
+
+## 8. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
 (§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
 (`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md));
-devices are listed and revoked over the connection (§6, `permissions`, `revoked`).
+devices are listed and revoked over the connection (§6, `permissions`, `revoked`);
+incidents and roles per incident (§7, `listIncidents`, `rolesChanged`).
 
 Open for draft 2:
 

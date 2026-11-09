@@ -1,5 +1,5 @@
 # Dex (https://dexidp.io) for the local demo (deploy/demo/README.md).
-# Demo users only: anna (medic), ben (commander), dora (admin), eva (medic + commander),
+# Demo users only: anna, ben, dora, eva (groups are not used for roles any more, ADR-0046),
 # password "password".
 issuer: http://127.0.0.1:5556/dex
 

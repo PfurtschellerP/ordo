@@ -45,6 +45,7 @@ export class OrdoServer {
       env: {
         ...process.env,
         ORDO_SERVER_NAME: "localhost",
+        ORDO_ADMINS: "dora", // plans incidents and grants roles (ADR-0046)
         ORDO_LISTEN: `127.0.0.1:${this.port}`,
         ORDO_DATA_DIR: path.join(this.work, "data"),
         ORDO_MASTER_KEY_FILE: path.join(this.work, "master.key"),

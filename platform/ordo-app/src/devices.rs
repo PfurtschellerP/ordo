@@ -24,9 +24,14 @@ pub fn DevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         revision.track();
         core.with_value(|c| c.replica.is_ready())
     });
+    let welcomes = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.welcomes)
+    });
     // Ask for the list whenever the connection is (again) ready.
+    // Ask again after every new connection (an answer may be lost when it is cut).
     Effect::new(move |_| {
-        if ready.get() {
+        if ready.get() && welcomes.get() > 0 {
             core::list_devices(core);
         }
     });

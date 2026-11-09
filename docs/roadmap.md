@@ -90,16 +90,18 @@ Done in phase 0:
 
 Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
-**Fixed already:** palette quick actions now bring the opened form into view with the
-cursor in its first field; the app is installable as a PWA (it lacked icons).
+**Done already:** palette quick actions bring the opened form into view with the cursor
+in its first field; the app is installable as a PWA (it lacked icons); incidents are
+planned ahead and roles granted per incident (milestone `m11`, ADR-0046): after logging
+in, people see the incidents they have a role in, planners plan new ones, the incident's
+command manages the roster under *Einsatzleitung – Personal*.
 
 *Incident and command (Einsatzleitung)*
 
-- **Incidents planned ahead, roles per incident** ([ADR-0046](adr/0046-roles-granted-per-incident.md)):
-  an incident list with planned, active and closed incidents; a roster per incident; the
-  incident's command grants and withdraws roles (events, audited), access follows at once;
-  templates for recurring deployments. Identity provider groups no longer grant roles.
-  Choose the incident when logging in; nobody lands in another incident by accident.
+- **Incidents and roles, next steps** ([ADR-0046](adr/0046-roles-granted-per-incident.md)):
+  templates for recurring deployments; roles from the profile instead of a fixed list;
+  an admin view for organisation roles (planners); suggest registered people when
+  granting roles.
 - **Roles and views (bug):** the Einsatzleitung sees the whole incident, including the
   UHS; UHS crews see their UHS work only — no situation view, no device list, no editing
   of units. Views are granted by permission (Cedar), not only by readable compartments.
@@ -161,6 +163,14 @@ cursor in its first field; the app is installable as a PWA (it lacked icons).
 - **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
   every list, alongside the arrow keys (extends ADR-0036).
 - **Person fields** suggest the registered users of the installation; free text allowed.
+- **API microversioning:** every interface (sync protocol, HTTP APIs, later federation)
+  states a version per request: the client names the version it speaks (e.g. a header
+  `ORDO-API-Version: 1.4`, in the sync protocol a field of `hello`), the server announces the
+  range it supports and answers in the requested version. Old apps on tablets that were
+  offline for days, field servers on an older release and federation partners keep
+  working while the server moves on; a change that breaks clients raises the version
+  instead of breaking them. Document each version in `spec/` and test the oldest
+  supported one in CI.
 - **PDF/A exports with Typst** (Apache-2.0, embeddable, PDF/A): incident log, patient
   record for the handover (layout after the DIVI emergency protocol where no open
   standard exists), other printable views.

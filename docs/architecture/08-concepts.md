@@ -450,6 +450,30 @@ Needs: impl, utest, itest
 
 Tags: must, m10
 
+#### Incident roles
+`dsn~incident-roles~1`
+
+Incidents and rosters are events in the incident's `incident` compartment (module
+`incidents`: `planned`, `stateChanged`, `roleGranted`, `roleWithdrawn`); the hub and the
+devices compute the same registry from them. Access decisions pass the person's roles in
+the incident to the policy, which adds the organisation roles (administrators from
+`ORDO_ADMINS`) and asks Cedar. Only planners (`manage_incidents`) plan incidents; planners
+and holders of a role with `assign_role` (default: `commander`) grant and withdraw roles
+and change the state. When someone's roles change, the server ends their connections
+(`refused: rolesChanged`); the devices reconnect, get the streams they may read now, and
+delete the data of streams they lost. After logging in, the app lists the person's
+incidents (`listIncidents`); a planner's device plans one by recording `planned` and the
+planner's `commander` role once it may write to it
+([ADR-0046](../adr/0046-roles-granted-per-incident.md)).
+
+Covers:
+
+* [req~org-6~1](../requirements/02-shared.md#org-6--incidents-planned-ahead-roles-per-incident)
+
+Needs: impl, utest, itest
+
+Tags: must, m11
+
 ## 8.6 Design system and accessibility
 
 Target: **EN 301 549 / WCAG 2.2 AA** for everything ORDO produces ([requirements §5.8](../requirements/07-quality.md#58-accessibility)).

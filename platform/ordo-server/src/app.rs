@@ -18,7 +18,7 @@ use ordo_crypto::seal::DataKey;
 use ordo_sync::message::{self, ClientMessage, ServerMessage};
 use ordo_sync::{Hub, SessionId};
 
-use crate::authz::{RolePolicy, Roles};
+use crate::authz::RolePolicy;
 use crate::login::{self, Login};
 use tokio::sync::{Mutex, mpsc, watch};
 
@@ -31,10 +31,6 @@ pub struct App {
     pub(crate) master: DataKey,
     /// This server's name.
     pub(crate) server: ServerName,
-    /// Roles of all users, shared with the Cedar policy (ADR-0035).
-    pub(crate) roles: Roles,
-    /// Roles from the seed file, kept when a login adds the provider's groups.
-    pub(crate) seed_roles: HashMap<UserId, Vec<String>>,
     /// Login with OpenID Connect, if configured (ADR-0038).
     pub(crate) login: Option<Login>,
     /// How long a login lasts without re-verification (ADR-0040).
@@ -61,8 +57,6 @@ impl App {
         store: Store,
         master: DataKey,
         server: ServerName,
-        roles: Roles,
-        seed_roles: HashMap<UserId, Vec<String>>,
         login: Option<Login>,
         access_timeout: std::time::Duration,
         stop: watch::Sender<bool>,
@@ -72,8 +66,6 @@ impl App {
             store,
             master,
             server,
-            roles,
-            seed_roles,
             login,
             access_timeout,
             sessions: std::sync::Mutex::new(HashMap::new()),

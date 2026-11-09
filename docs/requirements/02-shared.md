@@ -375,3 +375,16 @@ Choose which service packages an organisation uses (e.g. a medical service uses 
 Tags: must, shared
 
 Needs: dsn
+
+#### ORG-6 — Incidents planned ahead, roles per incident
+`req~org-6~1`
+
+ORDO shall let planners prepare incidents ahead with the people taking part and their
+roles. When a planner or the incident's command grants a person a role in an incident,
+ORDO shall give that person's devices what the role permits in that incident; when the
+role is withdrawn, ORDO shall take it away and delete that data from the devices. Roles
+shall not come from groups of the identity provider.
+
+Tags: must, shared, m11
+
+Needs: dsn

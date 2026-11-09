@@ -44,34 +44,45 @@ async function dexLogin(page: Page, email: string): Promise<void> {
   await page.locator("#submit-login").click();
 }
 
-/** Opens the pairing page and chooses the incident (a new one unless given). */
-async function chooseIncident(page: Page, server: OrdoServer, incident?: string): Promise<string> {
+/** Opens the pairing page. */
+async function startPairing(page: Page, server: OrdoServer): Promise<void> {
   await page.goto(server.url);
   await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
-  if (incident) await page.getByLabel("Einsatz-ID").fill(incident);
-  else await page.getByRole("button", { name: "Neuen Einsatz anlegen" }).click();
-  return page.getByLabel("Einsatz-ID").inputValue();
 }
 
-/** Pairs the device by logging in with the organisation's account (Dex). Returns the incident. */
-export async function loginPair(page: Page, server: OrdoServer, email: string, incident?: string): Promise<string> {
-  const id = await chooseIncident(page, server, incident);
+/** Pairs the device by logging in with the organisation's account (Dex); the app then
+ *  lists the person's incidents (ADR-0046). */
+export async function loginPair(page: Page, server: OrdoServer, email: string): Promise<void> {
+  await startPairing(page, server);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await dexLogin(page, email);
-  await expect(page.locator(".app-header__title")).toBeVisible();
-  return id;
+  await expect(page.getByRole("heading", { name: "ORDO – Einsätze" })).toBeVisible();
 }
 
 /** Pairs a shared device by QR code: a logged-in phone opens the code and approves. */
-export async function qrPair(tablet: Page, phone: Page, server: OrdoServer, email: string, incident: string): Promise<void> {
-  await chooseIncident(tablet, server, incident);
+export async function qrPair(tablet: Page, phone: Page, server: OrdoServer, email: string): Promise<void> {
+  await startPairing(tablet, server);
   await tablet.getByRole("button", { name: "Mit QR-Code koppeln" }).click();
   await expect(tablet.locator(".pairing-qr__code")).toBeVisible();
   const address = await tablet.locator("#pair-qr-link").getAttribute("href");
   await phone.goto(address!);
   await phone.locator("#submit-login").click(); // the code is filled in from the QR address
   await dexLogin(phone, email);
-  await expect(tablet.locator(".app-header__title")).toBeVisible({ timeout: 30_000 });
+  await expect(tablet.getByRole("heading", { name: "ORDO – Einsätze" })).toBeVisible({ timeout: 30_000 });
+}
+
+/** Opens an incident from the incident list. */
+export async function openIncident(page: Page, name: string): Promise<void> {
+  await page.getByRole("button", { name: `Öffnen: ${name}` }).click();
+  await expect(page.locator(".app-header__title")).toBeVisible();
+}
+
+/** Grants a role in the open incident (view "Personal" of the Einsatzleitung). */
+export async function grantRole(page: Page, user: string, role: string): Promise<void> {
+  await page.locator("#roster-person").fill(user);
+  await page.locator("#roster-role").selectOption({ label: role });
+  await page.getByRole("button", { name: "Rolle vergeben" }).click();
+  await expect(page.locator(".roster__entry", { hasText: user }).filter({ hasText: role })).toBeVisible();
 }
 
 export async function openView(page: Page, label: string): Promise<void> {

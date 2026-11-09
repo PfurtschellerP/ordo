@@ -31,16 +31,15 @@ ORDO stores no passwords and talks only to the bundled Dex
 [ADR-0039](../../../docs/adr/0039-dex-in-every-installation.md)). Two ways to fill in
 `dex.yaml`:
 
-- **Very small organisations: local accounts** (`staticPasswords`). Groups of an
-  account become its ORDO roles, e.g. `medic`, `commander`.
+- **Very small organisations: local accounts** (`staticPasswords`).
 - **Everyone else: your organisation's OpenID Connect provider** (Microsoft Entra ID,
   Keycloak, Authentik, Google, …) as a Dex connector; see the commented example in
-  `dex.yaml.example`. Register Dex there with the redirect URI `https://<domain>/dex/callback`
-  and let it send the groups that become ORDO roles.
+  `dex.yaml.example`. Register Dex there with the redirect URI `https://<domain>/dex/callback`.
 
-Today, groups still become ORDO roles. This changes: roles will be granted per incident in
-ORDO itself, and the identity provider will only say who someone is
-([ADR-0046](../../../docs/adr/0046-roles-granted-per-incident.md)).
+The identity provider only says who someone is. Roles are given per incident in ORDO
+([ADR-0046](../../../docs/adr/0046-roles-granted-per-incident.md)): the administrators in
+`ORDO_ADMINS` plan incidents and give roles (*Einsatzleitung – Personal*); whoever leads an
+incident gives roles in it.
 
 ORDO itself speaks only OpenID Connect. Dex could also reach LDAP or SAML directories,
 but ORDO does not support or test that; prefer your provider's OpenID Connect.

@@ -10,6 +10,7 @@ client-message = { "hello": hello }
                / { "push": [* signed-event] }
                / "listDevices"                ; own devices, all with manage_devices
                / { "revokeDevice": device-id } ; own device, any with manage_devices
+               / "listIncidents"              ; incidents with a role; all for planners
 
 hello = {
   "user": user-id,
@@ -34,6 +35,7 @@ server-message = { "challenge": challenge }
                / { "deliver": delivery }
                / { "rejected": rejected }
                / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
+               / { "incidents": [* incident-summary] } ; answer to listIncidents
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {
@@ -55,6 +57,14 @@ device-info = {
   "user": user-id,
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
+}
+
+incident-summary = {
+  "incident": incident-id,
+  "name": tstr,
+  "state": "planned" / "active" / "closed",
+  "roles": [* tstr],               ; the person's roles in it
+  "manage": bool,                  ; may grant roles and change the state
 }
 
 stream-ref = {
@@ -83,7 +93,7 @@ rejected = {
 }
 
 rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
-          / "revoked"
+          / "revoked" / "rolesChanged"
           / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId"

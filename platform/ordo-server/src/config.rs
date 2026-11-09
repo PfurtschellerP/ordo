@@ -32,6 +32,9 @@ pub struct Config {
     /// How long a device's login lasts without re-verification (`ORDO_ACCESS_TIMEOUT_HOURS`,
     /// default 48, from 24 to 720 hours, i.e. 1 to 30 days; ADR-0040).
     pub access_timeout: std::time::Duration,
+    /// Administrators by user name, e.g. `dora` for `dora@<server>` (`ORDO_ADMINS`,
+    /// comma-separated). They plan incidents and grant roles (ADR-0046).
+    pub admins: Vec<UserId>,
 }
 
 /// Default access timeout in hours (ADR-0040).
@@ -202,7 +205,18 @@ impl Config {
                     )
                 })?,
         };
+        let admins = get("ORDO_ADMINS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|name| {
+                UserId::new(name, &server_name)
+                    .map_err(|e| ConfigError::invalid("ORDO_ADMINS", e.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Self {
+            admins,
             access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),
             server_name,
             listen,

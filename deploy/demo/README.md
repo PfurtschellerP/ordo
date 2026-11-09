@@ -11,16 +11,20 @@ deploy/demo/demo.sh reset    # stop and delete the demo data
 Needs Docker or Podman (for Dex), Rust, and for the first start `trunk` and
 `wasm-bindgen-cli` to build the app. Accounts, password `password`:
 
-| Account | Roles | Sees |
-|---|---|---|
-| `anna@example.org` | medic | Sanität – UHS, patient records |
-| `ben@example.org` | commander | Einsatzleitung: counts, units — no patient data |
-| `dora@example.org` | admin | Organisation – Geräte: all devices |
-| `eva@example.org` | medic, commander | both |
+| Account | In ORDO |
+|---|---|
+| `dora@example.org` | administrator (`ORDO_ADMINS=dora`): plans incidents, gives roles, sees all devices |
+| `anna@example.org`, `ben@example.org`, `eva@example.org` | whatever role the incident gives them |
 
-Open each person in its own browser profile or private window: every browser profile is
-one device. The first person creates an incident ("Neuen Einsatz anlegen"); others enter
-its ID (shown in the header; the full ID is in its tooltip) to join. Pair a second device
-by QR code: "Mit QR-Code koppeln", then open the shown address in another window.
+Roles are given per incident ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
+
+1. Log in as Dora, plan an incident ("Einsatz anlegen"); you lead it.
+2. Under *Einsatzleitung – Personal*, give roles to `anna@localhost` (Sanitätsdienst) and
+   `ben@localhost` (Einsatzleitung); "Einsatz beginnen" starts it.
+3. Log in as Anna or Ben in another browser profile or private window (every profile is
+   one device) and open the incident from the list.
+
+Pair a shared tablet by QR code: "Mit QR-Code koppeln", then open the shown address in
+another window and log in there.
 
 Not for real use: fixed passwords, plain HTTP on `localhost`.

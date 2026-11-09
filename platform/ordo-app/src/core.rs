@@ -14,8 +14,11 @@ use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
 use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind, record};
-use ordo_sync::message::{self, ClientMessage, DeviceInfo, Rejection, ServerMessage};
-use ordo_sync::{Replica, ReplicaState};
+use ordo_sync::incidents::{self, IncidentState, Planned, Registry, RoleChange, StateChanged};
+use ordo_sync::message::{
+    self, ClientMessage, DeviceInfo, IncidentSummary, Rejection, ServerMessage,
+};
+use ordo_sync::{AppliedEvent, Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
@@ -41,8 +44,12 @@ pub struct Pairing {
     pub device: String,
     /// Ed25519 private key, 64 hex characters.
     pub private_key: String,
-    /// The incident to work on.
+    /// The incident to work on; empty until one is chosen (ADR-0046).
     pub incident: String,
+    /// Name of an incident this device is planning: recorded once the server lets the
+    /// device write to it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<String>,
 }
 
 /// State of the connection to the server.
@@ -58,8 +65,17 @@ pub enum Connection {
 
 /// Everything the app works with.
 pub struct Core {
-    /// The incident.
-    pub incident: IncidentId,
+    /// The incident, once one is chosen.
+    pub incident: Option<IncidentId>,
+    /// The incidents the user may open, as last listed by the server.
+    pub incidents: Option<Vec<IncidentSummary>>,
+    /// An incident being planned on this device (name), see [`Pairing::plan`].
+    plan: Option<String>,
+    /// Counts the server's welcomes: views that ask the server for lists ask again after
+    /// every new connection.
+    pub welcomes: u64,
+    /// Reconnect at once after the connection closes (roles changed), not after a pause.
+    reconnect_now: bool,
     /// The device's local copy.
     pub replica: Replica,
     /// Connection state.
@@ -101,11 +117,10 @@ impl Core {
         );
         let key: [u8; 32] = from_hex(pairing.private_key.trim())
             .ok_or("Privater Schlüssel: 64 Hex-Zeichen erwartet")?;
-        let incident: IncidentId = pairing
-            .incident
-            .trim()
-            .parse()
-            .map_err(|e| format!("{e}"))?;
+        let incident: Option<IncidentId> = match pairing.incident.trim() {
+            "" => None,
+            id => Some(id.parse().map_err(|e| format!("{e}"))?),
+        };
         let signer = || {
             EventSigner::new(
                 SigningKey::from_bytes(&key),
@@ -118,10 +133,16 @@ impl Core {
                 .unwrap_or_else(|_| Replica::new(user.clone(), device, signer(), entropy)),
             None => Replica::new(user, device, signer(), entropy),
         };
-        replica.subscribe(&incident, "incident");
-        replica.subscribe(&incident, patients::COMPARTMENT);
+        if let Some(incident) = &incident {
+            replica.subscribe(incident, "incident");
+            replica.subscribe(incident, patients::COMPARTMENT);
+        }
         Ok(Self {
             incident,
+            incidents: None,
+            plan: pairing.plan.clone(),
+            welcomes: 0,
+            reconnect_now: false,
             replica,
             connection: Connection::Offline,
             announcement: String::new(),
@@ -134,6 +155,87 @@ impl Core {
             stopped: false,
             socket: None,
         })
+    }
+
+    /// The events of `compartment` in the chosen incident (none without one).
+    pub fn events(&self, compartment: &str) -> Vec<AppliedEvent> {
+        self.incident
+            .as_ref()
+            .and_then(|i| self.replica.events(i, compartment).ok())
+            .unwrap_or_default()
+    }
+
+    /// The chosen incident's name, state and roster, from its events.
+    pub fn incident_info(&self) -> Option<incidents::Incident> {
+        let incident = self.incident.as_ref()?;
+        Registry::from_events(&self.events(incidents::COMPARTMENT))
+            .get(incident)
+            .cloned()
+    }
+
+    /// Records an event of the chosen incident.
+    fn record_event(
+        &mut self,
+        compartment: &str,
+        module: &str,
+        event_type: &str,
+        payload: &[u8],
+    ) -> Result<(), String> {
+        let incident = self.incident.clone().ok_or("Kein Einsatz gewählt")?;
+        self.replica
+            .record(
+                &incident,
+                compartment,
+                module,
+                event_type,
+                1,
+                payload,
+                now_ms(),
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // [impl->dsn~incident-roles~1]
+    /// Records a planned incident once the server lets this device write to it: its name,
+    /// and the planner as its commander.
+    fn finish_plan(&mut self) {
+        let (Some(name), Some(incident)) = (self.plan.clone(), self.incident.clone()) else {
+            return;
+        };
+        if !self.replica.is_granted(&incident, incidents::COMPARTMENT) {
+            return;
+        }
+        let planned = Planned { name }.encode();
+        let commander = RoleChange {
+            user: self.replica.user().clone(),
+            role: COMMANDER.to_owned(),
+        }
+        .encode();
+        if let (Ok(planned), Ok(commander)) = (planned, commander) {
+            let ok = self
+                .record_event(
+                    incidents::COMPARTMENT,
+                    incidents::MODULE,
+                    incidents::PLANNED,
+                    &planned,
+                )
+                .and_then(|()| {
+                    self.record_event(
+                        incidents::COMPARTMENT,
+                        incidents::MODULE,
+                        incidents::ROLE_GRANTED,
+                        &commander,
+                    )
+                });
+            if ok.is_ok() {
+                self.plan = None;
+                if let Some(mut pairing) = load_pairing() {
+                    pairing.plan = None;
+                    save_pairing(&pairing);
+                }
+            }
+        }
     }
 
     fn send(&self, message: &ClientMessage) {
@@ -183,6 +285,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         };
         let welcome = matches!(message, ServerMessage::Welcome(_));
         core.update_value(|c| {
+            if let ServerMessage::Incidents(list) = &message {
+                c.incidents = Some(list.clone());
+            }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
                     && list.iter().all(|d| d.device != device)
@@ -198,7 +303,15 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     // Only a welcome proves that the login is valid again.
                     if welcome {
                         c.login_expired = false;
+                        c.welcomes += 1;
+                        c.finish_plan();
                     }
+                }
+                // Roles changed (ADR-0046): the server closes the connection and the
+                // device reconnects to receive what it may read now.
+                Err(ordo_sync::SyncError::Refused(Rejection::RolesChanged)) => {
+                    c.incidents = None;
+                    c.reconnect_now = true;
                 }
                 // An unknown device logs in again, which pairs it anew.
                 Err(ordo_sync::SyncError::Refused(
@@ -282,11 +395,14 @@ pub fn short_device(device: &DeviceId) -> String {
 }
 
 fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
+    let now = core
+        .try_update_value(|c| std::mem::take(&mut c.reconnect_now))
+        .unwrap_or(false);
     let retry = Closure::once_into_js(move || connect(core, revision));
     if let Some(window) = web_sys::window() {
         let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
             retry.unchecked_ref(),
-            RECONNECT_MS,
+            if now { 0 } else { RECONNECT_MS },
         );
     }
 }
@@ -406,10 +522,7 @@ pub fn set_status(
     status: &str,
 ) -> Result<(), String> {
     let replaces = core.with_value(|c| {
-        let events = c
-            .replica
-            .events(&c.incident, units::COMPARTMENT)
-            .unwrap_or_default();
+        let events = c.events(units::COMPARTMENT);
         UnitRegister::from_events(&events)
             .units
             .get(unit)
@@ -476,10 +589,7 @@ pub fn add_photo(
 /// Display name of a UHS by ID (the ID if unknown).
 pub fn uhs_name(core: Handle, id: &str) -> String {
     core.with_value(|c| {
-        let events = c
-            .replica
-            .events(&c.incident, patients::UHS_COMPARTMENT)
-            .unwrap_or_default();
+        let events = c.events(patients::UHS_COMPARTMENT);
         patients::uhs_list(&events)
             .into_iter()
             .find(|u| u.id == id)
@@ -499,18 +609,7 @@ fn record(
 ) -> Result<(), String> {
     let result = core
         .try_update_value(|c| {
-            let incident = c.incident.clone();
-            c.replica
-                .record(
-                    &incident,
-                    compartment,
-                    module,
-                    event_type,
-                    1,
-                    payload,
-                    now_ms(),
-                )
-                .map_err(|e| e.to_string())?;
+            c.record_event(compartment, module, event_type, payload)?;
             c.storage_failed = save_replica(&c.replica).is_err();
             c.announcement = announcement;
             c.push();
@@ -519,6 +618,70 @@ fn record(
         .unwrap_or_else(|| Err("App-Zustand nicht verfügbar".into()));
     revision.update(|r| *r += 1);
     result
+}
+
+/// The role of an incident's command: may grant roles (default policies).
+pub const COMMANDER: &str = "commander";
+
+// [impl->dsn~incident-roles~1]
+/// Asks the server for the incidents the user may open.
+pub fn list_incidents(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::ListIncidents));
+}
+
+/// Grants (or withdraws) `role` in the chosen incident to `user`.
+pub fn change_role(
+    core: Handle,
+    revision: RwSignal<u64>,
+    user: &str,
+    role: &str,
+    granted: bool,
+) -> Result<(), String> {
+    let user: UserId = user.trim().parse().map_err(|e| format!("{e}"))?;
+    let payload = RoleChange {
+        user: user.clone(),
+        role: role.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    let (event_type, announcement) = if granted {
+        (
+            incidents::ROLE_GRANTED,
+            text::role_granted(user.as_str(), role),
+        )
+    } else {
+        (
+            incidents::ROLE_WITHDRAWN,
+            text::role_withdrawn(user.as_str(), role),
+        )
+    };
+    record(
+        core,
+        revision,
+        incidents::COMPARTMENT,
+        incidents::MODULE,
+        event_type,
+        &payload,
+        announcement,
+    )
+}
+
+/// Changes the state of the chosen incident (planned, active, closed).
+pub fn set_incident_state(
+    core: Handle,
+    revision: RwSignal<u64>,
+    state: IncidentState,
+) -> Result<(), String> {
+    let payload = StateChanged { state }.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        incidents::COMPARTMENT,
+        incidents::MODULE,
+        incidents::STATE_CHANGED,
+        &payload,
+        text::incident_state_changed(state),
+    )
 }
 
 /// A new incident ID on the server of `user`.
@@ -585,6 +748,7 @@ impl PendingDevice {
             device: self.device,
             private_key: self.private_key,
             incident: self.incident,
+            plan: None,
         }
     }
 

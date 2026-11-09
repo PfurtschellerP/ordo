@@ -46,8 +46,8 @@ pub enum PolicyError {
     },
 }
 
-/// The roles of every user, shared between the policy and the login, which updates them
-/// with the identity provider's groups (ADR-0038).
+/// The organisation roles of every user (administrators, planners; seed roles in
+/// development). Roles within an incident come from its roster (ADR-0046).
 #[derive(Clone, Default)]
 pub struct Roles(Arc<RwLock<HashMap<UserId, Vec<String>>>>);
 
@@ -66,21 +66,6 @@ impl Roles {
                 entry.push(role.clone());
             }
         }
-    }
-
-    /// Replaces the roles of `user` that came from the identity provider: `base` (e.g.
-    /// from the seed) plus `roles`.
-    pub fn set(&self, user: &UserId, base: &[String], roles: &[String]) {
-        let mut all: Vec<String> = base.to_vec();
-        for role in roles {
-            if !all.contains(role) {
-                all.push(role.clone());
-            }
-        }
-        self.0
-            .write()
-            .expect("roles lock")
-            .insert(user.clone(), all);
     }
 
     fn of(&self, user: &UserId) -> Vec<String> {
@@ -151,15 +136,18 @@ impl RolePolicy {
         })
     }
 
-    /// Whether `user` may do `action` on `compartment` of `incident`.
+    /// Whether `user`, holding `incident_roles` in `incident`, may do `action` on
+    /// `compartment` of it. The user's organisation roles count as well.
     pub fn allows(
         &self,
         user: &UserId,
         action: &str,
         incident: &IncidentId,
         compartment: &CompartmentId,
+        incident_roles: &[String],
     ) -> bool {
-        let roles = self.roles.of(user);
+        let mut roles = self.roles.of(user);
+        roles.extend(incident_roles.iter().cloned());
         let context = Context::from_pairs([
             (
                 "roles".to_owned(),
@@ -218,12 +206,34 @@ impl AccessPolicy for RolePolicy {
         self.allows_organisation(user, "manage_devices")
     }
 
-    fn can_read(&self, user: &UserId, incident: &IncidentId, compartment: &CompartmentId) -> bool {
-        self.allows(user, "read", incident, compartment)
+    fn can_manage_incidents(&self, user: &UserId) -> bool {
+        self.allows_organisation(user, "manage_incidents")
     }
 
-    fn can_write(&self, user: &UserId, incident: &IncidentId, compartment: &CompartmentId) -> bool {
-        self.allows(user, "write", incident, compartment)
+    // [impl->dsn~incident-roles~1]
+    fn can_assign_roles(&self, user: &UserId, incident: &IncidentId, roles: &[String]) -> bool {
+        let shared: CompartmentId = "incident".parse().expect("valid compartment");
+        self.allows(user, "assign_role", incident, &shared, roles)
+    }
+
+    fn can_read(
+        &self,
+        user: &UserId,
+        incident: &IncidentId,
+        compartment: &CompartmentId,
+        roles: &[String],
+    ) -> bool {
+        self.allows(user, "read", incident, compartment, roles)
+    }
+
+    fn can_write(
+        &self,
+        user: &UserId,
+        incident: &IncidentId,
+        compartment: &CompartmentId,
+        roles: &[String],
+    ) -> bool {
+        self.allows(user, "write", incident, compartment, roles)
     }
 }
 
@@ -264,24 +274,24 @@ mod tests {
             compartment("med.clinical"),
         );
         assert!(
-            p.can_read(&user("anna"), &incident, &clinical),
+            p.can_read(&user("anna"), &incident, &clinical, &[]),
             "medics read clinical data"
         );
-        assert!(p.can_write(&user("anna"), &incident, &shared));
+        assert!(p.can_write(&user("anna"), &incident, &shared, &[]));
         assert!(
-            p.can_read(&user("ben"), &incident, &shared),
+            p.can_read(&user("ben"), &incident, &shared, &[]),
             "commanders read incident data"
         );
         assert!(
-            !p.can_read(&user("ben"), &incident, &clinical),
+            !p.can_read(&user("ben"), &incident, &clinical, &[]),
             "but no clinical data"
         );
         assert!(
-            !p.can_read(&user("clara"), &incident, &shared),
+            !p.can_read(&user("clara"), &incident, &shared, &[]),
             "unknown role: nothing"
         );
         assert!(
-            !p.can_read(&user("nobody"), &incident, &shared),
+            !p.can_read(&user("nobody"), &incident, &shared, &[]),
             "no roles: nothing"
         );
         assert!(
@@ -297,8 +307,45 @@ mod tests {
         let p = RolePolicy::new(roles, &[]).expect("valid");
         assert!(p.can_manage_devices(&user("dora")));
         assert!(
-            !p.can_read(&user("dora"), &incident(), &compartment("med.clinical")),
+            !p.can_read(
+                &user("dora"),
+                &incident(),
+                &compartment("med.clinical"),
+                &[]
+            ),
             "an admin is not a medic"
+        );
+    }
+
+    // [utest->dsn~incident-roles~1]
+    #[test]
+    fn roles_in_the_incident_decide_and_planners_plan() {
+        let roles = Roles::new([(user("dora"), vec!["admin".to_owned()])]);
+        let p = RolePolicy::new(roles, &[]).expect("valid");
+        let (incident, shared, clinical) = (
+            incident(),
+            compartment("incident"),
+            compartment("med.clinical"),
+        );
+        let medic = ["medic".to_owned()];
+        let commander = ["commander".to_owned()];
+        let erik = user("erik");
+        assert!(
+            !p.can_read(&erik, &incident, &clinical, &[]),
+            "no role in the incident: nothing"
+        );
+        assert!(
+            p.can_read(&erik, &incident, &clinical, &medic),
+            "a medic in this incident reads its clinical data"
+        );
+        assert!(!p.can_assign_roles(&erik, &incident, &medic));
+        assert!(p.can_assign_roles(&erik, &incident, &commander));
+        assert!(!p.can_manage_incidents(&erik));
+        assert!(p.can_manage_incidents(&user("dora")), "administrators plan");
+        assert!(p.can_read(&user("dora"), &incident, &shared, &[]));
+        assert!(
+            !p.can_read(&user("dora"), &incident, &clinical, &[]),
+            "planning gives no clinical data"
         );
     }
 
@@ -314,8 +361,18 @@ mod tests {
             };
         "#;
         let p = policy(&[("org.cedar".to_owned(), custom.to_owned())]).expect("valid");
-        assert!(p.can_read(&user("clara"), &incident(), &compartment("med.clinical")));
-        assert!(!p.can_write(&user("clara"), &incident(), &compartment("med.clinical")));
+        assert!(p.can_read(
+            &user("clara"),
+            &incident(),
+            &compartment("med.clinical"),
+            &[]
+        ));
+        assert!(!p.can_write(
+            &user("clara"),
+            &incident(),
+            &compartment("med.clinical"),
+            &[]
+        ));
     }
 
     // [utest->dsn~role-policies~1]
