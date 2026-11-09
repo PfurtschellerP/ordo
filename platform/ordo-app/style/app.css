@@ -165,7 +165,9 @@
     border-radius: var(--ordo-radius-small);
     background: var(--ordo-color-feedback-warning-surface);
     color: var(--ordo-color-feedback-warning-text);
-    font-weight: var(--ordo-font-weight-bold); white-space: nowrap;
+    font-weight: var(--ordo-font-weight-bold);
+    /* May wrap: on narrow phones with large fonts it must not widen the card (reflow). */
+    min-width: 0; overflow-wrap: anywhere;
   }
   .triage--uninjured {
     background: var(--ordo-color-surface-default);
@@ -391,6 +393,7 @@
     list-style: none; margin: 0; padding: 0;
   }
   .patient-list, .unit-list, .device-list, .incident-list, .count-list { display: grid; gap: var(--ordo-space-3); }
+  .patient-list { grid-template-columns: minmax(0, 1fr); }
   .incident-list { margin-block: var(--ordo-space-4); }
   .roster { display: grid; gap: var(--ordo-space-2); margin-block: var(--ordo-space-3); }
   .roster__entry {
