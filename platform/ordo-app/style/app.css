@@ -179,6 +179,10 @@
   }
 
   .table { width: 100%; border-collapse: collapse; }
+  /* Many narrow columns (one per category): tighter cells, header badges may wrap, so
+     the table fits its card wherever it is shown instead of the card list. */
+  .table--counts th, .table--counts td { padding-inline: var(--ordo-space-2); }
+  .table--counts th .triage { white-space: normal; }
   .table th, .table td {
     text-align: start; padding: var(--ordo-space-2) var(--ordo-space-3);
     border-bottom: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);

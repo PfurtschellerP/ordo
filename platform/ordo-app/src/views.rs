@@ -974,7 +974,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .collect_view();
                 view! {
                     <ul class="count-list only-narrow">{list}</ul>
-                    <table class="table only-wide">
+                    <table class="table table--counts only-wide">
                         <thead>
                             <tr>
                                 <th scope="col">{text::COL_UHS}</th>
