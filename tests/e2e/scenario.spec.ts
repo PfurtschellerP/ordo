@@ -142,6 +142,9 @@ test("ORDO in the browser", async () => {
     // [itest->dsn~transport-priority~1]
     await anna.getByRole("button", { name: "DE-0044: Transportpriorität setzen" }).click();
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .priority-badge"), "the list shows the transport priority").toHaveText(/Transportpriorität/);
+    // [itest->dsn~treatment-places~1]
+    await anna.locator("#place").selectOption({ label: "Platz 2" });
+    await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__meta"), "the list shows the treatment place").toContainText("Platz 2");
 
     // [itest->dsn~patient-care-record~1]
     await anna.locator("#edit-identity").click();
@@ -322,6 +325,7 @@ test("ORDO in the browser", async () => {
     await expect(anna.locator(".master"), "on phones the record is a page of its own").toBeHidden();
     await anna.goBack();
     await anna.setViewportSize({ width: 1200, height: 1000 });
+    await expect(anna.locator(".app-header__user img.avatar"), "the own picture is back after offline and reload").toBeVisible();
     await anna.evaluate(() => (document.documentElement.dataset.theme = "night"));
     await settle(anna);
     await shot(anna, "med-night");

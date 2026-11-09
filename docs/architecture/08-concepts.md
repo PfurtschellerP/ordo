@@ -496,6 +496,25 @@ Needs: impl, utest, itest
 
 Tags: must, m12
 
+#### Treatment places
+`dsn~treatment-places~1`
+
+A unit's treatment places are a list (`uhs.placesSet`: ID and label per place) in the
+shared incident compartment, created with the unit (one per patient it can take) and
+changed in *UHS verwalten*; the latest list counts. Assignments (`patients.placeAssigned`,
+place or none) are clinical events; the register keeps each patient's place. The record
+offers the places of the patient's unit and disables those taken by others; the patient
+list shows the place; *UHS verwalten* shows free places. Labels come from the app (DE:
+"Platz 1"), never from the package.
+
+Covers:
+
+* [req~uhs-7~1](../requirements/04-med.md#uhs-7--treatment-places)
+
+Needs: impl, itest
+
+Tags: must, m12
+
 #### Views by role
 `dsn~views-by-role~1`
 

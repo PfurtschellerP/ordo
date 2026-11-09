@@ -98,7 +98,7 @@ the build fails.
 | 9 — Login, step 3 | `m9` | Device logins expire after a timeout, renewed in the background (SEC-12); lost devices are revoked and wiped (SEC-4) |
 | 10 — Security hardening | `m10` | Data on devices encrypted at rest (SEC-1) |
 | 11 — Incidents and roles | `m11` | Incidents planned ahead, roles granted per incident (ORG-6) |
-| 12 — MANV basics | `m12` | "Betroffene" (PAT-9), transport priority (PAT-10) |
+| 12 — MANV basics | `m12` | "Betroffene" (PAT-9), transport priority (PAT-10), treatment places (UHS-7) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at

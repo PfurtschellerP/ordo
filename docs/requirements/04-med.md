@@ -150,6 +150,15 @@ Tags: could, med
 
 Needs: dsn
 
+#### UHS-7 — Treatment places
+`req~uhs-7~1`
+
+When an on-site care unit is set up, ORDO shall give it numbered treatment places (changeable later); when a medic assigns a patient to a place, ORDO shall record it, show it in the patient list and mark the place as taken for others, and keep which patient lies where within the clinical compartment.
+
+Tags: must, med, m12
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

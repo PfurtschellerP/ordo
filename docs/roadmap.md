@@ -102,7 +102,9 @@ in, people see the incidents they have a role in, planners plan new ones, the in
 command manages the roster under *Einsatzleitung – Personal*; profile pictures, resolved
 ORDO → identity provider → Gravatar by the server (ADR-0047); views by role: the
 Einsatzleitung sees the whole incident (UHS load and counts, no clinical details), UHS crews
-only their UHS work, units are changed by the incident command only.
+only their UHS work, units are changed by the incident command only; "Betroffene" as a
+category of their own, transport priority from the profile, treatment places per UHS
+(milestone `m12`).
 
 *Incident and command (Einsatzleitung)*
 
@@ -141,12 +143,8 @@ only their UHS work, units are changed by the incident command only.
 
 - **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
   transport organisation, overview for the medical command (LNA, OrgL).
-- **"Betroffene"** (unharmed, affected people) as a category of their own.
-- **Transport priority** for SK I and SK II, separate from the triage category (Bavaria,
-  NRW, Austria decouple them); categories and levels from the state or country profile.
 - **Transport request** from the UHS to the Einsatzleitung with a hint on the vehicle
   needed (RTW, KTW, NEF, ITW, …).
-- **Treatment places** within a UHS (Behandlungsplätze); patients are assigned to places.
 - **Physician and paramedic module across all UHS:** overview of every UHS; orders
   (medication, measures) as tasks for the UHS crew, acknowledged and documented when done.
   ORDO records orders; it never proposes them.

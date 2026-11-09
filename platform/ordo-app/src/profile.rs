@@ -26,14 +26,15 @@ pub fn initials(user: &UserId) -> String {
 /// to it.
 #[component]
 pub fn Avatar(core: Handle, revision: RwSignal<u64>, user: UserId) -> impl IntoView {
-    let ready = Memo::new(move |_| {
+    // Asked after every new connection: a question sent while offline is lost.
+    let welcomes = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| c.replica.is_ready())
+        core.with_value(|c| c.welcomes)
     });
     {
         let user = user.clone();
         Effect::new(move |_| {
-            if ready.get() {
+            if welcomes.get() > 0 {
                 core::request_avatars(core, std::slice::from_ref(&user));
             }
         });

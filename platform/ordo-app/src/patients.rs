@@ -240,6 +240,7 @@ fn PatientList(
         revision.track();
         let names: HashMap<String, String> =
             uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
+        let places = core.with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)));
         // Patients with changes that are still in the outbox.
         let pending: Vec<String> = core.with_value(|c| {
             c.events(med::COMPARTMENT)
@@ -261,6 +262,13 @@ fn PatientList(
                             pending.contains(&p.tag),
                             p.transport_priority(&TRANSPORT_PRIORITY)
                                 .map(priority_label),
+                            p.place.as_ref().and_then(|id| {
+                                places
+                                    .get(&p.uhs)?
+                                    .iter()
+                                    .find(|pl| &pl.id == id)
+                                    .map(|pl| pl.label.clone())
+                            }),
                         )
                     })
                     .collect::<Vec<_>>()
@@ -279,7 +287,7 @@ fn PatientList(
                     <ul class="patient-list">
                         {cards
                             .into_iter()
-                            .map(|(tag, category, uhs, history, name, pending, priority)| {
+                            .map(|(tag, category, uhs, history, name, pending, priority, place)| {
                                 let route = record_route(&tag);
                                 let current = {
                                     let tag = tag.clone();
@@ -305,7 +313,7 @@ fn PatientList(
                                             </span>
                                             <span class="patient-card__name">{name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
                                             <span class="patient-card__meta">
-                                                {uhs} " · " {text::triage_count(history)} " · "
+                                                {uhs} {place.map(|p| format!(" · {p}"))} " · " {text::triage_count(history)} " · "
                                                 <span class="patient-card__state">{if pending { text::NOT_SENT } else { text::SENT }}</span>
                                             </span>
                                         </a>
@@ -544,6 +552,7 @@ fn TriageSection(
                     .collect_view()}
             </fieldset>
             <TransportPriority core revision tag=tag.clone() />
+            <PlaceChoice core revision tag=tag.clone() />
             <h4>{text::TRIAGE_HISTORY}</h4>
             <ol class="history">
                 {move || {
@@ -559,6 +568,84 @@ fn TriageSection(
                 }}
             </ol>
         </section>
+    }
+}
+
+// [impl->dsn~treatment-places~1]
+/// The patient's treatment place within their unit; places taken by others are marked.
+#[component]
+fn PlaceChoice(core: Handle, revision: RwSignal<u64>, tag: String) -> impl IntoView {
+    let state = {
+        let tag = tag.clone();
+        Memo::new(move |_| {
+            revision.track();
+            core.with_value(|c| {
+                let register = PatientRegister::from_events(&c.events(med::COMPARTMENT));
+                let patient = register.patient(&tag)?;
+                let places = med::places(&c.events(med::UHS_COMPARTMENT))
+                    .remove(&patient.uhs)
+                    .unwrap_or_default();
+                let options: Vec<(String, String, Option<String>)> = places
+                    .into_iter()
+                    .map(|p| {
+                        let taken = register
+                            .patients()
+                            .find(|o| {
+                                o.tag != tag
+                                    && o.uhs == patient.uhs
+                                    && o.place.as_deref() == Some(&p.id)
+                            })
+                            .map(|o| o.tag.clone());
+                        (p.id, p.label, taken)
+                    })
+                    .collect();
+                Some((patient.place.clone(), options))
+            })
+        })
+    };
+    move || {
+        let Some((current, options)) = state.get() else {
+            return ().into_any();
+        };
+        if options.is_empty() {
+            return ().into_any();
+        }
+        let tag = tag.clone();
+        let labels: Vec<(String, String)> = options
+            .iter()
+            .map(|(id, label, _)| (id.clone(), label.clone()))
+            .collect();
+        let change = move |ev: leptos::ev::Event| {
+            let value = event_target_value(&ev);
+            let place = (!value.is_empty()).then_some(value);
+            let label = place.as_ref().and_then(|p| {
+                labels
+                    .iter()
+                    .find(|(id, _)| id == p)
+                    .map(|(_, l)| l.clone())
+            });
+            let _ = core::assign_place(core, revision, &tag, place, label.as_deref());
+        };
+        view! {
+            <div class="field place-choice">
+                <label for="place">{text::PLACE}</label>
+                <select id="place" on:change=change>
+                    <option value="" selected=current.is_none()>{text::NO_PLACE}</option>
+                    {options
+                        .into_iter()
+                        .map(|(id, label, taken)| {
+                            let selected = current.as_deref() == Some(id.as_str());
+                            let shown = match &taken {
+                                Some(by) => text::place_taken(&label, by),
+                                None => label,
+                            };
+                            view! { <option value=id selected=selected disabled=taken.is_some()>{shown}</option> }
+                        })
+                        .collect_view()}
+                </select>
+            </div>
+        }
+        .into_any()
     }
 }
 

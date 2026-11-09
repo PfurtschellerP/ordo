@@ -837,17 +837,32 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     let rows = move || {
         revision.track();
-        let counts = core.with_value(|c| {
-            let events = c.events(med::COMPARTMENT);
-            PatientRegister::from_events(&events).counts()
+        let (register, places) = core.with_value(|c| {
+            (
+                PatientRegister::from_events(&c.events(med::COMPARTMENT)),
+                med::places(&c.events(med::UHS_COMPARTMENT)),
+            )
         });
+        let counts = register.counts();
         uhs_list(core)
             .into_iter()
             .map(|u| {
                 let n = counts
                     .get(&u.id)
                     .map_or(0, |c| CATEGORIES.iter().map(|k| c.get(*k)).sum());
-                (u.name, n, u.capacity)
+                let total = places.get(&u.id).map_or(0, Vec::len);
+                let taken = register
+                    .patients()
+                    .filter(|p| p.uhs == u.id && p.place.is_some())
+                    .count();
+                (
+                    u.id,
+                    u.name,
+                    n,
+                    u.capacity,
+                    total,
+                    total.saturating_sub(taken),
+                )
             })
             .collect::<Vec<_>>()
     };
@@ -863,12 +878,30 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <ul class="load-list">
                         {rows
                             .into_iter()
-                            .map(|(name, n, cap)| {
+                            .enumerate()
+                            .map(|(i, (id, name, n, cap, total, free))| {
+                                // [impl->dsn~treatment-places~1]
+                                let count = RwSignal::new(total.to_string());
+                                let field = format!("places-{i}");
+                                let set = move |ev: leptos::ev::SubmitEvent| {
+                                    ev.prevent_default();
+                                    if let Ok(count) = count.get().trim().parse::<u32>() {
+                                        let _ = core::set_places(core, revision, &id, count);
+                                    }
+                                };
                                 view! {
                                     <li class="load-list__item">
-                                        <span class="load-list__name">{name}</span>
+                                        <span class="load-list__name">{name.clone()}</span>
                                         <span>{text::COL_LOAD} ": " {text::load(n, cap)}</span>
                                         <meter min="0" max=cap value=n aria-hidden="true"></meter>
+                                        <span class="load-list__places">{text::PLACES} ": " {text::places_free(free, total)}</span>
+                                        <form class="form form--inline" on:submit=set>
+                                            <div class="field field--small">
+                                                <label for=field.clone()>{text::places_of(&name)}</label>
+                                                <input id=field type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=count />
+                                            </div>
+                                            <button type="submit" class="button button--small">{text::PLACES_SET}</button>
+                                        </form>
                                     </li>
                                 }
                             })

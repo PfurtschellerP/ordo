@@ -518,8 +518,9 @@ pub fn create_uhs(
     let mut random = [0u8; 16];
     entropy(&mut random);
     let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let uhs = format!("uhs-{id}");
     let payload = UhsCreated {
-        id: format!("uhs-{id}"),
+        id: uhs.clone(),
         name: name.to_owned(),
         kind: UhsKind::Uhs,
         capacity,
@@ -534,6 +535,76 @@ pub fn create_uhs(
         patients::UHS_CREATED,
         &payload,
         text::uhs_created(name),
+    )?;
+    // One numbered treatment place per patient it can take; changeable later.
+    set_places(core, revision, &uhs, capacity)
+}
+
+// [impl->dsn~treatment-places~1]
+/// Sets the number of treatment places of a unit: places 1..=`count`, keeping the labels
+/// of existing ones.
+pub fn set_places(
+    core: Handle,
+    revision: RwSignal<u64>,
+    uhs: &str,
+    count: u32,
+) -> Result<(), String> {
+    let existing = core
+        .with_value(|c| patients::places(&c.events(patients::UHS_COMPARTMENT)))
+        .remove(uhs)
+        .unwrap_or_default();
+    let places = (1..=count)
+        .map(|i| {
+            let id = format!("p{i}");
+            existing
+                .iter()
+                .find(|p| p.id == id)
+                .cloned()
+                .unwrap_or(patients::Place {
+                    label: text::place_label(i),
+                    id,
+                })
+        })
+        .collect();
+    let payload = patients::PlacesSet {
+        uhs: uhs.to_owned(),
+        places,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::UHS_COMPARTMENT,
+        patients::UHS_MODULE,
+        patients::UHS_PLACES,
+        &payload,
+        text::places_set(count),
+    )
+}
+
+/// Assigns a patient to a treatment place of their unit (or releases them).
+pub fn assign_place(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    place: Option<String>,
+    label: Option<&str>,
+) -> Result<(), String> {
+    let payload = patients::PlaceAssigned {
+        tag: tag.to_owned(),
+        place,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        patients::PLACE_ASSIGNED,
+        &payload,
+        text::place_assigned(tag, label),
     )
 }
 

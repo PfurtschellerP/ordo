@@ -434,3 +434,36 @@ pub fn priority_changed(tag: &str, set: bool) -> String {
         format!("{tag}: Transportpriorität entfernt")
     }
 }
+
+// Treatment places
+pub const PLACES: &str = "Behandlungsplätze";
+pub const PLACE: &str = "Behandlungsplatz";
+pub const NO_PLACE: &str = "Kein Platz";
+pub const PLACES_SET: &str = "Übernehmen";
+
+pub fn place_label(n: u32) -> String {
+    format!("Platz {n}")
+}
+
+pub fn places_set(n: u32) -> String {
+    format!("{n} Behandlungsplätze")
+}
+
+pub fn place_assigned(tag: &str, label: Option<&str>) -> String {
+    match label {
+        Some(l) => format!("{tag} auf {l}"),
+        None => format!("{tag}: kein Behandlungsplatz"),
+    }
+}
+
+pub fn place_taken(label: &str, by: &str) -> String {
+    format!("{label} (belegt: {by})")
+}
+
+pub fn places_of(name: &str) -> String {
+    format!("Behandlungsplätze {name}")
+}
+
+pub fn places_free(free: usize, total: usize) -> String {
+    format!("{free} von {total} frei")
+}

@@ -1003,3 +1003,83 @@ fn transport_priority_follows_the_profile_and_ends_on_downgrade() {
         "a downgrade ends the priority for good"
     );
 }
+
+// [itest->dsn~treatment-places~1]
+/// Treatment places are shared incident data (command sees them); which patient lies on
+/// which place is clinical and reaches medics only.
+#[test]
+fn patients_are_assigned_to_treatment_places() {
+    let mut world = World::new();
+    world.sync();
+    let (incident, now) = (world.incident.clone(), world.now);
+    let places = patients::PlacesSet {
+        uhs: "UHS 1".into(),
+        places: (1..=3)
+            .map(|i| patients::Place {
+                id: format!("p{i}"),
+                label: format!("Platz {i}"),
+            })
+            .collect(),
+    }
+    .encode()
+    .unwrap();
+    world
+        .replica("anna")
+        .record(
+            &incident,
+            patients::UHS_COMPARTMENT,
+            patients::UHS_MODULE,
+            patients::UHS_PLACES,
+            1,
+            &places,
+            now,
+        )
+        .unwrap();
+    register(&mut world, "anna", "DE-0007", Urgent);
+    let assigned = patients::PlaceAssigned {
+        tag: "DE-0007".into(),
+        place: Some("p2".into()),
+    }
+    .encode()
+    .unwrap();
+    let now = world.now;
+    world
+        .replica("anna")
+        .record(
+            &incident,
+            patients::COMPARTMENT,
+            patients::MODULE,
+            patients::PLACE_ASSIGNED,
+            1,
+            &assigned,
+            now,
+        )
+        .unwrap();
+    world.sync();
+
+    assert_eq!(
+        register_of(&mut world, "clara")
+            .patient("DE-0007")
+            .unwrap()
+            .place
+            .as_deref(),
+        Some("p2"),
+        "another medic sees the place"
+    );
+    let shared = world
+        .replica("ben")
+        .events(&incident, patients::UHS_COMPARTMENT)
+        .unwrap();
+    assert_eq!(
+        patients::places(&shared)["UHS 1"].len(),
+        3,
+        "command sees the places"
+    );
+    assert!(
+        world
+            .replica("ben")
+            .events(&incident, patients::COMPARTMENT)
+            .map_or(true, |e| e.is_empty()),
+        "but not who lies where"
+    );
+}

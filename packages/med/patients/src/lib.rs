@@ -64,6 +64,72 @@ impl UhsCreated {
     }
 }
 
+/// Event type: the treatment places of an on-site care unit were set (the whole list).
+pub const UHS_PLACES: &str = "uhs.placesSet";
+/// Event type: a patient was assigned to a treatment place (or released from it).
+pub const PLACE_ASSIGNED: &str = "patients.placeAssigned";
+
+/// A treatment place (Behandlungsplatz) within an on-site care unit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Place {
+    /// Stable ID within the unit, e.g. `p3`.
+    pub id: String,
+    /// Label, e.g. "Platz 3" (chosen by the app or the person, never by this package).
+    pub label: String,
+}
+
+/// Payload of `uhs.placesSet`: the treatment places of one unit, replacing earlier lists.
+/// Shared data (incident compartment); which patient lies where is clinical.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlacesSet {
+    /// The unit ([`UhsCreated::id`]).
+    pub uhs: String,
+    /// Its places, in order.
+    pub places: Vec<Place>,
+}
+
+/// Payload of `patients.placeAssigned` (clinical compartment).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlaceAssigned {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// The place ([`Place::id`]) in the patient's unit, or `None` when released.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<String>,
+}
+
+impl PlacesSet {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+impl PlaceAssigned {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+// [impl->dsn~treatment-places~1]
+/// The treatment places of every unit: the latest list per unit.
+pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> {
+    let mut sets: Vec<(Hlc, PlacesSet)> = incident_events
+        .iter()
+        .filter(|e| {
+            e.body.module.as_str() == UHS_MODULE && e.body.event_type.as_str() == UHS_PLACES
+        })
+        .filter_map(|e| {
+            codec::from_cbor::<PlacesSet>(&e.payload)
+                .ok()
+                .map(|s| (e.body.hlc, s))
+        })
+        .collect();
+    sets.sort_by_key(|(hlc, _)| *hlc);
+    sets.into_iter().map(|(_, s)| (s.uhs, s.places)).collect()
+}
+
 // [impl->dsn~uhs-registry~1]
 /// The on-site care units of an incident, in order of creation (first wins per ID).
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
@@ -195,6 +261,8 @@ pub struct Patient {
     pub history: Vec<TriageEntry>,
     /// Transport priority level and when it was set (see [`Patient::transport_priority`]).
     priority: Option<(String, Hlc)>,
+    /// The treatment place ([`Place::id`]) in the patient's unit, if assigned.
+    pub place: Option<String>,
 }
 
 impl Patient {
@@ -241,6 +309,7 @@ enum Change {
     Registered(Registered),
     Retriaged(Retriaged),
     Priority(TransportPrioritySet),
+    Place(PlaceAssigned),
 }
 
 impl PatientRegister {
@@ -255,6 +324,7 @@ impl PatientRegister {
                     REGISTERED => Change::Registered(codec::from_cbor(&e.payload).ok()?),
                     RETRIAGED => Change::Retriaged(codec::from_cbor(&e.payload).ok()?),
                     TRANSPORT_PRIORITY => Change::Priority(codec::from_cbor(&e.payload).ok()?),
+                    PLACE_ASSIGNED => Change::Place(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e.body.hlc, e.body.author.user.clone(), change))
@@ -283,6 +353,7 @@ impl PatientRegister {
                                     uhs: r.uhs,
                                     history: vec![entry],
                                     priority: None,
+                                    place: None,
                                 },
                             );
                         }
@@ -298,6 +369,10 @@ impl PatientRegister {
                 },
                 Change::Priority(p) => match register.patients.get_mut(&p.tag) {
                     Some(patient) => patient.priority = p.level.map(|l| (l, at)),
+                    None => register.notices.push(Notice::UnknownPatient(p.tag)),
+                },
+                Change::Place(p) => match register.patients.get_mut(&p.tag) {
+                    Some(patient) => patient.place = p.place,
                     None => register.notices.push(Notice::UnknownPatient(p.tag)),
                 },
             }
