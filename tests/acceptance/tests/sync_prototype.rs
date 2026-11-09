@@ -938,3 +938,68 @@ fn revoked_devices_are_cut_off_and_refused() {
     let out = restarted.hub.handle(1, hello, restarted.now);
     assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
 }
+
+fn transport_priority(world: &mut World, user: &str, tag: &str, level: Option<&str>) {
+    let payload = patients::TransportPrioritySet {
+        tag: tag.into(),
+        level: level.map(str::to_owned),
+    }
+    .encode()
+    .unwrap();
+    let (incident, now) = (world.incident.clone(), world.now);
+    world
+        .replica(user)
+        .record(
+            &incident,
+            patients::COMPARTMENT,
+            patients::MODULE,
+            patients::TRANSPORT_PRIORITY,
+            1,
+            &payload,
+            now,
+        )
+        .unwrap();
+    world.tick(1_000);
+}
+
+// [itest->dsn~transport-priority~1]
+/// Transport priority is documented apart from the triage category, for the categories
+/// the profile allows, and ends for good when the patient is re-triaged to a category
+/// without it; unharmed people ("Betroffene") are registered and counted apart.
+#[test]
+fn transport_priority_follows_the_profile_and_ends_on_downgrade() {
+    let config = patients::TransportPriorityConfig {
+        categories: vec![Immediate, Urgent],
+        levels: vec![patients::TransportPriorityLevel {
+            id: "high".into(),
+            label: "Transportpriorität".into(),
+        }],
+    };
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0001", Immediate);
+    transport_priority(&mut world, "anna", "DE-0001", Some("high"));
+    register(&mut world, "anna", "DE-0002", TriageCategory::Uninjured);
+    world.sync();
+    let reg = register_of(&mut world, "clara");
+    assert_eq!(
+        reg.patient("DE-0001").unwrap().transport_priority(&config),
+        Some("high"),
+        "seen on another medic's device"
+    );
+    assert_eq!(
+        reg.counts().values().map(|c| c.uninjured).sum::<u32>(),
+        1,
+        "Betroffene are counted apart"
+    );
+
+    retriage(&mut world, "anna", "DE-0001", Minor);
+    retriage(&mut world, "anna", "DE-0001", Urgent);
+    world.sync();
+    let reg = register_of(&mut world, "clara");
+    assert_eq!(
+        reg.patient("DE-0001").unwrap().transport_priority(&config),
+        None,
+        "a downgrade ends the priority for good"
+    );
+}

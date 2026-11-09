@@ -35,6 +35,25 @@ pub static FORMS: LazyLock<FormCatalogue> = LazyLock::new(|| {
         .expect("ePCR forms were checked at build time")
 });
 
+/// Transport priority of the profile: which categories, which levels (checked at build
+/// time, see `build.rs`).
+pub static TRANSPORT_PRIORITY: LazyLock<med::TransportPriorityConfig> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/transport-priority.json"
+    )))
+    .expect("transport priority was checked at build time")
+});
+
+/// The label of a transport priority level.
+fn priority_label(level: &str) -> String {
+    TRANSPORT_PRIORITY
+        .levels
+        .iter()
+        .find(|l| l.id == level)
+        .map_or_else(|| level.to_owned(), |l| l.label.clone())
+}
+
 /// Route to the record of the patient with triage tag `tag`.
 pub fn record_route(tag: &str) -> Route {
     Route::record(WORKSPACE, VIEW, tag)
@@ -240,6 +259,8 @@ fn PatientList(
                             p.history.len(),
                             person_name(records, &p.tag),
                             pending.contains(&p.tag),
+                            p.transport_priority(&TRANSPORT_PRIORITY)
+                                .map(priority_label),
                         )
                     })
                     .collect::<Vec<_>>()
@@ -258,7 +279,7 @@ fn PatientList(
                     <ul class="patient-list">
                         {cards
                             .into_iter()
-                            .map(|(tag, category, uhs, history, name, pending)| {
+                            .map(|(tag, category, uhs, history, name, pending, priority)| {
                                 let route = record_route(&tag);
                                 let current = {
                                     let tag = tag.clone();
@@ -280,6 +301,7 @@ fn PatientList(
                                             <span class="patient-card__head">
                                                 <span class="patient-card__tag code">{tag.clone()}</span>
                                                 <TriageBadge category />
+                                                {priority.map(|label| view! { <PriorityBadge label /> })}
                                             </span>
                                             <span class="patient-card__name">{name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
                                             <span class="patient-card__meta">
@@ -521,6 +543,7 @@ fn TriageSection(
                     })
                     .collect_view()}
             </fieldset>
+            <TransportPriority core revision tag=tag.clone() />
             <h4>{text::TRIAGE_HISTORY}</h4>
             <ol class="history">
                 {move || {
@@ -536,6 +559,80 @@ fn TriageSection(
                 }}
             </ol>
         </section>
+    }
+}
+
+/// Transport priority as a badge: an arrow and the label, never colour alone.
+#[component]
+fn PriorityBadge(label: String) -> impl IntoView {
+    view! {
+        <span class="priority-badge">
+            <span class="priority-badge__icon" aria-hidden="true">"▲"</span>
+            {label}
+        </span>
+    }
+}
+
+// [impl->dsn~transport-priority~1]
+/// Transport priority of a patient, for the categories the profile allows; the person
+/// decides, ORDO records it.
+#[component]
+fn TransportPriority(core: Handle, revision: RwSignal<u64>, tag: String) -> impl IntoView {
+    let state = {
+        let tag = tag.clone();
+        Memo::new(move |_| {
+            revision.track();
+            core.with_value(|c| {
+                let register = PatientRegister::from_events(&c.events(med::COMPARTMENT));
+                register.patient(&tag).map(|p| {
+                    (
+                        TRANSPORT_PRIORITY.allows(p.category()),
+                        p.transport_priority(&TRANSPORT_PRIORITY).map(str::to_owned),
+                    )
+                })
+            })
+        })
+    };
+    let set = move |tag: String, level: Option<String>| {
+        let _ = core::set_transport_priority(core, revision, &tag, level);
+    };
+    move || {
+        let Some((true, current)) = state.get() else {
+            return ().into_any();
+        };
+        let tag = tag.clone();
+        view! {
+            <fieldset class="choices transport-priority">
+                <legend>{text::TRANSPORT_PRIORITY}</legend>
+                {current.clone().map(|level| view! { <p><PriorityBadge label=priority_label(&level) /></p> })}
+                {TRANSPORT_PRIORITY
+                    .levels
+                    .iter()
+                    .filter(|l| current.as_deref() != Some(l.id.as_str()))
+                    .map(|l| {
+                        let (tag, id) = (tag.clone(), l.id.clone());
+                        view! {
+                            <button type="button" class="button button--small"
+                                aria-label=text::set_priority_label(&tag, &l.label)
+                                on:click=move |_| set(tag.clone(), Some(id.clone()))>
+                                {text::set_priority(&l.label)}
+                            </button>
+                        }
+                    })
+                    .collect_view()}
+                {current.is_some().then(|| {
+                    let tag = tag.clone();
+                    view! {
+                        <button type="button" class="button button--small"
+                            aria-label=text::remove_priority_label(&tag)
+                            on:click=move |_| set(tag.clone(), None)>
+                            {text::REMOVE_PRIORITY}
+                        </button>
+                    }
+                })}
+            </fieldset>
+        }
+        .into_any()
     }
 }
 

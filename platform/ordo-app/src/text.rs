@@ -197,6 +197,7 @@ pub fn label(category: TriageCategory) -> &'static str {
         TriageCategory::Minor => "SK III",
         TriageCategory::Expectant => "SK IV",
         TriageCategory::Deceased => "Verstorben",
+        TriageCategory::Uninjured => "Betroffene",
     }
 }
 
@@ -208,6 +209,7 @@ pub fn description(category: TriageCategory) -> &'static str {
         TriageCategory::Minor => "Sichtungskategorie III, grün, leicht verletzt",
         TriageCategory::Expectant => "Sichtungskategorie IV, blau, abwartende Behandlung",
         TriageCategory::Deceased => "Verstorben",
+        TriageCategory::Uninjured => "Betroffene Person, unverletzt, ohne Behandlungsbedarf",
     }
 }
 
@@ -407,4 +409,28 @@ pub fn withdraw_label(user: &str, role: &str) -> String {
 
 pub fn incident_state_changed(state: ordo_sync::incidents::IncidentState) -> String {
     format!("Einsatz: {}", state_label(state))
+}
+
+// Transport priority
+pub const TRANSPORT_PRIORITY: &str = "Transportpriorität";
+pub const REMOVE_PRIORITY: &str = "Keine Transportpriorität";
+
+pub fn set_priority(label: &str) -> String {
+    format!("{label} setzen")
+}
+
+pub fn set_priority_label(tag: &str, label: &str) -> String {
+    format!("{tag}: {label} setzen")
+}
+
+pub fn remove_priority_label(tag: &str) -> String {
+    format!("{tag}: keine Transportpriorität")
+}
+
+pub fn priority_changed(tag: &str, set: bool) -> String {
+    if set {
+        format!("{tag}: Transportpriorität gesetzt")
+    } else {
+        format!("{tag}: Transportpriorität entfernt")
+    }
 }

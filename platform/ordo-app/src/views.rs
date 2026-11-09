@@ -5,7 +5,9 @@ use leptos::prelude::*;
 use leptos_router::NavigateOptions;
 use leptos_router::components::Router;
 use leptos_router::hooks::{use_location, use_navigate};
-use ordo_contracts::TriageCategory::{self, Deceased, Expectant, Immediate, Minor, Urgent};
+use ordo_contracts::TriageCategory::{
+    self, Deceased, Expectant, Immediate, Minor, Uninjured, Urgent,
+};
 use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
 
@@ -13,7 +15,8 @@ use crate::core::{self, Connection, Core, Handle, Pairing};
 use crate::{devices, incidents, nav, palette, patients, text};
 
 /// Triage categories in display order.
-pub(crate) const CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Deceased];
+pub(crate) const CATEGORIES: [TriageCategory; 6] =
+    [Immediate, Urgent, Minor, Expectant, Deceased, Uninjured];
 
 fn css_class(category: TriageCategory) -> &'static str {
     match category {
@@ -22,6 +25,7 @@ fn css_class(category: TriageCategory) -> &'static str {
         Minor => "triage triage--minor",
         Expectant => "triage triage--expectant",
         Deceased => "triage triage--deceased",
+        Uninjured => "triage triage--uninjured",
     }
 }
 

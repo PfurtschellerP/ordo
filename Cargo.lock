@@ -2469,6 +2469,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_json",
+ "toml",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -2478,6 +2479,7 @@ dependencies = [
 name = "ordo-contracts"
 version = "0.0.0"
 dependencies = [
+ "ciborium",
  "serde",
 ]
 

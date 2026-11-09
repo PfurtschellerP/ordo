@@ -474,6 +474,28 @@ Needs: impl, utest, itest
 
 Tags: must, m11
 
+#### Transport priority and "Betroffene"
+`dsn~transport-priority~1`
+
+The triage contract has a core meaning `uninjured` ("Betroffene"), shown without a triage
+colour (neutral badge, a ring as shape) and counted apart in `patientCounts`; the patient
+events carry schema version 2 since then. Transport priority is its own event
+(`patients.transportPriority`, level or none) in the clinical compartment. The profile file
+`med/transport-priority.toml` names the categories that may get it and its levels; the app
+embeds it at build time. The register keeps the level and when it was set; a later triage
+to a category without transport priority ends it for good. The record offers the levels
+only for allowed categories; the patient list shows a badge (arrow and label, never colour
+alone).
+
+Covers:
+
+* [req~pat-9~1](../requirements/04-med.md#pat-9--unharmed-affected-people)
+* [req~pat-10~1](../requirements/04-med.md#pat-10--transport-priority)
+
+Needs: impl, utest, itest
+
+Tags: must, m12
+
 #### Views by role
 `dsn~views-by-role~1`
 

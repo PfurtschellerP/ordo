@@ -157,6 +157,24 @@
   .triage--deceased .triage__shape {
     clip-path: polygon(20% 0, 50% 30%, 80% 0, 100% 20%, 70% 50%, 100% 80%, 80% 100%, 50% 70%, 20% 100%, 0 80%, 30% 50%, 0 20%);
   }
+  /* Betroffene: no treatment category, so no triage colour; a ring as shape. */
+  .priority-badge {
+    display: inline-flex; align-items: center; gap: var(--ordo-space-1);
+    padding: 0 var(--ordo-space-2);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-feedback-warning-text);
+    border-radius: var(--ordo-radius-small);
+    background: var(--ordo-color-feedback-warning-surface);
+    color: var(--ordo-color-feedback-warning-text);
+    font-weight: var(--ordo-font-weight-bold); white-space: nowrap;
+  }
+  .triage--uninjured {
+    background: var(--ordo-color-surface-default);
+    color: var(--ordo-color-text-primary);
+    border-color: var(--ordo-color-border-strong);
+  }
+  .triage--uninjured .triage__shape {
+    background: transparent; border: 0.18em solid currentColor; border-radius: 50%; box-sizing: border-box;
+  }
 
   .table { width: 100%; border-collapse: collapse; }
   .table th, .table td {
@@ -183,6 +201,7 @@
   @media (forced-colors: active) {
     .triage { border-color: CanvasText; }
     .triage__shape { background: CanvasText; }
+    .triage--uninjured .triage__shape { background: transparent; border-color: CanvasText; }
     }
 }
 

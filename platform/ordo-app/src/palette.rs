@@ -47,6 +47,7 @@ fn category_name(category: TriageCategory) -> &'static str {
         TriageCategory::Minor => "minor",
         TriageCategory::Expectant => "expectant",
         TriageCategory::Deceased => "deceased",
+        TriageCategory::Uninjured => "uninjured",
     }
 }
 

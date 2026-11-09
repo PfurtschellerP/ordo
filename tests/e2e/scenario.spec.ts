@@ -139,6 +139,9 @@ test("ORDO in the browser", async () => {
     await anna.getByRole("button", { name: "Nachsichtung DE-0044: SK I", exact: true }).click();
     await expect.poll(() => announced(anna), { message: "re-triage is announced to screen readers" }).toContain("nachgesichtet");
     await expect.poll(() => status(anna), { message: "re-triage is sent" }).toContain("Alles gesendet");
+    // [itest->dsn~transport-priority~1]
+    await anna.getByRole("button", { name: "DE-0044: Transportpriorität setzen" }).click();
+    await expect(anna.locator(".patient-card[data-tag='DE-0044'] .priority-badge"), "the list shows the transport priority").toHaveText(/Transportpriorität/);
 
     // [itest->dsn~patient-care-record~1]
     await anna.locator("#edit-identity").click();
@@ -358,8 +361,8 @@ test("ORDO in the browser", async () => {
         ),
       );
     await expect.poll(cards, { message: "command sees counts and load per UHS" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 Gesamt: 2 · Belegung: 2 / 10",
-      "UHS Eingang 1 0 1 0 0 Gesamt: 2 · Belegung: 2 / 5",
+      "UHS Bühne Nord 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 10",
+      "UHS Eingang 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 5",
     ]);
     await ben.setViewportSize({ width: 1700, height: 1000 });
     const table = () =>
@@ -367,8 +370,8 @@ test("ORDO in the browser", async () => {
         rows.filter((r) => (r as HTMLElement).offsetParent).map((r) => [...(r as HTMLTableRowElement).cells].map((c) => c.innerText.split("\n")[0]).join(" ")),
       );
     await expect.poll(table, { message: "where there is room, the counts are a table" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 2 2 / 10",
-      "UHS Eingang 1 0 1 0 0 2 2 / 5",
+      "UHS Bühne Nord 1 0 1 0 0 0 2 2 / 10",
+      "UHS Eingang 1 0 1 0 0 0 2 2 / 5",
     ]);
     await audit(ben, "Command workspace (wide)", [1700]);
     const received = Buffer.concat(benFrames.received);

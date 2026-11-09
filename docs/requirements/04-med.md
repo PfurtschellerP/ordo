@@ -76,6 +76,24 @@ Tags: should, med, m6
 
 Needs: dsn
 
+#### PAT-9 — Unharmed affected people
+`req~pat-9~1`
+
+When people are affected but unharmed ("Betroffene"), ORDO shall register them with a category of their own, apart from the triage categories, and count them apart.
+
+Tags: must, med, m12
+
+Needs: dsn
+
+#### PAT-10 — Transport priority
+`req~pat-10~1`
+
+When a medic gives a patient a transport priority, ORDO shall record it apart from the triage category, only for the categories and with the levels the regional profile defines (DE: SK I and SK II), and show it wherever the patient is listed; a re-triage to a category without transport priority shall end it.
+
+Tags: must, med, m12
+
+Needs: dsn
+
 ### 4.10 Med package: on-site care units (UHS)
 
 #### UHS-1 — On-site care units

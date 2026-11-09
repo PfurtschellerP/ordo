@@ -98,6 +98,7 @@ the build fails.
 | 9 — Login, step 3 | `m9` | Device logins expire after a timeout, renewed in the background (SEC-12); lost devices are revoked and wiped (SEC-4) |
 | 10 — Security hardening | `m10` | Data on devices encrypted at rest (SEC-1) |
 | 11 — Incidents and roles | `m11` | Incidents planned ahead, roles granted per incident (ORG-6) |
+| 12 — MANV basics | `m12` | "Betroffene" (PAT-9), transport priority (PAT-10) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -106,5 +107,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12 docs platform modules packages tests
 ```

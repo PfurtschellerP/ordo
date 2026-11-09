@@ -1,0 +1,11 @@
+# Transport priority (Transportpriorität): documented separately from the triage
+# category. German practice marks it on the patient (e.g. Bavaria: an orange sticker,
+# MANV guideline 2025); NRW distinguishes high and low priority. A state profile may
+# replace this file (layering, architecture 8.8.3).
+
+# Categories that may get a transport priority (core meanings).
+categories = ["immediate", "urgent"]
+
+[[level]]
+id = "high"
+label = "Transportpriorität"

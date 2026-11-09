@@ -188,13 +188,20 @@ impl Core {
         payload: &[u8],
     ) -> Result<(), String> {
         let incident = self.incident.clone().ok_or("Kein Einsatz gewählt")?;
+        // Payload schema versions that are not 1 (rule: payload changes get a version).
+        let schema = match (module, event_type) {
+            (patients::MODULE, patients::REGISTERED | patients::RETRIAGED) => {
+                patients::TRIAGE_SCHEMA
+            }
+            _ => 1,
+        };
         self.replica
             .record(
                 &incident,
                 compartment,
                 module,
                 event_type,
-                1,
+                schema,
                 payload,
                 now_ms(),
             )
@@ -446,6 +453,31 @@ pub fn register(
         patients::COMPARTMENT,
         patients::MODULE,
         patients::REGISTERED,
+        &payload,
+        announcement,
+    )
+}
+
+/// Sets (or, with `None`, removes) a patient's transport priority.
+pub fn set_transport_priority(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    level: Option<String>,
+) -> Result<(), String> {
+    let announcement = text::priority_changed(tag, level.is_some());
+    let payload = patients::TransportPrioritySet {
+        tag: tag.to_owned(),
+        level,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        patients::TRANSPORT_PRIORITY,
         &payload,
         announcement,
     )

@@ -87,6 +87,58 @@ pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
         .collect()
 }
 
+/// Event type: a patient's transport priority was set or removed.
+pub const TRANSPORT_PRIORITY: &str = "patients.transportPriority";
+
+/// Which triage categories may get a transport priority, and its levels: from the profile
+/// (e.g. `profiles/de/med/transport-priority.toml`), never in code.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransportPriorityConfig {
+    /// Categories that may get one (DE: SK I and SK II).
+    pub categories: Vec<TriageCategory>,
+    /// Levels, highest first (DE: one level; NRW: high and low).
+    #[serde(rename = "level", default)]
+    pub levels: Vec<TransportPriorityLevel>,
+}
+
+/// One level of transport priority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransportPriorityLevel {
+    /// Stable ID, e.g. `high`.
+    pub id: String,
+    /// Label, e.g. "Transportpriorität".
+    pub label: String,
+}
+
+impl TransportPriorityConfig {
+    /// Whether a patient of `category` may get a transport priority.
+    pub fn allows(&self, category: TriageCategory) -> bool {
+        self.categories.contains(&category)
+    }
+}
+
+/// Payload of `patients.transportPriority`: documented separately from the triage
+/// category (the person decides; ORDO records it).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransportPrioritySet {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// The level ID from the profile, or `None` to remove the priority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>,
+}
+
+impl TransportPrioritySet {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// Schema version of `patients.registered` and `patients.retriaged`: 2 since the category
+/// `uninjured` ("Betroffene") exists; version 1 payloads decode unchanged.
+pub const TRIAGE_SCHEMA: u32 = 2;
+
 /// Payload of `patients.registered`: the minimum needed (requirement PAT-1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registered {
@@ -141,6 +193,8 @@ pub struct Patient {
     pub uhs: String,
     /// All triage decisions, oldest first. Never empty.
     pub history: Vec<TriageEntry>,
+    /// Transport priority level and when it was set (see [`Patient::transport_priority`]).
+    priority: Option<(String, Hlc)>,
 }
 
 impl Patient {
@@ -150,6 +204,19 @@ impl Patient {
             .last()
             .expect("history is never empty")
             .category
+    }
+
+    // [impl->dsn~transport-priority~1]
+    /// The transport priority level, if one is set and no triage since then was to a
+    /// category without transport priority (a priority set in SK I ends for good when the
+    /// patient is re-triaged to SK III).
+    pub fn transport_priority(&self, config: &TransportPriorityConfig) -> Option<&str> {
+        let (level, set_at) = self.priority.as_ref()?;
+        let ended = self
+            .history
+            .iter()
+            .any(|t| t.at > *set_at && !config.allows(t.category));
+        (!ended && config.allows(self.category())).then_some(level.as_str())
     }
 }
 
@@ -173,6 +240,7 @@ pub struct PatientRegister {
 enum Change {
     Registered(Registered),
     Retriaged(Retriaged),
+    Priority(TransportPrioritySet),
 }
 
 impl PatientRegister {
@@ -186,6 +254,7 @@ impl PatientRegister {
                 let change = match e.body.event_type.as_str() {
                     REGISTERED => Change::Registered(codec::from_cbor(&e.payload).ok()?),
                     RETRIAGED => Change::Retriaged(codec::from_cbor(&e.payload).ok()?),
+                    TRANSPORT_PRIORITY => Change::Priority(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e.body.hlc, e.body.author.user.clone(), change))
@@ -213,6 +282,7 @@ impl PatientRegister {
                                     tag: r.tag,
                                     uhs: r.uhs,
                                     history: vec![entry],
+                                    priority: None,
                                 },
                             );
                         }
@@ -225,6 +295,10 @@ impl PatientRegister {
                         by,
                     }),
                     None => register.notices.push(Notice::UnknownPatient(r.tag)),
+                },
+                Change::Priority(p) => match register.patients.get_mut(&p.tag) {
+                    Some(patient) => patient.priority = p.level.map(|l| (l, at)),
+                    None => register.notices.push(Notice::UnknownPatient(p.tag)),
                 },
             }
         }

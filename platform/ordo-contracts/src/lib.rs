@@ -20,6 +20,10 @@ pub enum TriageCategory {
     Expectant,
     /// Deceased.
     Deceased,
+    // [impl->dsn~transport-priority~1]
+    /// Unharmed but affected: registered for care, information and tracking, no medical
+    /// treatment needed (DE: "Betroffene"). Since schema version 2 of the patient events.
+    Uninjured,
 }
 
 /// `med.patientCounts.v1`: number of patients per triage category in one on-site care
@@ -38,6 +42,9 @@ pub struct PatientCountsV1 {
     pub expectant: u32,
     /// Deceased.
     pub deceased: u32,
+    /// Unharmed but affected (added later; absent in older counts).
+    #[serde(default)]
+    pub uninjured: u32,
 }
 
 impl PatientCountsV1 {
@@ -61,6 +68,7 @@ impl PatientCountsV1 {
             TriageCategory::Minor => self.minor,
             TriageCategory::Expectant => self.expectant,
             TriageCategory::Deceased => self.deceased,
+            TriageCategory::Uninjured => self.uninjured,
         }
     }
 
@@ -71,6 +79,45 @@ impl PatientCountsV1 {
             TriageCategory::Minor => &mut self.minor,
             TriageCategory::Expectant => &mut self.expectant,
             TriageCategory::Deceased => &mut self.deceased,
+            TriageCategory::Uninjured => &mut self.uninjured,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // [utest->dsn~transport-priority~1]
+    #[test]
+    fn unharmed_people_are_counted_apart_and_old_counts_still_decode() {
+        let mut counts = PatientCountsV1::default();
+        counts.add(TriageCategory::Uninjured);
+        counts.add(TriageCategory::Minor);
+        assert_eq!(counts.get(TriageCategory::Uninjured), 1);
+        assert_eq!(counts.get(TriageCategory::Minor), 1);
+
+        // Counts published before `uninjured` existed.
+        #[derive(Serialize)]
+        struct Old {
+            uhs: String,
+            immediate: u32,
+            urgent: u32,
+            minor: u32,
+            expectant: u32,
+            deceased: u32,
+        }
+        let mut bytes = Vec::new();
+        let old = Old {
+            uhs: "UHS 1".into(),
+            immediate: 1,
+            urgent: 0,
+            minor: 2,
+            expectant: 0,
+            deceased: 0,
+        };
+        ciborium::into_writer(&old, &mut bytes).unwrap();
+        let decoded: PatientCountsV1 = ciborium::from_reader(bytes.as_slice()).unwrap();
+        assert_eq!((decoded.minor, decoded.uninjured), (2, 0));
     }
 }
