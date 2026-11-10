@@ -1,0 +1,15 @@
+# Known advisories that do not affect ORDO, with the reason, for OSV-Scanner and the
+# OpenSSF Scorecard. The assessment and its review live in deny.toml ([advisories]
+# ignore); keep both lists the same. Each entry is removed when a fixed version is in use.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+reason = "rsa (via openidconnect): only RSA signature verification with identity providers' public keys; the Marvin attack needs private-key operations, which ORDO does not do."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained (no known vulnerability); a compile-time macro used by Leptos."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0459"
+reason = "SQLite stale memory with a crafted write-ahead log: the server opens only its own database files in its data volume; the fix is blocked until sqlx allows libsqlite3-sys 0.39."

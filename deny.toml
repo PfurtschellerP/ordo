@@ -8,6 +8,7 @@ all-features = true
 # Fail on known security vulnerabilities and on yanked crates.
 version = 2
 yanked = "deny"
+# Keep osv-scanner.toml (for OSV-Scanner and the OpenSSF Scorecard) the same.
 ignore = [
   # paste is unmaintained (no known vulnerability). It is a compile-time macro used by
   # Leptos (either_of). Revisit when Leptos replaces it.
