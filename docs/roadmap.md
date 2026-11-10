@@ -137,7 +137,10 @@ free places, open orders, open and planned transports, and discharged patients; 
 the focus, Ctrl+J/Ctrl+K through the palette; API versions (milestone `m24`, ADR-0052): the sync
 protocol and the HTTP API each have a `major.minor` version (now `1.0`), announced in the
 challenge and at `/.well-known/ordo`, asked for in `hello` and the `ORDO-API-Version`
-header; no version means the oldest, one outside the range is refused with the range.
+header; no version means the oldest, one outside the range is refused with the range; MANV
+patient flow (milestone `m25`): patients move between units (collection point, treatment
+area, UHS) with time and person, shown as the record's *Patientenweg*; counts follow the
+current unit, and the overview adds all units up.
 
 *Incident and command (Einsatzleitung)*
 
@@ -174,8 +177,11 @@ header; no version means the oldest, one outside the range is refused with the r
 
 *Medical (MANV, UHS)*
 
-- **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
-  transport organisation, overview for the medical command (LNA, OrgL).
+- **MANV, next steps:** pre-triage apart from triage (with the algorithm used, see
+  triage reference cards), a registration flow for the collection point (scan, category,
+  next), transport organisation in the MANV with the hospital list; the Med workspace
+  serves the MANV (collection point, treatment area and UHS are kinds of units), so no
+  workspace of its own unless practitioners need one.
 - **Transports, next steps:** later, not a priority
   ([ADR-0050](adr/0050-hospital-capacity-sources.md), proposed): capacity from IVENA
   eHealth once an organisation's agreement covers it; a hospital list kept by the

@@ -207,6 +207,25 @@ impl TransportPrioritySet {
 
 /// Event type: a patient left their on-site care unit (UHS-3).
 pub const DISCHARGED: &str = "patients.discharged";
+/// Event type: a patient was moved to another on-site unit (PAT-5).
+pub const MOVED: &str = "patients.moved";
+
+/// Payload of `patients.moved` (clinical compartment).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Moved {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// The unit the patient is in from now on ([`UhsCreated::id`]).
+    pub uhs: String,
+}
+
+impl Moved {
+    /// Encodes the payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
 /// Event type: a discharged patient is back in their unit (returned, or discharged by
 /// mistake: events are never changed, the readmission corrects it).
 pub const READMITTED: &str = "patients.readmitted";
@@ -289,6 +308,13 @@ impl Readmitted {
 pub enum Stay {
     /// Admitted: at registration, or readmitted later.
     Admitted,
+    /// Moved from one unit to another (PAT-5).
+    Moved {
+        /// The unit before.
+        from: String,
+        /// The unit after.
+        to: String,
+    },
     /// Discharged, with the outcome and the transport request, if any.
     Discharged {
         /// How the patient left.
@@ -371,7 +397,7 @@ pub struct Patient {
     priority: Option<(String, Hlc)>,
     /// The treatment place ([`Place::id`]) in the patient's unit, if assigned.
     pub place: Option<String>,
-    /// Admissions and discharges, oldest first; starts with the registration.
+    /// Admissions, moves and discharges, oldest first; starts with the registration.
     pub stay: Vec<StayEntry>,
 }
 
@@ -380,7 +406,9 @@ impl Patient {
     /// The discharge, while the patient is discharged (the latest entry of the stay).
     pub fn discharge(&self) -> Option<&StayEntry> {
         self.stay
-            .last()
+            .iter()
+            .rev()
+            .find(|e| !matches!(e.change, Stay::Moved { .. }))
             .filter(|e| matches!(e.change, Stay::Discharged { .. }))
     }
 
@@ -435,6 +463,7 @@ enum Change {
     Place(PlaceAssigned),
     Discharged(Discharged),
     Readmitted(Readmitted),
+    Moved(Moved),
 }
 
 impl PatientRegister {
@@ -452,6 +481,7 @@ impl PatientRegister {
                     PLACE_ASSIGNED => Change::Place(codec::from_cbor(&e.payload).ok()?),
                     DISCHARGED => Change::Discharged(codec::from_cbor(&e.payload).ok()?),
                     READMITTED => Change::Readmitted(codec::from_cbor(&e.payload).ok()?),
+                    MOVED => Change::Moved(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e.body.hlc, e.body.author.user.clone(), change))
@@ -523,6 +553,22 @@ impl PatientRegister {
                         });
                     }
                     None => register.notices.push(Notice::UnknownPatient(d.tag)),
+                },
+                // [impl->dsn~patient-pathway~1]
+                // A move frees the place; moving a discharged patient, or to the unit the
+                // patient is in, changes nothing.
+                Change::Moved(m) => match register.patients.get_mut(&m.tag) {
+                    Some(patient) if patient.is_present() && patient.uhs != m.uhs => {
+                        patient.place = None;
+                        let from = std::mem::replace(&mut patient.uhs, m.uhs.clone());
+                        patient.stay.push(StayEntry {
+                            change: Stay::Moved { from, to: m.uhs },
+                            at,
+                            by,
+                        });
+                    }
+                    Some(_) => {}
+                    None => register.notices.push(Notice::UnknownPatient(m.tag)),
                 },
                 // Readmitting a patient who is in the unit changes nothing.
                 Change::Readmitted(r) => match register.patients.get_mut(&r.tag) {
@@ -782,6 +828,61 @@ mod tests {
         assert_eq!(register.patient("DE-0002").unwrap().stay.len(), 1);
         let counts = &register.counts()["uhs-1"];
         assert_eq!((counts.immediate, counts.discharged), (1, 0));
+    }
+
+    // [utest->dsn~patient-pathway~1]
+    #[test]
+    fn a_patient_moves_between_units_and_counts_where_they_are() {
+        let moved = |n: u64, tag: &str, uhs: &str| {
+            let m = Moved {
+                tag: tag.into(),
+                uhs: uhs.into(),
+            };
+            event(n, "ben", MOVED, m.encode().unwrap())
+        };
+        let place = PlaceAssigned {
+            tag: "DE-0001".into(),
+            place: Some("p1".into()),
+        };
+        let events = vec![
+            registered(1, "DE-0001", TriageCategory::Immediate),
+            event(2, "anna", PLACE_ASSIGNED, place.encode().unwrap()),
+            moved(3, "DE-0001", "treatment-area"),
+            moved(4, "DE-0001", "treatment-area"), // already there: nothing
+            moved(5, "DE-0404", "treatment-area"),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert_eq!(p.uhs, "treatment-area");
+        assert_eq!(p.place, None, "the place in the old unit is free");
+        assert!(p.is_present(), "a move is no discharge");
+        assert_eq!(
+            p.stay.iter().map(|e| &e.change).collect::<Vec<_>>(),
+            [
+                &Stay::Admitted,
+                &Stay::Moved {
+                    from: "uhs-1".into(),
+                    to: "treatment-area".into()
+                }
+            ]
+        );
+        assert_eq!(p.stay[1].by.localpart(), "ben");
+        assert_eq!(register.notices, [Notice::UnknownPatient("DE-0404".into())]);
+        let counts = register.counts();
+        assert!(
+            !counts.contains_key("uhs-1"),
+            "counted where the patient is"
+        );
+        assert_eq!(counts["treatment-area"].immediate, 1);
+
+        // A discharged patient is not moved; after a move the discharge still counts.
+        let mut events = events;
+        events.push(discharged(6, "DE-0001", Outcome::Transported));
+        events.push(moved(7, "DE-0001", "uhs-1"));
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert!(!p.is_present());
+        assert_eq!(p.uhs, "treatment-area");
     }
 
     // [utest->dsn~uhs-discharge~1]

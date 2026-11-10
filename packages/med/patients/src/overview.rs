@@ -26,7 +26,7 @@ pub struct UhsSummary {
     pub transports_planned: usize,
 }
 
-// [impl->dsn~uhs-overview~1]
+// [impl->dsn~uhs-overview~2]
 /// The summary per unit ID, from events of `med.clinical` and of the `incident`
 /// compartment. Units without any patient, place, order or transport are left out; the
 /// caller lists every unit and shows zeros for them.
@@ -67,6 +67,24 @@ pub fn summaries(
         s.counts.uhs.clone_from(uhs);
     }
     out
+}
+
+// [impl->dsn~uhs-overview~2]
+/// All units added up: the whole incident for the medical lead (MANV). Places count only
+/// where units have them.
+pub fn total<'a>(summaries: impl IntoIterator<Item = &'a UhsSummary>) -> UhsSummary {
+    let mut t = UhsSummary::default();
+    for s in summaries {
+        t.counts.merge(&s.counts);
+        if let Some((free, all)) = s.places {
+            let (f, a) = t.places.unwrap_or((0, 0));
+            t.places = Some((f + free, a + all));
+        }
+        t.open_orders += s.open_orders;
+        t.transports_open += s.transports_open;
+        t.transports_planned += s.transports_planned;
+    }
+    t
 }
 
 #[cfg(test)]
@@ -126,7 +144,7 @@ mod tests {
         )
     }
 
-    // [utest->dsn~uhs-overview~1]
+    // [utest->dsn~uhs-overview~2]
     #[test]
     fn one_summary_per_unit_with_load_places_orders_and_transports() {
         let places = PlacesSet {
@@ -194,5 +212,18 @@ mod tests {
             (1, 1, 1)
         );
         assert_eq!(eingang.places, None);
+
+        let all = total(s.values());
+        assert_eq!(
+            (
+                all.counts.immediate,
+                all.counts.urgent,
+                all.counts.minor,
+                all.counts.discharged
+            ),
+            (1, 1, 1, 1)
+        );
+        assert_eq!((all.places, all.open_orders), (Some((2, 3)), 2));
+        assert_eq!((all.transports_open, all.transports_planned), (2, 1));
     }
 }

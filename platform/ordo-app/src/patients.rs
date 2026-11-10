@@ -528,7 +528,7 @@ fn PatientRecord(
 fn discharged_outcome(patient: &Patient) -> Option<Outcome> {
     match patient.discharge()?.change {
         Stay::Discharged { outcome, .. } => Some(outcome),
-        Stay::Admitted => None,
+        Stay::Admitted | Stay::Moved { .. } => None,
     }
 }
 
@@ -615,9 +615,12 @@ fn StaySection(
                         p.iter()
                             .flat_map(|p| p.stay.iter())
                             .map(|e| {
-                                let what = match e.change {
+                                let what = match &e.change {
                                     Stay::Admitted => text::ADMITTED.to_owned(),
-                                    Stay::Discharged { outcome, .. } => text::discharged_as(outcome),
+                                    Stay::Moved { from, to } => {
+                                        text::moved(&core::uhs_name(core, from), &core::uhs_name(core, to))
+                                    }
+                                    Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
                                 };
                                 let when = text::by_at(e.by.as_str(), &core::clock(e.at.wall_ms));
                                 view! { <li>{what} " · " {when}</li> }
@@ -630,6 +633,8 @@ fn StaySection(
                 when=move || present.get()
                 fallback=move || view! { <Actions actions=readmit() /> }
             >
+                // [impl->dsn~patient-pathway~1]
+                <MoveForm core revision tag=tag.clone() patient />
                 <form class="form stay-form" novalidate on:submit=submit.clone()>
                     <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.clone() value=outcome />
                     {move || {
@@ -647,6 +652,50 @@ fn StaySection(
                 </form>
             </Show>
         </section>
+    }
+}
+
+// [impl->dsn~patient-pathway~1]
+/// Moving a patient to another unit of the incident (MANV: collection point → treatment
+/// area).
+#[component]
+fn MoveForm(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: String,
+    patient: Memo<Option<Patient>>,
+) -> impl IntoView {
+    let target = RwSignal::new(String::new());
+    let others = Memo::new(move |_| {
+        revision.track();
+        let here = patient.with(|p| p.as_ref().map(|p| p.uhs.clone()));
+        uhs_list(core)
+            .into_iter()
+            .filter(|u| Some(&u.id) != here.as_ref())
+            .map(|u| (u.id, u.name))
+            .collect::<Vec<_>>()
+    });
+    let submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let tag = tag.clone();
+        let to = target.get_untracked();
+        if !to.is_empty() && core::move_patient(core, revision, &tag, &to).is_ok() {
+            target.set(String::new());
+        }
+    };
+    view! {
+        <Show when=move || others.with(|o| !o.is_empty())>
+            <form class="form form--inline move-form" on:submit=submit.clone()>
+                <div class="field">
+                    <label for="move-to">{text::MOVE_TO}</label>
+                    <select id="move-to" prop:value=move || target.get() on:change=move |ev| target.set(event_target_value(&ev))>
+                        <option value="">{text::MOVE_CHOOSE}</option>
+                        {move || others.get().into_iter().map(|(id, name)| view! { <option value=id>{name}</option> }).collect_view()}
+                    </select>
+                </div>
+                <button type="submit" class="button">{text::MOVE}</button>
+            </form>
+        </Show>
     }
 }
 

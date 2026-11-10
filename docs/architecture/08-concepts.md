@@ -756,6 +756,27 @@ Needs: impl, itest
 
 Tags: must, m12
 
+#### Patient pathway
+`dsn~patient-pathway~1`
+
+A patient's way through the on-site units (in a MANV: collection point → treatment area,
+or a UHS) is recorded as it happens. Registration places the patient in a unit; a crew
+moves them on with `patients.moved` (the new unit, clinical compartment), which frees the
+treatment place. The register keeps the current unit and the whole way with time and
+person, next to admission and discharge (see *Discharge from the UHS*, which takes them
+out of the unit with the outcome and the transport). Counts and load follow the current unit, so a
+moved patient counts where they are. Moving a discharged patient changes nothing: they
+are readmitted first. The record shows the way as the section *Patientenweg*, with a
+choice of the incident's other units to move to.
+
+Covers:
+
+* [req~pat-5~1](../requirements/04-med.md#pat-5--patient-pathway)
+
+Needs: impl, utest, itest
+
+Tags: must, m25
+
 #### Discharge from the UHS
 `dsn~uhs-discharge~1`
 

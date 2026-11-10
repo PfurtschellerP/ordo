@@ -650,6 +650,32 @@ pub fn discharge(
     )
 }
 
+// [impl->dsn~patient-pathway~1]
+/// Moves a patient to another on-site unit (PAT-5).
+pub fn move_patient(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    uhs: &str,
+) -> Result<(), String> {
+    let payload = patients::Moved {
+        tag: tag.to_owned(),
+        uhs: uhs.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    let announcement = text::patient_moved(tag, &uhs_name(core, uhs));
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        patients::MOVED,
+        &payload,
+        announcement,
+    )
+}
+
 /// Readmits a discharged patient to their unit.
 pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), String> {
     let payload = patients::Readmitted {

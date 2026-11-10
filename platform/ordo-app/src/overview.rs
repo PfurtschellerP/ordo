@@ -8,7 +8,7 @@ use crate::core::Handle;
 use crate::text;
 use crate::views::{CountCard, uhs_list};
 
-// [impl->dsn~uhs-overview~1]
+// [impl->dsn~uhs-overview~2]
 /// Every unit: patients by category against capacity, discharged, free places, open
 /// orders, open and planned transports.
 #[component]
@@ -35,6 +35,10 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 if list.is_empty() {
                     return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
                 }
+                // The whole incident first (MANV).
+                let all = overview::total(list.iter().map(|(_, _, s)| s));
+                let capacity: u32 = list.iter().map(|(_, c, _)| c).sum();
+                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all)).chain(list);
                 view! {
                     <ul class="count-list">
                         {list

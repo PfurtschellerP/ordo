@@ -45,7 +45,7 @@ Needs: dsn
 
 ORDO shall track each patient's pathway — found → on-site care (UHS / treatment area) → transport → hospital, or released on site — with time and location of every change.
 
-Tags: must, med
+Tags: must, med, m25
 
 Needs: dsn
 
@@ -160,9 +160,9 @@ Tags: must, med, m12
 Needs: dsn
 
 #### UHS-8 — Overview for the medical lead
-`req~uhs-8~1`
+`req~uhs-8~2`
 
-ORDO shall show the medical lead (e.g. LNA, OrgL) one overview of all on-site care units they may read, per unit: the patients in it by triage category against its capacity, free treatment places, open orders, open and planned transports, and the number discharged.
+ORDO shall show the medical lead (e.g. LNA, OrgL) one overview of all on-site care units they may read, per unit and in total: the patients in it by triage category against its capacity, free treatment places, open orders, open and planned transports, and the number discharged.
 
 Tags: should, med, m22
 

@@ -427,13 +427,29 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(badges.every(Boolean), "every triage badge has a shape and a text label").toBe(true);
     await audit(anna, "Med workspace");
 
-    // [itest->dsn~uhs-overview~1]
+    // [itest->dsn~patient-pathway~1]
+    await openRecord(anna, "DE-0045");
+    const move = async (to: string) => {
+      await anna.locator("#move-to").selectOption({ label: to });
+      await anna.getByRole("button", { name: "Verlegen", exact: true }).click();
+    };
+    await move("UHS Bühne Nord");
+    await expect(anna.locator(".patient-card[data-tag='DE-0045']"), "the patient is where they were moved").toContainText("UHS Bühne Nord");
+    const way = anna.locator("[aria-labelledby=section-stay] .history li");
+    await expect(way.nth(1), "the way, with time and person").toContainText("Verlegt: UHS Eingang → UHS Bühne Nord");
+    await move("UHS Eingang");
+    await expect(way, "admitted, moved, moved back").toHaveCount(3);
+    await expect(anna.locator(".patient-card[data-tag='DE-0045']")).toContainText("UHS Eingang");
+
+    // [itest->dsn~uhs-overview~2]
     await openView(anna, "Übersicht");
     const unit = (name: string) => anna.locator(".count-card", { hasText: name });
     await expect(unit("UHS Eingang"), "per UHS: load and discharged").toContainText("Gesamt: 2 · Belegung: 2 / 5 · Entlassen: 0");
     await expect(unit("UHS Eingang"), "open orders and transports").toContainText("Offene Anordnungen: 0 · Transporte: 1 offen, 0 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Transporte: 0 offen, 1 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Behandlungsplätze:");
+    await expect(unit("Alle Einheiten"), "and all units added up").toContainText("Gesamt: 4 · Belegung: 4 / 15 · Entlassen: 0");
+    await expect(unit("Alle Einheiten")).toContainText("Transporte: 1 offen, 1 geplant");
     await audit(anna, "Overview");
     await openView(anna, "Patienten");
     await anna.locator("#launcher-button").click();

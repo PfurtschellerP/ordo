@@ -64,6 +64,18 @@ impl PatientCountsV1 {
         *self.counter(category) += 1;
     }
 
+    /// Adds the counts of `other` (every category and the discharged), e.g. for a total
+    /// over several units.
+    pub fn merge(&mut self, other: &Self) {
+        self.immediate += other.immediate;
+        self.urgent += other.urgent;
+        self.minor += other.minor;
+        self.expectant += other.expectant;
+        self.deceased += other.deceased;
+        self.uninjured += other.uninjured;
+        self.discharged += other.discharged;
+    }
+
     /// The count of `category`.
     pub fn get(&self, category: TriageCategory) -> u32 {
         match category {

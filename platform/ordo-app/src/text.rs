@@ -592,7 +592,7 @@ pub fn order_by(at: &str, by: &str) -> String {
 }
 
 // Admission and discharge (UHS-3).
-pub const STAY_TITLE: &str = "Aufnahme und Entlassung";
+pub const STAY_TITLE: &str = "Patientenweg";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
 pub const DISCHARGE: &str = "Entlassen";
 pub const DISCHARGE_CHOOSE: &str = "Bitte das Ergebnis der Entlassung wählen.";
@@ -714,3 +714,18 @@ pub fn transports_count(open: usize, planned: usize) -> String {
 // API versions (ADR-0052).
 pub const VERSION_UNSUPPORTED: &str =
     "Diese App und der Server haben keine gemeinsame Version. Bitte die Seite neu laden.";
+
+// Patient pathway (PAT-5).
+pub const MOVE_TO: &str = "Verlegen nach";
+pub const MOVE_CHOOSE: &str = "Einheit wählen";
+pub const MOVE: &str = "Verlegen";
+pub const TOTAL_TITLE: &str = "Alle Einheiten";
+
+/// "Verlegt: Patientenablage Nord → Behandlungsplatz"
+pub fn moved(from: &str, to: &str) -> String {
+    format!("Verlegt: {from} → {to}")
+}
+
+pub fn patient_moved(tag: &str, to: &str) -> String {
+    format!("{tag} verlegt nach {to}")
+}
