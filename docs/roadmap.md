@@ -182,7 +182,9 @@ header; no version means the oldest, one outside the range is refused with the r
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
 - **Orders, next steps:** substances from the medication catalogue (below); orders given
-  by voice or radio recorded with the person who gave them.
+  by voice or radio recorded by the crew with who gave them, how, and whether they were
+  read back, confirmed later ([ADR-0053](adr/0053-verbal-orders.md), proposed: to be
+  confirmed by practitioners and the medical director).
 - **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
   chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances
