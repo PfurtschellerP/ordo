@@ -152,3 +152,55 @@ ORDO is local-first, which changes what "highly available" has to mean:
 SQLite is therefore not an intermediate step to be replaced, but the right tool for one
 organisation; PostgreSQL is added for high availability and scale. Both sit behind the
 same storage interface in `ordo-server`.
+
+## 7.7 Releases and how to verify them
+
+A release is built only by CI from a version tag (`.github/workflows/release.yml`,
+[ADR-0043](../adr/0043-supply-chain.md)). It contains:
+
+- the server image `ghcr.io/pfurtschellerp/ordo:<version>`, signed keyless with cosign
+  (Sigstore), with an SLSA build provenance attestation and its CycloneDX bill of
+  materials as a signed attestation;
+- the web app as `ordo-app-<version>.tar.gz`, with provenance and bill of materials;
+- both bills of materials as files of the GitHub release.
+
+Before running a release, check that it was built by this repository's release workflow:
+
+```sh
+# The image signature (Sigstore transparency log)
+cosign verify ghcr.io/pfurtschellerp/ordo:<version> \
+  --certificate-identity-regexp '^https://github.com/PfurtschellerP/ordo/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# Provenance and bill of materials (GitHub CLI)
+gh attestation verify oci://ghcr.io/pfurtschellerp/ordo:<version> --repo PfurtschellerP/ordo
+gh attestation verify oci://ghcr.io/pfurtschellerp/ordo:<version> --repo PfurtschellerP/ordo \
+  --predicate-type https://cyclonedx.org/bom
+gh attestation verify ordo-app-<version>.tar.gz --repo PfurtschellerP/ordo
+```
+
+Use the image by its digest (`@sha256:…`) in production, so what runs is exactly what was
+verified. The repository's security practices are checked weekly by the OpenSSF Scorecard
+(`.github/workflows/scorecard.yml`).
+
+### Design item
+
+#### Signed releases
+`dsn~signed-releases~1`
+
+The release workflow runs on a version tag only. One job builds and pushes the server
+image, signs its digest with cosign (keyless, the workflow's OpenID Connect identity),
+and attests SLSA provenance and the bill of materials, stored in the registry and with
+GitHub. A second job builds the web app archive and attests provenance and bill of
+materials for it. A third creates the GitHub release with the archive and both bills.
+The bills are checked before they are attested (`tests/sbom/check_sbom.py`). Signing
+identity and verification commands are in this section.
+
+Covers:
+
+* [req~sec-16~1](../requirements/07-quality.md#sec-16--signed-releases-with-provenance)
+
+Needs: itest
+
+Tags: should
+

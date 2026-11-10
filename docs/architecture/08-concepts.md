@@ -341,7 +341,8 @@ app with `cargo-cyclonedx` (pinned version) on every build. `tests/sbom/check_sb
 fails the build unless each is CycloneDX 1.6, names its component, lists every dependency
 with version and package URL, and contains the crates ORDO's security rests on
 (signatures, sealing, hashing, TLS). The bills are kept as a build artifact; publishing
-them with releases, signing and provenance follow [ADR-0043](../adr/0043-supply-chain.md).
+them with releases, signed and with provenance, is the release workflow's job
+(architecture 7.7, [ADR-0043](../adr/0043-supply-chain.md)).
 
 Covers:
 

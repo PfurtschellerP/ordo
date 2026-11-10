@@ -223,8 +223,9 @@ Then:
 
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
-   at the first release, when the repository is public: signed images, build provenance
-   and OpenSSF Scorecard (ADR-0043, SEC-16); later the device lock with WebAuthn PRF or PIN (SEC-13).
+   the first release (signed image, provenance, bills of materials: the release workflow
+   is ready, ADR-0043); multi-architecture images (arm64); later the device lock with
+   WebAuthn PRF or PIN (SEC-13).
 2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure

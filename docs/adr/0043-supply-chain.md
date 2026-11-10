@@ -3,7 +3,7 @@ status: accepted
 date: 2026-11-10
 ---
 
-# Supply chain: bills of materials now, signed releases with provenance at the first release
+# Supply chain: bills of materials on every build, signed releases with provenance
 
 ## Context and Problem Statement
 
@@ -31,12 +31,12 @@ commit hash; container base images pinned by digest; REUSE for licences per file
   package URL, the crates ORDO's security rests on) and keeps them as a build artifact.
   CycloneDX because security tools (e.g. Dependency-Track, OSV-Scanner) read it and it
   carries vulnerability information (VEX) as well.
-* **At the first release:** images and binaries are signed keyless with cosign (Sigstore),
-  with an SLSA build provenance attestation, and published with their bills of
-  materials; the OpenSSF Scorecard runs on the repository. These publish entries to public
-  services (the Sigstore transparency log, the Scorecard API), so they start when the
-  repository becomes public and the project lead agrees; until then nothing leaves the
-  private repository.
+* **Releases:** the server image and the web app archive are signed keyless with cosign
+  (Sigstore), with an SLSA build provenance attestation, and published with their bills
+  of materials; the OpenSSF Scorecard runs on the repository and publishes its result.
+  These write to public services (the Sigstore transparency log, the Scorecard API); the
+  project lead made the repository public for this on 2026-11-10. How to verify a
+  release: architecture 7.7.
 * Releases are built only by CI from a tag, never on a developer's machine.
 
 ### Consequences

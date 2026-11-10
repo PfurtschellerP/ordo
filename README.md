@@ -1,5 +1,7 @@
 # ORDO
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/PfurtschellerP/ordo/badge)](https://scorecard.dev/viewer/?uri=github.com/PfurtschellerP/ordo)
+
 **O**perations, **R**esponse, **D**ispatch & **O**rganisation
 
 ORDO is an open-source platform for on-scene coordination of emergency services.
