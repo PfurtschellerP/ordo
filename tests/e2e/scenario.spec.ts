@@ -31,7 +31,7 @@ import {
   storedItem,
   title,
 } from "./support/app";
-import { startDex } from "./support/dex";
+import { ORDO_PORT, startDex } from "./support/dex";
 import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
@@ -56,7 +56,7 @@ async function newDevice(browser: Browser): Promise<Page> {
 test.beforeAll(async ({ browser }, info) => {
   const work = path.join(process.env.ORDO_E2E_WORK ?? os.tmpdir(), `ordo-e2e-${info.project.name}`);
   shots = path.join(process.env.ORDO_E2E_SHOTS ?? path.join(__dirname, "screenshots"), info.project.name);
-  server = new OrdoServer(work, 18090 + info.parallelIndex);
+  server = new OrdoServer(work, ORDO_PORT + info.parallelIndex);
   server.setup(); // no seed: people log in with Dex, roles come from their groups
   stopDex = await startDex();
   await server.start();
@@ -81,6 +81,20 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.goto(server.url);
     await expect(dora.getByRole("button", { name: "Anmelden" })).toBeVisible();
     await audit(dora, "Pairing page");
+    // [itest->dsn~licence-notices~1]
+    // LIC-1: every screen links to the licences and the source code.
+    await dora.getByRole("contentinfo").getByRole("link", { name: "Lizenzen und Quellcode" }).click();
+    await expect(dora.getByRole("heading", { level: 1 })).toHaveText("Lizenzen und Quellcode");
+    await expect(dora.locator(".notices__source"), "the source code of this build").toHaveAttribute("href", /^https:\/\/github\.com\/PfurtschellerP\/ordo/);
+    await expect(dora.locator(".notices__part").filter({ hasText: "MapLibre GL JS" }).getByRole("link", { name: "BSD-3-Clause" })).toHaveAttribute("href", "/map/vendor/maplibre-gl.LICENSE.txt");
+    const licence = await dora.request.get(`${server.url}/LICENSES/AGPL-3.0-or-later.txt`);
+    expect(await licence.text(), "ORDO's licence text is served").toContain("GNU AFFERO GENERAL PUBLIC LICENSE");
+    await expect(dora.locator(".notices__crates .notice").first(), "the crates' notices, made at build time").toBeAttached({ timeout: 15_000 });
+    await expect(dora.locator(".notices__crates"), "with the licence texts as the crates ship them").toContainText("leptos");
+    await audit(dora, "Licence notices");
+    await shot(dora, "notices");
+    await dora.getByRole("link", { name: "Zurück" }).click();
+    await expect(dora.getByRole("button", { name: "Anmelden" }), "back where the person came from").toBeVisible();
     // [itest->dsn~oidc-login~1]
     await loginPair(dora, server, "dora@example.org");
     await expect(dora.locator(".incident-card"), "no incident planned yet").toHaveCount(0);

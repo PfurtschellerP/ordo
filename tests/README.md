@@ -39,8 +39,12 @@ npx playwright test                    # all three browsers
 npx playwright test --project=firefox  # one browser
 ```
 
-`ORDO_BIN` and `ORDO_APP_DIST` override the paths of the server and the app;
-screenshots go to `tests/e2e/screenshots/<browser>/`, failure traces to
+`ORDO_BIN` and `ORDO_APP_DIST` override the paths of the server and the app. The tests
+use ports 18090 (ORDO) and 5556 (Dex), the same as the local demo; while the demo runs,
+set `ORDO_E2E_PORT` and `ORDO_E2E_DEX_PORT` (e.g. 18190 and 5566). The tests refuse to
+start against an ORDO that is already listening. The app's build needs `cargo-about` for
+the licence page (`cargo install --locked cargo-about --version 0.9.3 --features cli`);
+without it the page says the crates' notices are left out, and this test fails. Screenshots go to `tests/e2e/screenshots/<browser>/`, failure traces to
 `tests/e2e/test-results/` (`npx playwright show-trace …`).
 
 ## Traceability

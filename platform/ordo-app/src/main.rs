@@ -7,6 +7,7 @@ mod devices;
 mod images;
 mod incidents;
 mod nav;
+mod notices;
 mod orders;
 mod overview;
 mod palette;

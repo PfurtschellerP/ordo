@@ -3,6 +3,8 @@ import { ChildProcess, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { DEX_URL } from "./dex";
+
 export const ORDO = path.resolve(process.env.ORDO_BIN ?? path.join(__dirname, "../../../target/debug/ordo"));
 export const DIST = path.resolve(process.env.ORDO_APP_DIST ?? path.join(__dirname, "../../../platform/ordo-app/dist"));
 
@@ -40,6 +42,9 @@ export class OrdoServer {
   }
 
   async start(): Promise<void> {
+    // Never test against another ORDO on the port, e.g. the local demo.
+    const taken = await fetch(`${this.url}readyz`).then(() => true, () => false);
+    if (taken) throw new Error(`port ${this.port} is in use (the local demo?); set ORDO_E2E_PORT`);
     const log = fs.openSync(path.join(this.work, "server.log"), "a");
     this.proc = spawn(ORDO, ["serve"], {
       env: {
@@ -55,7 +60,7 @@ export class OrdoServer {
         ORDO_MAP_FILE: path.join(__dirname, "region.pmtiles"), // made by make_region.py
         ORDO_APP_DIR: DIST,
         // Login with Dex (support/dex.yaml).
-        ORDO_OIDC_ISSUER: "http://127.0.0.1:5556/dex",
+        ORDO_OIDC_ISSUER: DEX_URL,
         ORDO_OIDC_CLIENT_ID: "ordo",
         ORDO_OIDC_CLIENT_SECRET_FILE: path.join(this.work, "oidc-secret"),
         ORDO_PUBLIC_URL: `http://127.0.0.1:${this.port}`,
@@ -64,6 +69,7 @@ export class OrdoServer {
     });
     const end = Date.now() + 20_000;
     while (Date.now() < end) {
+      if (this.proc.exitCode !== null) throw new Error(`server exited (${this.proc.exitCode}); see ${this.work}/server.log`);
       try {
         if ((await fetch(`${this.url}readyz`)).ok) return;
       } catch {

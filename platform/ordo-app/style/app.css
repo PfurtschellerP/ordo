@@ -426,6 +426,9 @@
      sheet; the content keeps space free below, so the bar never covers it. */
   @media (max-width: 48rem) {
     .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+    /* The footer comes last, so it keeps the space free for the bar instead. */
+    body:has(.site-footer) .layout { padding-bottom: 0; }
+    body:has(.layout) .site-footer { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
     .navigation__inner { display: contents; }
     .navigation {
       position: fixed; left: 0; right: 0; bottom: 0; top: auto;
@@ -638,6 +641,22 @@
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
   .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }
   .map-object .row { margin-inline-start: auto; }
+  /* Footer under every screen and the licence page (LIC-1). */
+  .site-footer {
+    padding: var(--ordo-space-4) var(--ordo-space-5);
+    border-top: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    font-size: var(--ordo-font-size-1); text-align: center;
+  }
+  .site-footer a { display: inline-flex; align-items: center; min-height: var(--ordo-size-touch-target); color: var(--ordo-color-text-link); }
+  .notices a { overflow-wrap: anywhere; color: var(--ordo-color-text-link); }
+  .notices__parts { margin: 0; padding-inline-start: var(--ordo-space-5); display: grid; gap: var(--ordo-space-3); }
+  .notices__crates { display: grid; gap: var(--ordo-space-2); }
+  .notices__crates summary { cursor: pointer; min-height: var(--ordo-size-touch-target); padding-block: var(--ordo-space-2); overflow-wrap: anywhere; }
+  .notices__crates .notice__crate { color: var(--ordo-color-text-secondary); }
+  .notices__crates pre {
+    white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 var(--ordo-space-3);
+    font-family: var(--ordo-font-family-mono); font-size: var(--ordo-font-size-1);
+  }
   /* Tactical symbols (MAP-3) are drawn black on white, as on paper, in every theme. */
   .map-object__symbol { block-size: calc(var(--ordo-size-icon) * 1.5); inline-size: auto; flex: none; padding: var(--ordo-space-1); background: var(--ordo-component-map-symbol-background); border-radius: var(--ordo-radius-small); }
   /* MapLibre's own controls: touch targets of the design system (UX-2). */

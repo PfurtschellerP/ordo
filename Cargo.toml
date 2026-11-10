@@ -25,6 +25,8 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.89"
 license = "AGPL-3.0-or-later"
+# Where the source code is: the app links to it (LIC-1). A changed ORDO points to its own.
+repository = "https://github.com/PfurtschellerP/ordo"
 authors = ["ORDO contributors"]
 publish = false
 

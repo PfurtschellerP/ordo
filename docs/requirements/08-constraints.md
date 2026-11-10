@@ -19,3 +19,17 @@
 - **Health data:** GDPR Art. 9 and national rules on medical documentation (DE: e.g.
   § 630f BGB retention, professional confidentiality) apply to the ePCR. Requires review
   by a data-protection expert before the first field use.
+
+### 6.1 Licence notices
+
+#### LIC-1 — Licence notices and source code
+`req~lic-1~1`
+
+ORDO shall link from every screen of the app to a page that shows ORDO's licence, a link
+to the source code of the running version, and the licence and copyright notices of every
+third-party part it ships (libraries, fonts, icons, tactical symbols, map data), because
+the AGPL (section 13) and those parts' licences require them.
+
+Needs: dsn
+
+Tags: must, m35

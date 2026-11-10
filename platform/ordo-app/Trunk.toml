@@ -4,8 +4,10 @@
 target = "index.html"
 dist = "dist"
 
-# Generate the design-token style sheet (and check contrast) before every build.
+# Before every build: the design-token style sheet (with the contrast check), then the
+# licence notices of the shipped crates (LIC-1, ADR-0055; needs cargo-about, else the page
+# says they are left out of this build).
 [[hooks]]
 stage = "pre_build"
-command = "cargo"
-command_arguments = ["run", "--quiet", "--locked", "-p", "ordo-tokens", "--", "build", "--design", "../../design", "--out", "generated"]
+command = "sh"
+command_arguments = ["prebuild.sh"]

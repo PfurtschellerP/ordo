@@ -352,6 +352,33 @@ Needs: itest
 
 Tags: must, m28
 
+#### Licence notices
+`dsn~licence-notices~1`
+
+Every screen ends with a footer linking to *Lizenzen und Quellcode* (`/notices`). The page
+shows ORDO's licence (AGPL-3.0-or-later) and the source code address of the build: the
+workspace's `repository` field, so whoever changes ORDO and builds it points to their own
+source. Below come the notices of the third-party parts, in two groups:
+
+* **Rust crates** of the server and the app: `cargo-about` (pinned version) lists them
+  with their licence texts as found in each crate, at build time: the app's pre-build
+  step runs `tools/notices/notices.sh`, which writes an HTML fragment (escaped by its
+  template); development and build dependencies are left out, as they are not shipped. A build without `cargo-about` says so on the page; CI and
+  release builds require it ([ADR-0055](../adr/0055-licence-notices.md)).
+* **Other parts** the app ships: the vendored map libraries, the map fonts, the icons,
+  the profile's tactical symbols, and the map data, each with its copyright and licence;
+  the licence texts come from `LICENSES/`, served with the app.
+
+The page loads the notices only when it opens, so the app does not grow.
+
+Covers:
+
+* [req~lic-1~1](../requirements/08-constraints.md#lic-1--licence-notices-and-source-code)
+
+Needs: impl, utest, itest
+
+Tags: must, m35
+
 #### Device proof
 `dsn~device-proof~1`
 

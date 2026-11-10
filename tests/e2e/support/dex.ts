@@ -1,12 +1,27 @@
 // Starts Dex (https://dexidp.io) in Docker as the identity provider of the browser tests
-// (ADR-0038). Set ORDO_E2E_DEX=external to use a Dex that is already running.
+// (ADR-0038). Set ORDO_E2E_DEX=external to use a Dex that is already running. While the
+// local demo runs (Dex on 5556, ORDO on 18090), set ORDO_E2E_DEX_PORT and ORDO_E2E_PORT.
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-export const DEX_URL = "http://127.0.0.1:5556/dex";
+const PORT = process.env.ORDO_E2E_DEX_PORT ?? "5556";
+/** The first ORDO test server's port; Dex sends logins back there. */
+export const ORDO_PORT = Number(process.env.ORDO_E2E_PORT ?? 18090);
+export const DEX_URL = `http://127.0.0.1:${PORT}/dex`;
 const IMAGE = "ghcr.io/dexidp/dex:v2.46.1";
 const NAME = "ordo-e2e-dex";
-const CONFIG = path.join(__dirname, "dex.yaml");
+
+/** support/dex.yaml, moved to other ports if they are asked for. */
+function config(): string {
+  const file = path.join(__dirname, "dex.yaml");
+  if (PORT === "5556" && ORDO_PORT === 18090) return file;
+  const moved = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ordo-dex-")), "dex.yaml");
+  const text = fs.readFileSync(file, "utf8").replaceAll(":5556", `:${PORT}`).replaceAll(":18090/", `:${ORDO_PORT}/`);
+  fs.writeFileSync(moved, text);
+  return moved;
+}
 
 /** Starts Dex and waits until it answers; returns a function that stops it. */
 export async function startDex(): Promise<() => void> {
@@ -16,8 +31,8 @@ export async function startDex(): Promise<() => void> {
     } catch {
       // not running
     }
-    execFileSync("docker", ["run", "-d", "--name", NAME, "-p", "5556:5556",
-      "-v", `${CONFIG}:/etc/dex/config.yaml:ro,Z`, IMAGE, "dex", "serve", "/etc/dex/config.yaml"]);
+    execFileSync("docker", ["run", "-d", "--name", NAME, "-p", `${PORT}:${PORT}`,
+      "-v", `${config()}:/etc/dex/config.yaml:ro,Z`, IMAGE, "dex", "serve", "/etc/dex/config.yaml"]);
   }
   const end = Date.now() + 60_000;
   while (Date.now() < end) {

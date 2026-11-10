@@ -1,0 +1,9 @@
+{{!-- Licence notices of the Rust crates (LIC-1, ADR-0055): one entry per distinct
+licence text, with the crates under it. Data only, no words: the app supplies the
+headings. Handlebars escapes every value for HTML. --}}
+{{#each licenses}}
+<details class="notice" data-licence="{{id}}">
+<summary><strong>{{name}}</strong>: {{#each used_by}}{{#if @index}}, {{/if}}<span class="notice__crate">{{crate.name}} {{crate.version}}</span>{{/each}}</summary>
+<pre class="notice__text">{{text}}</pre>
+</details>
+{{/each}}

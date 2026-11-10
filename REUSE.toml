@@ -57,7 +57,7 @@ SPDX-FileCopyrightText = "2023 MapLibre contributors"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = ["platform/ordo-app/map/vendor/pmtiles.js", "platform/ordo-app/map/vendor/basemaps.js"]
+path = ["platform/ordo-app/map/vendor/pmtiles.*", "platform/ordo-app/map/vendor/basemaps.*"]
 SPDX-FileCopyrightText = "Protomaps LLC"
 SPDX-License-Identifier = "BSD-3-Clause"
 

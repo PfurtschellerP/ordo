@@ -1041,3 +1041,22 @@ pub fn map_on_device(bytes: f64) -> String {
         megabytes(bytes)
     )
 }
+
+// Licences and source code (LIC-1)
+pub const NOTICES_TITLE: &str = "Lizenzen und Quellcode";
+pub const NOTICES_BACK: &str = "Zurück";
+pub const NOTICES_ORDO_LICENCE: &str = "ORDO ist freie Software unter der GNU Affero General Public License, Version 3 oder einer späteren Version (AGPL-3.0-or-later). Sie darf genutzt, weitergegeben und verändert werden; wer eine veränderte Fassung im Netz anbietet, muss deren Quellcode ebenso anbieten.";
+pub const NOTICES_LICENCE_TEXT: &str = "Lizenztext";
+pub const NOTICES_SOURCE: &str = "Quellcode dieser Fassung:";
+pub const NOTICES_PARTS: &str = "Weitere Bestandteile";
+pub const NOTICES_CRATES: &str = "Rust-Bibliotheken";
+pub const NOTICES_CRATES_HINT: &str = "Die Lizenztexte, wie sie den Bibliotheken von Server und App beiliegen, je Text mit den Bibliotheken, für die er gilt.";
+pub const NOTICES_CRATES_MISSING: &str = "Die Lizenzhinweise der Rust-Bibliotheken sind in diesem Build nicht enthalten. Welche Bibliotheken in welcher Version genutzt werden, steht im Quellcode (Cargo.lock); offizielle Builds zeigen hier ihre Lizenzhinweise.";
+pub const NOTICES_LOADING: &str = "Lizenzhinweise werden geladen …";
+pub const NOTICES_USED_MAP: &str = "Lagekarte";
+pub const NOTICES_USED_MAP_FONT: &str = "Schrift der Kartenbeschriftung";
+pub const NOTICES_USED_ICONS: &str = "Symbole der Bedienoberfläche";
+pub const NOTICES_USED_SYMBOLS: &str = "Taktische Zeichen (gezeichnet beim Erstellen von ORDO)";
+pub const NOTICES_USED_STORAGE: &str = "Datenspeicher auf dem Gerät";
+pub const NOTICES_USED_MAP_DATA: &str = "Kartendaten, wo eine Kartengrundlage eingerichtet ist";
+pub const NOTICES_PUBLIC_DOMAIN: &str = "gemeinfrei (Public Domain)";

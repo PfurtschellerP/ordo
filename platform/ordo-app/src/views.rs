@@ -118,11 +118,39 @@ fn Start() -> impl IntoView {
     let pairing = RwSignal::new(returned.or_else(core::load_pairing));
     view! {
         <Router>
-            {move || match pairing.get() {
+            <Screens pairing login_error />
+        </Router>
+    }
+}
+
+// [impl->dsn~licence-notices~1]
+/// The screen for the URL: the licence notices, pairing or the paired device; under each,
+/// the footer with the way to the licences and the source code (LIC-1).
+#[component]
+fn Screens(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> impl IntoView {
+    let location = use_location();
+    let pathname = location.pathname;
+    // A memo, so moving between views does not build the device's screen anew.
+    let on_notices = Memo::new(move |_| pathname.get() == crate::notices::PATH);
+    // The screen before the notices, to return to.
+    let previous = StoredValue::new("/".to_owned());
+    Effect::new(move || {
+        let path = pathname.get();
+        if path != crate::notices::PATH {
+            previous.set_value(format!("{path}{}", location.search.get()));
+        }
+    });
+    view! {
+        {move || {
+            if on_notices.get() {
+                return view! { <crate::notices::NoticesPage back=previous.get_value() /> }.into_any();
+            }
+            match pairing.get() {
                 None => view! { <PairingForm pairing login_error=login_error.clone() /> }.into_any(),
                 Some(p) => view! { <Device pairing=p paired=pairing on_unpair=move || pairing.set(None) /> }.into_any(),
-            }}
-        </Router>
+            }
+        }}
+        <crate::notices::SiteFooter />
     }
 }
 

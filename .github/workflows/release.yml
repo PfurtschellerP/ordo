@@ -114,8 +114,14 @@ jobs:
           WASM_BINDGEN=$(grep -A1 'name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')
           cargo install --locked trunk --version 0.22.1
           cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN"
+      - name: Install cargo-about (licence notices, ADR-0055)
+        run: cargo install --locked cargo-about --version 0.9.3 --features cli
       - name: Build the app
         working-directory: platform/ordo-app
+        env:
+          # The notices are required here, and the page links to this commit's source.
+          ORDO_NOTICES_REQUIRED: "1"
+          ORDO_COMMIT: ${{ github.sha }}
         run: trunk build --release
       - name: Archive
         env:
