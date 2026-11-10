@@ -67,13 +67,33 @@ source, it is marked *(secondary)*; replace it when the official source is known
 | [Dex](https://dexidp.io) | CNCF, Apache-2.0, v2.46 | followed | Login of every installation: local accounts or the organisation's OpenID Connect provider as connector ([ADR-0039](adr/0039-dex-in-every-installation.md)); also in the browser tests |
 | Ed25519 challenge–response ([RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)) | IETF | followed | Every sync connection proves the device key ([protocol §2](../spec/sync/protocol.md)) |
 
-## Data, security and engineering
+## Engineering: architecture, requirements, code
 
-These are listed with their purpose in [architecture 4.3](architecture/04-solution-strategy.md#43-open-standards-in-use):
-CBOR (RFC 8949), CDDL (RFC 8610), Ed25519 (RFC 8032), XChaCha20-Poly1305, BLAKE3,
-ULID, WebSocket (RFC 6455), URI fragments and percent-encoding (RFC 3986), JPEG, OCI
-images, SPDX and REUSE, arc42, MADR 4, EARS, Gherkin, OpenFastTrace, AGENTS.md. Planned
-for attachments: the Amazon S3 API as implemented by fully open-source stores, reference
+| Standard | Publisher, edition | Status | Use in ORDO |
+|---|---|---|---|
+| [arc42](https://arc42.org) | arc42 (Starke, Hruschka), template with 12 chapters | followed | Architecture documentation, [docs/architecture](architecture/README.md); design items in chapter 8 |
+| [MADR](https://adr.github.io/madr/) (Markdown Architecture Decision Records) | MADR 4 | followed | One decision per file, [docs/adr](adr/README.md); accepted ADRs stand, a change needs a superseding ADR |
+| [EARS](https://alistairmavin.com/ears/) (Easy Approach to Requirements Syntax) | Mavin et al., IEEE RE 2009 | followed | Sentence patterns of new and changed requirements, [requirements README](requirements/README.md) |
+| [OpenFastTrace](https://github.com/itsallcode/openfasttrace) | itsallcode, 4.11.0 (GPL-3.0, used as a tool) | followed | Requirements → design items → code and tests (`impl`, `utest`, `itest` tags), traced in CI per milestone |
+| [Gherkin](https://cucumber.io/docs/gherkin/reference/) | Cucumber | followed | Acceptance scenarios, [tests/acceptance/features](../tests/acceptance/features/) |
+| RFC 2119 / [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) | IETF (BCP 14) | followed | MUST/SHOULD/MAY in the interface specifications ([spec/](../spec/)) |
+| [CBOR (RFC 8949)](https://www.rfc-editor.org/rfc/rfc8949) and [CDDL (RFC 8610)](https://www.rfc-editor.org/rfc/rfc8610) | IETF | followed | Encoding and schema of events and the sync protocol ([spec/sync](../spec/sync/protocol.md)) |
+| Docs-as-code | community practice | followed | Documentation next to the code, reviewed and checked like code ([ADR-0023](adr/0023-docs-as-code.md)) |
+| [AGENTS.md](https://agents.md) | open format (Linux Foundation, Agentic AI Foundation) | followed | Instructions for AI coding agents ([AGENTS.md](../AGENTS.md)) |
+| [Rust Style Guide](https://doc.rust-lang.org/style-guide/) (rustfmt) and [Clippy](https://doc.rust-lang.org/clippy/) | Rust project | followed | Formatting checked in CI; Clippy with warnings as errors; no `unsafe` in ORDO's own code |
+| [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) | Rust project | reference | Naming and public interfaces of the crates |
+| [How to write a Git commit message](https://cbea.ms/git-commit/) | Chris Beams | followed | Imperative subject line; the body says why |
+| [REUSE](https://reuse.software/spec/) and [SPDX licence identifiers](https://spdx.org/licenses/) | FSFE, REUSE 3.3; SPDX | followed | Licence of every file (`REUSE.toml`), checked in CI |
+| [Mermaid](https://mermaid.js.org) | Mermaid project | followed | Diagrams in the documentation, as text |
+| [OWASP ASVS](https://github.com/OWASP/ASVS) | OWASP, 5.0 (May 2025) | followed (target) | Security requirements: level 2 overall, selected level-3 requirements for keys and clinical data (decision of 2026-11-08) |
+| [BSI TR-03161](https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/Technische-Richtlinien/TR-nach-Thema-sortiert/tr03161/tr-03161.html) parts 2 and 3 | BSI | reference | Security of health applications (web, backend) |
+| [OpenSpec](https://openspec.dev) | Fission AI, MIT | considered, not adopted | Spec-driven change workflow for AI assistants; ORDO's requirements, design items and ADRs already cover it with CI tracing ([ADR-0048](adr/0048-openspec-not-adopted.md)) |
+
+Data and security formats are listed with their purpose in
+[architecture 4.3](architecture/04-solution-strategy.md#43-open-standards-in-use):
+CBOR, CDDL, Ed25519 (RFC 8032), XChaCha20-Poly1305, BLAKE3, ULID, WebSocket (RFC 6455), URI
+fragments and percent-encoding (RFC 3986), JPEG, OCI images. Planned for attachments: the
+Amazon S3 API as implemented by fully open-source stores, reference
 [Garage](https://garagehq.deuxfleurs.fr) (AGPL-3.0, [ADR-0033](adr/0033-attachments-in-an-object-store.md)).
 
 ## Regulation and product security

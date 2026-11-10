@@ -86,6 +86,8 @@ docker build -f deploy/Containerfile -t ordo:local .         # container image
   acceptance and end-to-end tests in `tests/` use `itest`. See `tests/README.md`.
 - New or changed requirements use EARS ("When …, ORDO shall …"). Bump the revision when
   the meaning changes.
+- Spec first: a larger change starts with its requirement and design item (or an ADR),
+  then code and tests ([ADR-0048](docs/adr/0048-openspec-not-adopted.md)).
 - Never write complete example IDs in Markdown; OpenFastTrace would import them.
 
 ## Style

@@ -50,5 +50,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0045](0045-triage-algorithms-as-reference.md) | Triage algorithms are shown as reference, never computed | accepted | 2026-11-09 |
 | [0046](0046-roles-granted-per-incident.md) | Roles are granted per incident in ORDO, not taken from identity provider groups | accepted | 2026-11-09 |
 | [0047](0047-profile-pictures.md) | Profile pictures: ORDO, then the identity provider, then Gravatar | accepted | 2026-11-09 |
+| [0048](0048-openspec-not-adopted.md) | OpenSpec is not adopted; requirements stay in OpenFastTrace | accepted | 2026-11-10 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.
