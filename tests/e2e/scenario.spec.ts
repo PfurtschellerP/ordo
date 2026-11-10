@@ -407,6 +407,10 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~list-keys~1]
     // Ctrl+J and Ctrl+K move in the palette, where letters are typed (ADR-0051).
     await openPalette(anna);
+    await shot(anna, "palette-all");
+    const overlap = await anna.locator("#palette-list [role=option]").evaluateAll((options) =>
+      options.slice(1).some((o, i) => o.getBoundingClientRect().top < options[i].getBoundingClientRect().bottom - 1));
+    expect(overlap, "a long list scrolls; its options never overlap").toBe(false);
     await anna.keyboard.type("DE-00");
     await shot(anna, "palette");
     const first = await selectedOption(anna);

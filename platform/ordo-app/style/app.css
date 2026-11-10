@@ -728,7 +728,8 @@
   .palette__title { margin: 0; font-size: var(--ordo-font-size-3); }
   .palette__crumb { color: var(--ordo-color-text-secondary); }
   .palette__input { width: 100%; font-size: var(--ordo-font-size-4); }
-  .palette__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); max-height: 55vh; overflow-y: auto; }
+  /* Rows keep the height of their content; the list scrolls instead of squeezing them. */
+  .palette__list { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-rows: max-content; align-content: start; gap: var(--ordo-space-1); max-height: 55vh; overflow-y: auto; }
   .palette__option {
     display: grid; grid-template-columns: auto 1fr; gap: 0 var(--ordo-space-3); align-items: center;
     min-height: var(--ordo-size-touch-target); padding: var(--ordo-space-2) var(--ordo-space-3);
