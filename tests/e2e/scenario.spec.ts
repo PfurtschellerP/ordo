@@ -120,6 +120,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await createUhs(anna, "UHS Eingang", 5);
     // [itest->dsn~uhs-registry~1]
     await expect(anna.locator(".load-list__item"), "two UHS are listed with their load").toHaveCount(2);
+    // [itest->dsn~uhs-details~1]
+    const eingang = anna.locator(".load-list__item", { hasText: "UHS Eingang" });
+    await anna.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await eingang.getByLabel("Ort", { exact: true }).fill("Eingang West, Zelt 2");
+    await eingang.getByRole("button", { name: "Speichern" }).click();
+    await expect(eingang.locator(".load-list__location"), "a UHS has a location").toHaveText("Ort: Eingang West, Zelt 2");
+    await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
+    await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: anna@localhost");
+    await expect(eingang.locator(".crew-list")).toContainText("anna@localhost");
 
     await openView(anna, "Patienten");
     // [itest->dsn~triage-reference~1]
@@ -457,6 +467,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(unit("UHS Eingang"), "open orders and transports").toContainText("Offene Anordnungen: 0 · Transporte: 1 offen, 0 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Transporte: 0 offen, 1 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Behandlungsplätze:");
+    await expect(unit("UHS Eingang"), "with its location").toContainText("Ort: Eingang West, Zelt 2");
     await expect(unit("Alle Einheiten"), "and all units added up").toContainText("Gesamt: 4 · Belegung: 4 / 15 · Entlassen: 0");
     await expect(unit("Alle Einheiten")).toContainText("Transporte: 1 offen, 1 geplant");
     await audit(anna, "Overview");

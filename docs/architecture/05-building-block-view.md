@@ -296,6 +296,25 @@ Needs: impl, itest
 
 Tags: must, m4
 
+#### UHS details
+`dsn~uhs-details~1`
+
+A unit is set up with name, kind and capacity (`uhs.created`). `uhs.updated` (module
+`med.uhs`, shared `incident` compartment, no clinical data) changes its location (free
+text, e.g. "Bühne Nord, Zelt 2"), its capacity and its assigned staff (names or user IDs,
+the whole list); a field left out keeps its value, and the latest change of each field
+counts (hybrid logical clock). *UHS verwalten* shows location and staff per unit and
+changes them in a details panel, with the incident's people suggested; the overview and
+the command's counts use the current capacity.
+
+Covers:
+
+* [req~uhs-1~1](../requirements/04-med.md#uhs-1--on-site-care-units)
+
+Needs: impl, utest, itest
+
+Tags: must, m30
+
 #### UHS overview
 `dsn~uhs-overview~2`
 

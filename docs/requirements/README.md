@@ -116,6 +116,7 @@ the build fails.
 | 27 — Post-quantum transport | `m27` | Hybrid post-quantum TLS key exchange, checked in CI; algorithm inventory (SEC-14, ADR-0042) |
 | 28 — Bills of materials | `m28` | CycloneDX SBOM of server and web app on every build, checked (SEC-15, ADR-0043) |
 | 29 — Units complete | `m29` | Units from master data, service and strength, status since, strength on scene, crew, release (UNIT-1…6) |
+| 30 — UHS details | `m30` | Location, capacity and assigned staff of each on-site care unit (UHS-1) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -124,5 +125,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30 docs platform modules packages tests
 ```

@@ -829,3 +829,24 @@ pub fn released_list(n: usize) -> String {
 pub fn released_at(at: &str) -> String {
     format!("Entlassen um {at}")
 }
+
+// UHS details (UHS-1).
+pub const UHS_DETAILS: &str = "Ort und Personal";
+pub const UHS_LOCATION: &str = "Ort";
+pub const UHS_STAFF: &str = "Personal";
+pub const UHS_STAFF_NONE: &str = "Kein Personal eingetragen.";
+pub const UHS_STAFF_ADD: &str = "Zum Personal hinzufügen";
+pub const UHS_SAVE: &str = "Speichern";
+pub const UHS_CAPACITY_NUMBER: &str = "Bitte die Kapazität als ganze Zahl angeben.";
+
+pub fn uhs_details_label(name: &str) -> String {
+    format!("{UHS_DETAILS} von {name}")
+}
+
+pub fn staff_remove_label(name: &str) -> String {
+    format!("{name} aus dem Personal entfernen")
+}
+
+pub fn uhs_updated(name: &str) -> String {
+    format!("{name} gespeichert")
+}

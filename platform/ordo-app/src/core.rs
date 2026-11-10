@@ -703,6 +703,26 @@ pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), S
     )
 }
 
+// [impl->dsn~uhs-details~1]
+/// Changes the location, capacity or staff of an on-site care unit (UHS-1).
+pub fn update_uhs(
+    core: Handle,
+    revision: RwSignal<u64>,
+    update: &patients::UhsUpdated,
+) -> Result<(), String> {
+    let payload = update.encode().map_err(|e| e.to_string())?;
+    let name = uhs_name(core, &update.id);
+    record(
+        core,
+        revision,
+        patients::UHS_COMPARTMENT,
+        patients::UHS_MODULE,
+        patients::UHS_UPDATED,
+        &payload,
+        text::uhs_updated(&name),
+    )
+}
+
 /// Adds a unit (vehicle, team, other resource) to the incident (UNIT-1).
 pub fn add_unit(core: Handle, revision: RwSignal<u64>, unit: UnitAdded) -> Result<(), String> {
     let payload = unit.encode().map_err(|e| e.to_string())?;

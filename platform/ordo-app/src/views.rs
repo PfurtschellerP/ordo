@@ -931,6 +931,146 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 
 // [impl->dsn~uhs-registry~1]
 /// On-site care units with their load, and a form to set one up (UHS-1, UHS-4).
+/// What someone types into a unit's details panel, and whether it is open: kept by the
+/// view under its owner, so a list that updates while they type keeps it.
+#[derive(Clone, Copy)]
+struct UhsDraft {
+    open: RwSignal<bool>,
+    location: RwSignal<String>,
+    capacity: RwSignal<String>,
+    person: RwSignal<String>,
+}
+
+// [impl->dsn~uhs-details~1]
+/// Location, capacity and assigned staff of one unit (UHS-1), behind a disclosure.
+#[component]
+fn UhsDetailsPanel(
+    core: Handle,
+    revision: RwSignal<u64>,
+    id: String,
+    name: String,
+    details: med::UhsDetails,
+    draft: UhsDraft,
+) -> impl IntoView {
+    let UhsDraft {
+        open,
+        location,
+        capacity: cap,
+        person,
+    } = draft;
+    let slug = core::slug(&id);
+    let staff = details.staff.clone();
+    let people = Memo::new(move |_| {
+        revision.track();
+        core::incident_people(core)
+    });
+    let error = RwSignal::new(None::<&'static str>);
+    let save = {
+        let id = id.clone();
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let Ok(capacity) = cap.get_untracked().trim().parse::<u32>() else {
+                error.set(Some(text::UHS_CAPACITY_NUMBER));
+                return;
+            };
+            let update = med::UhsUpdated {
+                id: id.clone(),
+                location: Some(location.get_untracked().trim().to_owned()),
+                capacity: Some(capacity),
+                staff: None,
+            };
+            if core::update_uhs(core, revision, &update).is_ok() {
+                error.set(None);
+            }
+        }
+    };
+    let add = {
+        let (id, staff) = (id.clone(), staff.clone());
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let who = person.get_untracked().trim().to_owned();
+            if who.is_empty() {
+                return;
+            }
+            let mut list = staff.clone();
+            list.push(who);
+            let update = med::UhsUpdated {
+                id: id.clone(),
+                staff: Some(list),
+                ..Default::default()
+            };
+            if core::update_uhs(core, revision, &update).is_ok() {
+                person.set(String::new());
+            }
+        }
+    };
+    let members = staff
+        .iter()
+        .enumerate()
+        .map(|(i, member)| {
+            let (id, staff) = (id.clone(), staff.clone());
+            let actions = vec![crate::ui::Action {
+                text: text::CREW_REMOVE,
+                label: text::staff_remove_label(member),
+                quiet: true,
+                run: Callback::new(move |()| {
+                    let mut list = staff.clone();
+                    list.remove(i);
+                    let update = med::UhsUpdated {
+                        id: id.clone(),
+                        staff: Some(list),
+                        ..Default::default()
+                    };
+                    let _ = core::update_uhs(core, revision, &update);
+                }),
+            }];
+            view! { <li><strong>{member.clone()}</strong> <crate::ui::Actions actions /></li> }
+        })
+        .collect_view();
+    view! {
+        <crate::ui::Disclosure
+            id=format!("uhs-details-{slug}")
+            open
+            class="load-list__details"
+            button_class="button button--small button--quiet"
+            panel_class="load-list__details-panel"
+            label=Some(Signal::derive({
+                let name = name.clone();
+                move || text::uhs_details_label(&name)
+            }))
+            button=Box::new(|| view! { {text::UHS_DETAILS} }.into_any())
+        >
+            <form class="form form--inline" novalidate on:submit=save>
+                <div class="field">
+                    <label for=format!("uhs-location-{slug}")>{text::UHS_LOCATION}</label>
+                    <input id=format!("uhs-location-{slug}") type="text" autocomplete="off" bind:value=location />
+                </div>
+                <div class="field field--small">
+                    <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
+                    <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
+                </div>
+                <button type="submit" class="button button--small">{text::UHS_SAVE}</button>
+            </form>
+            <p role="alert" class="error">{move || error.get()}</p>
+            <h4>{text::UHS_STAFF}</h4>
+            {if staff.is_empty() {
+                view! { <p class="hint">{text::UHS_STAFF_NONE}</p> }.into_any()
+            } else {
+                view! { <ul class="crew-list">{members}</ul> }.into_any()
+            }}
+            <form class="form form--inline" novalidate on:submit=add>
+                <div class="field">
+                    <label for=format!("uhs-staff-{slug}")>{text::CREW_MEMBER}</label>
+                    <input id=format!("uhs-staff-{slug}") type="text" autocomplete="off"
+                        list=format!("uhs-staff-{slug}-people") bind:value=person />
+                    <crate::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people />
+                </div>
+                <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
+            </form>
+        </crate::ui::Disclosure>
+    }
+}
+
 #[component]
 fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let name = RwSignal::new(String::new());
@@ -964,6 +1104,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             )
         });
         let counts = register.counts();
+        let details = core.with_value(|c| med::uhs_details(&c.events(med::UHS_COMPARTMENT)));
         uhs_list(core)
             .into_iter()
             .map(|u| {
@@ -975,6 +1116,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .patients()
                     .filter(|p| p.uhs == u.id && p.place.is_some())
                     .count();
+                let d = details.get(&u.id).cloned().unwrap_or_default();
                 (
                     u.id,
                     u.name,
@@ -982,9 +1124,28 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     u.capacity,
                     total,
                     total.saturating_sub(taken),
+                    d,
                 )
             })
             .collect::<Vec<_>>()
+    };
+    // Drafts of the details panels, created under this view's owner (see `UhsDraft`).
+    let owner = Owner::current().expect("a view has an owner");
+    let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
+    let draft = move |id: &str, details: &med::UhsDetails, capacity: u32| {
+        let mut out = None;
+        drafts.update_value(|m| {
+            let d = *m.entry(id.to_owned()).or_insert_with(|| {
+                owner.with(|| UhsDraft {
+                    open: RwSignal::new(false),
+                    location: RwSignal::new(details.location.clone().unwrap_or_default()),
+                    capacity: RwSignal::new(capacity.to_string()),
+                    person: RwSignal::new(String::new()),
+                })
+            });
+            out = Some(d);
+        });
+        out.expect("inserted")
     };
     view! {
         <section aria-labelledby="uhs-title" class="card">
@@ -999,7 +1160,11 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         {rows
                             .into_iter()
                             .enumerate()
-                            .map(|(i, (id, name, n, cap, total, free))| {
+                            .map(|(i, (id, name, n, cap, total, free, details))| {
+                                let editor = view! {
+                                    <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
+                                        draft=draft(&id, &details, cap) />
+                                };
                                 // [impl->dsn~treatment-places~1]
                                 let count = RwSignal::new(total.to_string());
                                 let field = format!("places-{i}");
@@ -1022,6 +1187,11 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                             </div>
                                             <button type="submit" class="button button--small">{text::PLACES_SET}</button>
                                         </form>
+                                        {details.location.clone().map(|l| view! { <span class="load-list__location">{text::UHS_LOCATION} ": " {l}</span> })}
+                                        {(!details.staff.is_empty()).then(|| view! {
+                                            <span class="load-list__staff">{text::UHS_STAFF} ": " {details.staff.join(", ")}</span>
+                                        })}
+                                        {editor}
                                     </li>
                                 }
                             })

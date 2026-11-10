@@ -154,7 +154,8 @@ web app on every build, checked in CI; units complete (milestone `m29`,
 UNIT-1…6): units from the installation's vehicles (`ORDO_VEHICLES_FILE`, sync protocol
 1.1) or ad hoc, with service and strength in tactical notation, status since when, crew
 with qualifications, release and return, and the strength on scene per organisation and
-service.
+service; UHS details (milestone `m30`,
+UHS-1): location, capacity and assigned staff per unit, also in the overview.
 
 *Incident and command (Einsatzleitung)*
 
@@ -234,8 +235,7 @@ Then:
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-4. UHS location and assigned staff (UHS-1); master data in an admin view instead of a
-   file (ORG-1).
+4. Master data in an admin view instead of a file (ORG-1).
 5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
 6. Command structure as data, medical branch first (ADR-0031).

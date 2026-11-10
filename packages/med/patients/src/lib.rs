@@ -135,8 +135,46 @@ pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> 
     sets.into_iter().map(|(_, s)| (s.uhs, s.places)).collect()
 }
 
+/// Event type: an on-site care unit's location, capacity or staff changed (UHS-1).
+pub const UHS_UPDATED: &str = "uhs.updated";
+
+/// Payload of `uhs.updated`: the fields given replace earlier values; a field left out
+/// keeps its value.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UhsUpdated {
+    /// The unit ([`UhsCreated::id`]).
+    pub id: String,
+    /// Where it is, e.g. "Bühne Nord, Zelt 2".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    /// Number of patients it can take.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity: Option<u32>,
+    /// Assigned staff (names or user IDs), the whole list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staff: Option<Vec<String>>,
+}
+
+impl UhsUpdated {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// Location and assigned staff of an on-site care unit (UHS-1).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct UhsDetails {
+    /// Where it is.
+    pub location: Option<String>,
+    /// Assigned staff.
+    pub staff: Vec<String>,
+}
+
 // [impl->dsn~uhs-registry~1]
-/// The on-site care units of an incident, in order of creation (first wins per ID).
+// [impl->dsn~uhs-details~1]
+/// The on-site care units of an incident, in order of creation (first wins per ID), with
+/// the current capacity.
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
     let mut created: Vec<(Hlc, UhsCreated)> = incident_events
         .iter()
@@ -151,11 +189,51 @@ pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
         .collect();
     created.sort_by_key(|(hlc, _)| *hlc);
     let mut seen = std::collections::HashSet::new();
+    let updates = uhs_updates(incident_events);
     created
         .into_iter()
         .map(|(_, u)| u)
         .filter(|u| seen.insert(u.id.clone()))
+        .map(|mut u| {
+            if let Some(capacity) = updates
+                .iter()
+                .rev()
+                .find_map(|x| (x.id == u.id).then_some(x.capacity).flatten())
+            {
+                u.capacity = capacity;
+            }
+            u
+        })
         .collect()
+}
+
+/// The updates of all units, in clock order.
+fn uhs_updates(incident_events: &[AppliedEvent]) -> Vec<UhsUpdated> {
+    let mut updates: Vec<(Hlc, UhsUpdated)> = incident_events
+        .iter()
+        .filter(|e| {
+            e.body.module.as_str() == UHS_MODULE && e.body.event_type.as_str() == UHS_UPDATED
+        })
+        .filter_map(|e| codec::from_cbor(&e.payload).ok().map(|u| (e.body.hlc, u)))
+        .collect();
+    updates.sort_by_key(|(hlc, _)| *hlc);
+    updates.into_iter().map(|(_, u)| u).collect()
+}
+
+// [impl->dsn~uhs-details~1]
+/// Location and staff per unit ID: the latest value of each field.
+pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDetails> {
+    let mut details: BTreeMap<String, UhsDetails> = BTreeMap::new();
+    for u in uhs_updates(incident_events) {
+        let d = details.entry(u.id).or_default();
+        if let Some(location) = u.location {
+            d.location = (!location.trim().is_empty()).then_some(location);
+        }
+        if let Some(staff) = u.staff {
+            d.staff = staff;
+        }
+    }
+    details
 }
 
 /// Event type: a patient's transport priority was set or removed.
@@ -872,6 +950,52 @@ mod tests {
         .unwrap();
         let decoded: Registered = codec::from_cbor(&v2).unwrap();
         assert_eq!(decoded.algorithm, None);
+    }
+
+    // [utest->dsn~uhs-details~1]
+    #[test]
+    fn the_latest_location_capacity_and_staff_count_per_field() {
+        let shared = |n: u64, event_type: &str, payload: Vec<u8>| {
+            testing::event(n, "dora", UHS_MODULE, UHS_COMPARTMENT, event_type, payload)
+        };
+        let created = UhsCreated {
+            id: "uhs-1".into(),
+            name: "UHS Nord".into(),
+            kind: UhsKind::Uhs,
+            capacity: 10,
+        };
+        let update =
+            |location: Option<&str>, capacity: Option<u32>, staff: Option<&[&str]>| UhsUpdated {
+                id: "uhs-1".into(),
+                location: location.map(Into::into),
+                capacity,
+                staff: staff.map(|s| s.iter().map(|x| (*x).to_owned()).collect()),
+            };
+        let mut events = vec![
+            shared(1, UHS_CREATED, created.encode().unwrap()),
+            shared(
+                2,
+                UHS_UPDATED,
+                update(Some("Zelt 1"), None, Some(&["anna"]))
+                    .encode()
+                    .unwrap(),
+            ),
+            shared(
+                3,
+                UHS_UPDATED,
+                update(None, Some(14), None).encode().unwrap(),
+            ),
+            shared(
+                4,
+                UHS_UPDATED,
+                update(Some("Zelt 2"), None, None).encode().unwrap(),
+            ),
+        ];
+        events.reverse();
+        assert_eq!(uhs_list(&events)[0].capacity, 14, "the current capacity");
+        let d = &uhs_details(&events)["uhs-1"];
+        assert_eq!(d.location.as_deref(), Some("Zelt 2"));
+        assert_eq!(d.staff, ["anna"], "a field left out keeps its value");
     }
 
     // [utest->dsn~patient-pathway~1]

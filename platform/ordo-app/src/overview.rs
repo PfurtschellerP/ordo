@@ -15,15 +15,20 @@ use crate::views::{CountCard, uhs_list};
 pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let cards = Memo::new(move |_| {
         revision.track();
-        let summaries = core.with_value(|c| {
-            overview::summaries(&c.events(med::COMPARTMENT), &c.events(med::UHS_COMPARTMENT))
+        let (summaries, details) = core.with_value(|c| {
+            let incident = c.events(med::UHS_COMPARTMENT);
+            (
+                overview::summaries(&c.events(med::COMPARTMENT), &incident),
+                med::uhs_details(&incident),
+            )
         });
         uhs_list(core)
             .into_iter()
             .map(|u| {
                 let mut s = summaries.get(&u.id).cloned().unwrap_or_default();
                 s.counts.uhs.clone_from(&u.id);
-                (u.name, u.capacity, s)
+                let location = details.get(&u.id).and_then(|d| d.location.clone());
+                (u.name, u.capacity, s, location)
             })
             .collect::<Vec<_>>()
     });
@@ -36,17 +41,19 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
                 }
                 // The whole incident first (MANV).
-                let all = overview::total(list.iter().map(|(_, _, s)| s));
-                let capacity: u32 = list.iter().map(|(_, c, _)| c).sum();
-                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all)).chain(list);
+                let all = overview::total(list.iter().map(|(_, _, s, _)| s));
+                let capacity: u32 = list.iter().map(|(_, c, _, _)| c).sum();
+                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all, None)).chain(list);
                 view! {
                     <ul class="count-list">
                         {list
                             .into_iter()
-                            .map(|(name, capacity, s)| {
+                            .map(|(name, capacity, s, location)| {
                                 let places = s.places.map(|(free, total)| text::places_free(free, total));
                                 view! {
                                     <CountCard name capacity counts=s.counts.clone()>
+                                        // [impl->dsn~uhs-details~1]
+                                        {location.map(|l| view! { <p class="count-card__location">{text::UHS_LOCATION} ": " {l}</p> })}
                                         <p class="count-card__more">
                                             {places.map(|p| format!("{}: {p} · ", text::PLACES))}
                                             {text::open_orders(s.open_orders)} " · "

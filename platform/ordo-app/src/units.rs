@@ -96,14 +96,32 @@ fn StrengthOnScene(register: Memo<UnitRegister>) -> impl IntoView {
     }
 }
 
+/// What someone types into a unit's crew panel, and whether it is open: kept by the view
+/// under its owner, so the list can update while they type.
+#[derive(Clone, Copy)]
+struct CrewDraft {
+    open: RwSignal<bool>,
+    person: RwSignal<String>,
+    qualifications: RwSignal<BTreeSet<String>>,
+}
+
 /// The crew of a unit (UNIT-5): members with qualifications; adding and removing writes the
 /// whole list.
 #[component]
-fn CrewEditor(core: Handle, revision: RwSignal<u64>, unit: Unit, editable: bool) -> impl IntoView {
+fn CrewEditor(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: Unit,
+    editable: bool,
+    draft: CrewDraft,
+) -> impl IntoView {
     let name = unit.unit.clone();
     let members = unit.crew.clone();
-    let person = RwSignal::new(String::new());
-    let qualifications = RwSignal::new(BTreeSet::<String>::new());
+    let CrewDraft {
+        person,
+        qualifications,
+        ..
+    } = draft;
     let people = Memo::new(move |_| {
         revision.track();
         core::incident_people(core)
@@ -203,8 +221,7 @@ fn UnitCard(
     revision: RwSignal<u64>,
     unit: Unit,
     editable: bool,
-    /// Units whose crew panel is open; kept by the view, so it stays open across updates.
-    open_crews: RwSignal<BTreeSet<String>>,
+    draft: CrewDraft,
 ) -> impl IntoView {
     let u = unit;
     let name = u.unit.clone();
@@ -222,20 +239,7 @@ fn UnitCard(
             )
         },
     );
-    let crew_open = RwSignal::new(open_crews.with_untracked(|s| s.contains(&name)));
-    {
-        let name = name.clone();
-        Effect::new(move || {
-            let open = crew_open.get();
-            open_crews.update(|s| {
-                if open {
-                    s.insert(name.clone());
-                } else {
-                    s.remove(&name);
-                }
-            });
-        });
-    }
+    let crew_open = draft.open;
     let release = editable.then(|| {
         let name = name.clone();
         vec![Action {
@@ -286,7 +290,7 @@ fn UnitCard(
                 label=Some(Signal::derive(move || crew_label.clone()))
                 button=Box::new(|| view! { {text::CREW} }.into_any())
             >
-                <CrewEditor core revision unit=u.clone() editable />
+                <CrewEditor core revision unit=u.clone() editable draft />
             </Disclosure>
             {release.map(|actions| view! { <Actions actions /> })}
         </li>
@@ -318,7 +322,22 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
     });
     let present = Memo::new(move |_| register.with(|r| r.present().cloned().collect::<Vec<_>>()));
-    let open_crews = RwSignal::new(BTreeSet::<String>::new());
+    // Drafts of the crew panels, created under this view's owner (see `CrewDraft`).
+    let owner = Owner::current().expect("a view has an owner");
+    let drafts = StoredValue::new(std::collections::HashMap::<String, CrewDraft>::new());
+    let draft = move |unit: &str| {
+        let mut out = None;
+        drafts.update_value(|m| {
+            out = Some(*m.entry(unit.to_owned()).or_insert_with(|| {
+                owner.with(|| CrewDraft {
+                    open: RwSignal::new(false),
+                    person: RwSignal::new(String::new()),
+                    qualifications: RwSignal::new(BTreeSet::new()),
+                })
+            }));
+        });
+        out.expect("inserted")
+    };
     let released = Memo::new(move |_| {
         register.with(|r| {
             r.units
@@ -348,7 +367,13 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 view! {
                     <ul class="unit-list" data-keys="list">
-                        {units.into_iter().map(|unit| view! { <UnitCard core revision unit editable open_crews /> }).collect_view()}
+                        {units
+                            .into_iter()
+                            .map(|unit| {
+                                let draft = draft(&unit.unit);
+                                view! { <UnitCard core revision unit editable draft /> }
+                            })
+                            .collect_view()}
                     </ul>
                 }
                 .into_any()

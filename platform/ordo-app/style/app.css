@@ -611,6 +611,10 @@
   .unit-card__crew-panel[hidden] { display: none; }
   .unit-card--released { border-style: dashed; }
   .add-unit { margin-block-start: var(--ordo-space-4); }
+  .load-list__details, .load-list__location, .load-list__staff { grid-column: 1 / -1; }
+  .load-list__details-panel[hidden] { display: none; }
+  .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
+  .load-list__details-panel h4 { margin: 0; }
   .record__discharged { margin: 0; }
   .corrected summary, .history-list summary, .discharged-list summary, .released-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
