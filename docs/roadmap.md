@@ -116,7 +116,12 @@ ADR-0049): menu, heading, search in the middle, connection and person on the rig
 person's settings in a profile menu, and a bottom bar for left-handed use; discharge
 (milestone `m17`): the UHS discharges with an outcome (released on site, transported,
 refused, deceased), "transported" chosen once the transport has left; readmission corrects
-a mistake; the load counts only the patients in the unit, command sees how many left.
+a mistake; the load counts only the patients in the unit, command sees how many left;
+hospitals and the transport board (milestone `m18`): the command keeps a hospital list with
+departments, capabilities and capacity per triage category (catalogues from the profile),
+assigns transports to a hospital or a free-text destination, and sees in *Transporte* the
+open requests, the free transport units and the patients sent to each hospital; the unit
+status codes moved from the app into the profile (`units/status-codes.toml`).
 
 *Incident and command (Einsatzleitung)*
 
@@ -155,9 +160,10 @@ a mistake; the load counts only the patients in the unit, command sees how many 
 
 - **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
   transport organisation, overview for the medical command (LNA, OrgL).
-- **Transports, next steps:** hospital list with capacity (TRANS-2) as the destination
-  instead of free text; transport board with available units and patients per hospital
-  (TRANS-4); planned transports (TRANS-5).
+- **Transports, next steps:** planned transports (TRANS-5); a hospital list kept by the
+  organisation and imported (HL7 FHIR `Location`/`HealthcareService`) instead of entered
+  per incident; capacity from a capacity system such as IVENA eHealth (interface to be
+  clarified).
 - **Orders, next steps:** substances from the medication catalogue (below); a done
   medication order prefilled into the record's medication form; an overview per UHS for
   the medical lead (LNA, OrgL); orders given by voice or radio recorded with the person

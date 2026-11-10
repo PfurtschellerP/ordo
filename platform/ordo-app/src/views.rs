@@ -1211,9 +1211,13 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                             }
                                         >
                                             <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
-                                            {text::STATUS_CODES
+                                            {crate::units::STATUS
+                                                .codes
                                                 .iter()
-                                                .map(|(code, _)| view! { <option value=*code selected=*code == current>{text::status_label(code)}</option> })
+                                                .map(|s| {
+                                                    let code = s.code.clone();
+                                                    view! { <option value=code.clone() selected=code == current>{text::status_label(&code)}</option> }
+                                                })
                                                 .collect_view()}
                                         </select>
                                         })}

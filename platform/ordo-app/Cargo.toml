@@ -30,6 +30,8 @@ web-sys.workspace = true
 
 [build-dependencies]
 ordo-med-patients.workspace = true
+ordo-units.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 

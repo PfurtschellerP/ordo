@@ -14,6 +14,7 @@ mod storage;
 mod text;
 mod transports;
 mod ui;
+mod units;
 mod vault;
 mod views;
 

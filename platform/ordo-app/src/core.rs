@@ -14,7 +14,8 @@ use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
 use ordo_med_patients::{
-    self as patients, Registered, Retriaged, UhsCreated, UhsKind, orders, record, transport,
+    self as patients, Registered, Retriaged, UhsCreated, UhsKind, hospitals, orders, record,
+    transport,
 };
 use ordo_sync::incidents::{self, IncidentState, Planned, Registry, RoleChange, StateChanged};
 use ordo_sync::message::{
@@ -195,6 +196,7 @@ impl Core {
             (patients::MODULE, patients::REGISTERED | patients::RETRIAGED) => {
                 patients::TRIAGE_SCHEMA
             }
+            (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             _ => 1,
         };
         self.replica
@@ -527,9 +529,7 @@ pub fn create_uhs(
     name: &str,
     capacity: u32,
 ) -> Result<(), String> {
-    let mut random = [0u8; 16];
-    entropy(&mut random);
-    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
     let uhs = format!("uhs-{id}");
     let payload = UhsCreated {
         id: uhs.clone(),
@@ -724,9 +724,7 @@ pub fn request_transport(
     tag: &str,
     request: transport::TransportRequested,
 ) -> Result<(), String> {
-    let mut random = [0u8; 16];
-    entropy(&mut random);
-    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
     let request = transport::TransportRequested {
         request: id.to_string(),
         ..request
@@ -776,6 +774,53 @@ pub fn update_transport(
     )
 }
 
+// [impl->dsn~hospital-list~1]
+/// Adds a hospital to the list (an empty ID makes a new one) or replaces its entry.
+pub fn set_hospital(
+    core: Handle,
+    revision: RwSignal<u64>,
+    entry: hospitals::HospitalSet,
+) -> Result<(), String> {
+    let entry = if entry.hospital.is_empty() {
+        let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+        hospitals::HospitalSet {
+            hospital: id.to_string(),
+            ..entry
+        }
+    } else {
+        entry
+    };
+    let payload = entry.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        hospitals::COMPARTMENT,
+        hospitals::MODULE,
+        hospitals::SET,
+        &payload,
+        text::hospital_saved(&entry.name),
+    )
+}
+
+/// Enters a hospital's current capacity.
+pub fn set_capacity(
+    core: Handle,
+    revision: RwSignal<u64>,
+    capacity: &hospitals::CapacitySet,
+    name: &str,
+) -> Result<(), String> {
+    let payload = capacity.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        hospitals::COMPARTMENT,
+        hospitals::MODULE,
+        hospitals::CAPACITY_SET,
+        &payload,
+        text::capacity_saved(name),
+    )
+}
+
 // [impl->dsn~medical-orders~1]
 /// Gives a medical order (ORDER-1). The server accepts it only from roles that may give
 /// orders (ORDER-3).
@@ -784,9 +829,7 @@ pub fn give_order(
     revision: RwSignal<u64>,
     order: orders::OrderGiven,
 ) -> Result<(), String> {
-    let mut random = [0u8; 16];
-    entropy(&mut random);
-    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
     let order = orders::OrderGiven {
         order: id.to_string(),
         ..order
@@ -921,6 +964,13 @@ fn record(
     result
 }
 
+/// A new ULID: the time now and random bits.
+fn new_ulid() -> Option<Ulid> {
+    let mut random = [0u8; 16];
+    entropy(&mut random);
+    Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()
+}
+
 /// Asks the server for the profile pictures of `users` it has not sent yet (ADR-0047).
 pub fn request_avatars(core: Handle, users: &[UserId]) {
     core.update_value(|c| {
@@ -1015,9 +1065,7 @@ pub fn set_incident_state(
 /// A new incident ID on the server of `user`.
 pub fn new_incident_id(server: &str) -> Option<String> {
     let server: ServerName = server.trim().parse().ok()?;
-    let mut random = [0u8; 16];
-    entropy(&mut random);
-    let ulid = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()?;
+    let ulid = new_ulid()?;
     Some(IncidentId::new(ulid, &server).to_string())
 }
 
@@ -1051,9 +1099,7 @@ impl PendingDevice {
     pub fn create(incident: &str) -> Option<Self> {
         let mut seed = [0u8; 32];
         entropy(&mut seed);
-        let mut random = [0u8; 16];
-        entropy(&mut random);
-        let device = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()?;
+        let device = new_ulid()?;
         Some(Self {
             device: device.to_string(),
             private_key: to_hex(&seed),

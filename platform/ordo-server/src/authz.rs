@@ -444,6 +444,26 @@ mod tests {
             "units.added",
             &commander
         ));
+        // [utest->dsn~hospital-list~1]
+        assert!(
+            !p.can_write(
+                &erik,
+                &incident,
+                &shared,
+                "med.hospitals",
+                "hospitals.capacitySet",
+                &medic
+            ),
+            "medics read the hospitals, the command keeps them"
+        );
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "med.hospitals",
+            "hospitals.set",
+            &commander
+        ));
     }
 
     // [utest->dsn~role-policies~1]

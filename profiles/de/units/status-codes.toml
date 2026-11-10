@@ -1,0 +1,40 @@
+# Status codes of units (FMS/TMS status, Fahrzeugstatus): code, German label, an English
+# name for the command palette's search, and whether a unit in that status is available
+# for a new task (transport board, TRANS-4). Prototype subset of the FMS codes 0–9.
+
+[[status]]
+code = "1"
+label = "Einsatzbereit über Funk"
+name = "available radio"
+available = true
+
+[[status]]
+code = "2"
+label = "Einsatzbereit auf Wache"
+name = "available station"
+available = true
+
+[[status]]
+code = "3"
+label = "Einsatz übernommen"
+name = "en route"
+
+[[status]]
+code = "4"
+label = "Am Einsatzort"
+name = "on scene"
+
+[[status]]
+code = "6"
+label = "Nicht einsatzbereit"
+name = "unavailable"
+
+[[status]]
+code = "7"
+label = "Patient aufgenommen"
+name = "transporting patient"
+
+[[status]]
+code = "8"
+label = "Am Transportziel"
+name = "at destination"

@@ -170,22 +170,10 @@ pub fn lost_update(unit: &str, overwritten: &str, kept: &str) -> String {
     )
 }
 
-/// Status codes of the DE profile (FMS/TMS), prototype subset.
-pub const STATUS_CODES: [(&str, &str); 7] = [
-    ("1", "Einsatzbereit über Funk"),
-    ("2", "Einsatzbereit auf Wache"),
-    ("3", "Einsatz übernommen"),
-    ("4", "Am Einsatzort"),
-    ("6", "Nicht einsatzbereit"),
-    ("7", "Patient aufgenommen"),
-    ("8", "Am Transportziel"),
-];
-
 pub fn status_label(code: &str) -> String {
-    STATUS_CODES
-        .iter()
-        .find(|(c, _)| *c == code)
-        .map_or_else(|| code.to_owned(), |(c, label)| format!("{c} – {label}"))
+    crate::units::STATUS
+        .get(code)
+        .map_or_else(|| code.to_owned(), |c| format!("{} – {}", c.code, c.label))
 }
 
 pub fn retriaged(tag: &str, category: TriageCategory) -> String {
@@ -646,4 +634,50 @@ pub fn readmit_label(tag: &str) -> String {
 
 pub fn readmitted(tag: &str) -> String {
     format!("{tag} wieder aufgenommen")
+}
+
+// Hospitals and the transport board (TRANS-2, TRANS-4).
+pub const DESTINATION: &str = "Ziel";
+pub const DESTINATION_CHOOSE: &str = "Ziel wählen";
+pub const DESTINATION_OTHER_OPTION: &str = "Anderes Ziel (Freitext)";
+pub const DESTINATION_OTHER: &str = "Anderes Ziel";
+pub const FREE_UNITS_TITLE: &str = "Freie Transportmittel";
+pub const FREE_UNITS_EMPTY: &str = "Keine freien Transportmittel.";
+pub const HOSPITALS_TITLE: &str = "Kliniken";
+pub const HOSPITALS_EMPTY: &str = "Noch keine Kliniken erfasst.";
+pub const HOSPITAL_NAME: &str = "Name der Klinik";
+pub const HOSPITAL_DEPARTMENTS: &str = "Fachabteilungen";
+pub const HOSPITAL_CAPABILITIES: &str = "Versorgungsangebote";
+pub const HOSPITAL_ADD: &str = "Klinik hinzufügen";
+pub const HOSPITAL_SAVE: &str = "Klinik speichern";
+pub const HOSPITAL_EDIT: &str = "Bearbeiten";
+pub const HOSPITAL_NAME_MISSING: &str = "Bitte den Namen der Klinik angeben.";
+pub const CAPACITY_LEGEND: &str = "Freie Aufnahme (Patienten)";
+pub const CAPACITY_SAVE: &str = "Aufnahme speichern";
+pub const CAPACITY_NONE: &str = "Aufnahme: nicht gemeldet";
+pub const CAPACITY_NUMBERS: &str = "Bitte die Aufnahme als ganze Zahlen angeben.";
+
+/// "Aufnahme: SK I 2 · SK II 4 · SK III – (Stand 10:12, ben@…)"
+pub fn capacity_line(parts: &[String], at: &str, by: &str) -> String {
+    format!("Aufnahme: {} (Stand {at}, {by})", parts.join(" · "))
+}
+
+pub fn sent(n: usize) -> String {
+    format!("Transportiert: {n}")
+}
+
+pub fn hospital_edit_label(name: &str) -> String {
+    format!("{name} bearbeiten")
+}
+
+pub fn capacity_save_label(name: &str) -> String {
+    format!("{CAPACITY_SAVE}: {name}")
+}
+
+pub fn hospital_saved(name: &str) -> String {
+    format!("Klinik gespeichert: {name}")
+}
+
+pub fn capacity_saved(name: &str) -> String {
+    format!("Aufnahme gespeichert: {name}")
 }

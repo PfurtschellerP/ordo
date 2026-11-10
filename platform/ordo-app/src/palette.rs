@@ -29,16 +29,6 @@ pub const SHORTCUT: &str = "Ctrl+K";
 pub const SHORTCUT_MAC: &str = "⌘K";
 
 /// English core meanings of unit status codes, for typed commands (`status on scene`).
-const STATUS_NAMES: [(&str, &str); 7] = [
-    ("1", "available radio"),
-    ("2", "available station"),
-    ("3", "en route"),
-    ("4", "on scene"),
-    ("6", "unavailable"),
-    ("7", "transporting patient"),
-    ("8", "at destination"),
-];
-
 /// English name of a triage category (its core meaning).
 fn category_name(category: TriageCategory) -> &'static str {
     match category {
@@ -333,14 +323,13 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                     .as_ref()
                     .is_some_and(|i| c.replica.may(i, "edit_units"))
             });
-            text::STATUS_CODES
+            crate::units::STATUS
+                .codes
                 .iter()
-                .map(|(code, _)| {
-                    let name = STATUS_NAMES.iter().find(|(c, _)| c == code).map_or_else(
-                        || format!("status {code}"),
-                        |(c, n)| format!("status {c} {n}"),
-                    );
-                    let action = Action::SetStatus(unit.clone(), (*code).to_owned());
+                .map(|status| {
+                    let code = status.code.as_str();
+                    let name = format!("status {code} {}", status.name);
+                    let action = Action::SetStatus(unit.clone(), code.to_owned());
                     Item {
                         detail: unit.clone(),
                         suggested: true,
@@ -635,15 +624,5 @@ mod tests {
             labels(rank("add vitals", items)),
             vec!["Vitalwerte eintragen"]
         );
-    }
-
-    #[test]
-    fn every_status_code_has_an_english_name() {
-        for (code, _) in text::STATUS_CODES {
-            assert!(
-                STATUS_NAMES.iter().any(|(c, _)| *c == code),
-                "status {code}"
-            );
-        }
     }
 }

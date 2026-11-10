@@ -189,3 +189,74 @@ impl StatusBoard {
         board
     }
 }
+
+/// The status codes of units, from the profile (`units/status-codes.toml`), never in code.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StatusCatalogue {
+    /// Status codes in the order they are offered.
+    #[serde(rename = "status", default)]
+    pub codes: Vec<StatusCode>,
+}
+
+/// One status code.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StatusCode {
+    /// Code, e.g. "2".
+    pub code: String,
+    /// Label, e.g. "Einsatzbereit auf Wache".
+    pub label: String,
+    /// English name for search, e.g. "available station".
+    pub name: String,
+    /// Whether a unit in this status is available for a new task.
+    #[serde(default)]
+    pub available: bool,
+}
+
+impl StatusCatalogue {
+    /// Checks that there are codes and each is unique.
+    pub fn check(&self) -> Result<(), String> {
+        if self.codes.is_empty() {
+            return Err("at least one status code".into());
+        }
+        let mut seen = std::collections::HashSet::new();
+        match self.codes.iter().find(|c| !seen.insert(c.code.as_str())) {
+            Some(c) => Err(format!("status code {:?} appears twice", c.code)),
+            None => Ok(()),
+        }
+    }
+
+    /// The entry of a code, if the profile has it.
+    pub fn get(&self, code: &str) -> Option<&StatusCode> {
+        self.codes.iter().find(|c| c.code == code)
+    }
+
+    /// Whether a unit with this status is available (unknown codes are not).
+    pub fn is_available(&self, code: &str) -> bool {
+        self.get(code).is_some_and(|c| c.available)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_codes_are_unique_and_unknown_ones_are_not_available() {
+        let code = |code: &str, available| StatusCode {
+            code: code.into(),
+            label: code.into(),
+            name: code.into(),
+            available,
+        };
+        let mut catalogue = StatusCatalogue {
+            codes: vec![code("2", true), code("3", false)],
+        };
+        assert!(catalogue.check().is_ok());
+        assert!(catalogue.is_available("2"));
+        assert!(!catalogue.is_available("3"));
+        assert!(!catalogue.is_available("9"));
+        catalogue.codes.push(code("2", false));
+        assert!(catalogue.check().is_err());
+        assert!(StatusCatalogue::default().check().is_err());
+    }
+}

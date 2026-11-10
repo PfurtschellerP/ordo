@@ -597,13 +597,47 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(request, "the command sees the open request").toHaveCount(1);
     await expect(request).toContainText("UHS Eingang · RTW · Sofort · Infektiös");
     await expect(request, "without patient data").not.toContainText("DE-0044");
+
+    // [itest->dsn~transport-board~1]
+    const free = ben.locator("[aria-labelledby=free-units-title]");
+    await expect(free, "RTW 83/1 is on scene, not free").toContainText("Keine freien Transportmittel.");
+    await openView(ben, "Einsatzmittel");
+    await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "2 – Einsatzbereit auf Wache" });
+    await openView(ben, "Transporte");
+    await expect(free.locator("li"), "a transport unit in an available status is free").toHaveText("RTW 83/1 · RTW · 2 – Einsatzbereit auf Wache");
+
+    // [itest->dsn~hospital-list~1]
+    const hospitals = ben.locator("[aria-labelledby=hospitals-title]");
+    await expect(hospitals).toContainText("Noch keine Kliniken erfasst.");
+    await ben.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    await expect(hospitals.locator("[role=alert]").last(), "a hospital needs a name").toHaveText("Bitte den Namen der Klinik angeben.");
+    await ben.locator("#hospital-name-new").fill("Klinikum Mitte");
+    await hospitals.getByLabel("Unfallchirurgie").check();
+    await hospitals.getByLabel(/^Schockraum/).check();
+    await ben.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    const hospital = ben.locator(".hospital-card");
+    await expect(hospital.locator("h3")).toHaveText("Klinikum Mitte");
+    await expect(hospital).toContainText("Unfallchirurgie · Schockraum");
+    await expect(hospital.locator(".hospital-card__capacity")).toHaveText("Aufnahme: nicht gemeldet");
+    await hospital.getByLabel("SK I", { exact: true }).fill("2");
+    await hospital.getByLabel("SK II", { exact: true }).fill("3");
+    await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
+    await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, ben@localhost\)$/);
+    await hospital.getByRole("button", { name: "Klinikum Mitte bearbeiten" }).click();
+    await hospital.getByLabel("Stroke Unit").check();
+    await hospital.getByRole("button", { name: "Klinik speichern" }).click();
+    await expect(hospital, "the entry is changed").toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
+    await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 0");
+
     await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
-    await request.getByLabel("Ziel (z. B. Klinik)").fill("Klinikum Mitte");
+    await request.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
     await request.getByRole("button", { name: /^Zuweisen: / }).click();
     const transportStatus = request.locator(".transport-card__status");
     await expect(transportStatus, "a unit and a destination are assigned").toHaveText("Zugewiesen · RTW 83/1 → Klinikum Mitte");
     await request.getByRole("button", { name: /^Abgefahren: / }).click();
     await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("Abgefahren · RTW 83/1 → Klinikum Mitte");
+    await expect(free, "a unit on a transport is not free").toContainText("Keine freien Transportmittel.");
+    await expect(hospital.locator(".hospital-card__sent"), "the board counts the patient sent").toHaveText("Transportiert: 1");
     await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
     await request.locator("summary").click();
     await expect(request.locator(".history-list li"), "every change with time and person").toHaveCount(3);

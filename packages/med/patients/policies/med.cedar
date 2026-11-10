@@ -16,8 +16,8 @@ when {
   context.roles.contains("paramedic")
 };
 
-// … and write to it, except units: adding units and setting their status belongs to the
-// incident command (edit_units).
+// … and write to it, except units and the hospital list: adding units, setting their
+// status and keeping the hospitals belong to the incident command (edit_units, TRANS-2).
 @id("med.medic-incident-write")
 permit (
   principal,
@@ -28,7 +28,8 @@ when {
   (context.roles.contains("medic") ||
    context.roles.contains("physician") ||
    context.roles.contains("paramedic")) &&
-  context.module != "units"
+  context.module != "units" &&
+  context.module != "med.hospitals"
 };
 
 // … and with clinical data: patients, triage, patient care records, orders. Nobody else

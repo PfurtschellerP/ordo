@@ -512,8 +512,8 @@ patient). The device writes two events:
 * `patients.transportRequested` in `med.clinical`: tag number and request ID, so the
   record and the patient list show the transport.
 
-The incident command assigns a unit of the incident and a destination (free text until the
-hospital list, TRANS-2) with `transport.updated`, which also moves the status on:
+The incident command assigns a unit of the incident and a destination (a hospital of the
+list or free text, see [Hospital list](#hospital-list)) with `transport.updated`, which also moves the status on:
 requested → assigned → loading → departed → arrived → handed over, or cancelled. Both
 the UHS and the command may set the next status; ORDO records who set it and when. The
 current state of a request is the latest update by hybrid logical clock; every update
@@ -530,6 +530,54 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m14
+
+#### Hospital list
+`dsn~hospital-list~1`
+
+Module `med.hospitals`, in the shared `incident` compartment: hospitals carry no patient
+data, and the incident command keeps them. `hospitals.set` adds a hospital (a new ID, a
+ULID) or replaces its entry: name, departments and capabilities, chosen from the profile
+file `med/hospitals.toml` (DE: departments such as trauma surgery or paediatrics,
+capabilities such as a shock room, stroke unit or burns centre). `hospitals.capacitySet`
+records the current capacity as the number of patients the hospital takes now per triage
+category; the profile names the categories (DE: SK I to SK III). The latest entry and the
+latest capacity count, by hybrid logical clock; the board shows who entered the capacity
+and when. Capacity is entered by hand from what the hospital reports; an interface to a
+capacity system (e.g. IVENA eHealth) can write the same event later. The fields follow
+HL7 FHIR `Location` and `HealthcareService`, so a list can later be imported from them.
+Medical staff read the list, but only the command writes it (Cedar).
+
+When the command assigns a transport, the destination is a hospital of the list or, for
+anything else, free text. `transport.updated` (schema version 2) carries the hospital's
+ID next to the destination's name; version 1 payloads decode unchanged.
+
+Covers:
+
+* [req~trans-2~1](../requirements/04-med.md#trans-2--hospital-list)
+
+Needs: impl, utest, itest
+
+Tags: must, m18
+
+#### Transport board
+`dsn~transport-board~1`
+
+The command's view *Transporte* is the transport board: the open requests (as before),
+the available transport units, and the hospitals with their capacity and the number of
+patients sent to each. A unit is available when its type is a transport type of the
+profile, its status is one the profile marks as available (DE: FMS status 1 and 2, in
+`units/status-codes.toml`), and no open transport has it. A patient counts as sent to a
+hospital once a transport to it has departed and was not cancelled. ORDO shows capacity
+and patients sent side by side; it never proposes a hospital or a unit (TRANS-6 stays a
+person's decision).
+
+Covers:
+
+* [req~trans-4~1](../requirements/04-med.md#trans-4--transport-board)
+
+Needs: impl, utest, itest
+
+Tags: must, m18
 
 #### Medical orders
 `dsn~medical-orders~1`

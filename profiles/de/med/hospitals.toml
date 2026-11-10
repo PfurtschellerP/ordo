@@ -1,0 +1,75 @@
+# Hospital list (Klinikliste, TRANS-2): what the incident command records about a hospital.
+# Labels are German user labels; IDs are stable. A state profile may replace this file
+# (layering, architecture 8.8.3). Hospitals are shared incident data, never patient data.
+
+# Triage categories for which hospitals report capacity (patients they take now). In
+# German MANV planning, hospitals report free places for SK I, SK II and SK III.
+capacity = ["immediate", "urgent", "minor"]
+
+# Departments (Fachabteilungen).
+[[department]]
+id = "trauma"
+label = "Unfallchirurgie"
+
+[[department]]
+id = "surgery"
+label = "Allgemeinchirurgie"
+
+[[department]]
+id = "internal"
+label = "Innere Medizin"
+
+[[department]]
+id = "cardiology"
+label = "Kardiologie"
+
+[[department]]
+id = "neurology"
+label = "Neurologie"
+
+[[department]]
+id = "neurosurgery"
+label = "Neurochirurgie"
+
+[[department]]
+id = "paediatrics"
+label = "Kinder- und Jugendmedizin"
+
+[[department]]
+id = "obstetrics"
+label = "Gynäkologie und Geburtshilfe"
+
+[[department]]
+id = "psychiatry"
+label = "Psychiatrie"
+
+# Capabilities (besondere Versorgungsangebote).
+[[capability]]
+id = "shock-room"
+label = "Schockraum"
+description = "Traumazentrum (TraumaNetzwerk DGU)"
+
+[[capability]]
+id = "cath-lab"
+label = "Herzkatheterlabor"
+
+[[capability]]
+id = "stroke-unit"
+label = "Stroke Unit"
+
+[[capability]]
+id = "burns"
+label = "Brandverletztenzentrum"
+
+[[capability]]
+id = "paediatric-icu"
+label = "Kinderintensivstation"
+
+[[capability]]
+id = "hyperbaric"
+label = "Druckkammer"
+description = "Hyperbare Sauerstofftherapie"
+
+[[capability]]
+id = "isolation"
+label = "Sonderisolierstation"

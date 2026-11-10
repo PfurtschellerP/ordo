@@ -309,7 +309,7 @@ Needs: dsn
 
 ORDO shall keep a list of hospitals with departments, specialties and current capacity; capacity can be entered manually.
 
-Tags: must, med
+Tags: must, med, m18
 
 Needs: dsn
 
@@ -327,7 +327,7 @@ Needs: dsn
 
 ORDO shall show a transport board with open transport requests, available transport units and the number of patients sent to each hospital.
 
-Tags: must, med
+Tags: must, med, m18
 
 Needs: dsn
 

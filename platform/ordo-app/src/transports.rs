@@ -6,6 +6,10 @@ use std::collections::BTreeSet;
 use std::sync::LazyLock;
 
 use leptos::prelude::*;
+use ordo_contracts::TriageCategory;
+use ordo_med_patients::hospitals::{
+    Capacity, CapacitySet, Hospital, HospitalCatalogue, HospitalList, HospitalSet,
+};
 use ordo_med_patients::transport::{
     Choice, Transport, TransportBoard, TransportCatalogue, TransportRequested, TransportStatus,
     TransportUpdated, requests_by_patient,
@@ -15,7 +19,7 @@ use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::text;
-use crate::ui::{Action, Actions, CheckChips, History, RadioChips};
+use crate::ui::{Action, Actions, CheckChips, Disclosure, History, RadioChips};
 
 /// What can be requested, from the profile (checked at build time, see `build.rs`).
 pub static CATALOGUE: LazyLock<TransportCatalogue> = LazyLock::new(|| {
@@ -25,6 +29,33 @@ pub static CATALOGUE: LazyLock<TransportCatalogue> = LazyLock::new(|| {
     )))
     .expect("transport request catalogue was checked at build time")
 });
+
+/// Hospital departments, capabilities and capacity categories, from the profile.
+pub static HOSPITALS: LazyLock<HospitalCatalogue> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/hospitals.json")))
+        .expect("hospital catalogue was checked at build time")
+});
+
+/// Choices of the profile as options for chips: ID and label with description.
+fn choices(list: &[Choice]) -> Vec<(String, String)> {
+    list.iter()
+        .map(|c| {
+            let shown = match &c.description {
+                Some(d) => format!("{} – {d}", c.label),
+                None => c.label.clone(),
+            };
+            (c.id.clone(), shown)
+        })
+        .collect()
+}
+
+/// The chosen IDs in the order of the profile.
+fn in_profile_order(list: &[Choice], chosen: &BTreeSet<String>) -> Vec<String> {
+    list.iter()
+        .filter(|c| chosen.contains(&c.id))
+        .map(|c| c.id.clone())
+        .collect()
+}
 
 fn label(list: &[Choice], id: &str) -> String {
     TransportCatalogue::label(list, id).to_owned()
@@ -118,6 +149,7 @@ fn StepButtons(core: Handle, revision: RwSignal<u64>, transport: Transport) -> i
                         status,
                         unit: None,
                         destination: None,
+                        hospital: None,
                     };
                     let _ = core::update_transport(core, revision, &update);
                 }),
@@ -160,13 +192,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                 uhs,
                 transport_type: transport_type.get_untracked(),
                 priority: priority.get_untracked(),
-                // In the order of the profile.
-                needs: CATALOGUE
-                    .needs
-                    .iter()
-                    .filter(|n| needs.with_untracked(|s| s.contains(&n.id)))
-                    .map(|n| n.id.clone())
-                    .collect(),
+                needs: needs.with_untracked(|s| in_profile_order(&CATALOGUE.needs, s)),
             };
             if request.check(&CATALOGUE).is_err() {
                 message.set(Some(text::TRANSPORT_CHOOSE));
@@ -179,17 +205,6 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                 message.set(None);
             }
         }
-    };
-    let options = |list: &'static [Choice]| -> Vec<(String, String)> {
-        list.iter()
-            .map(|c| {
-                let shown = match &c.description {
-                    Some(d) => format!("{} – {d}", c.label),
-                    None => c.label.clone(),
-                };
-                (c.id.clone(), shown)
-            })
-            .collect()
     };
     view! {
         <section class="record__section" aria-labelledby="section-transport">
@@ -220,9 +235,9 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
             }}
             <Show when=move || state.with(|(uhs, t)| uhs.is_some() && !t.iter().any(|t| t.status.is_open()))>
                 <form class="form transport-request" novalidate on:submit=submit.clone()>
-                    <RadioChips legend=text::TRANSPORT_TYPE name="transport-type" options=options(&CATALOGUE.types) value=transport_type />
-                    <RadioChips legend=text::TRANSPORT_PRIORITY_OF_REQUEST name="transport-priority" options=options(&CATALOGUE.priorities) value=priority />
-                    <CheckChips legend=text::TRANSPORT_NEEDS options=options(&CATALOGUE.needs) value=needs />
+                    <RadioChips legend=text::TRANSPORT_TYPE name="transport-type" options=choices(&CATALOGUE.types) value=transport_type />
+                    <RadioChips legend=text::TRANSPORT_PRIORITY_OF_REQUEST name="transport-priority" options=choices(&CATALOGUE.priorities) value=priority />
+                    <CheckChips legend=text::TRANSPORT_NEEDS options=choices(&CATALOGUE.needs) value=needs />
                     <p class="error" role="alert">{move || message.get()}</p>
                     <div class="row">
                         <button type="submit" class="button button--primary">{text::TRANSPORT_REQUEST}</button>
@@ -234,29 +249,29 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
 }
 
 // [impl->dsn~transport-request~1]
-/// The incident command's view of open transport requests: assign a unit and a
-/// destination, follow the status. It shows no patient data, because it has none.
+// [impl->dsn~transport-board~1]
+/// The incident command's transport board: open requests (assign a unit and a
+/// destination, follow the status), free transport units, and the hospitals with their
+/// capacity and the patients sent to each. It shows no patient data, because it has none.
 #[component]
 pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let open = Memo::new(move |_| {
+    let board = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| {
-            TransportBoard::from_events(&c.events(med::transport::COMPARTMENT))
-                .open(&CATALOGUE)
-                .into_iter()
-                .cloned()
-                .collect::<Vec<_>>()
-        })
+        core.with_value(|c| TransportBoard::from_events(&c.events(med::transport::COMPARTMENT)))
+    });
+    let open = Memo::new(move |_| {
+        board.with(|b| b.open(&CATALOGUE).into_iter().cloned().collect::<Vec<_>>())
+    });
+    let hospitals = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| HospitalList::from_events(&c.events(med::hospitals::COMPARTMENT)))
     });
     let units = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| {
-            UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
-                .units
-                .into_keys()
-                .collect::<Vec<_>>()
-        })
+        core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
     });
+    let unit_names =
+        Memo::new(move |_| units.with(|u| u.units.keys().cloned().collect::<Vec<_>>()));
     view! {
         <section aria-labelledby="transports-title" class="card">
             <h2 id="transports-title">{text::TRANSPORTS_TITLE}</h2>
@@ -274,9 +289,55 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                     <h3>{summary(core, &t)}</h3>
                                     <TransportDetails core transport=t.clone() show_uhs=true />
                                     {(t.status == TransportStatus::Requested)
-                                        .then(|| view! { <AssignForm core revision transport=t.clone() units /> })}
+                                        .then(|| view! { <AssignForm core revision transport=t.clone() units=unit_names hospitals /> })}
                                     <StepButtons core revision transport=t.clone() />
                                 </li>
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+                .into_any()
+            }}
+        </section>
+        <FreeUnits board units />
+        <HospitalBoard core revision hospitals board />
+    }
+}
+
+/// Transport units free for a new transport (TRANS-4).
+#[component]
+fn FreeUnits(board: Memo<TransportBoard>, units: Memo<UnitRegister>) -> impl IntoView {
+    let free = Memo::new(move |_| {
+        units.with(|units| {
+            board.with(|b| {
+                b.available_units(units, &crate::units::STATUS, &CATALOGUE)
+                    .into_iter()
+                    .map(|u| {
+                        let status = u.status.as_ref().map(|s| text::status_label(&s.status));
+                        (
+                            u.unit.clone(),
+                            u.unit_type.clone(),
+                            status.unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+    });
+    view! {
+        <section aria-labelledby="free-units-title" class="card">
+            <h2 id="free-units-title">{text::FREE_UNITS_TITLE}</h2>
+            {move || {
+                let list = free.get();
+                if list.is_empty() {
+                    return view! { <p>{text::FREE_UNITS_EMPTY}</p> }.into_any();
+                }
+                view! {
+                    <ul class="free-units">
+                        {list
+                            .into_iter()
+                            .map(|(unit, kind, status)| view! {
+                                <li><strong>{unit}</strong> " · " {kind} " · " {status}</li>
                             })
                             .collect_view()}
                     </ul>
@@ -287,27 +348,288 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-/// Assigns a unit of the incident and a destination to a request.
+// [impl->dsn~hospital-list~1]
+/// The hospitals of the incident with capacity and patients sent; adding and changing them.
+#[component]
+fn HospitalBoard(
+    core: Handle,
+    revision: RwSignal<u64>,
+    hospitals: Memo<HospitalList>,
+    board: Memo<TransportBoard>,
+) -> impl IntoView {
+    let sent = Memo::new(move |_| board.with(TransportBoard::sent_to_hospitals));
+    view! {
+        <section aria-labelledby="hospitals-title" class="card">
+            <h2 id="hospitals-title">{text::HOSPITALS_TITLE}</h2>
+            {move || {
+                let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
+                if list.is_empty() {
+                    return view! { <p>{text::HOSPITALS_EMPTY}</p> }.into_any();
+                }
+                let sent = sent.get();
+                view! {
+                    <ul class="hospital-list">
+                        {list
+                            .into_iter()
+                            .map(|hospital| {
+                                let n = sent.get(&hospital.entry.hospital).copied().unwrap_or(0);
+                                view! { <HospitalCard core revision hospital sent=n /> }
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+                .into_any()
+            }}
+            <h3>{text::HOSPITAL_ADD}</h3>
+            <HospitalForm core revision />
+        </section>
+    }
+}
+
+/// The capacity of a hospital as one line, or that none was reported.
+fn capacity_line(hospital: &Hospital) -> String {
+    match &hospital.capacity {
+        Some(r) => {
+            let parts: Vec<String> = HOSPITALS
+                .capacity
+                .iter()
+                .map(|c| {
+                    let n = r.of(*c).map_or_else(|| "–".to_owned(), |n| n.to_string());
+                    format!("{} {n}", text::label(*c))
+                })
+                .collect();
+            text::capacity_line(&parts, &core::clock(r.at.wall_ms), r.by.as_str())
+        }
+        None => text::CAPACITY_NONE.to_owned(),
+    }
+}
+
+/// One hospital: what it offers, its capacity and the patients sent; entering capacity,
+/// and changing the entry behind a disclosure.
+#[component]
+fn HospitalCard(
+    core: Handle,
+    revision: RwSignal<u64>,
+    hospital: Hospital,
+    sent: usize,
+) -> impl IntoView {
+    let entry = hospital.entry.clone();
+    let offers: Vec<String> = entry
+        .departments
+        .iter()
+        .map(|d| label(&HOSPITALS.departments, d))
+        .chain(
+            entry
+                .capabilities
+                .iter()
+                .map(|c| label(&HOSPITALS.capabilities, c)),
+        )
+        .collect();
+    let editing = RwSignal::new(false);
+    let done = Callback::new(move |()| editing.set(false));
+    let name = entry.name.clone();
+    let (id, title) = (entry.hospital.clone(), entry.name.clone());
+    view! {
+        <li class="hospital-card" data-hospital=id.clone()>
+            <h3>{title}</h3>
+            {(!offers.is_empty()).then(|| view! { <p>{offers.join(" · ")}</p> })}
+            <p class="hospital-card__capacity">{capacity_line(&hospital)}</p>
+            <p class="hospital-card__sent"><strong>{text::sent(sent)}</strong></p>
+            <CapacityForm core revision hospital=hospital.clone() />
+            <Disclosure
+                id=format!("hospital-{id}")
+                open=editing
+                class="hospital-card__edit"
+                button_class="button button--small button--quiet"
+                panel_class="hospital-card__form"
+                label=Some(Signal::derive(move || text::hospital_edit_label(&name)))
+                button=Box::new(|| view! { {text::HOSPITAL_EDIT} }.into_any())
+            >
+                <HospitalForm core revision entry done />
+            </Disclosure>
+        </li>
+    }
+}
+
+/// Entering the capacity a hospital reports, per category of the profile; empty fields
+/// are "not reported".
+#[component]
+fn CapacityForm(core: Handle, revision: RwSignal<u64>, hospital: Hospital) -> impl IntoView {
+    let id = hospital.entry.hospital.clone();
+    let name = hospital.entry.name.clone();
+    let fields: Vec<(TriageCategory, RwSignal<String>)> = HOSPITALS
+        .capacity
+        .iter()
+        .map(|c| {
+            let now = hospital.capacity.as_ref().and_then(|r| r.of(*c));
+            (
+                *c,
+                RwSignal::new(now.map(|n| n.to_string()).unwrap_or_default()),
+            )
+        })
+        .collect();
+    let message = RwSignal::new(None::<&'static str>);
+    let submit = {
+        let (id, name, fields) = (id.clone(), name.clone(), fields.clone());
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let mut capacity = Vec::new();
+            for (category, value) in &fields {
+                let value = value.get_untracked();
+                let value = value.trim();
+                if value.is_empty() {
+                    continue;
+                }
+                match value.parse::<u32>() {
+                    Ok(patients) => capacity.push(Capacity {
+                        category: *category,
+                        patients,
+                    }),
+                    Err(_) => {
+                        message.set(Some(text::CAPACITY_NUMBERS));
+                        return;
+                    }
+                }
+            }
+            let set = CapacitySet {
+                hospital: id.clone(),
+                capacity,
+            };
+            if core::set_capacity(core, revision, &set, &name).is_ok() {
+                message.set(None);
+            }
+        }
+    };
+    view! {
+        <form class="form capacity-form" novalidate on:submit=submit>
+            <fieldset class="choices">
+                <legend>{text::CAPACITY_LEGEND}</legend>
+                {fields
+                    .into_iter()
+                    .map(|(category, value)| {
+                        let field = format!("capacity-{id}-{category:?}").to_lowercase();
+                        view! {
+                            <div class="field field--small">
+                                <label for=field.clone()>{text::label(category)}</label>
+                                <input id=field type="text" inputmode="numeric" autocomplete="off" bind:value=value />
+                            </div>
+                        }
+                    })
+                    .collect_view()}
+            </fieldset>
+            <p class="error" role="alert">{move || message.get()}</p>
+            <div class="row">
+                <button type="submit" class="button button--small" aria-label=text::capacity_save_label(&name)>
+                    {text::CAPACITY_SAVE}
+                </button>
+            </div>
+        </form>
+    }
+}
+
+/// Adding a hospital, or changing the entry of one (`entry`).
+#[component]
+fn HospitalForm(
+    core: Handle,
+    revision: RwSignal<u64>,
+    #[prop(optional)] entry: Option<HospitalSet>,
+    /// Called after saving.
+    #[prop(optional)]
+    done: Option<Callback<()>>,
+) -> impl IntoView {
+    let existing = entry.as_ref().map(|e| e.hospital.clone());
+    let field = format!("hospital-name-{}", existing.as_deref().unwrap_or("new"));
+    let name = RwSignal::new(entry.as_ref().map(|e| e.name.clone()).unwrap_or_default());
+    let set =
+        |ids: Option<&Vec<String>>| ids.map(|v| v.iter().cloned().collect()).unwrap_or_default();
+    let departments = RwSignal::new(set(entry.as_ref().map(|e| &e.departments)));
+    let capabilities = RwSignal::new(set(entry.as_ref().map(|e| &e.capabilities)));
+    let message = RwSignal::new(None::<&'static str>);
+    let submit = {
+        let existing = existing.clone();
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let entry = HospitalSet {
+                hospital: existing.clone().unwrap_or_default(),
+                name: name.get_untracked().trim().to_owned(),
+                departments: departments
+                    .with_untracked(|s| in_profile_order(&HOSPITALS.departments, s)),
+                capabilities: capabilities
+                    .with_untracked(|s| in_profile_order(&HOSPITALS.capabilities, s)),
+            };
+            if entry.check(&HOSPITALS).is_err() {
+                message.set(Some(text::HOSPITAL_NAME_MISSING));
+                return;
+            }
+            if core::set_hospital(core, revision, entry).is_ok() {
+                message.set(None);
+                if existing.is_none() {
+                    name.set(String::new());
+                    departments.set(BTreeSet::new());
+                    capabilities.set(BTreeSet::new());
+                }
+                if let Some(done) = done {
+                    done.run(());
+                }
+            }
+        }
+    };
+    let button = if existing.is_some() {
+        text::HOSPITAL_SAVE
+    } else {
+        text::HOSPITAL_ADD
+    };
+    view! {
+        <form class="form hospital-form" novalidate on:submit=submit>
+            <div class="field">
+                <label for=field.clone()>{text::HOSPITAL_NAME}</label>
+                <input id=field type="text" autocomplete="off" bind:value=name />
+            </div>
+            <CheckChips legend=text::HOSPITAL_DEPARTMENTS options=choices(&HOSPITALS.departments) value=departments />
+            <CheckChips legend=text::HOSPITAL_CAPABILITIES options=choices(&HOSPITALS.capabilities) value=capabilities />
+            <p class="error" role="alert">{move || message.get()}</p>
+            <div class="row">
+                <button type="submit" class="button">{button}</button>
+            </div>
+        </form>
+    }
+}
+
+/// The destination option for anything not on the hospital list.
+const OTHER: &str = "other";
+
+/// Assigns a unit of the incident and a destination to a request: a hospital of the list
+/// or, for anything else, free text.
 #[component]
 fn AssignForm(
     core: Handle,
     revision: RwSignal<u64>,
     transport: Transport,
     units: Memo<Vec<String>>,
+    hospitals: Memo<HospitalList>,
 ) -> impl IntoView {
     let request = transport.request.request.clone();
     let name = summary(core, &transport);
     let unit = RwSignal::new(String::new());
     let destination = RwSignal::new(String::new());
+    let other = RwSignal::new(String::new());
     let message = RwSignal::new(None::<&'static str>);
-    let (unit_id, destination_id) = (format!("unit-{request}"), format!("destination-{request}"));
+    let (unit_id, destination_id, other_id) = (
+        format!("unit-{request}"),
+        format!("destination-{request}"),
+        format!("other-{request}"),
+    );
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
-        let (u, d) = (
-            unit.get_untracked(),
-            destination.get_untracked().trim().to_owned(),
-        );
-        if u.is_empty() || d.is_empty() {
+        let chosen = destination.get_untracked();
+        // [impl->dsn~hospital-list~1]
+        let (shown, hospital) = hospitals.with_untracked(|h| match h.hospitals.get(&chosen) {
+            Some(h) => (h.entry.name.clone(), Some(chosen.clone())),
+            None => (other.get_untracked().trim().to_owned(), None),
+        });
+        let free_text = chosen == OTHER || hospitals.with_untracked(|h| h.hospitals.is_empty());
+        let u = unit.get_untracked();
+        if u.is_empty() || shown.is_empty() || (hospital.is_none() && !free_text) {
             message.set(Some(text::TRANSPORT_ASSIGN_MISSING));
             return;
         }
@@ -315,10 +637,22 @@ fn AssignForm(
             request: request.clone(),
             status: TransportStatus::Assigned,
             unit: Some(u),
-            destination: Some(d),
+            destination: Some(shown),
+            hospital,
         };
         if core::update_transport(core, revision, &update).is_ok() {
             message.set(None);
+        }
+    };
+    let other_field = {
+        let other_id = other_id.clone();
+        move |label: &'static str| {
+            view! {
+                <div class="field">
+                    <label for=other_id.clone()>{label}</label>
+                    <input id=other_id.clone() type="text" autocomplete="off" bind:value=other />
+                </div>
+            }
         }
     };
     view! {
@@ -342,10 +676,35 @@ fn AssignForm(
                 }
                 .into_any()
             }}
-            <div class="field">
-                <label for=destination_id.clone()>{text::TRANSPORT_DESTINATION}</label>
-                <input id=destination_id.clone() type="text" autocomplete="off" bind:value=destination />
-            </div>
+            {move || {
+                let list: Vec<(String, String)> = hospitals.with(|h| {
+                    h.by_name().iter().map(|h| (h.entry.hospital.clone(), h.entry.name.clone())).collect()
+                });
+                if list.is_empty() {
+                    return other_field(text::TRANSPORT_DESTINATION).into_any();
+                }
+                let other_field = other_field.clone();
+                view! {
+                    <div class="field">
+                        <label for=destination_id.clone()>{text::DESTINATION}</label>
+                        <select id=destination_id.clone() on:change=move |ev| destination.set(event_target_value(&ev))>
+                            <option value="" selected=move || destination.get().is_empty()>{text::DESTINATION_CHOOSE}</option>
+                            {list
+                                .into_iter()
+                                .map(|(id, name)| {
+                                    let chosen = id.clone();
+                                    view! { <option value=id selected=move || destination.get() == chosen>{name}</option> }
+                                })
+                                .collect_view()}
+                            <option value=OTHER selected=move || destination.get() == OTHER>{text::DESTINATION_OTHER_OPTION}</option>
+                        </select>
+                    </div>
+                    <Show when=move || destination.get() == OTHER>
+                        {other_field(text::DESTINATION_OTHER)}
+                    </Show>
+                }
+                .into_any()
+            }}
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
                 <button type="submit" class="button button--primary"

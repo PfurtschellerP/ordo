@@ -84,7 +84,7 @@ pub fn DisclosureButton(
 /// returns the focus to the button. IDs: `{id}-button`, `{id}-panel`.
 #[component]
 pub fn Disclosure(
-    id: &'static str,
+    #[prop(into)] id: String,
     open: RwSignal<bool>,
     /// Class of the wrapper; may change with state.
     #[prop(into)]

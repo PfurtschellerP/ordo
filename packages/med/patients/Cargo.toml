@@ -12,6 +12,7 @@ publish.workspace = true
 ordo-contracts.workspace = true
 ordo-core.workspace = true
 ordo-sync.workspace = true
+ordo-units.workspace = true
 serde.workspace = true
 serde_bytes.workspace = true
 serde_json.workspace = true

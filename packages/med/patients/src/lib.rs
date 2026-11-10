@@ -12,6 +12,7 @@ use ordo_core::{CompartmentId, Hlc, IncidentId, UserId};
 use ordo_sync::{AppliedEvent, Derived, Deriver};
 use serde::{Deserialize, Serialize};
 
+pub mod hospitals;
 pub mod orders;
 pub mod questionnaire;
 pub mod record;

@@ -2674,6 +2674,7 @@ dependencies = [
  "ordo-contracts",
  "ordo-core",
  "ordo-sync",
+ "ordo-units",
  "serde",
  "serde_bytes",
  "serde_json",

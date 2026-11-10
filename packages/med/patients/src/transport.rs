@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashSet};
 use ordo_core::codec::{self, CodecError};
 use ordo_core::{Hlc, UserId};
 use ordo_sync::AppliedEvent;
+use ordo_units::{StatusCatalogue, Unit, UnitRegister};
 use serde::{Deserialize, Serialize};
 
 /// Module ID of requests and updates.
@@ -62,23 +63,28 @@ pub enum CatalogueError {
     Duplicate(&'static str, String),
 }
 
+/// Checks lists of choices: `(name, list, required)`; IDs must be unique in each list.
+pub(crate) fn check_lists(lists: &[(&'static str, &[Choice], bool)]) -> Result<(), CatalogueError> {
+    for (name, list, required) in lists {
+        if *required && list.is_empty() {
+            return Err(CatalogueError::Empty(name));
+        }
+        let mut seen = HashSet::new();
+        if let Some(c) = list.iter().find(|c| !seen.insert(c.id.as_str())) {
+            return Err(CatalogueError::Duplicate(name, c.id.clone()));
+        }
+    }
+    Ok(())
+}
+
 impl TransportCatalogue {
     /// Checks that types and priorities exist and every ID is unique in its list.
     pub fn check(&self) -> Result<(), CatalogueError> {
-        for (name, list, required) in [
+        check_lists(&[
             ("type", &self.types, true),
             ("priority", &self.priorities, true),
             ("need", &self.needs, false),
-        ] {
-            if required && list.is_empty() {
-                return Err(CatalogueError::Empty(name));
-            }
-            let mut seen = HashSet::new();
-            if let Some(c) = list.iter().find(|c| !seen.insert(c.id.as_str())) {
-                return Err(CatalogueError::Duplicate(name, c.id.clone()));
-            }
-        }
-        Ok(())
+        ])
     }
 
     /// The label of a type, priority or need ID, or the ID itself if the profile no
@@ -210,10 +216,18 @@ pub struct TransportUpdated {
     /// Call sign of the transport unit; `None` keeps the one assigned before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
-    /// Destination (free text until the hospital list, TRANS-2); `None` keeps it.
+    /// Destination as shown: the hospital's name or free text; `None` keeps it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination: Option<String>,
+    /// The hospital of the list (TRANS-2), if the destination is one; set together with
+    /// `destination` (schema version 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hospital: Option<String>,
 }
+
+/// Schema version of `transport.updated`: 2 since it names the hospital; version 1
+/// payloads decode unchanged.
+pub const UPDATED_SCHEMA: u32 = 2;
 
 impl TransportUpdated {
     /// CBOR payload.
@@ -261,6 +275,8 @@ pub struct Transport {
     pub unit: Option<String>,
     /// Destination.
     pub destination: Option<String>,
+    /// The hospital of the list, if the destination is one.
+    pub hospital: Option<String>,
     /// Every status, oldest first; the first is the request itself.
     pub history: Vec<Step>,
 }
@@ -314,6 +330,7 @@ impl TransportBoard {
                     status: TransportStatus::Requested,
                     unit: None,
                     destination: None,
+                    hospital: None,
                     history: vec![Step {
                         status: TransportStatus::Requested,
                         at,
@@ -334,6 +351,7 @@ impl TransportBoard {
             }
             if update.destination.is_some() {
                 t.destination = update.destination;
+                t.hospital = update.hospital;
             }
             t.history.push(Step {
                 status: update.status,
@@ -342,6 +360,53 @@ impl TransportBoard {
             });
         }
         Self { transports }
+    }
+
+    // [impl->dsn~transport-board~1]
+    /// Patients sent to each hospital of the list: transports to it that have departed
+    /// (and so were not cancelled).
+    pub fn sent_to_hospitals(&self) -> BTreeMap<String, usize> {
+        let mut sent = BTreeMap::new();
+        for t in self.transports.values().filter(|t| t.status.has_left()) {
+            if let Some(h) = &t.hospital {
+                *sent.entry(h.clone()).or_insert(0) += 1;
+            }
+        }
+        sent
+    }
+
+    // [impl->dsn~transport-board~1]
+    /// The units free for a transport: of a transport type of the profile (by label or
+    /// ID, ignoring case), in a status the profile marks as available, and on no open
+    /// transport.
+    pub fn available_units<'a>(
+        &self,
+        units: &'a UnitRegister,
+        statuses: &StatusCatalogue,
+        catalogue: &TransportCatalogue,
+    ) -> Vec<&'a Unit> {
+        let busy: HashSet<&str> = self
+            .transports
+            .values()
+            .filter(|t| t.status.is_open())
+            .filter_map(|t| t.unit.as_deref())
+            .collect();
+        units
+            .units
+            .values()
+            .filter(|u| {
+                catalogue.types.iter().any(|t| {
+                    t.label.eq_ignore_ascii_case(&u.unit_type)
+                        || t.id.eq_ignore_ascii_case(&u.unit_type)
+                })
+            })
+            .filter(|u| {
+                u.status
+                    .as_ref()
+                    .is_some_and(|s| statuses.is_available(&s.status))
+            })
+            .filter(|u| !busy.contains(u.unit.as_str()))
+            .collect()
     }
 
     /// The open transports: highest priority first, then the oldest.
@@ -424,6 +489,7 @@ mod tests {
             status,
             unit: unit.map(Into::into),
             destination: unit.map(|_| "Klinikum Mitte".into()),
+            hospital: unit.map(|_| "h1".into()),
         };
         event(n, user, MODULE, UPDATED, u.encode().unwrap())
     }
@@ -489,6 +555,73 @@ mod tests {
             !board.transports.contains_key("unknown"),
             "an update alone is no request"
         );
+    }
+
+    // [utest->dsn~transport-board~1]
+    #[test]
+    fn the_board_counts_patients_sent_and_lists_free_transport_units() {
+        use TransportStatus::*;
+        let events = vec![
+            request(1, "r1", "normal"),
+            update(2, "erik", "r1", Assigned, Some("RTW 1")),
+            request(3, "r2", "normal"),
+            update(4, "erik", "r2", Assigned, Some("RTW 2")),
+            update(5, "erik", "r2", Departed, None),
+            request(6, "r3", "normal"),
+            update(7, "erik", "r3", Assigned, Some("RTW 3")),
+            update(8, "erik", "r3", HandedOver, None),
+        ];
+        let board = TransportBoard::from_events(&events);
+        assert_eq!(
+            board.sent_to_hospitals(),
+            BTreeMap::from([("h1".to_owned(), 2)]),
+            "assigned is not sent yet; departed and handed over are"
+        );
+
+        let unit = |name: &str, unit_type: &str, status: Option<&str>| {
+            let at = events[0].body.hlc;
+            let by = events[0].body.author.user.clone();
+            (
+                name.to_owned(),
+                Unit {
+                    unit: name.into(),
+                    unit_type: unit_type.into(),
+                    organisation: "DRK".into(),
+                    status: status.map(|s| ordo_units::UnitStatus {
+                        status: s.into(),
+                        since: at,
+                        by,
+                    }),
+                },
+            )
+        };
+        let units = UnitRegister {
+            units: BTreeMap::from([
+                unit("RTW 1", "RTW", Some("2")), // on an open transport
+                unit("RTW 2", "rtw", Some("1")), // on the road, but its status says free
+                unit("RTW 3", "RTW", Some("2")), // handed over: free again
+                unit("KTW 4", "KTW", Some("6")), // not available
+                unit("HLF 5", "HLF", Some("2")), // no transport type
+                unit("RTW 6", "RTW", None),      // no status yet
+            ]),
+            lost_updates: Vec::new(),
+        };
+        let statuses = StatusCatalogue {
+            codes: ["1", "2", "6"]
+                .map(|c| ordo_units::StatusCode {
+                    code: c.into(),
+                    label: c.into(),
+                    name: c.into(),
+                    available: c != "6",
+                })
+                .into(),
+        };
+        let free: Vec<&str> = board
+            .available_units(&units, &statuses, &catalogue())
+            .iter()
+            .map(|u| u.unit.as_str())
+            .collect();
+        assert_eq!(free, ["RTW 3"]);
     }
 
     // [utest->dsn~transport-request~1]

@@ -172,15 +172,18 @@
   }
 
   .table { width: 100%; border-collapse: collapse; }
-  /* Many narrow columns (one per category): tighter cells, header badges may wrap, so
-     the table fits its card wherever it is shown instead of the card list. */
-  .table--counts th, .table--counts td { padding-inline: var(--ordo-space-2); }
-  .table--counts th .triage { white-space: normal; }
   .table th, .table td {
     text-align: start; padding: var(--ordo-space-2) var(--ordo-space-3);
     border-bottom: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     vertical-align: middle;
   }
+  /* Many narrow columns (one per category): the columns share the width, cells are
+     tighter and header badges may wrap, so the table fits its card wherever it is shown
+     instead of the card list. */
+  .table--counts { table-layout: fixed; }
+  .table--counts th, .table--counts td { padding-inline: var(--ordo-space-2); }
+  .table--counts thead th:first-child { width: 16%; }
+  .table--counts th .triage { white-space: normal; overflow-wrap: anywhere; }
   .table .number { text-align: center; font-variant-numeric: tabular-nums; }
   .table td.number { font-size: var(--ordo-font-size-4); }
   .table .total { font-weight: var(--ordo-font-weight-bold); }
@@ -506,16 +509,17 @@
   .patient-card__name { font-weight: var(--ordo-font-weight-bold); }
   .patient-card__meta { color: var(--ordo-color-text-secondary); }
 
-  .unit-card, .device-card, .incident-card, .count-card, .transport-card, .order-card {
+  .unit-card, .device-card, .incident-card, .count-card, .transport-card, .order-card, .hospital-card {
     display: grid; gap: var(--ordo-space-2); align-content: start; padding: var(--ordo-space-3) var(--ordo-space-4);
     background: var(--ordo-color-surface-default);
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-medium);
   }
-  .unit-card, .device-card, .incident-card, .count-card, .transport-card, .order-card { grid-template-columns: minmax(0, 1fr); }
-  .transport-list, .order-list { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; list-style: none; }
-  .transport-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
-  .transport-card p, .order-card p { margin: 0; }
+  .unit-card, .device-card, .incident-card, .count-card, .transport-card, .order-card, .hospital-card { grid-template-columns: minmax(0, 1fr); }
+  .transport-list, .order-list, .hospital-list, .free-units { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; list-style: none; }
+  .transport-card h3, .hospital-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
+  .transport-card p, .order-card p, .hospital-card p { margin: 0; }
+  .hospital-card__form { margin-block-start: var(--ordo-space-3); }
   .order-form { display: grid; gap: var(--ordo-space-2); }
   .history-list ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
   .transport-assign { display: grid; gap: var(--ordo-space-2); }
@@ -567,7 +571,8 @@
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-large); font: inherit; cursor: pointer;
   }
-  .choice.chip { font-weight: var(--ordo-font-weight-regular); }
+  /* Long labels wrap inside the chip on narrow screens instead of sticking out. */
+  .choice.chip { font-weight: var(--ordo-font-weight-regular); max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
   .choice.chip:has(input:checked) { border-width: var(--ordo-size-border-thick); font-weight: var(--ordo-font-weight-bold); }
 
   .photo { display: block; max-width: min(100%, 20rem); height: auto; border-radius: var(--ordo-radius-medium); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
