@@ -824,6 +824,7 @@ fn Workspace(
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
                     (Some("med.uhs"), Some("orders")) => view! { <crate::orders::OrdersView core revision nav /> }.into_any(),
+                    (Some("med.uhs"), Some("overview")) => view! { <crate::overview::OverviewView core revision /> }.into_any(),
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
@@ -1041,6 +1042,35 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
+/// One on-site care unit's patients per triage category, their total against its
+/// capacity, and how many were discharged; `children` add more lines (UHS-8).
+#[component]
+pub fn CountCard(
+    name: String,
+    capacity: u32,
+    counts: ordo_contracts::PatientCountsV1,
+    #[prop(optional)] children: Option<Children>,
+) -> impl IntoView {
+    let c = counts;
+    let total: u32 = CATEGORIES.iter().map(|k| c.get(*k)).sum();
+    view! {
+        <li class="count-card">
+            <h3>{name}</h3>
+            <ul class="count-card__counts">
+                {CATEGORIES
+                    .into_iter()
+                    .map(|k| view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}</span></li> })
+                    .collect_view()}
+            </ul>
+            <p>
+                {text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, capacity)}
+                " · " {text::COL_DISCHARGED} ": " {c.discharged}
+            </p>
+            {children.map(|c| c())}
+        </li>
+    }
+}
+
 #[component]
 fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let rows = Memo::new(move |_| {
@@ -1071,24 +1101,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 // Narrow screens: one block per UHS instead of a wide table (reflow).
                 let list = rows
                     .iter()
-                    .map(|(name, capacity, c)| {
-                        let total: u32 = CATEGORIES.iter().map(|k| c.get(*k)).sum();
-                        view! {
-                            <li class="count-card">
-                                <h3>{name.clone()}</h3>
-                                <ul class="count-card__counts">
-                                    {CATEGORIES
-                                        .into_iter()
-                                        .map(|k| view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}</span></li> })
-                                        .collect_view()}
-                                </ul>
-                                <p>
-                                    {text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, *capacity)}
-                                    " · " {text::COL_DISCHARGED} ": " {c.discharged}
-                                </p>
-                            </li>
-                        }
-                    })
+                    .map(|(name, capacity, c)| view! { <CountCard name=name.clone() capacity=*capacity counts=c.clone() /> })
                     .collect_view();
                 view! {
                     <ul class="count-list only-narrow">{list}</ul>

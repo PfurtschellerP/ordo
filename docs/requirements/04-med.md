@@ -159,6 +159,15 @@ Tags: must, med, m12
 
 Needs: dsn
 
+#### UHS-8 — Overview for the medical lead
+`req~uhs-8~1`
+
+ORDO shall show the medical lead (e.g. LNA, OrgL) one overview of all on-site care units they may read, per unit: the patients in it by triage category against its capacity, free treatment places, open orders, open and planned transports, and the number discharged.
+
+Tags: should, med, m22
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

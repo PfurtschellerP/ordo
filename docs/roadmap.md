@@ -130,7 +130,9 @@ incident's people, and granting a role suggests the people the installation know
 the record (milestone `m21`): a done medication order opens a new entry of the record's
 medication form, filled with substance, dose, route and who ordered and gave it, for the
 crew to check and save; the profile names the form and fields, and the build checks that
-order routes and form routes match.
+order routes and form routes match; overview for the medical lead (milestone `m22`): the
+Med workspace's view *Übersicht* shows per UHS the patients by category against capacity,
+free places, open orders, open and planned transports, and discharged patients.
 
 *Incident and command (Einsatzleitung)*
 
@@ -174,9 +176,8 @@ order routes and form routes match.
   eHealth once an organisation's agreement covers it; a hospital list kept by the
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
-- **Orders, next steps:** substances from the medication catalogue (below); an overview
-  per UHS for the medical lead (LNA, OrgL); orders given by voice or radio recorded with
-  the person who gave them.
+- **Orders, next steps:** substances from the medication catalogue (below); orders given
+  by voice or radio recorded with the person who gave them.
 - **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
   chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances

@@ -698,3 +698,15 @@ pub const DOCUMENT_ORDER: &str = "In Dokumentation übernehmen";
 pub fn document_order_label(what: &str) -> String {
     format!("{DOCUMENT_ORDER}: {what}")
 }
+
+// Overview for the medical lead (UHS-8).
+pub const OVERVIEW: &str = "Übersicht";
+pub const OVERVIEW_TITLE: &str = "Übersicht der UHS";
+
+pub fn open_orders(n: usize) -> String {
+    format!("Offene Anordnungen: {n}")
+}
+
+pub fn transports_count(open: usize, planned: usize) -> String {
+    format!("Transporte: {open} offen, {planned} geplant")
+}

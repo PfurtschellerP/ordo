@@ -276,6 +276,26 @@ Needs: impl, itest
 
 Tags: must, m4
 
+#### UHS overview
+`dsn~uhs-overview~1`
+
+The Med workspace's view *Übersicht* shows one card per on-site care unit, computed on
+the device from what it already holds (clinical and shared incident events): the patients
+in the unit by triage category and the load against capacity (the same category row as
+the command's counts), free treatment places, open orders of its patients, its open and
+planned transports, and how many it discharged. The Med package computes the summary
+(`overview`), so the numbers are tested apart from the page. Only people who read the
+clinical compartment have the workspace; the command keeps its counts without clinical
+details. It shows numbers only and ranks nothing.
+
+Covers:
+
+* [req~uhs-8~1](../requirements/04-med.md#uhs-8--overview-for-the-medical-lead)
+
+Needs: impl, utest, itest
+
+Tags: should, m22
+
 #### Patient triage history
 `dsn~patient-triage-history~1`
 

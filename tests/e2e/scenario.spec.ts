@@ -399,6 +399,16 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(badges.length).toBeGreaterThan(0);
     expect(badges.every(Boolean), "every triage badge has a shape and a text label").toBe(true);
     await audit(anna, "Med workspace");
+
+    // [itest->dsn~uhs-overview~1]
+    await openView(anna, "Übersicht");
+    const unit = (name: string) => anna.locator(".count-card", { hasText: name });
+    await expect(unit("UHS Eingang"), "per UHS: load and discharged").toContainText("Gesamt: 2 · Belegung: 2 / 5 · Entlassen: 0");
+    await expect(unit("UHS Eingang"), "open orders and transports").toContainText("Offene Anordnungen: 0 · Transporte: 1 offen, 0 geplant");
+    await expect(unit("UHS Bühne Nord")).toContainText("Transporte: 0 offen, 1 geplant");
+    await expect(unit("UHS Bühne Nord")).toContainText("Behandlungsplätze:");
+    await audit(anna, "Overview");
+    await openView(anna, "Patienten");
     await anna.locator("#launcher-button").click();
     // [itest->dsn~views-by-role~1]
     await expect(anna.locator("#reason-command-situation"), "UHS crews do not see the situation view").toHaveText("Kein Zugriff in diesem Einsatz");
@@ -429,7 +439,7 @@ test("ORDO in the browser", async ({ browser }) => {
       });
     expect(await menuAtEnd(), "right-handed: the menu at the right end").toEqual([true, false]);
     // [itest->dsn~compact-navigation~2]
-    await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(3);
+    await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(4);
     const [iconTop, labelTop] = await anna.evaluate(() => {
       const item = document.querySelector(".navigation .views__item")!;
       return [item.querySelector(".icon")!.getBoundingClientRect().top, item.querySelector(".views__label")!.getBoundingClientRect().top];

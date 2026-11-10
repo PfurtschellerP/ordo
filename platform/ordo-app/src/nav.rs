@@ -71,6 +71,12 @@ pub const WORKSPACES: &[Workspace] = &[
                 name: "manage uhs",
                 icon: "tent",
             },
+            View {
+                id: "overview",
+                label: text::OVERVIEW,
+                name: "overview",
+                icon: "chart-column",
+            },
         ],
     },
     Workspace {

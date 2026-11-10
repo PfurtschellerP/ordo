@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod hospitals;
 pub mod orders;
+pub mod overview;
 pub mod questionnaire;
 pub mod record;
 pub mod transport;
