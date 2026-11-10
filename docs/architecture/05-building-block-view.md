@@ -363,8 +363,8 @@ module (Cedar).
 
 Offline (MAP-2): the server serves a PMTiles region file (`ORDO_MAP_FILE`) at
 `/tiles/region.pmtiles` with range requests; *Karte offline speichern* keeps the whole
-file in the device's origin-private file system, and the map reads from there when it is
-present. Map code, fonts and glue are cached with the app shell; without a region file,
+file in the device's Cache Storage (private to ORDO's origin; Safari cannot write OPFS
+files from the page), and the map reads from there when it is present. Map code, fonts and glue are cached with the app shell; without a region file,
 the objects are shown on a plain background.
 
 Covers:

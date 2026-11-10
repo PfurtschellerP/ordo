@@ -36,8 +36,9 @@ First proposed on 2026-11-07, accepted with these details on 2026-11-10:
 * **Map data:** a region of the Protomaps daily build (OpenStreetMap, ODbL) cut with
   `pmtiles extract --bbox`; the server serves it (`ORDO_MAP_FILE`) at
   `/tiles/region.pmtiles` with HTTP range requests. A device can keep the whole file in
-  its origin-private file system and then reads the map from there, also offline. The map
-  shows "© OpenStreetMap contributors".
+  its Cache Storage (private to ORDO's origin and writable from the page in every browser;
+  Safari cannot write OPFS files outside workers) and then reads the map from there, also
+  offline. The map shows "© OpenStreetMap contributors".
 * **Without a region file** the map shows ORDO's objects on a plain background, so it
   works before an operator has prepared one.
 * **Accessible:** next to the canvas, a list of every object on the map (A11Y-5); objects

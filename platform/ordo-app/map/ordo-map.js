@@ -45,11 +45,16 @@ async function load() {
   return libs;
 }
 
+// The device's copy lives in Cache Storage: private to ORDO's origin like OPFS, and
+// writable from the page in every browser (Safari cannot write OPFS files outside workers).
+const OFFLINE_CACHE = "ordo-map-region";
+
 async function offlineFile() {
   try {
-    const dir = await navigator.storage.getDirectory();
-    const handle = await dir.getFileHandle(OFFLINE_NAME);
-    return await handle.getFile();
+    const cache = await caches.open(OFFLINE_CACHE);
+    const response = await cache.match(REGION_URL);
+    if (!response) return null;
+    return new File([await response.blob()], OFFLINE_NAME);
   } catch {
     return null;
   }
@@ -153,19 +158,17 @@ export async function offlineState() {
   return { server, device: file ? file.size : 0 };
 }
 
-/** Keeps the whole map region on the device (origin-private file system). */
+/** Keeps the whole map region on the device (Cache Storage). */
 export async function saveOffline() {
   const response = await fetch(REGION_URL);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const dir = await navigator.storage.getDirectory();
-  const handle = await dir.getFileHandle(OFFLINE_NAME, { create: true });
-  const writable = await handle.createWritable();
-  await response.body.pipeTo(writable);
-  return (await handle.getFile()).size;
+  const cache = await caches.open(OFFLINE_CACHE);
+  await cache.put(REGION_URL, response);
+  const file = await offlineFile();
+  return file ? file.size : 0;
 }
 
 /** Deletes the device's copy of the map region. */
 export async function removeOffline() {
-  const dir = await navigator.storage.getDirectory();
-  await dir.removeEntry(OFFLINE_NAME).catch(() => {});
+  await caches.delete(OFFLINE_CACHE);
 }
