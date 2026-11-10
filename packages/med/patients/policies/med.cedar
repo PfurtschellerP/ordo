@@ -69,3 +69,13 @@ permit (
   resource == Compartment::"incident"
 )
 when { context.roles.contains("physician") || context.roles.contains("paramedic") };
+
+// Physicians work at every UHS, whatever its staff list (ADR-0056); everyone else writes the
+// patients of a UHS with a staff list only when on it.
+@id("med.all-uhs")
+permit (
+  principal,
+  action == Action::"all_uhs",
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("physician") };

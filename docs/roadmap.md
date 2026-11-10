@@ -184,6 +184,10 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   files viewable in place, immutable (events cannot change; corrections are new entries,
   hash-chained and signed). Legal requirements to be checked before building: state
   archive law, evidence value, qualified time stamps (eIDAS), retention.
+- **One clinical compartment per UHS:** each UHS's patients in their own compartment, so
+  devices also *receive* only their UHS's patients (need to know); the staff rule is
+  enforced for writing since [ADR-0056](adr/0056-uhs-staff-write-guard.md). Needs an ADR
+  for moves between UHS and the medical lead's overview.
 - **Situation map, next steps:** symbols for drawn objects and staff functions, unit sizes
   and capacities on symbols (open points of the BBK comparison); **map editor with
   geofencing**: sectors, hazard and restricted areas, collection points as shapes (GeoJSON, RFC 7946; drawing with an open-source plug-in such as Terra Draw);

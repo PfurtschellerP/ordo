@@ -508,6 +508,75 @@ async fn sync_over_websocket_survives_a_restart() {
     running.stop().await.unwrap();
 }
 
+// [itest->dsn~uhs-staff~1]
+#[tokio::test(flavor = "multi_thread")]
+async fn only_a_uhs_staff_registers_its_patients_once_it_has_a_staff_list() {
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [7; 32]);
+    let running = start_server(dir.path()).await.unwrap();
+    let addr = running.addr;
+
+    // Without a staff list, every medic registers (as before).
+    let mut clara = Client::connect(addr, replica("clara")).await;
+    clara.register("DE-0001", Urgent);
+    clara.push_and_settle().await;
+    assert!(
+        clara.replica.rejected().is_empty(),
+        "{:?}",
+        clara.replica.rejected()
+    );
+
+    // UHS 1 gets a staff list with Anna only.
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    let staff = patients::UhsUpdated {
+        id: "UHS 1".into(),
+        location: None,
+        capacity: None,
+        staff: Some(vec![format!("anna@{SERVER}")]),
+    }
+    .encode()
+    .unwrap();
+    anna.replica
+        .record(
+            &incident(),
+            patients::UHS_COMPARTMENT,
+            patients::UHS_MODULE,
+            patients::UHS_UPDATED,
+            1,
+            &staff,
+            now(),
+        )
+        .unwrap();
+    anna.push_and_settle().await;
+    assert!(
+        anna.replica.rejected().is_empty(),
+        "{:?}",
+        anna.replica.rejected()
+    );
+
+    // Clara is not on it: the server refuses her registration there.
+    clara.register("DE-0002", Urgent);
+    clara.push_and_settle().await;
+    assert!(
+        clara
+            .replica
+            .rejected()
+            .iter()
+            .any(|r| r.reason == Rejection::Forbidden),
+        "{:?}",
+        clara.replica.rejected()
+    );
+    // Anna is; a physician works at every UHS.
+    anna.register("DE-0003", Immediate);
+    anna.push_and_settle().await;
+    let mut petra = Client::connect(addr, replica("petra")).await;
+    petra.register("DE-0004", Immediate);
+    petra.push_and_settle().await;
+    assert!(anna.replica.rejected().is_empty() && petra.replica.rejected().is_empty());
+
+    running.stop().await.unwrap();
+}
+
 impl Client {
     /// Records an event of the orders module; returns its ID.
     fn order_event(&mut self, event_type: &str, payload: &[u8]) -> ordo_core::EventId {

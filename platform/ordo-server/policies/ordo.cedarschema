@@ -30,7 +30,8 @@ action read, write appliesTo {
 //   view_situation: the incident command's situation view (counts per UHS, units, roster)
 //   edit_units: add units and set their status
 //   give_orders: give medical orders (the server still checks every `orders.given`)
-action view_situation, edit_units, give_orders appliesTo {
+//   all_uhs: work at every on-site care unit, whatever its staff list (ADR-0056)
+action view_situation, edit_units, give_orders, all_uhs appliesTo {
   principal: [User],
   resource: [Compartment],
   context: Request,

@@ -431,6 +431,33 @@ Tags: must, m36
 
 ### 5.5.2 Med module `med.patients`
 
+#### UHS staff
+`dsn~uhs-staff~1`
+
+The UHS module starts with *Meine UHS*: the person chooses the UHS they work at, or all;
+the device remembers it, and without a choice it starts with the UHS whose staff list
+names the person. The patient list shows the chosen UHS's patients, and registration
+offers only the UHS where the person may write, starting with the chosen one (UHS-9).
+
+A UHS with a staff list (`uhs.updated`) is written by its staff only (UHS-10,
+[ADR-0056](../adr/0056-uhs-staff-write-guard.md)). The server's hub asks the packages'
+write guards after the role check; the Med guard keeps each UHS's staff lists and each
+patient's UHS over time and judges an event by the list valid at its clock. It accepts
+events about patients it does not know yet, events of UHS without a list, and events of
+people whose roles allow every UHS (`all_uhs`; DE: physicians). A move is judged by the
+UHS the patient leaves; a staff list, once set, is changed by its staff. The app shows
+UHS where the person may not write as read-only and does not offer them for
+registration, so the server's refusal stays the exception.
+
+Covers:
+
+* [req~uhs-9~1](../requirements/04-med.md#uhs-9--working-uhs)
+* [req~uhs-10~1](../requirements/04-med.md#uhs-10--only-a-uhss-staff-writes-its-patients)
+
+Needs: impl, utest, itest
+
+Tags: must, m37
+
 #### UHS registry
 `dsn~uhs-registry~1`
 

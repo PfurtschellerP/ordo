@@ -177,6 +177,24 @@ Tags: should, med, m22
 
 Needs: dsn
 
+#### UHS-9 — Working UHS
+`req~uhs-9~1`
+
+When a person opens the UHS module, ORDO shall let them choose the UHS they work at at the top of the module, register new patients there and list that UHS's patients; a person allowed at every UHS can also list all of them.
+
+Tags: must, med, m37
+
+Needs: dsn
+
+#### UHS-10 — Only a UHS's staff writes its patients
+`req~uhs-10~1`
+
+Where a UHS has a staff list, ORDO shall accept registering, documenting and changing that UHS's patients, and changing its staff list, only from people on that list and from roles allowed at every UHS, judged by the staff list valid at the time of the change, so that documentation made offline is not refused because of a later change.
+
+Tags: must, med, m37
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

@@ -60,5 +60,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0053](0053-verbal-orders.md) | Orders given by voice or radio are recorded by the crew and confirmed later | proposed | 2026-11-10 |
 | [0054](0054-tactical-symbols-generated.md) | Tactical symbols: generated at build time with `@taktische-zeichen/core`, kept in the profile | accepted | 2026-11-10 |
 | [0055](0055-licence-notices.md) | Licence notices: `cargo-about` for the crates, a list for the other parts | accepted | 2026-11-10 |
+| [0056](0056-uhs-staff-write-guard.md) | A UHS's patients are written by its staff, checked by the server per event | accepted | 2026-11-11 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

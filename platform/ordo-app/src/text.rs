@@ -1164,3 +1164,11 @@ pub fn log_transport_updated(transport: &str, status: &str, unit: Option<&str>) 
 pub fn log_order_updated(tag: &str, status: &str) -> String {
     format!("{tag}: Anordnung {status}")
 }
+
+// Working UHS (UHS-9, UHS-10)
+pub const WORKING_UHS: &str = "Meine UHS";
+pub const ALL_UHS: &str = "Alle UHS";
+
+pub fn read_only_uhs(name: &str) -> String {
+    format!("{name} (nur lesen)")
+}

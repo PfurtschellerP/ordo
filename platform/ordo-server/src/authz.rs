@@ -32,7 +32,8 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
-pub const INCIDENT_PERMISSIONS: [&str; 3] = ["view_situation", "edit_units", "give_orders"];
+pub const INCIDENT_PERMISSIONS: [&str; 4] =
+    ["view_situation", "edit_units", "give_orders", "all_uhs"];
 
 /// A policy file could not be used.
 #[derive(Debug, thiserror::Error)]
@@ -425,8 +426,8 @@ mod tests {
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &["physician".to_owned()]),
-            ["give_orders"],
-            "physicians give orders"
+            ["give_orders", "all_uhs"],
+            "physicians give orders and work at every UHS"
         );
         assert!(
             p.can_write(&erik, &incident, &shared, "med.uhs", "uhs.created", &medic),

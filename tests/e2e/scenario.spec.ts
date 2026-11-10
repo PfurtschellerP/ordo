@@ -153,10 +153,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(aid, "the person decides the category").toContainText("ORDO schlägt keine vor");
     await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
     await anna.locator("#triage-algorithm").selectOption({ label: "PRIOR (Vorsichtung)" });
+    // [itest->dsn~uhs-staff~1]
+    await expect(anna.locator("#working-uhs option:checked"), "UHS-9: the UHS whose staff list names her").toHaveText("UHS Eingang");
+    await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     for (const [tag, category, uhs] of [["DE-0042", 0, "UHS Bühne Nord"], ["DE-0043", 1, "UHS Bühne Nord"], ["DE-0044", 1, "UHS Eingang"]] as const) {
       await register(anna, tag, category, uhs);
       await expect(anna.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible();
     }
+    // UHS-9: the person chooses the UHS they work at; the list and registration follow.
+    await anna.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
+    await expect(anna.locator(".patient-card"), "only the chosen UHS's patients").toHaveCount(1);
+    await expect(anna.locator("#uhs option:checked"), "new patients go there").toHaveText("UHS Eingang");
+    await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
+    await expect(anna.locator(".patient-card")).toHaveCount(3);
     await expect.poll(() => status(anna), { message: "registrations are sent" }).toContain("Alles gesendet");
     expect(await patientRows(anna)).toHaveLength(3);
 

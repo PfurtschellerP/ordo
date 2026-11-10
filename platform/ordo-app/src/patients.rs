@@ -150,6 +150,21 @@ pub fn PatientsView(
     record: Signal<Option<String>>,
 ) -> impl IntoView {
     let events = move || core.with_value(|c| c.events(med::COMPARTMENT));
+    // The UHS the person works at: as chosen on this device, else the one whose staff
+    // list names them, else all.
+    let working = WorkingUhs(RwSignal::new(
+        core::preference(WORKING_UHS_KEY).unwrap_or_else(|| {
+            core.with_value(|c| {
+                let me = c.replica.user().to_string();
+                med::uhs_details(&c.events(med::UHS_COMPARTMENT))
+                    .into_iter()
+                    .find(|(_, d)| d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me)))
+                    .map(|(id, _)| id)
+                    .unwrap_or_default()
+            })
+        }),
+    ));
+    provide_context(working);
     let register = Memo::new(move |_| {
         revision.track();
         PatientRegister::from_events(&events())
@@ -166,6 +181,7 @@ pub fn PatientsView(
     view! {
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
+                <UhsChooser core revision working />
                 <RegisterForm core revision nav />
                 <PatientList core revision nav register records selected=record />
             </div>
@@ -179,6 +195,72 @@ pub fn PatientsView(
     }
 }
 
+/// Where the device keeps the UHS its person works at (UHS-9); empty: all.
+const WORKING_UHS_KEY: &str = "ordo.working-uhs";
+
+/// The UHS the person works at (UHS-9): its ID, or empty for all of them.
+#[derive(Clone, Copy)]
+pub struct WorkingUhs(pub RwSignal<String>);
+
+// [impl->dsn~uhs-staff~1]
+/// The UHS whose patients this person may write (UHS-10, ADR-0056): those without a staff
+/// list, those whose list names them, or all for roles allowed at every UHS. The server
+/// decides again for every event.
+pub fn writable_uhs(core: Handle) -> Vec<String> {
+    core.with_value(|c| {
+        let me = c.replica.user().to_string();
+        let everywhere = c
+            .incident
+            .as_ref()
+            .is_some_and(|i| c.replica.may(i, med::staff::ALL_UHS));
+        let details = med::uhs_details(&c.events(med::UHS_COMPARTMENT));
+        med::uhs_list(&c.events(med::UHS_COMPARTMENT))
+            .into_iter()
+            .filter(|u| {
+                everywhere
+                    || details.get(&u.id).is_none_or(|d| {
+                        d.staff.is_empty()
+                            || d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me))
+                    })
+            })
+            .map(|u| u.id)
+            .collect()
+    })
+}
+
+// [impl->dsn~uhs-staff~1]
+/// "Meine UHS" at the top of the UHS module (UHS-9): the person chooses where they work;
+/// registration and the patient list follow. The device remembers the choice.
+#[component]
+fn UhsChooser(core: Handle, revision: RwSignal<u64>, working: WorkingUhs) -> impl IntoView {
+    let list = Memo::new(move |_| {
+        revision.track();
+        uhs_list(core)
+    });
+    let writable = Memo::new(move |_| {
+        revision.track();
+        writable_uhs(core)
+    });
+    view! {
+        <div class="uhs-chooser">
+            <label for="working-uhs"><crate::ui::Icon name="tent" /> {text::WORKING_UHS}</label>
+            <select id="working-uhs" on:change=move |ev| {
+                let value = event_target_value(&ev);
+                core::set_preference(WORKING_UHS_KEY, Some(&value));
+                working.0.set(value);
+            }>
+                <option value="" selected=move || working.0.get().is_empty()>{text::ALL_UHS}</option>
+                {move || list.get().into_iter().map(|u| {
+                    let id = u.id.clone();
+                    let chosen = u.id.clone();
+                    let name = if writable.with(|w| w.contains(&u.id)) { u.name } else { text::read_only_uhs(&u.name) };
+                    view! { <option value=id selected=move || working.0.get() == chosen>{name}</option> }
+                }).collect_view()}
+            </select>
+        </div>
+    }
+}
+
 #[component]
 fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoView {
     let tag = RwSignal::new(String::new());
@@ -188,10 +270,23 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
     let category = RwSignal::new(None::<TriageCategory>);
     let error = RwSignal::new(None::<String>);
     let last = RwSignal::new(None::<String>);
+    // Only where this person may write (UHS-10), starting with the working UHS (UHS-9).
     let list = Memo::new(move |_| {
         revision.track();
+        let writable = writable_uhs(core);
         uhs_list(core)
+            .into_iter()
+            .filter(|u| writable.contains(&u.id))
+            .collect::<Vec<_>>()
     });
+    if let Some(working) = use_context::<WorkingUhs>() {
+        Effect::new(move || {
+            let chosen = working.0.get();
+            if list.with(|l| l.iter().any(|u| u.id == chosen)) {
+                uhs.set(chosen);
+            }
+        });
+    }
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let value = tag.get().trim().to_owned();
@@ -244,8 +339,11 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
                         <TriageAid id="triage-algorithm" />
                         <label for="uhs">{text::REGISTER_UHS}</label>
                         <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
-                            <option value="">{text::UHS_CHOOSE}</option>
-                            {list.get().into_iter().map(|u| view! { <option value=u.id.clone()>{u.name}</option> }).collect_view()}
+                            <option value="" selected=move || uhs.get().is_empty()>{text::UHS_CHOOSE}</option>
+                            {list.get().into_iter().map(|u| {
+                                let chosen = u.id.clone();
+                                view! { <option value=u.id.clone() selected=move || uhs.get() == chosen>{u.name}</option> }
+                            }).collect_view()}
                         </select>
                         <p role="alert" class="error">{move || error.get()}</p>
                         <button type="submit" class="button button--primary">{text::REGISTER_SUBMIT}</button>
@@ -352,6 +450,7 @@ fn PatientList(
     records: Memo<Records>,
     selected: Signal<Option<String>>,
 ) -> impl IntoView {
+    let working = use_context::<WorkingUhs>();
     let cards = Memo::new(move |_| {
         revision.track();
         let names: HashMap<String, String> =
@@ -365,9 +464,11 @@ fn PatientList(
                 .filter_map(tag_of)
                 .collect()
         });
+        let working = working.map(|w| w.0.get()).unwrap_or_default();
         register.with(|r| {
             records.with(|records| {
                 r.patients()
+                    .filter(|p| working.is_empty() || p.uhs == working)
                     .map(|p| Card {
                         tag: p.tag.clone(),
                         category: p.category(),

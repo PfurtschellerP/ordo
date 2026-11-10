@@ -183,6 +183,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         hub.restore_revoked(device);
     }
     hub.add_deriver(PatientCountsDeriver::default());
+    hub.add_guard(ordo_med_patients::staff::UhsStaffGuard::default());
 
     // Restore keys first, then events in sequence order.
     for (stream, key_id, key) in store.load_keys(&master).await? {

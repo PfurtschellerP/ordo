@@ -11,7 +11,7 @@ use ordo_crypto::ed25519_dalek::VerifyingKey;
 use ordo_crypto::seal::{self, DataKey, SealContext};
 use ordo_crypto::{Chain, EventSigner};
 
-use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, random_u128};
+use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, WriteGuard, random_u128};
 use crate::incidents::{self, Effect, Registry};
 use crate::message::{
     Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentPermissions, IncidentSummary,
@@ -144,6 +144,7 @@ pub struct Hub<P> {
     /// Incidents and their rosters, from incident events (ADR-0046).
     registry: Registry,
     derivers: Vec<Box<dyn Deriver>>,
+    guards: Vec<Box<dyn WriteGuard>>,
     changes: Vec<Change>,
 }
 
@@ -171,6 +172,7 @@ impl<P: AccessPolicy> Hub<P> {
             revoked: HashSet::new(),
             registry: Registry::default(),
             derivers: Vec::new(),
+            guards: Vec::new(),
             changes: Vec::new(),
         }
     }
@@ -227,7 +229,8 @@ impl<P: AccessPolicy> Hub<P> {
                     payload: payload.clone(),
                 });
             }
-            if self.derivers.iter().any(|d| d.source() == &stream.1)
+            if (self.derivers.iter().any(|d| d.source() == &stream.1)
+                || self.guards.iter().any(|g| g.observes(&stream.1)))
                 && let Some(payload) = self.open_payload(&stream, &body)
             {
                 let applied = AppliedEvent {
@@ -237,6 +240,9 @@ impl<P: AccessPolicy> Hub<P> {
                 };
                 for deriver in self.derivers.iter_mut().filter(|d| d.source() == &stream.1) {
                     let _ = deriver.on_event(&applied);
+                }
+                for guard in self.guards.iter_mut().filter(|g| g.observes(&stream.1)) {
+                    guard.observe(&applied);
                 }
             }
         }
@@ -462,6 +468,11 @@ impl<P: AccessPolicy> Hub<P> {
                 }
             })
             .collect()
+    }
+
+    /// Adds a write guard (ADR-0056).
+    pub fn add_guard(&mut self, guard: impl WriteGuard + 'static) {
+        self.guards.push(Box::new(guard));
     }
 
     /// Adds a connector deriver.
@@ -871,15 +882,32 @@ impl<P: AccessPolicy> Hub<P> {
         if incident_event && !incidents::is_valid(body.event_type.as_str(), &payload) {
             return Err(reject(Rejection::Malformed));
         }
-        self.clock
-            .observe(&body.hlc, now_ms)
-            .map_err(|_| reject(Rejection::ClockAhead))?;
-        let sequenced = self.append(&key, event);
-        let applied = AppliedEvent {
-            seq: Some(sequenced.seq),
+        let mut applied = AppliedEvent {
+            seq: None,
             body,
             payload,
         };
+        // [impl->dsn~uhs-staff~1]
+        // The packages' own rules (ADR-0056), after the roles.
+        if self.guards.iter().any(|g| g.observes(&key.1)) {
+            let permissions = self.policy.incident_permissions(user, &key.0, &roles);
+            if !self
+                .guards
+                .iter()
+                .filter(|g| g.observes(&key.1))
+                .all(|g| g.allows(&applied, &permissions))
+            {
+                return Err(reject(Rejection::Forbidden));
+            }
+        }
+        self.clock
+            .observe(&applied.body.hlc, now_ms)
+            .map_err(|_| reject(Rejection::ClockAhead))?;
+        let sequenced = self.append(&key, event);
+        applied.seq = Some(sequenced.seq);
+        for guard in self.guards.iter_mut().filter(|g| g.observes(&key.1)) {
+            guard.observe(&applied);
+        }
         Ok(Some((key, sequenced, applied)))
     }
 
