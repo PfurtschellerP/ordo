@@ -541,6 +541,30 @@ Needs: impl, itest
 
 Tags: must, m13
 
+#### Attachment transfer
+`dsn~attachment-transfer~1`
+
+On the device ([ADR-0033](../adr/0033-attachments-in-an-object-store.md)): a new
+attachment is encrypted with its own random key (`ordo_crypto::attachment`, AAD bound to
+the media type), kept in the device database as `b/<hash>` and put into the upload queue
+(`uploads`, encrypted with the storage key). The event only carries the reference (hash,
+size, media type, key). While connected, the device asks for an upload ticket for every
+queued attachment and sends it; the queue keeps it until the server answered `201`,
+after a failure it tries again after ten seconds, after a reconnect at once. The status
+line counts queued attachments as unsent input. A device that shows an attachment it
+lacks looks in its database first, then asks for a download ticket; it checks the hash of
+what it receives and keeps it. If the server does not have it yet, the app shows the
+preview with a note and asks again ten seconds later. Without the device database (no
+OPFS in workers) attachments are kept in memory only.
+
+Covers:
+
+* [req~off-6~1](../requirements/07-quality.md#off-6--attachments)
+
+Needs: impl, itest
+
+Tags: must, m13
+
 #### Treatment places
 `dsn~treatment-places~1`
 

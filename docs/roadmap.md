@@ -90,8 +90,7 @@ Done in phase 0:
 
 Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
-Next steps of the storage work: (3) patient photos become attachments (preview in the
-event, full image on demand); (4) Garage as S3-compatible store in the Compose bundle and
+Next step of the storage work: Garage as S3-compatible store in the Compose bundle and
 the tests (licence check of object_store's S3 support); then the rest of this backlog.
 
 **Done already:** palette quick actions bring the opened form into view with the cursor
@@ -104,7 +103,9 @@ Einsatzleitung sees the whole incident (UHS load and counts, no clinical details
 only their UHS work, units are changed by the incident command only; "Betroffene" as a
 category of their own, transport priority from the profile, treatment places per UHS
 (milestone `m12`); storage (milestone `m13`): attachments as encrypted blobs with
-tickets in an object store (local directory), device data in SQLite on OPFS in a worker.
+tickets in an object store (local directory), device data in SQLite on OPFS in a worker;
+patient photos as attachments (a preview in the event, the full photo uploaded from a
+queue and downloaded when shown).
 
 *Incident and command (Einsatzleitung)*
 

@@ -251,7 +251,7 @@ impl Core {
         }
     }
 
-    fn send(&self, message: &ClientMessage) {
+    pub(crate) fn send(&self, message: &ClientMessage) {
         if let (Some(socket), Ok(bytes)) = (&self.socket, message::encode(message))
             && socket.ready_state() == WebSocket::OPEN
         {
@@ -297,6 +297,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             return;
         };
         let welcome = matches!(message, ServerMessage::Welcome(_));
+        let ticket = match &message {
+            ServerMessage::BlobTicket(ticket) => Some(ticket.clone()),
+            _ => None,
+        };
         core.update_value(|c| {
             if let ServerMessage::Avatars(list) = &message {
                 for a in list {
@@ -362,6 +366,12 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             c.storage_failed = save_replica(&c.replica).is_err();
         });
+        if let Some(ticket) = ticket {
+            crate::attachments::on_ticket(core, revision, ticket);
+        }
+        if welcome && core.with_value(|c| c.replica.is_ready()) {
+            crate::attachments::on_welcome(core, revision);
+        }
         revision.update(|r| *r += 1);
     });
     let on_close = Closure::<dyn FnMut(CloseEvent)>::new(move |_| {
@@ -687,23 +697,49 @@ pub fn record_entry(
     )
 }
 
-// [impl->dsn~patient-photo~1]
-/// Adds a photo of a patient (PAT-8). The photo must already be downscaled.
+// [impl->dsn~patient-photo~2]
+/// Records a photo of a patient: the preview inside the event, the full photo encrypted
+/// with its own key as an attachment, kept on the device and queued for upload.
 pub fn add_photo(
     core: Handle,
     revision: RwSignal<u64>,
-    photo: &record::PhotoAdded,
+    tag: &str,
+    full: &[u8],
+    preview: Vec<u8>,
 ) -> Result<(), String> {
+    let mut key = [0u8; 32];
+    let mut nonce = [0u8; 24];
+    entropy(&mut key);
+    entropy(&mut nonce);
+    if key == [0; 32] {
+        return Err("Keine Zufallszahlen verfügbar".into());
+    }
+    let (reference, data) = ordo_crypto::attachment::seal(key, nonce, "image/jpeg", full);
+    let photo = record::PhotoAttached {
+        tag: tag.to_owned(),
+        preview_type: "image/jpeg".to_owned(),
+        preview,
+        photo: reference.clone(),
+    };
     let payload = photo.encode()?;
+    let incident = core
+        .with_value(|c| c.incident.clone())
+        .ok_or("Kein Einsatz gewählt")?;
+    let compartment = patients::COMPARTMENT
+        .parse::<ordo_core::CompartmentId>()
+        .map_err(|e| e.to_string())?;
     self::record(
         core,
         revision,
         patients::COMPARTMENT,
         record::MODULE,
-        record::PHOTO_ADDED,
+        record::PHOTO_ATTACHED,
         &payload,
-        text::photo_added(&photo.tag),
-    )
+        text::photo_added(tag),
+    )?;
+    crate::attachments::add(core, incident, compartment, &reference, data);
+    revision.update(|r| *r += 1);
+    Ok(())
 }
 
 /// Display name of a UHS by ID (the ID if unknown).
@@ -1052,6 +1088,7 @@ pub fn forget_device() {
         let _ = storage.remove_item(PENDING_KEY);
     }
     crate::storage::clear();
+    crate::attachments::clear();
     vault::shred();
 }
 

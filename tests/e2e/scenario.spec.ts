@@ -75,7 +75,7 @@ test.afterAll(async () => {
 
 // One test with steps: later steps build on earlier ones, and soft checks (audits)
 // report every finding of a run instead of stopping at the first.
-test("ORDO in the browser", async () => {
+test("ORDO in the browser", async ({ browser }) => {
   // [itest->dsn~incident-roles~1]
   await test.step("a planner plans the incident and gives roles", async () => {
     await dora.goto(server.url);
@@ -175,7 +175,7 @@ test("ORDO in the browser", async () => {
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
     await saveForm(anna, "history");
 
-    // [itest->dsn~patient-photo~1]
+    // [itest->dsn~patient-photo~2]
     const png = await anna.evaluate(() => {
       const canvas = document.createElement("canvas");
       canvas.width = 3000;
@@ -193,6 +193,7 @@ test("ORDO in the browser", async () => {
     await expect(anna.locator(".app-header__user img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
     const photo = anna.locator("img.photo");
     await expect(photo, "a photo for identification is shown in the record").toBeVisible({ timeout: 20_000 });
+    await expect(photo, "the taking device shows the full photo at once").toHaveAttribute("data-photo", "full");
     await expect.poll(() => photo.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
     patientPhoto = Buffer.from((await photo.getAttribute("src"))!.split(",")[1], "base64");
     const [width, height, bytes, prefix] = await photo.evaluate((i: HTMLImageElement) => [
@@ -201,11 +202,25 @@ test("ORDO in the browser", async () => {
       atob(i.src.split(",")[1]).length,
       i.src.slice(0, 23),
     ]);
-    expect(Number(width), "downscaled").toBeLessThanOrEqual(800);
-    expect(Number(height), "downscaled").toBeLessThanOrEqual(800);
-    expect(Number(bytes), "within the size limit").toBeLessThanOrEqual(160 * 1024);
+    expect(Number(width), "downscaled").toBeLessThanOrEqual(1600);
+    expect(Number(height), "downscaled").toBeLessThanOrEqual(1600);
+    expect(Number(bytes), "within the size limit").toBeLessThanOrEqual(1024 * 1024);
     expect(prefix, "re-encoded as JPEG").toBe("data:image/jpeg;base64,");
     await expect.poll(() => status(anna), { message: "record entries and photo are sent" }).toContain("Alles gesendet");
+
+    // [itest->dsn~attachment-transfer~1]
+    // Another device of Anna's gets the preview with the record, then the full photo from
+    // the server (an encrypted attachment, ADR-0033).
+    const second = await newDevice(browser);
+    await loginPair(second, server, "anna@example.org");
+    await openIncident(second, INCIDENT);
+    await openView(second, "Patienten");
+    await openRecord(second, "DE-0044");
+    const secondPhoto = second.locator("img.photo");
+    await expect(secondPhoto, "the other device downloads the full photo").toHaveAttribute("data-photo", "full", { timeout: 30_000 });
+    const sameImage = await secondPhoto.getAttribute("src");
+    expect(sameImage!.split(",")[1] === patientPhoto.toString("base64"), "it is the same photo").toBe(true);
+    await second.context().close();
     await audit(anna, "Patient record");
     await shot(anna, "record");
 
@@ -287,6 +302,13 @@ test("ORDO in the browser", async () => {
     // [itest->dsn~local-persistence~1]
     await anna.reload(); // the server is down: the app must start from the device
     await expect.poll(() => patientRows(anna), { message: "offline registration survives a reload" }).toContain("DE-0045 SK III noch nicht gesendet");
+    if ((await anna.evaluate(() => document.documentElement.dataset.storage)) === "opfs") {
+      // [itest->dsn~attachment-transfer~1]
+      await openRecord(anna, "DE-0044");
+      await expect(anna.locator("img.photo"), "the full photo is kept on the device").toHaveAttribute("data-photo", "full");
+      await anna.goBack();
+      await expect(anna.locator("#record-title")).toHaveCount(0);
+    }
     await server.start();
     await expect.poll(() => status(anna), { message: "after reconnecting, everything is sent", timeout: 20_000 }).toContain("Alles gesendet");
     // [itest->dsn~triage-badge~1]
@@ -473,7 +495,7 @@ test("ORDO in the browser", async () => {
     await dora.locator("#launcher-button").click();
     await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
     await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(3);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(4);
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();
@@ -481,7 +503,7 @@ test("ORDO in the browser", async () => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(2);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(3);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

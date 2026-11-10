@@ -65,6 +65,7 @@ pub fn App() -> impl IntoView {
         if opened.is_ok() {
             match crate::storage::open().await {
                 Ok(()) => {
+                    crate::attachments::load().await;
                     if let Some(root) = &root {
                         let _ = root.set_attribute("data-storage", "opfs");
                     }
@@ -806,7 +807,7 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         core.with_value(|c| {
             (
                 c.connection,
-                c.replica.outbox_len(),
+                c.replica.outbox_len() + crate::attachments::queued(),
                 c.error.clone(),
                 c.storage_failed,
             )

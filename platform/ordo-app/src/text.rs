@@ -262,6 +262,9 @@ pub const PHOTO_NONE: &str = "Noch kein Foto.";
 pub const PHOTO_TAKE: &str = "Foto aufnehmen";
 pub const PHOTO_UPLOAD: &str = "Bild hochladen";
 pub const PHOTO_BUSY: &str = "Foto wird verkleinert …";
+pub const PHOTO_PREVIEW_LOADING: &str = "Vorschau – das volle Foto wird geladen …";
+pub const PHOTO_PREVIEW_UNAVAILABLE: &str =
+    "Vorschau – das volle Foto ist noch nicht auf dem Server. Es wird später erneut geladen.";
 pub const PHOTO_PURPOSE: &str = "Nur zur Identifikation. Das Foto wird verkleinert, ohne Kamera- und Ortsdaten gespeichert und nur an Berechtigte übertragen.";
 pub fn photo_alt(tag: &str) -> String {
     format!("Foto von Patient {tag}")

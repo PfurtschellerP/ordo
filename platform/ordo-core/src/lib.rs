@@ -6,12 +6,14 @@
 //! It does no I/O and has no knowledge of fire, medical or police specifics, so it
 //! compiles both natively (server) and to WebAssembly (app).
 
+pub mod attachment;
 pub mod codec;
 pub mod event;
 pub mod hlc;
 pub mod ids;
 pub mod ulid;
 
+pub use attachment::AttachmentRef;
 pub use codec::CodecError;
 pub use event::{Author, EventBody, Payload, SealedBox, SequencedEvent, Signature, SignedEvent};
 pub use hlc::{Hlc, HlcClock, HlcError};

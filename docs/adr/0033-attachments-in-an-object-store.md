@@ -67,3 +67,9 @@ the event log stays small and fast, and blob storage can scale on its own.
 
 Supersedes ADR-0028. Implemented together with the new device storage (ADR-0034), right
 after the first MANV features (roadmap).
+
+Implementation (2026-11-10): server side with tickets and a local directory
+(design item "Attachments", chapter 8); patient photos as the first attachments
+(`epcr.photoAttached`: preview at most 16 KiB in the event, full photo at most 1 MiB as an
+attachment) with the device's upload queue and download on demand (design item
+"Attachment transfer"). Open: Garage and S3 support, retention of blobs, federation.

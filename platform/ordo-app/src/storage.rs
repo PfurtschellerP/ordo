@@ -143,8 +143,10 @@ async fn open_worker() -> Result<(), String> {
     WORKER.set(Some(worker));
     JsFuture::from(ready).await.map_err(|e| format!("{e:?}"))?;
     call("open", &[]).await?;
-    let rows: Array = call("load", &["".into()]).await?.unchecked_into();
-    let state = assemble(&rows);
+    // Attachments (`b/…`) are read when needed, not at start.
+    let rows: Array = call("load", &[STATE.into()]).await?.unchecked_into();
+    let events: Array = call("load", &["e/".into()]).await?.unchecked_into();
+    let state = assemble(&rows.concat(&events));
     if let Some(state) = &state {
         SAVED.set(
             state
@@ -264,6 +266,46 @@ pub fn save(replica: &Replica) -> Result<(), ()> {
         }
     });
     if FAILED.get() { Err(()) } else { Ok(()) }
+}
+
+/// Stores bytes as they are (attachments, which are encrypted already). Fire and forget.
+pub fn put_raw(key: &str, bytes: &[u8]) {
+    if !active() {
+        return;
+    }
+    let puts = Array::of1(&Array::of2(&key.into(), &Uint8Array::from(bytes).into()));
+    wasm_bindgen_futures::spawn_local(async move {
+        if let Err(error) = call("write", &[puts.into(), Array::new().into()]).await {
+            web_sys::console::error_1(&format!("ORDO storage: {error}").into());
+        }
+    });
+}
+
+/// The bytes stored under `key` with [`put_raw`].
+pub async fn get_raw(key: &str) -> Option<Vec<u8>> {
+    if !active() {
+        return None;
+    }
+    let rows: Array = call("load", &[key.into()]).await.ok()?.unchecked_into();
+    rows.iter().find_map(|row| {
+        let row: Array = row.unchecked_into();
+        (row.get(0).as_string().as_deref() == Some(key))
+            .then(|| Uint8Array::new(&row.get(1)).to_vec())
+    })
+}
+
+/// Stores bytes encrypted with the storage key. Fire and forget.
+pub fn put_sealed(key: &str, bytes: &[u8]) {
+    if let Some(value) = encrypted(key, bytes) {
+        let text = Uint8Array::new(&value).to_vec();
+        put_raw(key, &text);
+    }
+}
+
+/// The bytes stored under `key` with [`put_sealed`].
+pub async fn get_sealed(key: &str) -> Option<Vec<u8>> {
+    let value = get_raw(key).await?;
+    decrypt(key, &Uint8Array::from(value.as_slice()).into())
 }
 
 /// Deletes everything stored by the worker (unpairing, remote wipe).

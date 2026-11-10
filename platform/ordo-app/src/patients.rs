@@ -13,12 +13,12 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use ordo_contracts::TriageCategory;
 use ordo_med_patients::record::{
-    self, EntryRecorded, Field, FieldType, Form, FormCatalogue, FormKind, PhotoAdded, Records,
-    Value,
+    self, EntryRecorded, Field, FieldType, Form, FormCatalogue, FormKind, Records, Value,
 };
 use ordo_med_patients::{self as med, PatientRegister};
 use wasm_bindgen::JsCast;
 
+use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
@@ -26,7 +26,10 @@ use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
 /// Patient photos: longest edge and JPEG quality, tried in this order (ADR-0028).
-const PHOTO_STEPS: [(f64, f64); 4] = [(800.0, 0.75), (640.0, 0.7), (480.0, 0.6), (360.0, 0.5)];
+/// Full photo: longest side and JPEG quality, tried in order until it fits.
+const PHOTO_STEPS: [(f64, f64); 4] = [(1600.0, 0.8), (1280.0, 0.75), (1024.0, 0.7), (800.0, 0.6)];
+/// Preview inside the event.
+const PREVIEW_STEPS: [(f64, f64); 4] = [(240.0, 0.6), (200.0, 0.5), (160.0, 0.45), (120.0, 0.4)];
 const VIEW: &str = "patients";
 
 /// The ePCR forms of the profile, checked at build time (see `build.rs`).
@@ -412,7 +415,18 @@ fn PatientRecord(
     .into_any()
 }
 
-// [impl->dsn~patient-photo~1]
+/// Which image of a photo is shown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PhotoKind {
+    /// The full photo (or the photo of an older event, which had no preview).
+    Full,
+    /// The preview, while the full photo is loaded.
+    Loading,
+    /// The preview; the full photo is not on the server yet.
+    Unavailable,
+}
+
+// [impl->dsn~patient-photo~2]
 #[component]
 fn PhotoSection(
     core: Handle,
@@ -422,25 +436,54 @@ fn PhotoSection(
 ) -> impl IntoView {
     let busy = RwSignal::new(false);
     let error = RwSignal::new(None::<&'static str>);
-    // The data URL is rebuilt only when another photo becomes the latest.
-    let source = {
+    let latest = {
         let tag = tag.clone();
-        Memo::new(move |previous: Option<&Option<(String, String)>>| {
-            let latest = records.with(|r| {
-                r.get(&tag)
-                    .and_then(|r| r.photo())
-                    .map(|p| (p.id.clone(), p.media_type.clone(), p.data.clone()))
-            });
-            match (previous, latest) {
-                (Some(Some(prev)), Some((id, _, _))) if prev.0 == id => Some(prev.clone()),
-                (_, Some((id, media_type, data))) => Some((
-                    id,
-                    format!("data:{media_type};base64,{}", BASE64.encode(data)),
-                )),
-                (_, None) => None,
-            }
-        })
+        move || {
+            records.with(|r| {
+                r.get(&tag).and_then(|r| r.photo()).map(|p| {
+                    (
+                        p.id.clone(),
+                        p.media_type.clone(),
+                        p.data.clone(),
+                        p.full.clone(),
+                    )
+                })
+            })
+        }
     };
+    // What is shown: (event ID, kind, data URL). The data URL is rebuilt only when another
+    // photo becomes the latest or its full image arrives.
+    let source = Memo::new(
+        move |previous: Option<&Option<(String, PhotoKind, String)>>| {
+            revision.track();
+            let (id, media_type, preview, full) = latest()?;
+            let (kind, media_type, data) = match &full {
+                Some(full) => {
+                    match crate::attachments::get(core, revision, med::COMPARTMENT, full) {
+                        Availability::Ready(data) => {
+                            (PhotoKind::Full, full.media_type.clone(), Some(data))
+                        }
+                        Availability::Loading => (PhotoKind::Loading, media_type, None),
+                        Availability::Unavailable => (PhotoKind::Unavailable, media_type, None),
+                    }
+                }
+                None => (PhotoKind::Full, media_type, None),
+            };
+            if let Some(Some((prev_id, prev_kind, src))) = previous
+                && *prev_id == id
+                && (*prev_kind == kind
+                    || (*prev_kind != PhotoKind::Full && kind != PhotoKind::Full))
+            {
+                return Some((id, kind, src.clone()));
+            }
+            let data = data.unwrap_or(preview);
+            Some((
+                id,
+                kind,
+                format!("data:{media_type};base64,{}", BASE64.encode(data)),
+            ))
+        },
+    );
     let on_file = {
         let tag = tag.clone();
         move |ev: leptos::ev::Event| {
@@ -453,14 +496,18 @@ fn PhotoSection(
             error.set(None);
             let tag = tag.clone();
             spawn_local(async move {
-                match crate::images::downscale(&file, &PHOTO_STEPS, record::MAX_PHOTO_BYTES).await {
-                    Ok(data) => {
-                        let photo = PhotoAdded {
-                            tag,
-                            media_type: "image/jpeg".to_owned(),
-                            data,
-                        };
-                        if core::add_photo(core, revision, &photo).is_err() {
+                let images = async {
+                    let full =
+                        crate::images::downscale(&file, &PHOTO_STEPS, record::MAX_FULL_PHOTO_BYTES)
+                            .await?;
+                    let preview =
+                        crate::images::downscale(&file, &PREVIEW_STEPS, record::MAX_PREVIEW_BYTES)
+                            .await?;
+                    Ok::<_, &'static str>((full, preview))
+                };
+                match images.await {
+                    Ok((full, preview)) => {
+                        if core::add_photo(core, revision, &tag, &full, preview).is_err() {
                             error.set(Some(text::PHOTO_TOO_LARGE));
                         }
                     }
@@ -475,7 +522,16 @@ fn PhotoSection(
         <section class="record__section" aria-labelledby="section-photo">
             <h3 id="section-photo" tabindex="-1">{text::PHOTO_TITLE}</h3>
             {move || match source.get() {
-                Some((_, src)) => view! { <img class="photo" src=src alt=alt.clone() /> }.into_any(),
+                Some((_, kind, src)) => view! {
+                    <img class="photo" src=src alt=alt.clone()
+                        data-photo=if kind == PhotoKind::Full { "full" } else { "preview" } />
+                    {match kind {
+                        PhotoKind::Full => None,
+                        PhotoKind::Loading => Some(view! { <p class="hint">{text::PHOTO_PREVIEW_LOADING}</p> }),
+                        PhotoKind::Unavailable => Some(view! { <p class="hint">{text::PHOTO_PREVIEW_UNAVAILABLE}</p> }),
+                    }}
+                }
+                .into_any(),
                 None => view! { <p>{text::PHOTO_NONE}</p> }.into_any(),
             }}
             <p class="hint" id="photo-purpose">{text::PHOTO_PURPOSE}</p>

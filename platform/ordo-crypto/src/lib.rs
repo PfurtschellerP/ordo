@@ -10,6 +10,7 @@ use ordo_core::{
 
 pub use ed25519_dalek;
 
+pub mod attachment;
 pub mod seal;
 
 /// Prefix of every signed message: `ORDO event v1` followed by a zero byte.

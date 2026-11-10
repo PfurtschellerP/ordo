@@ -315,13 +315,17 @@ Needs: impl, utest, itest
 Tags: must, m6
 
 #### Patient photo
-`dsn~patient-photo~1`
+`dsn~patient-photo~2`
 
 The device takes a photo with HTML media capture or reads an uploaded image, downscales
-it (longest side at most 800 px) and re-encodes it as JPEG, which drops camera and
-location metadata. An `epcr.photoAdded` event in `med.clinical` carries at most 160 KiB;
-the module rejects larger photos and other media types. The record shows the latest
-photo ([ADR-0028](../adr/0028-patient-photos-in-sealed-events.md)).
+it and re-encodes it as JPEG, which drops camera and location metadata: the full photo
+(longest side at most 1600 px, at most 1 MiB) and a preview (at most 240 px, 16 KiB). An
+`epcr.photoAttached` event in `med.clinical` carries the preview and refers to the full
+photo, an encrypted attachment (design item "Attachment transfer", chapter 8;
+[ADR-0033](../adr/0033-attachments-in-an-object-store.md)). The module rejects larger
+photos and other media types. The record shows the latest photo: the full photo once the
+device has it, the preview with a note until then. Older `epcr.photoAdded` events (photo
+inside the event, at most 160 KiB, ADR-0028) are still shown.
 
 Covers:
 

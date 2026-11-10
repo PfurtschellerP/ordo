@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use ordo_core::codec::{self, CodecError};
-use ordo_core::{Hlc, UserId};
+use ordo_core::{AttachmentRef, Hlc, UserId};
 use ordo_sync::AppliedEvent;
 use serde::{Deserialize, Serialize};
 
@@ -25,11 +25,20 @@ use serde::{Deserialize, Serialize};
 pub const MODULE: &str = "med.epcr";
 /// Event type: values of one form were recorded for a patient.
 pub const ENTRY_RECORDED: &str = "epcr.entryRecorded";
-/// Event type: a photo of a patient was added (for identification).
+/// Event type: a photo of a patient was added inside the event (ADR-0028, superseded;
+/// still read, no longer written).
 pub const PHOTO_ADDED: &str = "epcr.photoAdded";
-/// Largest photo in bytes. Photos travel inside sealed events (ADR-0028), so they are
-/// downscaled on the device before they are recorded.
+/// Event type: a photo of a patient was attached (ADR-0033): a small preview inside the
+/// event, the full image as an encrypted attachment.
+pub const PHOTO_ATTACHED: &str = "epcr.photoAttached";
+/// Largest photo inside an `epcr.photoAdded` event, in bytes.
 pub const MAX_PHOTO_BYTES: usize = 160 * 1024;
+/// Largest preview inside an `epcr.photoAttached` event, in bytes.
+pub const MAX_PREVIEW_BYTES: usize = 16 * 1024;
+/// Largest full photo (plaintext) of an `epcr.photoAttached` event, in bytes.
+pub const MAX_FULL_PHOTO_BYTES: usize = 1024 * 1024;
+/// Bytes the attachment encryption adds (nonce and tag, see `ordo_crypto::attachment`).
+const ATTACHMENT_OVERHEAD: u64 = 40;
 /// Media types accepted for photos.
 pub const PHOTO_MEDIA_TYPES: [&str; 2] = ["image/jpeg", "image/webp"];
 /// Longest text value, in characters.
@@ -571,6 +580,46 @@ impl PhotoAdded {
     }
 }
 
+/// Payload of `epcr.photoAttached`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhotoAttached {
+    /// Triage tag number of the patient.
+    pub tag: String,
+    /// Media type of the preview.
+    pub preview_type: String,
+    /// A small preview, re-encoded on the device (no camera metadata).
+    #[serde(with = "serde_bytes")]
+    pub preview: Vec<u8>,
+    /// The full photo, an encrypted attachment.
+    pub photo: AttachmentRef,
+}
+
+impl PhotoAttached {
+    /// Checks sizes and media types.
+    pub fn check(&self) -> Result<(), PhotoError> {
+        for media_type in [&self.preview_type, &self.photo.media_type] {
+            if !PHOTO_MEDIA_TYPES.contains(&media_type.as_str()) {
+                return Err(PhotoError::MediaType(media_type.clone()));
+            }
+        }
+        if self.preview.len() > MAX_PREVIEW_BYTES {
+            return Err(PhotoError::TooLarge(self.preview.len()));
+        }
+        if self.photo.size > MAX_FULL_PHOTO_BYTES as u64 + ATTACHMENT_OVERHEAD {
+            return Err(PhotoError::TooLarge(
+                usize::try_from(self.photo.size).unwrap_or(usize::MAX),
+            ));
+        }
+        Ok(())
+    }
+
+    /// CBOR payload; checks sizes and media types first.
+    pub fn encode(&self) -> Result<Vec<u8>, String> {
+        self.check().map_err(|e| e.to_string())?;
+        codec::to_cbor(self).map_err(|e| e.to_string())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The record, computed from events
 // ---------------------------------------------------------------------------
@@ -608,10 +657,12 @@ pub struct Entry {
 pub struct Photo {
     /// Event ID.
     pub id: String,
-    /// Media type.
+    /// Media type of `data`.
     pub media_type: String,
-    /// Bytes.
+    /// The photo inside the event: the preview, or the whole photo of older events.
     pub data: Vec<u8>,
+    /// The full photo as an attachment, if any.
+    pub full: Option<AttachmentRef>,
     /// When and by whom.
     pub at: Hlc,
 }
@@ -660,6 +711,7 @@ pub struct Records {
 enum Change {
     Entry(EntryRecorded),
     Photo(PhotoAdded),
+    Attached(PhotoAttached),
 }
 
 impl Records {
@@ -673,6 +725,7 @@ impl Records {
                 let change = match e.body.event_type.as_str() {
                     ENTRY_RECORDED => Change::Entry(codec::from_cbor(&e.payload).ok()?),
                     PHOTO_ADDED => Change::Photo(codec::from_cbor(&e.payload).ok()?),
+                    PHOTO_ATTACHED => Change::Attached(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e, change))
@@ -698,6 +751,23 @@ impl Records {
                                 id,
                                 media_type: photo.media_type,
                                 data: photo.data,
+                                full: None,
+                                at,
+                            });
+                    }
+                }
+                Change::Attached(photo) => {
+                    if photo.check().is_ok() {
+                        records
+                            .records
+                            .entry(photo.tag)
+                            .or_default()
+                            .photos
+                            .push(Photo {
+                                id,
+                                media_type: photo.preview_type,
+                                data: photo.preview,
+                                full: Some(photo.photo),
                                 at,
                             });
                     }
@@ -1075,7 +1145,7 @@ mod tests {
         assert!(record.entries["vitals"][0].replaced_by.is_some());
     }
 
-    // [utest->dsn~patient-photo~1]
+    // [utest->dsn~patient-photo~2]
     #[test]
     fn photos_are_limited_in_size_and_type() {
         let photo = |media_type: &str, len: usize| PhotoAdded {
@@ -1098,5 +1168,42 @@ mod tests {
         let records = Records::from_events(&[event(1, PHOTO_ADDED, ok)]);
         assert!(records.has_photo("DE-0042"));
         assert!(!records.has_photo("DE-0043"));
+    }
+
+    // [utest->dsn~patient-photo~2]
+    #[test]
+    fn attached_photos_keep_a_small_preview_and_refer_to_the_full_photo() {
+        let attached = |preview: usize, size: u64, media_type: &str| PhotoAttached {
+            tag: "DE-0042".into(),
+            preview_type: "image/jpeg".into(),
+            preview: vec![0xff; preview],
+            photo: AttachmentRef {
+                hash: [1; 32],
+                size,
+                media_type: media_type.into(),
+                key: [2; 32],
+            },
+        };
+        assert_eq!(
+            attached(MAX_PREVIEW_BYTES + 1, 1000, "image/jpeg").check(),
+            Err(PhotoError::TooLarge(MAX_PREVIEW_BYTES + 1))
+        );
+        assert!(
+            attached(1000, MAX_FULL_PHOTO_BYTES as u64 + 41, "image/jpeg")
+                .check()
+                .is_err()
+        );
+        assert!(attached(1000, 1000, "image/svg+xml").check().is_err());
+        let ok = attached(1000, 200_000, "image/jpeg")
+            .encode()
+            .expect("encodes");
+        assert!(ok.len() < 1300, "the event stays small: {} bytes", ok.len());
+        let records = Records::from_events(&[event(1, PHOTO_ATTACHED, ok)]);
+        let photo = records
+            .get("DE-0042")
+            .and_then(Record::photo)
+            .expect("photo");
+        assert_eq!(photo.data.len(), 1000, "the preview");
+        assert_eq!(photo.full.as_ref().map(|f| f.size), Some(200_000));
     }
 }
