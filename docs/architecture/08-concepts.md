@@ -293,7 +293,10 @@ flowchart LR
 
 ## 8.5 Security
 
-- **Transport:** TLS everywhere (rustls); ACME / Let's Encrypt or local certificates.
+- **Transport:** TLS everywhere; ACME / Let's Encrypt or local certificates; hybrid
+  post-quantum key exchange (X25519MLKEM768) first
+  ([ADR-0042](../adr/0042-post-quantum-readiness.md), which also lists every algorithm
+  ORDO uses).
 - **Compartments:** separate access rules, sync scope, keys and retention ([8.2](#82-data-compartments)).
 - **Devices:** own key pair per device, paired via QR code; revocation removes keys and
   stops sync. Data on the device is stored encrypted
@@ -310,6 +313,25 @@ flowchart LR
   pairing ([ADR-0038](../adr/0038-login-and-device-pairing.md)).
 
 ### 8.5.1 Design items
+
+#### Post-quantum transport
+`dsn~pq-transport~1`
+
+The TLS endpoint ORDO ships (Caddy in the Compose bundle) names its key exchange groups
+explicitly: X25519MLKEM768 first, then X25519, P-256 and P-384 for older clients. The
+container workflow starts that Caddy with the bundle's Caddyfile and runs
+`tests/tls/check_hybrid_tls.py` with OpenSSL 3.5, which offers only X25519MLKEM768 and
+fails unless the endpoint agrees on it. Operators with their own proxy run the same
+script. The algorithms and the plan to replace them are kept in
+[ADR-0042](../adr/0042-post-quantum-readiness.md).
+
+Covers:
+
+* [req~sec-14~1](../requirements/07-quality.md#sec-14--protection-against-later-decryption)
+
+Needs: itest
+
+Tags: must, m27
 
 #### Device proof
 `dsn~device-proof~1`

@@ -146,7 +146,10 @@ area, UHS) with time and person, shown as the record's *Patientenweg*; counts fo
 current unit, and the overview adds all units up; triage references (milestone `m26`,
 ADR-0045): the profile names the algorithms (DE: PRIOR, mSTaRT) with publisher, edition
 and source, shown as *Sichtungshilfe* next to the triage input; the algorithm used is
-recorded with every triage, the category stays the person's choice.
+recorded with every triage, the category stays the person's choice; post-quantum transport
+(milestone `m27`, ADR-0042): the Compose bundle's TLS endpoint offers the hybrid key
+exchange X25519MLKEM768 first, checked in CI; ADR-0042 lists every algorithm and how each
+is replaced.
 
 *Incident and command (Einsatzleitung)*
 
@@ -218,7 +221,7 @@ recorded with every triage, the category stays the person's choice.
 Then:
 
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
-   clinical data): post-quantum plan with crypto agility and hybrid TLS check (ADR-0042);
+   clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
    supply chain with SBOM (CycloneDX), build provenance, signed images and OpenSSF
    Scorecard (ADR-0043); later the device lock with WebAuthn PRF or PIN (SEC-13).
 2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names

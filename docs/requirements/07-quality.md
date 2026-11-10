@@ -265,6 +265,15 @@ Tags: must, quality, m10
 
 Needs: dsn
 
+#### SEC-14 — Protection against later decryption
+`req~sec-14~1`
+
+ORDO shall protect network traffic against decryption by future quantum computers with a hybrid key exchange (classical and post-quantum) wherever the TLS endpoint it ships supports one, and shall keep every cryptographic algorithm it uses documented and replaceable by a new version.
+
+Tags: must, quality, m27
+
+Needs: dsn
+
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 

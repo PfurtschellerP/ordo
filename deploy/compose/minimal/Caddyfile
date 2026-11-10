@@ -1,6 +1,11 @@
 # Automatic HTTPS for ORDO_DOMAIN (Let's Encrypt; local CA for "localhost").
 # WebSocket connections to /sync are proxied as well; /dex goes to the login (Dex).
 {$ORDO_DOMAIN} {
+	# Hybrid post-quantum key exchange first (ML-KEM-768 with X25519), classical ones for
+	# older clients; checked in CI with tests/tls/check_hybrid_tls.py (ADR-0042).
+	tls {
+		curves x25519mlkem768 x25519 secp256r1 secp384r1
+	}
 	encode zstd gzip
 	handle /dex* {
 		reverse_proxy dex:5556
