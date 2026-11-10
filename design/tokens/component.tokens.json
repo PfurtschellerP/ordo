@@ -143,6 +143,12 @@
       "lineHeight": {
         "$value": "{font.lineHeight.body}"
       }
+    },
+    "navigationBar": {
+      "labelSize": {
+        "$value": "{font.size.0}",
+        "$description": "Labels under the icons of the phone's bottom bar: four views and the menu fit in one line each."
+      }
     }
   }
 }

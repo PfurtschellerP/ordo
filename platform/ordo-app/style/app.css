@@ -430,18 +430,18 @@
       padding: var(--ordo-space-2) var(--ordo-space-2) calc(var(--ordo-space-2) + env(safe-area-inset-bottom));
       border-right: 0; border-top: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
     }
-    .views { flex: 1 1 auto; flex-direction: row; min-width: 0; }
+    .views { flex: 1 1 auto; flex-direction: row; min-width: 0; gap: var(--ordo-space-1); }
     /* Icon above a short label (Material navigation bar, iOS tab bar): five places fit a
        phone; the labels stay, icons alone are not understood reliably. */
     .views__item, .launcher__button {
       flex-direction: column; justify-content: center; gap: var(--ordo-space-1);
-      padding: var(--ordo-space-1); font-size: var(--ordo-font-size-1); line-height: 1.2;
+      padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
     }
-    .views__item { flex: 1 1 0; text-align: center; min-width: 0; hyphens: auto; overflow-wrap: break-word; }
+    .views__item { flex: 1 1 0; text-align: center; min-width: 0; padding-inline: 0; hyphens: auto; overflow-wrap: break-word; }
     .launcher { order: 2; flex: none; position: static; }
     /* Left-handed use (ADR-0049): the menu at the start of the bar. */
     :root[data-hand="left"] .launcher { order: -1; }
-    .launcher__button { height: 100%; padding-inline: var(--ordo-space-3); }
+    .launcher__button { height: 100%; padding-inline: var(--ordo-space-2); }
     /* Anchored to the bar itself (the fixed .navigation is its containing block), so it
        sits right above the bar whatever the bar's height (fonts, text size). */
     .launcher__panel {

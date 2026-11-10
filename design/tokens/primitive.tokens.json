@@ -578,6 +578,13 @@
     "size": {
       "$type": "dimension",
       "$description": "Type scale in rem. Body text is size 3 (18 px at default settings) for reading at arm's length.",
+      "0": {
+        "$value": {
+          "value": 0.75,
+          "unit": "rem"
+        },
+        "$description": "Labels under icons in the phone's bottom bar only (12 px at default settings, as Material's navigation bar); never for running text."
+      },
       "1": {
         "$value": {
           "value": 0.875,
