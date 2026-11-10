@@ -507,6 +507,26 @@ impl Replica {
         Ok(())
     }
 
+    // [impl->dsn~incident-log~1]
+    /// The incident log (LOG-1, LOG-3, LOG-6): the events of every compartment of
+    /// `incident` this device holds, newest first. A compartment the device cannot open
+    /// (no key) is left out, as its events are not for this user.
+    pub fn log(&self, incident: &IncidentId) -> Vec<AppliedEvent> {
+        let compartments: BTreeSet<&CompartmentId> = self
+            .streams
+            .keys()
+            .chain(self.outbox.iter().map(|(k, _)| k))
+            .filter(|(i, _)| i == incident)
+            .map(|(_, c)| c)
+            .collect();
+        crate::log::newest_first(
+            compartments
+                .into_iter()
+                .filter_map(|c| self.events(incident, c.as_str()).ok())
+                .flatten(),
+        )
+    }
+
     /// The events of a stream as modules see them: ordered events first, then the
     /// device's own unconfirmed events, with payloads decrypted.
     pub fn events(

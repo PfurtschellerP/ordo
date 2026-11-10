@@ -116,6 +116,22 @@ pub const WORKSPACES: &[Workspace] = &[
     },
     // The incident command sees its own devices; with `manage_devices` (administrators),
     // all devices. UHS crews unpair their device in the menu.
+    // [impl->dsn~incident-log~1]
+    // Everyone in the incident; each device shows only what its user may read (LOG-6).
+    Workspace {
+        id: "incident.log",
+        package: text::TAB_INCIDENT,
+        label: text::LOG_TITLE,
+        requires: &["incident"],
+        permission: None,
+        or_organisation: None,
+        views: &[View {
+            id: "log",
+            label: text::LOG_TITLE,
+            name: "incident log diary",
+            icon: "notebook-text",
+        }],
+    },
     Workspace {
         id: "org.devices",
         package: text::TAB_ORGANISATION,
@@ -271,6 +287,6 @@ mod tests {
         for w in WORKSPACES {
             assert!(!w.views.is_empty(), "{}", w.id);
         }
-        assert_eq!(packages().len(), 3);
+        assert_eq!(packages().len(), 4);
     }
 }

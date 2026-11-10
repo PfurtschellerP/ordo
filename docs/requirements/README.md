@@ -122,6 +122,7 @@ the build fails.
 | 33 — Situation map | `m33` | Map with the incident, units, UHS and positions placed; offline region (MAP-1, MAP-2, ADR-0006) |
 | 34 — Tactical symbols | `m34` | Symbols generated per DV 102 into the profile, chosen by unit type, service, UHS and position kind (MAP-3) |
 | 35 — Licence notices | `m35` | ORDO's licence, its source code and the notices of all shipped third-party parts, linked from every screen (LIC-1) |
+| 36 — Automatic incident log | `m36` | Every change with time, author and device; corrections as new entries; each person sees only what they may read (LOG-1, LOG-3, LOG-6) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -130,5 +131,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36 docs platform modules packages tests
 ```

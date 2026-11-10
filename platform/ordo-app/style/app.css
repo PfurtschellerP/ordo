@@ -641,6 +641,18 @@
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
   .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }
   .map-object .row { margin-inline-start: auto; }
+  /* Incident log (LOG-1, LOG-3, LOG-6): time, what, who; newest first. */
+  .log-entries { list-style: none; margin: 0 0 var(--ordo-space-4); padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .log-entry {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--ordo-space-3);
+    padding-block: var(--ordo-space-2); border-bottom: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    overflow-wrap: anywhere;
+  }
+  .log-entry__time { font-family: var(--ordo-font-family-mono); font-variant-numeric: tabular-nums; grid-row: span 2; }
+  .log-entry__by { grid-column: 2; color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
+  .log-entry__pending { font-weight: var(--ordo-font-weight-bold); }
+  .log-entry__corrects { color: var(--ordo-color-text-link); }
+  .log-entry:target { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
   /* Footer under every screen and the licence page (LIC-1). */
   .site-footer {
     padding: var(--ordo-space-4) var(--ordo-space-5);

@@ -53,6 +53,7 @@ pub fn pending(n: usize) -> String {
 pub const TAB_MED: &str = "Sanität";
 pub const TAB_COMMAND: &str = "Einsatzleitung";
 pub const TAB_ORGANISATION: &str = "Organisation";
+pub const TAB_INCIDENT: &str = "Einsatz";
 
 pub const DEVICES: &str = "Geräte";
 pub const DEVICES_INTRO_OWN: &str = "Die eigenen gekoppelten Geräte. Ein verlorenes oder gestohlenes Gerät hier sperren: Es wird sofort getrennt und löscht seine Daten, sobald es sich wieder verbindet.";
@@ -1060,3 +1061,94 @@ pub const NOTICES_USED_SYMBOLS: &str = "Taktische Zeichen (gezeichnet beim Erste
 pub const NOTICES_USED_STORAGE: &str = "Datenspeicher auf dem Gerät";
 pub const NOTICES_USED_MAP_DATA: &str = "Kartendaten, wo eine Kartengrundlage eingerichtet ist";
 pub const NOTICES_PUBLIC_DOMAIN: &str = "gemeinfrei (Public Domain)";
+
+// Incident log (LOG-1, LOG-3, LOG-6)
+pub const LOG_TITLE: &str = "Einsatztagebuch";
+pub const LOG_HINT: &str = "Jede Änderung in diesem Einsatz, die dieses Gerät kennt, mit Zeit, Person und Gerät, die neueste zuerst. Einträge werden nie geändert: Eine Korrektur ist ein neuer Eintrag, der auf den alten verweist.";
+pub const LOG_EMPTY: &str = "Noch keine Einträge.";
+pub const LOG_PENDING: &str = "noch nicht gesendet";
+
+pub fn log_by(user: &str, device: &str) -> String {
+    format!("{user} · Gerät {device}")
+}
+
+pub fn log_corrects(at: &str) -> String {
+    format!("(korrigiert den Eintrag von {at})")
+}
+
+pub fn log_unknown(module: &str, event_type: &str) -> String {
+    format!("{module}: {event_type}")
+}
+
+pub fn log_planned(name: &str) -> String {
+    format!("Einsatz „{name}“ angelegt")
+}
+
+pub fn log_unit_added(unit: &str, unit_type: &str, organisation: &str) -> String {
+    format!("{} ({unit_type}, {organisation})", unit_added(unit))
+}
+
+pub fn log_crew(unit: &str, n: usize) -> String {
+    match n {
+        0 => format!("Besatzung von {unit}: niemand"),
+        1 => format!("Besatzung von {unit}: 1 Person"),
+        n => format!("Besatzung von {unit}: {n} Personen"),
+    }
+}
+
+pub fn log_task_given(to: &str, task: &str) -> String {
+    format!("Auftrag an {to}: {task}")
+}
+
+pub fn log_task_updated(task: &str, status: Option<&str>) -> String {
+    match status {
+        Some(s) => format!("Auftrag „{task}“: {s}"),
+        None => format!("Auftrag „{task}“: Nachfrage geändert"),
+    }
+}
+
+pub fn log_position_closed(title: &str) -> String {
+    format!("{title} aufgelöst")
+}
+
+pub fn log_leader(title: &str, leader: &str) -> String {
+    format!("{title}: Leitung {leader}")
+}
+
+pub fn log_assigned(what: &str, position: Option<&str>) -> String {
+    match position {
+        Some(p) => format!("{what} unterstellt: {p}"),
+        None => format!("{what}: Unterstellung aufgehoben"),
+    }
+}
+
+pub fn log_map_placed(label: &str) -> String {
+    format!("{label} auf der Lagekarte platziert")
+}
+
+pub fn log_map_removed(label: &str) -> String {
+    format!("{label} von der Lagekarte entfernt")
+}
+
+pub fn log_places(uhs: &str, n: usize) -> String {
+    format!("{uhs}: {n} Behandlungsplätze")
+}
+
+pub fn log_transport(kind: &str, uhs: &str) -> String {
+    format!("{kind} ab {uhs}")
+}
+
+pub fn log_transport_requested(transport: &str) -> String {
+    format!("Transport angefordert: {transport}")
+}
+
+pub fn log_transport_updated(transport: &str, status: &str, unit: Option<&str>) -> String {
+    match unit {
+        Some(u) => format!("Transport {transport}: {status} ({u})"),
+        None => format!("Transport {transport}: {status}"),
+    }
+}
+
+pub fn log_order_updated(tag: &str, status: &str) -> String {
+    format!("{tag}: Anordnung {status}")
+}

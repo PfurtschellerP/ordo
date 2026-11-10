@@ -6,6 +6,7 @@ mod core;
 mod devices;
 mod images;
 mod incidents;
+mod log;
 mod nav;
 mod notices;
 mod orders;

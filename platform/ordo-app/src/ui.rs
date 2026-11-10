@@ -28,6 +28,7 @@ fn svg(name: &str) -> &'static str {
         "id-card",
         "layout-grid",
         "map",
+        "notebook-text",
         "refresh-cw",
         "search",
         "tablet-smartphone",

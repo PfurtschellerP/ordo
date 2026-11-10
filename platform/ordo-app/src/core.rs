@@ -1638,6 +1638,30 @@ pub fn local_time_ms(value: &str) -> Option<u64> {
     (ms.is_finite() && ms >= 0.0).then_some(ms as u64)
 }
 
+/// Local time of day with seconds, `HH:MM:SS` (incident log).
+pub fn clock_seconds(ms: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
+    format!("{}:{:02}", clock(ms), date.get_seconds())
+}
+
+/// Local date, `DD.MM.YYYY`, of a timestamp in milliseconds.
+pub fn date(ms: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
+    format!(
+        "{:02}.{:02}.{}",
+        date.get_date(),
+        date.get_month() + 1,
+        date.get_full_year()
+    )
+}
+
+/// A timestamp in milliseconds as ISO 8601 in UTC, for `<time datetime>`.
+pub fn iso_time(ms: u64) -> String {
+    js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64))
+        .to_iso_string()
+        .into()
+}
+
 /// Local date and time, `DD.MM.YYYY, HH:MM`, of a timestamp in milliseconds.
 pub fn date_time(ms: u64) -> String {
     let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));

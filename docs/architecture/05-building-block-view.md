@@ -402,6 +402,33 @@ Needs: impl, utest, itest
 
 Tags: must, m34
 
+#### Incident log
+`dsn~incident-log~1`
+
+The automatic incident log (*Einsatztagebuch*) is a view over the events a device holds,
+not a store of its own ([ADR-0001](../adr/0001-local-first-event-sourcing.md)). Every
+change is an event with its time (hybrid logical clock), author and device, so the log is
+complete by construction (LOG-1). Events are never changed or deleted; a correction is a
+new event naming the one it corrects, and the log shows that link (LOG-3). A device holds
+only the compartments its user may read, so each person's log shows only those entries,
+and the command's log has no clinical details (LOG-6).
+
+`ordo_sync::log` orders the events of all compartments of the incident by their clock,
+newest first, and marks those still waiting in the outbox. The app describes each event
+in words from the event's own data, using the profile's labels where it has them; an
+event type it does not know is shown with its module and type, never left out. The log is
+its own workspace, *Einsatztagebuch*, open to everyone in the incident, grouped by day.
+
+Covers:
+
+* [req~log-1~1](../requirements/02-shared.md#log-1--automatic-log)
+* [req~log-3~1](../requirements/02-shared.md#log-3--append-only-log)
+* [req~log-6~1](../requirements/02-shared.md#log-6--log-respects-compartments)
+
+Needs: impl, utest, itest
+
+Tags: must, m36
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS registry

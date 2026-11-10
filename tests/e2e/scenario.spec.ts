@@ -92,7 +92,6 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".notices__crates .notice").first(), "the crates' notices, made at build time").toBeAttached({ timeout: 15_000 });
     await expect(dora.locator(".notices__crates"), "with the licence texts as the crates ship them").toContainText("leptos");
     await audit(dora, "Licence notices");
-    await shot(dora, "notices");
     await dora.getByRole("link", { name: "Zurück" }).click();
     await expect(dora.getByRole("button", { name: "Anmelden" }), "back where the person came from").toBeVisible();
     // [itest->dsn~oidc-login~1]
@@ -903,6 +902,37 @@ test("ORDO in the browser", async ({ browser }) => {
     await shot(ben, "transports");
   });
 
+  // [itest->dsn~incident-log~1]
+  await test.step("the incident log: every change, corrections linked, only what each may read", async () => {
+    await ben.locator("#launcher-button").click();
+    await ben.locator(".launcher__item", { hasText: "Einsatztagebuch" }).click();
+    await expect.poll(() => title(ben)).toContain("Einsatz – Einsatztagebuch");
+    const added = ben.locator(".log-entry", { hasText: "Einsatzmittel RTW 83/1 hinzugefügt" }).last();
+    await expect(added, "LOG-1: each change with time, author and device").toContainText(/^\d\d:\d\d:\d\d/);
+    await expect(added.locator(".log-entry__by")).toHaveText(/^ben@localhost · Gerät \w{6}$/);
+    await expect(ben.locator(".log-entry[data-type='units.statusChanged']").first(), "status changes are logged").toContainText("RTW 83/1: Status");
+    await expect(ben.locator(".log-entry[data-type='transport.updated']").first(), "and transports").toBeVisible();
+    await expect(ben.locator(".log-entry[data-type^='patients.'], .log-entry[data-type^='epcr.'], .log-entry[data-type^='orders.']"), "LOG-6: no clinical entries in the command's log").toHaveCount(0);
+    await audit(ben, "Incident log");
+    await shot(ben, "incident-log");
+
+    const medic = await newDevice(browser);
+    await loginPair(medic, server, "anna@example.org");
+    await openIncident(medic, INCIDENT);
+    await medic.locator("#launcher-button").click();
+    await medic.locator(".launcher__item", { hasText: "Einsatztagebuch" }).click();
+    await expect(medic.locator(".log-entry", { hasText: "Patient DE-0042 registriert" }), "the medic's log has the clinical entries").toHaveCount(1);
+    const correction = medic.locator(".log-entry__corrects").first();
+    await expect(correction, "LOG-3: a correction is a new entry that links to the old one").toHaveText(/^\(korrigiert den Eintrag von \d\d:\d\d:\d\d\)$/);
+    const corrected = medic.locator(`[id='${(await correction.getAttribute("href"))!.slice(1)}']`);
+    await expect(corrected, "which stays in the log").toContainText(/Vitalwerte für Patient DE-\d{4}/);
+    await medic.context().close();
+
+    await ben.locator("#launcher-button").click();
+    await ben.locator(".launcher__item", { hasText: "Lage" }).first().click();
+    await expect.poll(() => title(ben)).toContain("Einsatzleitung");
+  });
+
   // [itest->dsn~uhs-discharge~1]
   await test.step("the UHS discharges the transported patient; the load drops", async () => {
     const medic = await newDevice(browser);
@@ -971,7 +1001,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator("#launcher-button").click();
     await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
     await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(6);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();
@@ -979,7 +1009,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(5);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(6);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

@@ -872,6 +872,7 @@ fn Workspace(
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
                     }.into_any(),
+                    (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
                     (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}

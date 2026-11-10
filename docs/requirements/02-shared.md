@@ -280,7 +280,7 @@ Needs: dsn
 
 Every change is logged automatically with time, author and device
 
-Tags: must, shared
+Tags: must, shared, m36
 
 Needs: dsn
 
@@ -298,7 +298,7 @@ Needs: dsn
 
 The log is append-only: entries can be corrected only by a new entry that references the old one
 
-Tags: must, shared
+Tags: must, shared, m36
 
 Needs: dsn
 
@@ -325,7 +325,7 @@ Needs: dsn
 
 Each user sees only log entries from compartments they may read (e.g. no clinical details in the command log)
 
-Tags: must, shared
+Tags: must, shared, m36
 
 Needs: dsn
 
