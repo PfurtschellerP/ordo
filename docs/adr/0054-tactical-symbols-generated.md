@@ -32,6 +32,8 @@ few parameters, while the app stays free of it and the profile stays plain data:
   files; CI checks that the files are what it generates. Each file carries the library's
   licence notice.
 * The app embeds the files at build time, so symbols work offline with no extra request.
+* Where the library cannot draw a sign of the 2024 edition yet, the profile keeps a file
+  drawn by hand, its source named in the file (no `spec`; the check only wants the file).
 * Without the embedded font, a few labels fall back to the device's serif font.
 
 ### Consequences
@@ -40,8 +42,8 @@ few parameters, while the app stays free of it and the profile stays plain data:
   files, generated or drawn.
 * Good, because the app does not load the library.
 * Bad, because a library update can change the drawings; CI shows it as a diff to review.
-* Bad, because whether the drawings match the BBK's 2024 recommendations must still be
-  checked before field use.
+* Bad, because the library follows DV 102 in parts older than the BBK's 2024 edition; the
+  profile records the comparison and draws the differences by hand.
 
 ## More Information
 

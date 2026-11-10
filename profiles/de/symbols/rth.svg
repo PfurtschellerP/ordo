@@ -1,3 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Drawn by @taktische-zeichen/core 0.11.0 (https://github.com/phjardas/taktische-zeichen). Copyright 2022-2026 Philipp Jardas. SPDX-License-Identifier: MIT -->
-<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 38 23" xmlns="http://www.w3.org/2000/svg"><defs /><g><path d="M19,2 v20 m-10,0 h20" /><path d="M5,1 h10 a4 4 0 0 1 0 8 h-10 a4 4 0 0 1 0 -8 Z" fill="#ffffff" /><path d="M23,1 h10 a4 4 0 0 1 0 8 h-10 a4 4 0 0 1 0 -8 Z" fill="#ffffff" /></g></svg>
+<!-- SPDX-FileCopyrightText: ORDO contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Drawn by hand after BBK, Taktische Zeichen im Bevölkerungsschutz (2024), 1.4 Luftfahrzeug, 5.1.4.2 Drehflügler, 4.6.4 Arztwesen and F.2.7 (short name outside at the top left). -->
+<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 52 46" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="rth_luftfahrzeug"><path d="M7,32 A21.5,24 0 0 1 50,32 Z" /></clipPath></defs><text x="0" y="8.5" font-size="9" style="font-family:Roboto Slab;font-weight:bold;letter-spacing:-0.5px" fill="black" stroke="none">RTH</text><path d="M7,32 A21.5,24 0 0 1 50,32 Z" fill="#ffffff" /><g clip-path="url(#rth_luftfahrzeug)"><path d="M0,20 H52 M28.5,0 V32 M23,26 H34" /></g><path d="M17,35 L28.5,39 L17,43 Z M40,35 L28.5,39 L40,43 Z" fill="black" stroke="none" /></svg>

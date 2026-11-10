@@ -386,12 +386,13 @@ object gets: by unit type, else by the unit's service; by UHS kind; by position 
 one for the incident location. The tool `tools/symbols` generates the SVG files from the
 descriptions with `@taktische-zeichen/core` (MIT, pinned), without an embedded font, and
 CI checks that the files in the profile are what it generates; each file carries the
-library's licence notice ([ADR-0054](../adr/0054-tactical-symbols-generated.md)). The app
-embeds the symbols at build time; the map shows each object with its symbol and its label (never the symbol
-alone), and the list beside the map shows the symbol too, named by its label. Symbols
-are drawn black on white, as on paper, in every theme. Objects without a symbol keep
-the plain marker. Whether the generated symbols match the BBK's recommendations (2024)
-must be checked before field use; another profile can ship other files.
+library's licence notice ([ADR-0054](../adr/0054-tactical-symbols-generated.md)). A
+symbol without a description is drawn by hand where the library cannot follow the BBK's
+2024 edition; the profile records that comparison. The app embeds the symbols at build
+time; the map shows each object with its symbol and its label (never the symbol alone),
+and the list beside the map shows the symbol too, named by its label. Symbols are drawn
+black on white, as on paper, in every theme. Objects without a symbol keep the plain
+marker. Another profile can ship other files.
 
 Covers:
 

@@ -1,3 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Drawn by @taktische-zeichen/core 0.11.0 (https://github.com/phjardas/taktische-zeichen). Copyright 2022-2026 Philipp Jardas. SPDX-License-Identifier: MIT -->
-<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="tz_stelle"><circle cx="22.5" cy="22.5" r="21.5" /></clipPath></defs><circle cx="22.5" cy="22.5" fill="#ffffff" r="21.5" /><g clip-path="url(#tz_stelle)"><g transform="translate(5,16.52777777777778) scale(0.5555555555555556)"><text fill="currentColor" stroke="none" style="font-family:Roboto Slab;font-size:30px;font-weight:bold;letter-spacing:-1px" x="0" y="21.5"><![CDATA[UHS]]></text></g></g></svg>
+<!-- SPDX-FileCopyrightText: ORDO contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Drawn by hand after BBK, Taktische Zeichen im Bevölkerungsschutz (2024), F.3.3 Unfallhilfsstelle/Sanitätsstation: place with the medical sign, "UHS" outside at the top left. -->
+<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="uhs_stelle"><circle cx="29.5" cy="29.5" r="21.5" /></clipPath></defs><text x="0" y="8.5" font-size="9" style="font-family:Roboto Slab;font-weight:bold;letter-spacing:-0.5px" fill="black" stroke="none">UHS</text><circle cx="29.5" cy="29.5" r="21.5" fill="#ffffff" /><g clip-path="url(#uhs_stelle)"><path d="M8,29.5 H51 M29.5,8 V51" /></g></svg>

@@ -1,3 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Drawn by @taktische-zeichen/core 0.11.0 (https://github.com/phjardas/taktische-zeichen). Copyright 2022-2026 Philipp Jardas. SPDX-License-Identifier: MIT -->
-<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="tz_stelle"><circle cx="22.5" cy="22.5" r="21.5" /></clipPath></defs><circle cx="22.5" cy="22.5" fill="#ffffff" r="21.5" /><g clip-path="url(#tz_stelle)"><g transform="translate(5,13.09375) scale(0.875)"><text fill="currentColor" stroke="none" style="font-family:Roboto Slab;font-size:30px;font-weight:bold;letter-spacing:-1px" x="0" y="21.5"><![CDATA[PA]]></text></g></g></svg>
+<!-- SPDX-FileCopyrightText: ORDO contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Drawn by hand after BBK, Taktische Zeichen im Bevölkerungsschutz (2024), F.3.1 Patientenablage: place with the medical sign, a double arrow in the upper half. -->
+<svg color="black" fill="transparent" stroke="black" stroke-width="2" viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="pa_stelle"><circle cx="22.5" cy="22.5" r="21.5" /></clipPath></defs><circle cx="22.5" cy="22.5" r="21.5" fill="#ffffff" /><g clip-path="url(#pa_stelle)"><path d="M0,22.5 H45 M22.5,22.5 V45" /><path d="M11,13 H34 M15.5,8.5 L11,13 L15.5,17.5 M29.5,8.5 L34,13 L29.5,17.5" /></g></svg>

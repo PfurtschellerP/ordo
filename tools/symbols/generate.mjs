@@ -1,6 +1,7 @@
 // Generates the tactical symbols of a profile (MAP-3) from its symbols.json with
-// @taktische-zeichen/core (MIT, DV 102): one SVG per symbol, without an embedded font, so
-// the app stays small. With --check, compares instead of writing (CI).
+// @taktische-zeichen/core (MIT, DV 102): one SVG per symbol with a `spec`, without an
+// embedded font, so the app stays small. Symbols without a spec are drawn by hand; only
+// their file must exist. With --check, compares instead of writing (CI).
 //
 //   node generate.mjs ../../profiles/de/symbols          write <id>.svg
 //   node generate.mjs ../../profiles/de/symbols --check  fail if a file differs
@@ -25,7 +26,16 @@ if (!dir) {
 const check = flag === "--check";
 const { symbols } = JSON.parse(readFileSync(join(dir, "symbols.json"), "utf8"));
 let differ = 0;
+let generated = 0;
 for (const { id, spec } of symbols) {
+  if (!spec) {
+    if (!existsSync(join(dir, `${id}.svg`))) {
+      console.error(`${id}: drawn by hand, but ${id}.svg is missing`);
+      differ++;
+    }
+    continue;
+  }
+  generated++;
   const drawn = erzeugeTaktischesZeichen({ ...spec, skipFontRegistration: true }).toString();
   const svg = drawn.replace("?>\n", `?>\n${NOTICE}\n`) + "\n";
   const file = join(dir, `${id}.svg`);
@@ -39,4 +49,4 @@ for (const { id, spec } of symbols) {
   }
 }
 if (differ) process.exit(1);
-console.log(`${symbols.length} symbols ${check ? "up to date" : "written"} in ${dir}`);
+console.log(`${generated} symbols ${check ? "up to date" : "written"} in ${dir}, ${symbols.length - generated} drawn by hand`);
