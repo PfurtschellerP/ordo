@@ -457,6 +457,28 @@ Needs: impl, utest, itest
 
 Tags: should, m16
 
+#### Person suggestions
+`dsn~person-suggestions~1`
+
+A form field that names a member of the crew is, in the profile's questionnaire, a
+`reference` item limited to `Practitioner` (extension `questionnaire-referenceResource`,
+[subset](../../spec/profiles/questionnaire-subset.md)); the DE forms mark "Durchgeführt
+von", "Angeordnet durch" and "Verabreicht durch" so. The answer stays text, as typed or
+chosen. Such a field suggests the people on the incident's roster, the person using the
+device first: data every participant's device already has. Granting a role suggests the
+people the installation knows (with a paired device or a role in any incident): the device
+asks the server (`listPeople`), which answers only those who may grant roles somewhere and
+sends others an empty list. Suggestions are a native `datalist` behind one shared input
+component (`ui.rs`); any other name is accepted, and the server still decides on the grant.
+
+Covers:
+
+* [req~ux-13~1](../requirements/07-quality.md#ux-13--suggest-people-in-person-fields)
+
+Needs: impl, utest, itest
+
+Tags: should, m20
+
 #### Command palette
 `dsn~command-palette~1`
 

@@ -144,6 +144,17 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 })
         })
     });
+    // [impl->dsn~person-suggestions~1]
+    // Those who grant roles get the people the server knows as suggestions.
+    Effect::new(move || {
+        if manage.get() {
+            core::list_people(core);
+        }
+    });
+    let people = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.people.iter().map(ToString::to_string).collect::<Vec<_>>())
+    });
     let person = RwSignal::new(String::new());
     let role = RwSignal::new(text::ROLES[0].0.to_owned());
     let error = RwSignal::new(None::<String>);
@@ -240,7 +251,9 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <form class="form form--inline" on:submit=grant>
                     <div class="field">
                         <label for="roster-person">{text::ROSTER_PERSON}</label>
-                        <input id="roster-person" type="text" required autocomplete="off" spellcheck="false" bind:value=person />
+                        <input id="roster-person" type="text" required autocomplete="off" spellcheck="false"
+                            list="roster-person-people" bind:value=person />
+                        <crate::ui::PeopleList id="roster-person-people" people=people />
                     </div>
                     <div class="field">
                         <label for="roster-role">{text::ROSTER_ROLE}</label>

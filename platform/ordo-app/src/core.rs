@@ -72,6 +72,8 @@ pub struct Core {
     pub incident: Option<IncidentId>,
     /// The incidents the user may open, as last listed by the server.
     pub incidents: Option<Vec<IncidentSummary>>,
+    /// The people the server knows, as last listed (for granting roles).
+    pub people: Vec<UserId>,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -147,6 +149,7 @@ impl Core {
         Ok(Self {
             incident,
             incidents: None,
+            people: Vec::new(),
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -318,6 +321,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::Incidents(list) = &message {
                 c.incidents = Some(list.clone());
+            }
+            if let ServerMessage::People(list) = &message {
+                c.people = list.clone();
             }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
@@ -1006,6 +1012,26 @@ pub const COMMANDER: &str = "commander";
 /// Asks the server for the incidents the user may open.
 pub fn list_incidents(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::ListIncidents));
+}
+
+// [impl->dsn~person-suggestions~1]
+/// Asks the server for the people it knows (answered only to those who grant roles).
+pub fn list_people(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::ListPeople));
+}
+
+/// The people of the chosen incident's roster, the person using the device first.
+pub fn incident_people(core: Handle) -> Vec<String> {
+    core.with_value(|c| {
+        let me = c.replica.user().to_string();
+        let others = c
+            .incident_info()
+            .map(|i| i.roster.keys().map(ToString::to_string).collect::<Vec<_>>())
+            .unwrap_or_default();
+        std::iter::once(me.clone())
+            .chain(others.into_iter().filter(|u| *u != me))
+            .collect()
+    })
 }
 
 /// Grants (or withdraws) `role` in the chosen incident to `user`.

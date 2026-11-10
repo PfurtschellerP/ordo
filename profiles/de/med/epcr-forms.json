@@ -1186,7 +1186,13 @@
         {
           "linkId": "measures.performed_by",
           "text": "Durchgeführt von",
-          "type": "string"
+          "type": "reference",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource",
+              "valueCode": "Practitioner"
+            }
+          ]
         }
       ]
     },
@@ -1333,12 +1339,24 @@
         {
           "linkId": "medication.ordered_by",
           "text": "Angeordnet durch",
-          "type": "string"
+          "type": "reference",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource",
+              "valueCode": "Practitioner"
+            }
+          ]
         },
         {
           "linkId": "medication.given_by",
           "text": "Verabreicht durch",
-          "type": "string"
+          "type": "reference",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource",
+              "valueCode": "Practitioner"
+            }
+          ]
         }
       ]
     },

@@ -123,7 +123,10 @@ assigns transports to a hospital or a free-text destination, and sees in *Transp
 open requests, the free transport units and the patients sent to each hospital; the unit
 status codes moved from the app into the profile (`units/status-codes.toml`); planned
 transports (milestone `m19`): a request can name a later date and time, and the board
-lists planned transports apart, the earliest first.
+lists planned transports apart, the earliest first; person suggestions (milestone `m20`):
+form fields that name a member of the crew (FHIR `reference` to `Practitioner`) suggest the
+incident's people, and granting a role suggests the people the installation knows
+(`listPeople`, only for those who grant roles); any other name is accepted.
 
 *Incident and command (Einsatzleitung)*
 
@@ -183,7 +186,6 @@ lists planned transports apart, the earliest first.
 
 - **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
   every list, alongside the arrow keys (extends ADR-0036).
-- **Person fields** suggest the registered users of the installation; free text allowed.
 - **API microversioning:** every interface (sync protocol, HTTP APIs, later federation)
   states a version per request: the client names the version it speaks (e.g. a header
   `ORDO-API-Version: 1.4`, in the sync protocol a field of `hello`), the server announces the

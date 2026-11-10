@@ -431,6 +431,7 @@ impl Replica {
             // Device and incident lists are for the app, not for the replica.
             ServerMessage::Devices(_)
             | ServerMessage::Incidents(_)
+            | ServerMessage::People(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::BlobTicket(_) => Ok(()),
             ServerMessage::Rejected(rejected) => {

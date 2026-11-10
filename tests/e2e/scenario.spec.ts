@@ -176,6 +176,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
     await saveForm(anna, "history");
 
+    // [itest->dsn~person-suggestions~1]
+    await anna.locator("#new-medication").click();
+    const givenBy = anna.locator("#f-medication-given_by");
+    await expect(givenBy, "a person field suggests the incident's people").toHaveAttribute("list", "f-medication-given_by-people");
+    const suggested = anna.locator("#f-medication-given_by-people option");
+    await expect(suggested.first(), "the person using the device first").toHaveAttribute("value", "anna@localhost");
+    await expect(anna.locator("#f-medication-given_by-people option[value='petra@localhost']"), "and the others on the roster").toHaveCount(1);
+    await givenBy.fill("Dr. Extern");
+    await expect(givenBy, "any other name can be typed").toHaveValue("Dr. Extern");
+    await anna.locator("[aria-labelledby=section-medication]").getByRole("button", { name: "Abbrechen" }).click();
+
     // [itest->dsn~patient-photo~2]
     const png = await anna.evaluate(() => {
       const canvas = document.createElement("canvas");
@@ -478,6 +489,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(ben, INCIDENT);
     await phone.context().close();
     await openView(ben, "Personal");
+    // [itest->dsn~person-suggestions~1]
+    await expect(ben.locator("#roster-person"), "granting a role suggests the people the server knows").toHaveAttribute("list", "roster-person-people");
+    await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     await openView(ben, "Patientenzahlen");

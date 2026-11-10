@@ -265,3 +265,22 @@ pub fn SettingSelect(
         </select>
     }
 }
+
+// [impl->dsn~person-suggestions~1]
+/// Suggestions of people for a text input (native `datalist`, id `{id}`): the input names
+/// it with `list`, and any other name can still be typed.
+#[component]
+pub fn PeopleList(
+    #[prop(into)] id: String,
+    #[prop(into)] people: Signal<Vec<String>>,
+) -> impl IntoView {
+    view! {
+        <datalist id=id>
+            {move || people.get().into_iter().map(|p| view! { <option value=p></option> }).collect_view()}
+        </datalist>
+    }
+}
+
+/// The people of the incident, for person fields of forms (provided by the patient view).
+#[derive(Clone, Copy)]
+pub struct IncidentPeople(pub Signal<Vec<String>>);

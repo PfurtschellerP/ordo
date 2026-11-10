@@ -22,6 +22,8 @@ pub enum ClientMessage {
     RevokeDevice(DeviceId),
     /// Asks for the incidents the user takes part in (all with `manage_incidents`).
     ListIncidents,
+    /// Asks for the people the server knows, to suggest them when granting a role.
+    ListPeople,
     /// Asks for the profile pictures of these people (ADR-0047).
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
@@ -184,6 +186,9 @@ pub enum ServerMessage {
     Devices(Vec<DeviceInfo>),
     /// The incidents the user may open (answer to `listIncidents`).
     Incidents(Vec<IncidentSummary>),
+    /// The people the server knows (answer to `listPeople`): empty for those who may not
+    /// grant roles anywhere.
+    People(Vec<UserId>),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// Answer to `blobTicket`.

@@ -18,7 +18,7 @@ built or loaded; other elements (`id`, `url`, `version`, `title`, `status`, `cop
 | group `repeats` | `true`: a **series** form (timed entries, e.g. vital signs). Absent or `false`: a **snapshot** form (one current value per field, e.g. identity). |
 | question `item` | Direct child of a group. `linkId` is `<form>.<field>`, so it is unique in the questionnaire. Nested groups are not supported yet. |
 | `text` | Label shown to the user. |
-| `type` | `string`, `text`, `decimal`, `integer`, `choice`, `date`, `time`. |
+| `type` | `string`, `text`, `decimal`, `integer`, `choice`, `date`, `time`, `reference` (see below). |
 | `repeats` on a question | Only for `choice`: several answers may be chosen. |
 | `answerOption.valueCoding` | Options of a `choice`; `code` is stored (`a-z`, `0-9`, `_`), `display` is shown. |
 | `code` | Terminology code of the question, e.g. LOINC. |
@@ -30,6 +30,7 @@ built or loaded; other elements (`id`, `url`, `version`, `title`, `status`, `cop
 | Extension | Use |
 |---|---|
 | `http://hl7.org/fhir/StructureDefinition/questionnaire-unit` | Unit of a number (`valueCoding`, UCUM code, `display` shown). |
+| `http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource` | Required on a `reference` question, with `valueCode` `Practitioner`: the question names a person of the crew (who carried out a measure, ordered or gave a medication). ORDO stores the answer as text and suggests the incident's people; any other name is accepted. Other resource types are rejected. |
 | `http://hl7.org/fhir/StructureDefinition/minValue`, `…/maxValue` | Input limits of a number. They catch typing errors; they are **not clinical limits**. |
 | `http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression` | Only on a `readOnly` `decimal` item: a **sum** of questions of the same group, written as `%resource.repeat(item).where(linkId='<form>.<field>').answer.value + …`. Nothing else is accepted: ORDO calculates only sums of documented values and never gives clinical decision support. ORDO evaluates the sum within one entry. |
 

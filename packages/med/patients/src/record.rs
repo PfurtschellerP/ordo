@@ -106,6 +106,9 @@ pub enum FieldType {
     Date,
     /// A time of day, `HH:MM`.
     Time,
+    /// A person (a member of the crew), as text: the app suggests the incident's people,
+    /// any other name is accepted (FHIR: `reference` to `Practitioner`).
+    Person,
 }
 
 /// One option of a choice field.
@@ -398,7 +401,9 @@ impl Field {
                     return Err(ValueError::TooLong);
                 }
                 match field_type {
-                    FieldType::Text | FieldType::Longtext => Ok(Value::One(text.to_owned())),
+                    FieldType::Text | FieldType::Longtext | FieldType::Person => {
+                        Ok(Value::One(text.to_owned()))
+                    }
                     FieldType::Number => {
                         let number = parse_number(text).ok_or(ValueError::NotANumber)?;
                         let below = self.min.is_some_and(|min| number < min);
@@ -838,7 +843,10 @@ mod tests {
             "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.family" },
           { "linkId": "identity.sex", "text": "Geschlecht", "type": "choice", "answerOption": [
             { "valueCoding": { "code": "female", "display": "weiblich" } },
-            { "valueCoding": { "code": "male", "display": "männlich" } } ] } ] },
+            { "valueCoding": { "code": "male", "display": "männlich" } } ] },
+          { "linkId": "identity.recorded_by", "text": "Aufgenommen von", "type": "reference",
+            "extension": [{ "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource",
+              "valueCode": "Practitioner" }] } ] },
         { "linkId": "vitals", "text": "Vitalwerte", "type": "group", "repeats": true, "item": [
           { "linkId": "vitals.heart_rate", "text": "Herzfrequenz", "type": "decimal",
             "code": [{ "system": "http://loinc.org", "code": "8867-4" }],
@@ -874,6 +882,12 @@ mod tests {
         assert_eq!(identity.kind, FormKind::Snapshot);
         let name = identity.field("family_name").expect("field");
         assert_eq!(name.code.as_deref(), Some("fhir:Patient.name.family"));
+        // [utest->dsn~person-suggestions~1]
+        assert_eq!(
+            identity.field("recorded_by").map(|f| f.field_type),
+            Some(FieldType::Person),
+            "a reference to a Practitioner is a person field"
+        );
         let vitals = c.form("vitals").expect("form");
         assert_eq!(
             vitals.kind,
@@ -915,6 +929,15 @@ mod tests {
             r#""text": "Name", "type": "string", "enableWhen": [{}],"#,
         );
         assert!(matches!(conditional, Err(CatalogueError::Unsupported(_))));
+        // References only to people (Practitioner).
+        let patient = replace(
+            r#""valueCode": "Practitioner""#,
+            r#""valueCode": "Patient""#,
+        );
+        assert!(
+            matches!(patient, Err(CatalogueError::Unsupported(_))),
+            "{patient:?}"
+        );
         // linkIds must name their group.
         assert!(
             replace(

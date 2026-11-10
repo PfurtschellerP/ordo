@@ -114,6 +114,15 @@ Tags: should, quality, m16
 
 Needs: dsn
 
+#### UX-13 — Suggest people in person fields
+`req~ux-13~1`
+
+When a person fills in a field that names a member of the crew (who carried out a measure, ordered or gave a medication) or grants a role, ORDO shall suggest the people it knows for that purpose and shall accept any other name as typed.
+
+Tags: should, quality, m20
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline

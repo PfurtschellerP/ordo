@@ -329,6 +329,31 @@ impl<P: AccessPolicy> Hub<P> {
         list
     }
 
+    // [impl->dsn~person-suggestions~1]
+    /// The people the server knows (a paired device or a role in any incident), sorted;
+    /// only for those who may grant roles somewhere (planners, an incident's command).
+    fn people(&self, user: &UserId) -> Vec<UserId> {
+        let grants = self.policy.can_manage_incidents(user)
+            || self.registry.iter().any(|(id, _)| {
+                let roles = self.registry.roles(user, id);
+                !roles.is_empty() && self.policy.can_assign_roles(user, id, &roles)
+            });
+        if !grants {
+            return Vec::new();
+        }
+        let people: std::collections::BTreeSet<UserId> = self
+            .devices
+            .values()
+            .map(|d| d.user.clone())
+            .chain(
+                self.registry
+                    .iter()
+                    .flat_map(|(_, i)| i.roster.keys().cloned()),
+            )
+            .collect();
+        people.into_iter().collect()
+    }
+
     // [impl->dsn~device-revocation~1]
     /// The devices `user` may see: all with `manage_devices`, else their own.
     fn device_list(&self, user: &UserId) -> Vec<DeviceInfo> {
@@ -481,6 +506,10 @@ impl<P: AccessPolicy> Hub<P> {
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),
+            }],
+            ClientMessage::ListPeople => vec![Outgoing {
+                session,
+                message: ServerMessage::People(self.people(&user)),
             }],
             ClientMessage::ListDevices => vec![Outgoing {
                 session,

@@ -151,6 +151,22 @@ fn roles_are_granted_per_incident_and_access_follows() {
         ServerMessage::Incidents(list) if list.len() == 1 && list[0].roles == ["commander"] && list[0].manage
     ));
 
+    // [itest->dsn~person-suggestions~1]
+    // The commander may grant roles: the server suggests the people it knows. A medic,
+    // who may not, gets an empty list.
+    let out = world.hub.handle(900, ClientMessage::ListPeople, now);
+    let ServerMessage::People(people) = &out[0].message else {
+        panic!("people expected");
+    };
+    for name in ["anna", "ben", "dora"] {
+        assert!(people.contains(&user(&world, name)), "{name} is suggested");
+    }
+    assert!(people.is_sorted());
+    let hello = world.hello("anna", 901);
+    world.hub.handle(901, hello, now);
+    let out = world.hub.handle(901, ClientMessage::ListPeople, now);
+    assert!(matches!(&out[0].message, ServerMessage::People(p) if p.is_empty()));
+
     // Ben withdraws Anna's role: her device loses the clinical data.
     grant(&mut world, "ben", "anna", "medic", false);
     world.sync();

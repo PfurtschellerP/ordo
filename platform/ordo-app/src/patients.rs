@@ -23,7 +23,7 @@ use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
-use crate::ui::{Action, Actions, RadioChips};
+use crate::ui::{Action, Actions, IncidentPeople, PeopleList, RadioChips};
 use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
@@ -110,6 +110,11 @@ pub fn PatientsView(
         revision.track();
         Records::from_events(&events())
     });
+    let people = Memo::new(move |_| {
+        revision.track();
+        core::incident_people(core)
+    });
+    provide_context(IncidentPeople(people.into()));
     view! {
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
@@ -1422,6 +1427,26 @@ fn FieldInput(
                     />
                     {now}
                 </div>
+            }
+            .into_any()
+        }
+        // [impl->dsn~person-suggestions~1]
+        FieldType::Person => {
+            let people = use_context::<IncidentPeople>().map_or_else(|| Signal::stored(Vec::new()), |p| p.0);
+            let list = format!("{id}-people");
+            view! {
+                <label for=id.clone()>{field.label.clone()}</label>
+                <input
+                    id=id.clone()
+                    type="text"
+                    list=list.clone()
+                    autocomplete="off"
+                    aria-describedby=described.clone()
+                    aria-invalid=invalid
+                    prop:value=text_value
+                    on:input=set_text
+                />
+                <PeopleList id=list people />
             }
             .into_any()
         }

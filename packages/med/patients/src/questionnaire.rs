@@ -7,7 +7,8 @@
 //! * Questions are direct children of a group. Their `linkId` is `<group>.<field>`, so it
 //!   is unique in the whole questionnaire, as FHIR requires.
 //! * Question types: `string`, `text`, `decimal`, `integer`, `choice` (with
-//!   `answerOption`; `repeats` for several answers), `date`, `time`.
+//!   `answerOption`; `repeats` for several answers), `date`, `time`, and `reference`
+//!   limited to `Practitioner` (a person of the crew, answered as text).
 //! * Extensions: `questionnaire-unit`, `minValue`, `maxValue`, and a `display` child with
 //!   `questionnaire-itemControl` for a hint.
 //! * Codes: `item.code` (e.g. LOINC) and `item.definition` (FHIR element).
@@ -28,6 +29,8 @@ const MAX: &str = "http://hl7.org/fhir/StructureDefinition/maxValue";
 const CALCULATED: &str =
     "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression";
 const LOINC: &str = "http://loinc.org";
+const REFERENCE_RESOURCE: &str =
+    "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,6 +95,8 @@ struct Extension {
     value_coding: Option<Coding>,
     #[serde(default)]
     value_expression: Option<Expression>,
+    #[serde(default)]
+    value_code: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -206,6 +211,20 @@ fn field(group: &str, item: &Item) -> Result<Field, CatalogueError> {
         ("choice", true) => FieldType::Choices,
         ("date", false) => FieldType::Date,
         ("time", false) => FieldType::Time,
+        // [impl->dsn~person-suggestions~1]
+        ("reference", false) => {
+            let practitioner = item
+                .extension(REFERENCE_RESOURCE)
+                .and_then(|e| e.value_code.as_deref())
+                == Some("Practitioner");
+            if !practitioner {
+                return Err(unsupported(
+                    link_id,
+                    "reference questions must be limited to Practitioner (questionnaire-referenceResource)",
+                ));
+            }
+            FieldType::Person
+        }
         (other, true) => {
             return Err(unsupported(
                 link_id,

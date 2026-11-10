@@ -113,6 +113,12 @@ A device receiving `rolesChanged` reconnects; for every stream listed as `denied
 new welcome it MUST delete that stream's events and key. `listIncidents` returns the
 incidents in which the user has a role, or all of them for `manage_incidents`.
 
+`listPeople` asks for the people the server knows, to suggest them when granting a role:
+the users with a paired device or a role in any incident. The server answers `people`
+(a list of user IDs, sorted). It MUST answer with the list only a user with
+`manage_incidents` or with a role that permits `assign_role` in some incident, and with an
+empty list everyone else.
+
 ## 8. Profile pictures
 
 `getAvatars` asks for the pictures of several people; `setAvatar` sets (with `image`) or
@@ -138,8 +144,8 @@ Draft 1: the connection is authenticated with a challenge signed by the device k
 (§2, [ADR-0038](../../docs/adr/0038-login-and-device-pairing.md)); device logins expire
 (`valid_until`, `loginExpired`, [ADR-0040](../../docs/adr/0040-access-ends-only-on-positive-evidence.md));
 devices are listed and revoked over the connection (§6, `permissions`, `revoked`);
-incidents and roles per incident (§7, `listIncidents`, `rolesChanged`); profile pictures
-(§8); attachments (§9).
+incidents and roles per incident (§7, `listIncidents`, `rolesChanged`, `listPeople`);
+profile pictures (§8); attachments (§9).
 
 Open for draft 2:
 
