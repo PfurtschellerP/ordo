@@ -222,6 +222,8 @@ fn UnitCard(
     unit: Unit,
     editable: bool,
     draft: CrewDraft,
+    /// The unit's open tasks (TASK-3).
+    tasks: Vec<String>,
 ) -> impl IntoView {
     let u = unit;
     let name = u.unit.clone();
@@ -260,6 +262,10 @@ fn UnitCard(
                 {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength /> })}
             </p>
             <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
+            // [impl->dsn~tasks~1]
+            {(!tasks.is_empty()).then(|| view! {
+                <p class="unit-card__tasks">{text::TASKS_OF_UNIT} ": " {tasks.join(" · ")}</p>
+            })}
             {editable.then(|| {
                 let name = name.clone();
                 view! {
@@ -362,6 +368,8 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             {move || {
                 let units = present.get();
                 let editable = can_edit.get();
+                revision.track();
+                let task_list = crate::tasks::task_list(core);
                 if units.is_empty() {
                     return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
                 }
@@ -371,7 +379,12 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .into_iter()
                             .map(|unit| {
                                 let draft = draft(&unit.unit);
-                                view! { <UnitCard core revision unit editable draft /> }
+                                let tasks = task_list
+                                    .of_unit(&unit.unit)
+                                    .iter()
+                                    .map(|t| t.given.text.clone())
+                                    .collect::<Vec<_>>();
+                                view! { <UnitCard core revision unit editable draft tasks /> }
                             })
                             .collect_view()}
                     </ul>

@@ -612,6 +612,14 @@
   .unit-card--released { border-style: dashed; }
   .add-unit { margin-block-start: var(--ordo-space-4); }
   .load-list__details, .load-list__location, .load-list__staff { grid-column: 1 / -1; }
+  /* Tasks (TASK-1…4): due follow-ups say so in words and with a sign, not by colour alone. */
+  .tasks-panel { margin-block-end: var(--ordo-space-4); }
+  .task-list { display: grid; gap: var(--ordo-space-2); margin: 0; padding: 0; list-style: none; }
+  .task-card { display: grid; gap: var(--ordo-space-1); padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); background: var(--ordo-color-surface-default); }
+  .task-card p { margin: 0; }
+  .task-card--due { border-width: var(--ordo-size-border-thick); }
+  .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
+  .tasks-panel__form[hidden] { display: none; }
   .load-list__details-panel[hidden] { display: none; }
   .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .load-list__details-panel h4 { margin: 0; }

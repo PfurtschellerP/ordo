@@ -1,0 +1,43 @@
+# Task templates (TASK-1): common tasks the incident command gives, as a start for the
+# text, which can always be changed. Labels are German user labels; IDs are stable. A state
+# profile may replace this file (layering, architecture 8.8.3).
+
+[[template]]
+id = "staging"
+label = "Bereitstellungsraum anfahren"
+text = "Bereitstellungsraum anfahren und Ankunft melden"
+
+[[template]]
+id = "reconnaissance"
+label = "Erkundung"
+text = "Erkundung durchführen und Lage melden"
+
+[[template]]
+id = "situation-report"
+label = "Lagemeldung"
+text = "Lagemeldung abgeben"
+
+[[template]]
+id = "patient-care"
+label = "Patientenversorgung"
+text = "Patientenversorgung übernehmen"
+
+[[template]]
+id = "transport"
+label = "Patiententransport"
+text = "Patiententransport durchführen"
+
+[[template]]
+id = "rescue"
+label = "Menschenrettung"
+text = "Menschenrettung durchführen"
+
+[[template]]
+id = "firefighting"
+label = "Brandbekämpfung"
+text = "Brandbekämpfung durchführen"
+
+[[template]]
+id = "water-supply"
+label = "Wasserversorgung"
+text = "Wasserversorgung aufbauen"

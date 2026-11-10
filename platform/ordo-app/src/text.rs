@@ -850,3 +850,72 @@ pub fn staff_remove_label(name: &str) -> String {
 pub fn uhs_updated(name: &str) -> String {
     format!("{name} gespeichert")
 }
+
+// Tasks (TASK-1…4).
+pub const TASKS_TITLE: &str = "Offene Aufträge";
+pub const TASKS_EMPTY: &str = "Keine offenen Aufträge.";
+pub const TASK_GIVE: &str = "Auftrag geben";
+pub const TASK_UNIT: &str = "Einsatzmittel";
+pub const TASK_UNIT_CHOOSE: &str = "Einsatzmittel wählen";
+pub const TASK_TEMPLATE: &str = "Vorlage";
+pub const TASK_TEMPLATE_NONE: &str = "ohne Vorlage";
+pub const TASK_TEXT: &str = "Auftrag";
+pub const TASK_FOLLOW_UP: &str = "Nachfragen in (Minuten, optional)";
+pub const TASK_MISSING: &str = "Bitte Einsatzmittel und Auftrag angeben.";
+pub const TASK_FOLLOW_UP_NUMBER: &str = "Bitte die Minuten als ganze Zahl angeben.";
+pub const FOLLOW_UP_LATER: &str = "In 10 Minuten nachfragen";
+pub const FOLLOW_UP_LATER_DONE: &str = "Nachfrage verschoben";
+pub const DUE: &str = "Fällig";
+pub const TASKS_OF_UNIT: &str = "Aufträge";
+
+pub fn tasks_title(n: usize) -> String {
+    format!("{TASKS_TITLE} ({n})")
+}
+
+pub fn task_status(status: ordo_tasks::TaskStatus) -> &'static str {
+    use ordo_tasks::TaskStatus as S;
+    match status {
+        S::Open => "Offen",
+        S::InProgress => "In Arbeit",
+        S::Done => "Erledigt",
+        S::Cancelled => "Abgebrochen",
+    }
+}
+
+pub fn task_step(status: ordo_tasks::TaskStatus) -> &'static str {
+    use ordo_tasks::TaskStatus as S;
+    match status {
+        S::Open => "Öffnen",
+        S::InProgress => "In Arbeit",
+        S::Done => "Erledigt",
+        S::Cancelled => "Abbrechen",
+    }
+}
+
+/// "In Arbeit: RTW 83/1 – Lagemeldung abgeben"
+pub fn task_step_label(step: &str, unit: &str, text: &str) -> String {
+    format!("{step}: {unit} – {text}")
+}
+
+pub fn task_given(unit: &str) -> String {
+    format!("Auftrag an {unit} gegeben")
+}
+
+pub fn task_status_set(status: ordo_tasks::TaskStatus) -> String {
+    format!("Auftrag: {}", task_status(status))
+}
+
+/// "Nachfragen um 10:42"
+pub fn follow_up_at(at: &str) -> String {
+    format!("Nachfragen um {at}")
+}
+
+/// "Fällig: Nachfragen seit 10:42"
+pub fn follow_up_due(at: &str) -> String {
+    format!("{DUE}: nachfragen seit {at}")
+}
+
+/// "10:12, ben@…"
+pub fn task_given_by(at: &str, by: &str) -> String {
+    format!("Gegeben {at} von {by}")
+}

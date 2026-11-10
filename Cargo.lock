@@ -2607,6 +2607,7 @@ dependencies = [
  "ordo-crypto",
  "ordo-med-patients",
  "ordo-sync",
+ "ordo-tasks",
  "ordo-units",
 ]
 
@@ -2625,6 +2626,7 @@ dependencies = [
  "ordo-crypto",
  "ordo-med-patients",
  "ordo-sync",
+ "ordo-tasks",
  "ordo-units",
  "percent-encoding",
  "serde",
@@ -2739,6 +2741,17 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "ordo-tasks"
+version = "0.0.0"
+dependencies = [
+ "ordo-core",
+ "ordo-sync",
+ "serde",
+ "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]

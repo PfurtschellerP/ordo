@@ -155,7 +155,10 @@ UNIT-1…6): units from the installation's vehicles (`ORDO_VEHICLES_FILE`, sync 
 1.1) or ad hoc, with service and strength in tactical notation, status since when, crew
 with qualifications, release and return, and the strength on scene per organisation and
 service; UHS details (milestone `m30`,
-UHS-1): location, capacity and assigned staff per unit, also in the overview.
+UHS-1): location, capacity and assigned staff per unit, also in the overview; tasks (milestone `m31`,
+TASK-1…4): the command gives units tasks (free text or a template of the profile), moves
+them on, and follows up; open tasks are at the top of every command view, due follow-ups
+first, and on each unit's card.
 
 *Incident and command (Einsatzleitung)*
 

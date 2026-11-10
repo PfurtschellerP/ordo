@@ -177,7 +177,7 @@ Needs: dsn
 
 Give a task to a unit or sector (free text + optional template)
 
-Tags: must, shared
+Tags: must, shared, m31
 
 Needs: dsn
 
@@ -186,7 +186,7 @@ Needs: dsn
 
 Task status: open → in progress → done / cancelled
 
-Tags: must, shared
+Tags: must, shared, m31
 
 Needs: dsn
 
@@ -195,7 +195,7 @@ Needs: dsn
 
 List of open tasks always visible to the responsible leader
 
-Tags: must, shared
+Tags: must, shared, m31
 
 Needs: dsn
 
@@ -204,7 +204,7 @@ Needs: dsn
 
 Reminders / follow-ups ("ask sector 2 for status in 10 min")
 
-Tags: should, shared
+Tags: should, shared, m31
 
 Needs: dsn
 

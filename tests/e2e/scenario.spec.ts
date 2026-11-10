@@ -686,6 +686,26 @@ test("ORDO in the browser", async ({ browser }) => {
     await card.getByLabel("Notfallsanitäter/in").check();
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("anna@localhost · Notfallsanitäter/in");
+
+    // [itest->dsn~tasks~1]
+    await expect(ben.locator("#tasks-title"), "open tasks at the top of every command view").toHaveText("Offene Aufträge (0)");
+    await ben.locator("#give-task-button").click();
+    await ben.locator("#task-unit").selectOption("RTW 83/1");
+    await ben.locator("#task-template").selectOption({ label: "Lagemeldung" });
+    await expect(ben.locator("#task-text"), "a template fills in the text").toHaveValue("Lagemeldung abgeben");
+    await ben.locator("#task-follow-up").fill("0");
+    await ben.locator(".give-task button[type=submit]").click();
+    const task = ben.locator(".task-card");
+    await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
+    await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
+    await expect(card.locator(".unit-card__tasks"), "the unit shows its task").toHaveText("Aufträge: Lagemeldung abgeben");
+    await task.getByRole("button", { name: "In Arbeit: RTW 83/1 – Lagemeldung abgeben" }).click();
+    await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
+    await task.getByRole("button", { name: /^In 10 Minuten nachfragen/ }).click();
+    await expect(task.locator(".task-card__follow-up"), "postponed").toContainText("Nachfragen um");
+    await audit(ben, "Tasks");
+    await task.getByRole("button", { name: "Erledigt: RTW 83/1 – Lagemeldung abgeben" }).click();
+    await expect(ben.locator("#tasks-title"), "done tasks leave the list").toHaveText("Offene Aufträge (0)");
     await expect.poll(() => status(ben), { message: "unit and status are sent" }).toContain("Alles gesendet");
     await openPalette(ben);
     await ben.keyboard.type("rtw");

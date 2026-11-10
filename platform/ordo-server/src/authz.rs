@@ -464,6 +464,19 @@ mod tests {
             "hospitals.set",
             &commander
         ));
+        // [utest->dsn~tasks~1]
+        assert!(
+            !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
+            "tasks are the command's"
+        );
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "tasks",
+            "tasks.given",
+            &commander
+        ));
     }
 
     // [utest->dsn~role-policies~1]

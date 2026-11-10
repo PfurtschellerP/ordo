@@ -276,6 +276,36 @@ Needs: impl, utest, itest
 
 Tags: must, m29
 
+### 5.5.1a Shared module `tasks`
+
+#### Tasks
+`dsn~tasks~1`
+
+Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment. `tasks.given`
+gives a task a new ID (ULID): to a unit (call sign; sectors follow with the command
+structure, CMD-1), as free text, optionally from a template of the profile
+(`tasks/templates.toml`), and optionally with a time to follow up. `tasks.updated` moves
+it on (open → in progress → done, or cancelled; never back) and may set a new follow-up
+time; the latest update by hybrid logical clock counts, every update stays in its history
+with who and when. A follow-up is due once its time has passed and the task is open.
+
+Only the incident command gives and updates tasks (Cedar: medical roles may not write the
+module). Because the command workspace has its four views, the open tasks are a panel at
+the top of every command view (TASK-3): due follow-ups first, then by age, each with its
+unit and next steps; the panel also gives new tasks. Each unit card lists its open tasks.
+"Due" is shown in words and with an icon, not by colour alone.
+
+Covers:
+
+* [req~task-1~1](../requirements/02-shared.md#task-1--give-tasks)
+* [req~task-2~1](../requirements/02-shared.md#task-2--task-status)
+* [req~task-3~1](../requirements/02-shared.md#task-3--open-tasks-always-visible)
+* [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
+
+Needs: impl, utest, itest
+
+Tags: must, m31
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS registry

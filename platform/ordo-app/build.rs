@@ -12,6 +12,7 @@ use ordo_med_patients::orders::OrderCatalogue;
 use ordo_med_patients::record::FormCatalogue;
 use ordo_med_patients::transport::TransportCatalogue;
 use ordo_med_patients::triage::TriageCatalogue;
+use ordo_tasks::TemplateCatalogue;
 use ordo_units::{StatusCatalogue, UnitCatalogue};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -81,6 +82,11 @@ fn main() {
         &profile.join("units"),
         "catalogue.toml",
         UnitCatalogue::check,
+    );
+    embed(
+        &profile.join("tasks"),
+        "templates.toml",
+        TemplateCatalogue::check,
     );
     embed(
         &profile.join("units"),

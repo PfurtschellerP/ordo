@@ -1264,3 +1264,62 @@ fn units_with_strength_crew_and_release_reach_every_device() {
         "the released fire engine is not counted"
     );
 }
+
+// [itest->dsn~tasks~1]
+/// A task given by the command reaches every device; its status moves on and a due
+/// follow-up comes first in the open list.
+#[test]
+fn tasks_reach_every_device_with_status_and_follow_up() {
+    use ordo_tasks::{self as tasks, TaskGiven, TaskList, TaskStatus, TaskUpdated};
+    let mut world = World::new();
+    world.sync();
+    let record = |world: &mut World, event_type: &str, payload: Vec<u8>| {
+        let (incident, now) = (world.incident.clone(), world.now);
+        world
+            .replica("ben")
+            .record(
+                &incident,
+                tasks::COMPARTMENT,
+                tasks::MODULE,
+                event_type,
+                1,
+                &payload,
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    };
+    for (id, follow_up) in [("t1", None), ("t2", Some(1))] {
+        let t = TaskGiven {
+            task: id.into(),
+            unit: Some("RTW 1".into()),
+            sector: None,
+            text: "Lagemeldung abgeben".into(),
+            template: None,
+            follow_up,
+        };
+        record(&mut world, tasks::GIVEN, t.encode().unwrap());
+    }
+    let u = TaskUpdated {
+        task: "t1".into(),
+        status: Some(TaskStatus::InProgress),
+        follow_up: None,
+    };
+    record(&mut world, tasks::UPDATED, u.encode().unwrap());
+    world.sync();
+
+    let incident = world.incident.clone();
+    let list = TaskList::from_events(
+        &world
+            .replica("clara")
+            .events(&incident, tasks::COMPARTMENT)
+            .unwrap(),
+    );
+    assert_eq!(list.tasks["t1"].status, TaskStatus::InProgress);
+    let open: Vec<&str> = list
+        .open(world.now)
+        .iter()
+        .map(|t| t.given.task.as_str())
+        .collect();
+    assert_eq!(open, ["t2", "t1"], "the due follow-up first");
+}

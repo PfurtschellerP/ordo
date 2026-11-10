@@ -12,6 +12,7 @@ mod palette;
 mod patients;
 mod profile;
 mod storage;
+mod tasks;
 mod text;
 mod transports;
 mod ui;

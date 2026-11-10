@@ -703,6 +703,52 @@ pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), S
     )
 }
 
+// [impl->dsn~tasks~1]
+/// Gives a task (TASK-1): a new ID, then the event in the shared incident compartment.
+pub fn give_task(
+    core: Handle,
+    revision: RwSignal<u64>,
+    task: ordo_tasks::TaskGiven,
+) -> Result<(), String> {
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let task = ordo_tasks::TaskGiven {
+        task: id.to_string(),
+        ..task
+    };
+    let payload = task.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_tasks::COMPARTMENT,
+        ordo_tasks::MODULE,
+        ordo_tasks::GIVEN,
+        &payload,
+        text::task_given(task.unit.as_deref().unwrap_or_default()),
+    )
+}
+
+/// Moves a task on or sets a new follow-up time (TASK-2, TASK-4).
+pub fn update_task(
+    core: Handle,
+    revision: RwSignal<u64>,
+    update: &ordo_tasks::TaskUpdated,
+) -> Result<(), String> {
+    let payload = update.encode().map_err(|e| e.to_string())?;
+    let announcement = update.status.map_or_else(
+        || text::FOLLOW_UP_LATER_DONE.to_owned(),
+        text::task_status_set,
+    );
+    record(
+        core,
+        revision,
+        ordo_tasks::COMPARTMENT,
+        ordo_tasks::MODULE,
+        ordo_tasks::UPDATED,
+        &payload,
+        announcement,
+    )
+}
+
 // [impl->dsn~uhs-details~1]
 /// Changes the location, capacity or staff of an on-site care unit (UHS-1).
 pub fn update_uhs(

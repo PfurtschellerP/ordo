@@ -825,6 +825,11 @@ fn Workspace(
               </div>
             </div>
             <main id="main" class="page" tabindex="-1">
+                // [impl->dsn~tasks~1]
+                // Open tasks at the top of every command view (TASK-3).
+                <Show when=move || current.get() == Some("command.situation")>
+                    <crate::tasks::OpenTasks core revision />
+                </Show>
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
                     (Some("med.uhs"), Some("orders")) => view! { <crate::orders::OrdersView core revision nav /> }.into_any(),
