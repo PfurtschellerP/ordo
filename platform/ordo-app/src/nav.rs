@@ -225,7 +225,7 @@ mod tests {
     /// bottom bar on phones (ADR-0049).
     const MAX_VIEWS: usize = 4;
 
-    // [utest->dsn~compact-navigation~1]
+    // [utest->dsn~compact-navigation~2]
     #[test]
     fn every_workspace_fits_the_bottom_bar_and_every_view_has_an_icon() {
         for w in WORKSPACES {

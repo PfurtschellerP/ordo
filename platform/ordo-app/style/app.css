@@ -102,14 +102,7 @@
   .button--small { min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-3); }
 
 
-  .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-4); }
-  .status__dot {
-    width: 1rem; height: 1rem; border-radius: 50%;
-    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
-  }
-  .status[data-state="online"] .status__dot { background: var(--ordo-color-feedback-success-text); }
-  .status[data-state="connecting"] .status__dot { background: var(--ordo-color-feedback-warning-text); }
-  .status[data-state="offline"] .status__dot { background: transparent; }
+  .status { display: grid; gap: var(--ordo-space-1); margin: 0; }
   .status__pending { color: var(--ordo-color-text-secondary); }
 
   .choices { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); border: 0; padding: 0; margin: 0; }
@@ -294,25 +287,28 @@
     .launcher__button.launcher__button--bar { display: inline-flex; }
   }
 
-  /* Connection (ADR-0049): the words on wide screens; on phones an icon (shape per state)
-     with the number of unsent inputs, the words behind it. Errors are always shown. */
+  /* Connection (ADR-0049): one design on every screen. An icon whose shape tells the
+     state and whose colour repeats it, the number of unsent inputs, the words behind the
+     button. Errors are always shown. */
   .connection { position: relative; }
-  .connection .connection__button { display: none; }
-  .connection__panel, .connection__panel[hidden] { display: block; }
+  .connection__button { gap: var(--ordo-space-1); }
   .connection__count:empty { display: none; }
+  .connection--synced .connection__button .icon { color: var(--ordo-color-feedback-success-text); }
+  .connection--sending .connection__button .icon,
+  .connection--connecting .connection__button .icon { color: var(--ordo-color-feedback-info-text); }
+  .connection--offline .connection__button .icon { color: var(--ordo-color-feedback-warning-text); }
+  .connection__panel[hidden] { display: none; }
+  .connection__panel {
+    position: absolute; top: calc(100% + var(--ordo-space-2)); right: 0; z-index: 20;
+    width: min(20rem, calc(100vw - 2 * var(--ordo-space-4))); padding: var(--ordo-space-4);
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
+  }
   .connection__error { margin: 0; flex-basis: 100%; text-align: end; }
   @media (max-width: 48rem) {
     .app-header__end > .connection__error { grid-column: 1 / -1; text-align: start; }
-    .connection .connection__button { display: inline-flex; gap: var(--ordo-space-1); }
-    .connection__panel[hidden] { display: none; }
-    .connection__panel {
-      position: absolute; top: calc(100% + var(--ordo-space-2)); right: 0; z-index: 20;
-      width: min(20rem, calc(100vw - 2 * var(--ordo-space-4))); padding: var(--ordo-space-4);
-      background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
-      border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
-      border-radius: var(--ordo-radius-medium);
-      box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
-    }
   }
 
   /* The person's own menu (ADR-0049). */

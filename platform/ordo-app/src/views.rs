@@ -872,7 +872,7 @@ pub(crate) fn click(id: &str) {
 }
 
 /// Connection and outbox state, as text (OFF-5).
-// [impl->dsn~compact-navigation~1]
+// [impl->dsn~compact-navigation~2]
 #[component]
 fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let state = Memo::new(move |_| {
@@ -891,36 +891,33 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         Connection::Connecting => text::CONNECTING,
         Connection::Offline => text::OFFLINE,
     };
-    // On narrow screens only an icon (its shape tells the state, never its colour alone)
-    // and the number of unsent inputs; the words are behind the button (ADR-0049).
-    let icon = move || match state.get() {
-        (Connection::Online, 0, ..) => "cloud-check",
-        (Connection::Online, ..) => "cloud-upload",
-        (Connection::Connecting, ..) => "refresh-cw",
-        (Connection::Offline, ..) => "cloud-off",
+    // One design on every screen (ADR-0049): an icon whose shape tells the state and whose
+    // colour repeats it (never colour alone), the number of unsent inputs, and the words
+    // behind the button. Offline is a warning, not an error: inputs are kept and sent later.
+    let kind = move || match state.get() {
+        (Connection::Online, 0, ..) => ("synced", "cloud-check"),
+        (Connection::Online, ..) => ("sending", "cloud-upload"),
+        (Connection::Connecting, ..) => ("connecting", "refresh-cw"),
+        (Connection::Offline, ..) => ("offline", "cloud-off"),
     };
     let label =
         Signal::derive(move || text::connection_label(words(), &text::pending(state.get().1)));
     let open = RwSignal::new(false);
     view! {
-        <Disclosure id="connection" open class="connection" button_class="connection__button"
-            panel_class="connection__panel" label=Some(label)
+        <Disclosure id="connection" open
+            class=Signal::derive(move || format!("connection connection--{}", kind().0))
+            button_class="connection__button" panel_class="connection__panel" label=Some(label)
             button=Box::new(move || view! {
-                {move || view! { <Icon name=icon() /> }}
+                {move || view! { <Icon name=kind().1 /> }}
                 <span class="connection__count">{move || {
                     let n = state.get().1;
                     (n > 0).then(|| n.to_string())
                 }}</span>
             }.into_any())>
-            <div class="status" data-state=move || match state.get().0 {
-                Connection::Online => "online",
-                Connection::Connecting => "connecting",
-                Connection::Offline => "offline",
-            }>
-                <span class="status__dot" aria-hidden="true"></span>
-                <span>{words}</span>
+            <p class="status">
+                <strong>{words}</strong>
                 <span class="status__pending">{move || text::pending(state.get().1)}</span>
-            </div>
+            </p>
         </Disclosure>
         {move || state.get().2.map(|e| view! { <p role="alert" class="error connection__error">{e}</p> })}
         {move || state.get().3.then(|| view! { <p role="alert" class="error connection__error">{text::STORAGE_FAILED}</p> })}

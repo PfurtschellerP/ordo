@@ -63,5 +63,7 @@ Asked for by the project lead after the first version:
   short label in the bar, as in Material's navigation bar and iOS's tab bar, which both
   recommend three to five destinations with visible labels. A workspace has at most four
   views; more would go behind a "Mehr" entry, which no workspace needs yet.
-* On narrow screens the connection state is an icon (with the number of unsent inputs)
-  that opens the full state; errors stay visible.
+* The connection state is an icon (with the number of unsent inputs) that opens the full
+  state, on every screen: one design, not words on wide screens and an icon on phones.
+  Its shape tells the state and its colour repeats it (green all sent, blue sending or
+  connecting, amber offline); red stays for real errors, which remain visible as text.

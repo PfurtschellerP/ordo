@@ -36,7 +36,7 @@ fn svg(name: &str) -> &'static str {
     )
 }
 
-// [impl->dsn~compact-navigation~1]
+// [impl->dsn~compact-navigation~2]
 /// A decorative icon: the text next to it carries the meaning (never an icon alone).
 #[component]
 pub fn Icon(name: &'static str) -> impl IntoView {
@@ -86,7 +86,9 @@ pub fn DisclosureButton(
 pub fn Disclosure(
     id: &'static str,
     open: RwSignal<bool>,
-    #[prop(into)] class: String,
+    /// Class of the wrapper; may change with state.
+    #[prop(into)]
+    class: Signal<String>,
     #[prop(into)] button_class: String,
     #[prop(into)] panel_class: String,
     /// The button's content.
@@ -105,7 +107,7 @@ pub fn Disclosure(
     });
     on_cleanup(move || keys.remove());
     view! {
-        <div class=class>
+        <div class=move || class.get()>
             <DisclosureButton id=button_id controls=panel_id.clone() open class=button_class on_open label>
                 {button()}
             </DisclosureButton>

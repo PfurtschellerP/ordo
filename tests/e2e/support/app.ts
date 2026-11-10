@@ -2,7 +2,8 @@
 import { expect, Page } from "@playwright/test";
 import type { DeviceKey, OrdoServer } from "./server";
 
-export const status = (page: Page) => page.locator(".status").innerText().then((t) => t.replace(/\n/g, " | "));
+/** The connection state, as the connection button names it ("Verbindung: Verbunden. Alles gesendet"). */
+export const status = (page: Page) => page.locator("#connection-button").getAttribute("aria-label").then((t) => t ?? "");
 export const title = (page: Page) => page.locator(".app-header__title").innerText();
 export const announced = (page: Page) => page.locator("body > [role=status]").innerText();
 export const pathOf = (page: Page) => decodeURIComponent(new URL(page.url()).pathname);

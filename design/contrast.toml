@@ -273,3 +273,25 @@ min = 3.0
 criterion = "1.4.11"
 purpose = "Triage badge outline (deceased) on raised surface"
 
+# Connection icon (ADR-0049): its colour repeats the state its shape shows; icons need
+# 3:1 against the button (WCAG 1.4.11).
+[[pair]]
+fg = "color.feedback.success.text"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Connection icon: all sent"
+
+[[pair]]
+fg = "color.feedback.info.text"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Connection icon: sending, connecting"
+
+[[pair]]
+fg = "color.feedback.warning.text"
+bg = "color.surface.default"
+min = 3.0
+criterion = "1.4.11"
+purpose = "Connection icon: offline"

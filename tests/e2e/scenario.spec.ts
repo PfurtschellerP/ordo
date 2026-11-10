@@ -344,6 +344,7 @@ test("ORDO in the browser", async ({ browser }) => {
     }
     await server.stop();
     await expect.poll(() => status(anna), { message: "loss of connection is shown" }).toContain("Offline");
+    await expect(anna.locator(".connection"), "offline has its own icon and colour").toHaveClass(/connection--offline/);
     await register(anna, "DE-0045", 2, "UHS Eingang");
     await expect.poll(() => status(anna), { message: "pending input is shown" }).toContain("1 Eingabe noch nicht gesendet");
     // [itest->dsn~local-persistence~1]
@@ -394,14 +395,14 @@ test("ORDO in the browser", async ({ browser }) => {
         return [v.every((r) => r.right <= m.left + 1), v.every((r) => r.left >= m.right - 1)];
       });
     expect(await menuAtEnd(), "right-handed: the menu at the right end").toEqual([true, false]);
-    // [itest->dsn~compact-navigation~1]
+    // [itest->dsn~compact-navigation~2]
     await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(3);
     const [iconTop, labelTop] = await anna.evaluate(() => {
       const item = document.querySelector(".navigation .views__item")!;
       return [item.querySelector(".icon")!.getBoundingClientRect().top, item.querySelector(".views__label")!.getBoundingClientRect().top];
     });
     expect(iconTop, "the icon sits above the label").toBeLessThan(labelTop);
-    await expect(anna.locator(".app-header .status"), "on phones the connection is an icon").toBeHidden();
+    await expect(anna.locator("#connection-panel"), "the connection is an icon, its words behind it").toBeHidden();
     const connection = anna.locator("#connection-button");
     await expect(connection).toHaveAccessibleName("Verbindung: Verbunden. Alles gesendet");
     await connection.click();
@@ -483,7 +484,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~header-layout~1]
     const header = await ben.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      const [menu, title, search, status, person, bar] = ["#launcher-button", ".app-header__title", "#palette-button", ".app-header .status", "#profile-button", ".app-header"].map(box);
+      const [menu, title, search, status, person, bar] = ["#launcher-button", ".app-header__title", "#palette-button", "#connection-button", "#profile-button", ".app-header"].map(box);
       return {
         order: menu.right <= title.left && title.right <= search.left && search.right <= status.left && status.right <= person.left,
         centred: Math.abs((search.left + search.right) / 2 - (bar.left + bar.right) / 2) < 2,
@@ -499,10 +500,21 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als ben@localhost");
     await expect(ben.locator("#profile-panel #theme")).toBeVisible();
     await expect(ben.locator("#my-roles"), "the roles show only in the profile menu").toHaveText("Rollen: Einsatzleitung");
-    // [itest->dsn~compact-navigation~1]
+    // [itest->dsn~compact-navigation~2]
     await expect(ben.locator(".views__item .icon svg"), "every view has an icon in the rail").toHaveCount(4);
-    await expect(ben.locator(".app-header .status"), "wide screens show the connection in words").toBeVisible();
-    await expect(ben.locator("#connection-button")).toBeHidden();
+    const connection = ben.locator(".connection");
+    await expect(connection, "the same connection button as on phones").toHaveClass(/connection--synced/);
+    await expect(ben.locator("#connection-button .icon"), "coloured like its state, in addition to its shape").toHaveCSS(
+      "color",
+      await ben.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--ordo-color-feedback-success-text)";
+        document.body.append(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      }),
+    );
     await audit(ben, "Profile menu");
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#profile-panel")).toBeHidden();
