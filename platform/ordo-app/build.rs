@@ -2,11 +2,12 @@
 //! build: the ePCR forms, an HL7 FHIR Questionnaire (ADR-0037), handed to the app in ORDO's
 //! internal form model; the transport priority settings; the transport request catalogue;
 //! the routes for medical orders; the hospital catalogue; the triage algorithms; the status
-//! codes of units.
+//! codes of units; the tactical symbols with their SVG files.
 
 use std::path::Path;
 
 use ordo_command::StructureCatalogue;
+use ordo_map::SymbolCatalogue;
 use ordo_med_patients::TransportPriorityConfig;
 use ordo_med_patients::hospitals::HospitalCatalogue;
 use ordo_med_patients::orders::OrderCatalogue;
@@ -99,4 +100,42 @@ fn main() {
         "status-codes.toml",
         StatusCatalogue::check,
     );
+    symbols(&profile.join("symbols"));
+}
+
+/// The tactical symbols (MAP-3): the catalogue, and every symbol's SVG file as text, so the
+/// app has them offline without further requests. A rule without a symbol, or a symbol
+/// without its file, fails the build.
+fn symbols(dir: &Path) {
+    let source = dir.join("symbols.json");
+    println!("cargo:rerun-if-changed={}", dir.display());
+    let text = std::fs::read_to_string(&source)
+        .unwrap_or_else(|e| panic!("read {}: {e}", source.display()));
+    let catalogue: SymbolCatalogue =
+        serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", source.display()));
+    catalogue
+        .check()
+        .unwrap_or_else(|e| panic!("{}: {e}", source.display()));
+    let images: std::collections::BTreeMap<&str, String> = catalogue
+        .symbols
+        .iter()
+        .map(|s| {
+            let file = dir.join(format!("{}.svg", s.id));
+            println!("cargo:rerun-if-changed={}", file.display());
+            let svg = std::fs::read_to_string(&file)
+                .unwrap_or_else(|e| panic!("symbol {}: {}: {e}", s.id, file.display()));
+            (s.id.as_str(), svg)
+        })
+        .collect();
+    let out = Path::new(&std::env::var("OUT_DIR").expect("OUT_DIR")).to_path_buf();
+    std::fs::write(
+        out.join("symbols.json"),
+        serde_json::to_string(&catalogue).expect("serialise"),
+    )
+    .expect("write the symbols");
+    std::fs::write(
+        out.join("symbol-images.json"),
+        serde_json::to_string(&images).expect("serialise"),
+    )
+    .expect("write the symbol images");
 }

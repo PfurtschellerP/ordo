@@ -1,10 +1,17 @@
 //! The situation map (MAP-1, MAP-2, ADR-0006): the command workspace's view *Lage* with the
 //! map, the list of everything on it (A11Y-5), placing objects at the map's centre, and the
-//! offline copy of the map region. The map itself is MapLibre GL JS behind ORDO's glue
+//! offline copy of the map region, objects shown with the profile's tactical symbols (MAP-3).
+//! The map itself is MapLibre GL JS behind ORDO's glue
 //! `map/ordo-map.js`, imported only when the view opens.
 
+use std::collections::BTreeMap;
+use std::sync::LazyLock;
+
+use base64::Engine as _;
 use leptos::prelude::*;
-use ordo_map::{Geometry, ObjectKind, ObjectPlaced, ObjectRemoved, SituationMap};
+use ordo_map::{
+    Geometry, ObjectKind, ObjectPlaced, ObjectRemoved, SituationMap, Symbol, SymbolCatalogue,
+};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
@@ -36,16 +43,79 @@ async fn call_async(module: &JsValue, name: &str, args: &[JsValue]) -> Result<Js
     JsFuture::from(promise).await
 }
 
-/// The objects as a GeoJSON FeatureCollection (RFC 7946) for the glue.
-fn geojson(map: &SituationMap) -> String {
+/// The profile's tactical symbols (`symbols/symbols.json`, checked at build time).
+static SYMBOLS: LazyLock<SymbolCatalogue> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/symbols.json")))
+        .expect("symbols were checked at build time")
+});
+
+/// The symbols' SVG files by symbol ID, as JSON for the glue.
+const SYMBOL_IMAGES: &str = include_str!(concat!(env!("OUT_DIR"), "/symbol-images.json"));
+
+/// A symbol as a `data:` URL for an `<img>`.
+fn symbol_url(id: &str) -> Option<String> {
+    static IMAGES: LazyLock<BTreeMap<String, String>> = LazyLock::new(|| {
+        serde_json::from_str(SYMBOL_IMAGES).expect("symbols were checked at build time")
+    });
+    IMAGES.get(id).map(|svg| {
+        format!(
+            "data:image/svg+xml;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(svg)
+        )
+    })
+}
+
+// [impl->dsn~tactical-symbols~1]
+/// Which symbol each object gets (MAP-3), by object ID: a unit by its type or service, a
+/// UHS by its kind, a position by its kind, the incident location its own. Objects this
+/// device cannot look up (e.g. a UHS without access to medical data) get none.
+fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
+    let units = core
+        .with_value(|c| ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)));
+    let uhs = crate::views::uhs_list(core);
+    let structure = crate::command::structure(core);
+    map.objects
+        .values()
+        .filter_map(|o| {
+            let reference = o.placed.reference.as_deref().unwrap_or_default();
+            let symbol = match o.placed.kind {
+                ObjectKind::Incident => SYMBOLS.for_incident(),
+                ObjectKind::Unit => units
+                    .units
+                    .get(reference)
+                    .and_then(|u| SYMBOLS.for_unit(&u.unit_type, u.service.as_deref())),
+                ObjectKind::Uhs => uhs
+                    .iter()
+                    .find(|u| u.id == reference)
+                    .and_then(|u| serde_json::to_value(u.kind).ok())
+                    .and_then(|kind| kind.as_str().and_then(|k| SYMBOLS.for_uhs(k))),
+                ObjectKind::Position => structure
+                    .positions
+                    .get(reference)
+                    .and_then(|p| SYMBOLS.for_position(&p.created.kind)),
+                ObjectKind::Drawing => None,
+            }?;
+            Some((o.placed.object.clone(), symbol.clone()))
+        })
+        .collect()
+}
+
+/// The objects as a GeoJSON FeatureCollection (RFC 7946) for the glue; `symbol` names the
+/// image the glue shows for a point.
+fn geojson(map: &SituationMap, symbols: &BTreeMap<String, Symbol>) -> String {
     let features: Vec<serde_json::Value> = map
         .objects
         .values()
         .map(|o| {
+            let mut properties =
+                serde_json::json!({ "label": o.placed.label, "kind": o.placed.kind });
+            if let Some(symbol) = symbols.get(&o.placed.object) {
+                properties["symbol"] = serde_json::Value::from(symbol.id.clone());
+            }
             serde_json::json!({
                 "type": "Feature",
                 "id": o.placed.object,
-                "properties": { "label": o.placed.label, "kind": o.placed.kind },
+                "properties": properties,
                 "geometry": o.placed.geometry,
             })
         })
@@ -83,6 +153,11 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         revision.track();
         core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)))
     });
+    let symbols = Memo::new(move |_| {
+        revision.track();
+        situation.with(|s| symbols_of(core, s))
+    });
+    let features = move || situation.with(|s| symbols.with(|y| geojson(s, y)));
     let state = RwSignal::new(MapState::Loading);
     // The glue module and the map handle, once created (JS values stay on this thread).
     let handle = StoredValue::new_local(None::<(JsValue, JsValue)>);
@@ -105,6 +180,13 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     &[element.into(), centre, JsValue::from_str(text::MAP_LABEL)],
                 )
                 .await?;
+                // The symbols first, so the objects find their images.
+                call_async(
+                    &module,
+                    "setSymbols",
+                    &[map.clone(), JsValue::from_str(SYMBOL_IMAGES)],
+                )
+                .await?;
                 Ok::<_, JsValue>((module, map))
             };
             match created.await {
@@ -116,10 +198,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     let _ = call(
                         &module,
                         "setObjects",
-                        &[
-                            map.clone(),
-                            JsValue::from_str(&situation.with_untracked(geojson)),
-                        ],
+                        &[map.clone(), JsValue::from_str(&untrack(features))],
                     );
                     handle.set_value(Some((module, map)));
                     state.set(MapState::Ready(match from.as_str() {
@@ -134,7 +213,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     // Every change of the objects goes to the map.
     Effect::new(move || {
-        let json = situation.with(geojson);
+        let json = features();
         handle.with_value(|h| {
             if let Some((module, map)) = h {
                 let _ = call(
@@ -188,6 +267,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             <h3 id="objects-title">{text::MAP_OBJECTS}</h3>
             {move || {
                 let list: Vec<_> = situation.with(|s| s.list().into_iter().cloned().collect());
+                let symbols = symbols.get();
                 if list.is_empty() {
                     return view! { <p class="hint">{text::MAP_OBJECTS_NONE}</p> }.into_any();
                 }
@@ -219,8 +299,15 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         }),
                                     });
                                 }
+                                // The symbol's name as its text, e.g. "Rettungswagen".
+                                let symbol = symbols.get(&o.placed.object).and_then(|s| {
+                                    symbol_url(&s.id).map(|url| view! {
+                                        <img class="map-object__symbol" src=url alt=s.label.clone() data-symbol=s.id.clone() />
+                                    })
+                                });
                                 view! {
                                     <li class="map-object" data-object=o.placed.object.clone()>
+                                        {symbol}
                                         <strong>{o.placed.label.clone()}</strong> " · " {text::map_kind(o.placed.kind)}
                                         " · " <span class="map-object__at">{coordinates(&o.placed.geometry)}</span>
                                         <Actions actions />

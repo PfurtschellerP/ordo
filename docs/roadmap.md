@@ -15,8 +15,10 @@
 
 ## Open questions
 
-1. Tactical symbols: decided — ORDO ships the official BBK symbols (2024) with the source
-   named. Open: which states have introduced FwDV/DV 102?
+1. Tactical symbols: generated per DV 102 with `@taktische-zeichen/core` (MIT) into the
+   profile (decided 2026-11-10; the official BBK set of 2024 is a PDF whose terms allow
+   distribution only free of charge). Open: compare the generated symbols with the BBK's
+   recommendations before field use; which states have introduced FwDV/DV 102?
 2. Which organisations in Germany could be early test partners — first medical services
    for planned events (e.g. DRK, ASB, JUH, MHD), then fire brigades?
 3. Which DIVI MIND version should the ePCR forms align with field by field (7.0?), and is
@@ -182,9 +184,9 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   files viewable in place, immutable (events cannot change; corrections are new entries,
   hash-chained and signed). Legal requirements to be checked before building: state
   archive law, evidence value, qualified time stamps (eIDAS), retention.
-- **Situation map, next steps:** tactical symbols (MAP-3, source to be decided);
-  **map editor with geofencing**: sectors, hazard and restricted areas, collection points
-  as shapes (GeoJSON, RFC 7946; drawing with an open-source plug-in such as Terra Draw);
+- **Situation map, next steps:** symbols for drawn objects and staff functions; compare
+  the generated symbols with the BBK's 2024 recommendations; **map editor with
+  geofencing**: sectors, hazard and restricted areas, collection points as shapes (GeoJSON, RFC 7946; drawing with an open-source plug-in such as Terra Draw);
   a geofence reports when a unit or person enters or leaves. Every change is an event.
 - **Positions** of units and people with call signs on the map. Browsers report positions
   only while the app is open (iOS: foreground only); continuous tracking needs a native

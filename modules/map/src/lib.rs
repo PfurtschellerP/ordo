@@ -8,6 +8,9 @@ use ordo_core::{Hlc, UserId};
 use ordo_sync::AppliedEvent;
 use serde::{Deserialize, Serialize};
 
+pub mod symbols;
+pub use symbols::{Symbol, SymbolCatalogue};
+
 /// Module ID.
 pub const MODULE: &str = "map";
 /// Compartment: shared with the incident.

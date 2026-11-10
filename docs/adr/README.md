@@ -58,5 +58,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0051](0051-vim-movement-keys.md) | Vim movement keys in lists and the command palette | accepted | 2026-11-10 |
 | [0052](0052-api-versions.md) | API versions: `major.minor` per specification, negotiated per connection and request | accepted | 2026-11-10 |
 | [0053](0053-verbal-orders.md) | Orders given by voice or radio are recorded by the crew and confirmed later | proposed | 2026-11-10 |
+| [0054](0054-tactical-symbols-generated.md) | Tactical symbols: generated at build time with `@taktische-zeichen/core`, kept in the profile | accepted | 2026-11-10 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

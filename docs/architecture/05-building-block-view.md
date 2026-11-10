@@ -376,6 +376,31 @@ Needs: impl, utest, itest
 
 Tags: must, m33
 
+#### Tactical symbols
+`dsn~tactical-symbols~1`
+
+Symbols are profile data (rule 6: German doctrine stays out of the platform). The profile
+file `symbols/symbols.json` describes each symbol by the parameters of DV 102 (base
+symbol, organisation, specialist task, unit size, short text) and says which symbol a map
+object gets: by unit type, else by the unit's service; by UHS kind; by position kind; and
+one for the incident location. The tool `tools/symbols` generates the SVG files from the
+descriptions with `@taktische-zeichen/core` (MIT, pinned), without an embedded font, and
+CI checks that the files in the profile are what it generates; each file carries the
+library's licence notice ([ADR-0054](../adr/0054-tactical-symbols-generated.md)). The app
+embeds the symbols at build time; the map shows each object with its symbol and its label (never the symbol
+alone), and the list beside the map shows the symbol too, named by its label. Symbols
+are drawn black on white, as on paper, in every theme. Objects without a symbol keep
+the plain marker. Whether the generated symbols match the BBK's recommendations (2024)
+must be checked before field use; another profile can ship other files.
+
+Covers:
+
+* [req~map-3~1](../requirements/02-shared.md#map-3--tactical-symbols)
+
+Needs: impl, utest, itest
+
+Tags: must, m34
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS registry

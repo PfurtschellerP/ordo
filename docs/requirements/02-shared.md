@@ -233,7 +233,7 @@ Needs: dsn
 
 Tactical symbols (*taktische Zeichen*) from the profile's symbol set
 
-Tags: must, shared
+Tags: must, shared, m34
 
 Needs: dsn
 

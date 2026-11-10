@@ -66,3 +66,9 @@ SPDX-License-Identifier = "BSD-3-Clause"
 path = ["platform/ordo-app/map/glyphs/**"]
 SPDX-FileCopyrightText = "2022 The Noto Project Authors (https://github.com/notofonts)"
 SPDX-License-Identifier = "OFL-1.1"
+
+# Tactical symbols of the DE profile, drawn by @taktische-zeichen/core (tools/symbols, MAP-3).
+[[annotations]]
+path = ["profiles/de/symbols/*.svg"]
+SPDX-FileCopyrightText = "2022-2026 Philipp Jardas"
+SPDX-License-Identifier = "MIT"

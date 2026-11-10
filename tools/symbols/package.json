@@ -1,0 +1,13 @@
+{
+  "name": "ordo-symbols",
+  "private": true,
+  "description": "Generates the tactical symbols of a profile (MAP-3) with @taktische-zeichen/core (MIT)",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs ../../profiles/de/symbols",
+    "check": "node generate.mjs ../../profiles/de/symbols --check"
+  },
+  "devDependencies": {
+    "@taktische-zeichen/core": "0.11.0"
+  }
+}

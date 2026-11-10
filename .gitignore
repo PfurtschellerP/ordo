@@ -28,6 +28,7 @@ deploy/compose/**/dex.yaml
 # Web app build output
 platform/ordo-app/dist/
 platform/ordo-app/generated/
+tools/symbols/node_modules/
 
 # Python
 __pycache__/

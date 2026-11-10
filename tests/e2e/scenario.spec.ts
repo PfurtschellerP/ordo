@@ -808,6 +808,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
     const unit = ben.locator(".map-object[data-object='unit:RTW 83/1']");
     await expect(unit).toContainText("RTW 83/1 · Einsatzmittel");
+    // [itest->dsn~tactical-symbols~1]
+    // MAP-3: objects carry the profile's tactical symbols, on the map and in the list.
+    await expect(unit.getByRole("img", { name: "Rettungswagen" }), "a unit of type RTW gets its symbol").toHaveAttribute("data-symbol", "rtw");
+    await expect(objects.first().locator(".map-object__symbol"), "the incident location gets its symbol").toHaveAttribute("data-symbol", "incident");
+    expect(Number(await ben.locator(".situation__map").getAttribute("data-symbols")), "the map has the symbols as images").toBeGreaterThan(20);
     expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map").not.toBe("51.16000, 10.45000");
     await audit(ben, "Situation map");
     await shot(ben, "situation-map");

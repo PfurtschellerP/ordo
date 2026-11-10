@@ -149,6 +149,12 @@
         "$value": "{font.size.0}",
         "$description": "Labels under the icons of the phone's bottom bar: four views and the menu fit in one line each."
       }
+    },
+    "mapSymbol": {
+      "background": {
+        "$value": "{color.neutral.0}",
+        "$description": "Behind tactical symbols (MAP-3) in every theme: they are drawn in black on white, as on paper, and some are lines only."
+      }
     }
   }
 }

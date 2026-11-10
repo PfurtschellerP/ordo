@@ -33,6 +33,7 @@ web-sys.workspace = true
 
 [build-dependencies]
 ordo-command.workspace = true
+ordo-map.workspace = true
 ordo-med-patients.workspace = true
 ordo-tasks.workspace = true
 ordo-units.workspace = true

@@ -3,15 +3,20 @@
 // The Rust app imports this module only when the situation map opens. It loads the
 // vendored libraries (map/vendor), shows the map region from the device's offline copy or
 // from the server, and draws ORDO's objects, which the app passes as GeoJSON. Everything
-// the map shows is also in the app's accessible list (A11Y-5).
+// the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
+// property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
 // [impl->dsn~situation-map~1]
+// [impl->dsn~tactical-symbols~1]
 
 const REGION_URL = "/tiles/region.pmtiles";
 const OFFLINE_NAME = "ordo-region.pmtiles";
 const OBJECTS = "ordo-objects";
 // Germany, until the incident is placed.
 const START = { center: [10.45, 51.16], zoom: 5 };
+// Tactical symbols: CSS pixels high on the map, drawn at twice that for sharp screens.
+const SYMBOL_HEIGHT = 32;
+const SYMBOL_SCALE = 2;
 
 let libs;
 
@@ -114,15 +119,60 @@ export async function create(element, centre, label) {
   map.addSource(OBJECTS, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "ordo-areas", type: "fill", source: OBJECTS, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": accent, "fill-opacity": 0.2 } });
   map.addLayer({ id: "ordo-lines", type: "line", source: OBJECTS, filter: ["!=", ["geometry-type"], "Point"], paint: { "line-color": accent, "line-width": 3 } });
-  map.addLayer({ id: "ordo-points", type: "circle", source: OBJECTS, filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 8, "circle-color": accent, "circle-stroke-width": 2, "circle-stroke-color": halo } });
+  const point = ["==", ["geometry-type"], "Point"];
+  map.addLayer({ id: "ordo-points", type: "circle", source: OBJECTS, filter: ["all", point, ["!", ["has", "symbol"]]], paint: { "circle-radius": 8, "circle-color": accent, "circle-stroke-width": 2, "circle-stroke-color": halo } });
+  // Symbols never hide each other: on scene, every unit counts.
+  map.addLayer({
+    id: "ordo-symbols",
+    type: "symbol",
+    source: OBJECTS,
+    filter: ["all", point, ["has", "symbol"]],
+    layout: { "icon-image": ["get", "symbol"], "icon-allow-overlap": true, "icon-ignore-placement": true },
+  });
   map.addLayer({
     id: "ordo-labels",
     type: "symbol",
     source: OBJECTS,
-    layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Medium"], "text-size": 14, "text-offset": [0, 1.2], "text-anchor": "top" },
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Noto Sans Medium"],
+      "text-size": 14,
+      "text-offset": ["case", ["has", "symbol"], ["literal", [0, SYMBOL_HEIGHT / 2 / 14 + 0.3]], ["literal", [0, 1.2]]],
+      "text-anchor": "top",
+    },
     paint: { "text-color": text, "text-halo-color": halo, "text-halo-width": 2 },
   });
   return { map, from: source.from };
+}
+
+/** Gives the size an SVG's viewBox implies, at `SYMBOL_HEIGHT` CSS pixels high, so every
+ * browser draws it the same (an SVG without width and height has no size of its own). */
+function sized(svg, scale) {
+  const box = /viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"/.exec(svg);
+  const [w, h] = box ? [Number(box[1]), Number(box[2])] : [1, 1];
+  const height = SYMBOL_HEIGHT * scale;
+  const width = Math.round((height * w) / h);
+  return svg.replace("<svg ", `<svg width="${width}" height="${height}" `);
+}
+
+/** Adds the profile's tactical symbols (a JSON object: symbol ID → SVG text) as images. */
+export async function setSymbols(handle, json) {
+  const symbols = JSON.parse(json);
+  await Promise.all(
+    Object.entries(symbols).map(async ([id, svg]) => {
+      if (handle.map.hasImage(id)) return;
+      const image = new Image();
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized(svg, SYMBOL_SCALE))}`;
+      try {
+        await image.decode();
+        handle.map.addImage(id, image, { pixelRatio: SYMBOL_SCALE });
+      } catch {
+        // without this image the object shows as a circle
+      }
+    }),
+  );
+  // How many symbols the map has, for support and tests.
+  handle.map.getContainer().dataset.symbols = String(Object.keys(symbols).filter((id) => handle.map.hasImage(id)).length);
 }
 
 /** Shows ORDO's objects (a GeoJSON FeatureCollection as text). */
