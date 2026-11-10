@@ -15,6 +15,7 @@ use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::text;
+use crate::ui::{Action, Actions, CheckChips, History, RadioChips};
 
 /// What can be requested, from the profile (checked at build time, see `build.rs`).
 pub static CATALOGUE: LazyLock<TransportCatalogue> = LazyLock::new(|| {
@@ -60,17 +61,11 @@ fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl 
             })}
         </p>
         <p>{uhs.map(|u| format!("{u} · "))}{request_line(&t.request)}</p>
-        <details class="transport-card__history">
-            <summary>{text::TRANSPORT_HISTORY}</summary>
-            <ol>
-                {t.history
-                    .iter()
-                    .map(|s| view! {
-                        <li>{core::clock(s.at.wall_ms)} " " {text::transport_status(s.status)} " · " {s.by.to_string()}</li>
-                    })
-                    .collect_view()}
-            </ol>
-        </details>
+        <History entries=t
+            .history
+            .iter()
+            .map(|s| (core::clock(s.at.wall_ms), text::transport_status(s.status).to_owned(), s.by.to_string()))
+            .collect() />
     }
 }
 
@@ -80,40 +75,31 @@ fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl 
 fn StepButtons(core: Handle, revision: RwSignal<u64>, transport: Transport) -> impl IntoView {
     let name = summary(core, &transport);
     let request = transport.request.request.clone();
-    view! {
-        <div class="row">
-            {transport
-                .status
-                .next()
-                .into_iter()
-                .filter(|s| *s != TransportStatus::Assigned)
-                .map(|status| {
-                    let request = request.clone();
-                    let step = text::transport_step(status);
-                    let class = if status == TransportStatus::Cancelled {
-                        "button button--small button--quiet"
-                    } else {
-                        "button button--small"
+    let actions = transport
+        .status
+        .next()
+        .into_iter()
+        .filter(|s| *s != TransportStatus::Assigned)
+        .map(|status| {
+            let request = request.clone();
+            let text = text::transport_step(status);
+            Action {
+                text,
+                label: text::transport_step_label(text, &name),
+                quiet: status == TransportStatus::Cancelled,
+                run: Callback::new(move |()| {
+                    let update = TransportUpdated {
+                        request: request.clone(),
+                        status,
+                        unit: None,
+                        destination: None,
                     };
-                    view! {
-                        <button type="button" class=class
-                            aria-label=text::transport_step_label(step, &name)
-                            on:click=move |_| {
-                                let update = TransportUpdated {
-                                    request: request.clone(),
-                                    status,
-                                    unit: None,
-                                    destination: None,
-                                };
-                                let _ = core::update_transport(core, revision, &update);
-                            }>
-                            {step}
-                        </button>
-                    }
-                })
-                .collect_view()}
-        </div>
-    }
+                    let _ = core::update_transport(core, revision, &update);
+                }),
+            }
+        })
+        .collect();
+    view! { <Actions actions /> }
 }
 
 // [impl->dsn~transport-request~1]
@@ -177,27 +163,16 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
             }
         }
     };
-    let radios = move |name: &'static str, list: &'static [Choice], signal: RwSignal<String>| {
+    let options = |list: &'static [Choice]| -> Vec<(String, String)> {
         list.iter()
             .map(|c| {
-                let id = c.id.clone();
-                let checked = {
-                    let id = id.clone();
-                    move || signal.get() == id
-                };
                 let shown = match &c.description {
                     Some(d) => format!("{} – {d}", c.label),
                     None => c.label.clone(),
                 };
-                view! {
-                    <label class="choice chip">
-                        <input type="radio" name=name prop:checked=checked
-                            on:change=move |_| signal.set(id.clone()) />
-                        {shown}
-                    </label>
-                }
+                (c.id.clone(), shown)
             })
-            .collect_view()
+            .collect()
     };
     view! {
         <section class="record__section" aria-labelledby="section-transport">
@@ -228,40 +203,9 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
             }}
             <Show when=move || state.with(|(uhs, t)| uhs.is_some() && !t.iter().any(|t| t.status.is_open()))>
                 <form class="form transport-request" novalidate on:submit=submit.clone()>
-                    <fieldset class="choices">
-                        <legend>{text::TRANSPORT_TYPE}</legend>
-                        {radios("transport-type", &CATALOGUE.types, transport_type)}
-                    </fieldset>
-                    <fieldset class="choices">
-                        <legend>{text::TRANSPORT_PRIORITY_OF_REQUEST}</legend>
-                        {radios("transport-priority", &CATALOGUE.priorities, priority)}
-                    </fieldset>
-                    <fieldset class="choices">
-                        <legend>{text::TRANSPORT_NEEDS}</legend>
-                        {CATALOGUE
-                            .needs
-                            .iter()
-                            .map(|n| {
-                                let id = n.id.clone();
-                                let checked = {
-                                    let id = id.clone();
-                                    move || needs.with(|s| s.contains(&id))
-                                };
-                                view! {
-                                    <label class="choice chip">
-                                        <input type="checkbox" prop:checked=checked
-                                            on:change=move |ev| {
-                                                let on = event_target_checked(&ev);
-                                                needs.update(|s| {
-                                                    if on { s.insert(id.clone()); } else { s.remove(&id); }
-                                                });
-                                            } />
-                                        {n.label.clone()}
-                                    </label>
-                                }
-                            })
-                            .collect_view()}
-                    </fieldset>
+                    <RadioChips legend=text::TRANSPORT_TYPE name="transport-type" options=options(&CATALOGUE.types) value=transport_type />
+                    <RadioChips legend=text::TRANSPORT_PRIORITY_OF_REQUEST name="transport-priority" options=options(&CATALOGUE.priorities) value=priority />
+                    <CheckChips legend=text::TRANSPORT_NEEDS options=options(&CATALOGUE.needs) value=needs />
                     <p class="error" role="alert">{move || message.get()}</p>
                     <div class="row">
                         <button type="submit" class="button button--primary">{text::TRANSPORT_REQUEST}</button>

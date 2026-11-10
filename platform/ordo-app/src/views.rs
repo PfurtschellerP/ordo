@@ -12,6 +12,7 @@ use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
 use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
+use crate::ui::{Disclosure, DisclosureButton, Icon, SettingSelect};
 use crate::{devices, incidents, nav, palette, patients, text};
 
 /// Triage categories in display order.
@@ -352,36 +353,42 @@ const NAV_KEY: &str = "ordo.nav";
 const THEME_KEY: &str = "ordo.theme";
 const HAND_KEY: &str = "ordo.hand";
 
-/// Applies a colour theme (`""` = follow the system) and remembers it on this device.
-pub(crate) fn apply_theme(theme: &str) {
+/// Sets (or, when empty, removes) the attribute `attribute` on `<html>` and remembers the
+/// value on this device under `key`: device settings applied by style rules only.
+fn apply_setting(attribute: &str, key: &str, value: &str) {
     if let Some(root) = web_sys::window()
         .and_then(|w| w.document())
         .and_then(|d| d.document_element())
     {
-        let _ = if theme.is_empty() {
-            root.remove_attribute("data-theme")
+        let _ = if value.is_empty() {
+            root.remove_attribute(attribute)
         } else {
-            root.set_attribute("data-theme", theme)
+            root.set_attribute(attribute, value)
         };
     }
-    core::set_preference(THEME_KEY, (!theme.is_empty()).then_some(theme));
+    core::set_preference(key, (!value.is_empty()).then_some(value));
+}
+
+/// Applies a colour theme (`""` = follow the system) and remembers it on this device.
+pub(crate) fn apply_theme(theme: &str) {
+    apply_setting("data-theme", THEME_KEY, theme);
 }
 
 // [impl->dsn~header-layout~1]
 /// Applies the handedness (`""` = right, `"left"`) and remembers it on this device: the
 /// bottom bar puts the menu at the end the thumb reaches.
 pub(crate) fn apply_hand(hand: &str) {
-    if let Some(root) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.document_element())
-    {
-        let _ = if hand.is_empty() {
-            root.remove_attribute("data-hand")
-        } else {
-            root.set_attribute("data-hand", hand)
-        };
+    apply_setting("data-hand", HAND_KEY, hand);
+}
+
+/// The content of both menu buttons (header and bottom bar).
+#[component]
+fn MenuLabel() -> impl IntoView {
+    view! {
+        <Icon name="layout-grid" />
+        <span class="launcher__text">{text::MENU}</span>
+        <span class="visually-hidden">" – " {text::LAUNCHER}</span>
     }
-    core::set_preference(HAND_KEY, (!hand.is_empty()).then_some(hand));
 }
 
 /// Focuses the menu button of the current layout (header on wide screens, bottom bar on
@@ -616,11 +623,14 @@ fn Workspace(
     let me = core.with_value(|c| c.replica.user().clone());
     // Unpairing deletes the key on this device; if the server can be reached, it forgets
     // the device as well (SEC-4), so it no longer appears in the device list.
+    // Kept locally (the callbacks are not `Send`), so the profile menu can hold them.
+    let on_unpair = StoredValue::new_local(on_unpair);
+    let on_change_incident = StoredValue::new_local(on_change_incident);
     let unpair = move |_| {
         let device = core.with_value(|c| c.replica.device());
         core::revoke_device(core, device);
         core::forget_device();
-        on_unpair();
+        on_unpair.with_value(|f| f());
     };
     let title = move || match current.get().and_then(nav::workspace) {
         Some(w) => format!("{} – {}", w.package, w.label),
@@ -648,15 +658,32 @@ fn Workspace(
             if open.get_untracked() {
                 open.set(false);
                 focus_menu_button();
-            } else if profile_open.get_untracked() {
-                profile_open.set(false);
-                focus("profile-button");
             }
         }
     });
     on_cleanup(move || keys.remove());
     let theme = RwSignal::new(core::preference(THEME_KEY).unwrap_or_default());
     let hand = RwSignal::new(core::preference(HAND_KEY).unwrap_or_default());
+    let close_profile = Callback::new(move |()| profile_open.set(false));
+    // The person's roles in this incident, shown in the profile menu.
+    let my_roles = {
+        let me = me.clone();
+        move || {
+            revision.track();
+            core.with_value(|c| c.incident_info().and_then(|i| i.roster.get(&me).cloned()))
+                .filter(|roles| !roles.is_empty())
+                .map_or_else(
+                    || text::NO_ROLE.to_owned(),
+                    |roles| {
+                        roles
+                            .iter()
+                            .map(|r| text::role_label(r))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    },
+                )
+        }
+    };
 
     view! {
         <a class="skip-link" href="#main" on:click=move |ev| {
@@ -665,21 +692,10 @@ fn Workspace(
         }>{text::SKIP_LINK}</a>
         <header class="app-header">
             <div class="app-header__start">
-                <button
-                    id="launcher-button"
-                    type="button"
-                    class="launcher__button launcher__button--header"
-                    aria-expanded=move || open.get().to_string()
-                    aria-controls="launcher-panel"
-                    on:click=move |_| {
-                        profile_open.set(false);
-                        open.update(|o| *o = !*o);
-                    }
-                >
-                    <span class="launcher__icon" aria-hidden="true"></span>
-                    <span>{text::MENU}</span>
-                    <span class="visually-hidden">" – " {text::LAUNCHER}</span>
-                </button>
+                <DisclosureButton id="launcher-button" controls="launcher-panel" open
+                    class="launcher__button launcher__button--header" on_open=Some(close_profile)>
+                    <MenuLabel />
+                </DisclosureButton>
                 <div class="app-header__heading">
                     <h1 class="app-header__title">{title}</h1>
                     <p class="app-header__incident">
@@ -695,76 +711,43 @@ fn Workspace(
                 aria-keyshortcuts="Control+K Meta+K"
                 on:click=move |_| palette.set(true)
             >
-                <span class="search-button__icon" aria-hidden="true"></span>
+                <Icon name="search" />
                 <span>{text::SEARCH}</span>
                 <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
             </button>
             <div class="app-header__end">
                 <ConnectionStatus core revision />
-                <div class="profile-menu">
-                    <button
-                        id="profile-button"
-                        type="button"
-                        class="profile-menu__button"
-                        aria-expanded=move || profile_open.get().to_string()
-                        aria-controls="profile-panel"
-                        on:click=move |_| {
-                            open.set(false);
-                            profile_open.update(|o| *o = !*o);
-                        }
-                    >
-                        <crate::profile::Avatar core revision user=me.clone() />
-                        <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
-                        <span class="profile-menu__name">{me.localpart().to_owned()}</span>
-                    </button>
-                    <div id="profile-panel" class="profile-menu__panel" hidden=move || !profile_open.get()>
-                        <h2 class="launcher__title">{text::PROFILE}</h2>
-                        <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
-                        <crate::profile::ProfilePicture core revision />
-                        <label for="theme">{text::APPEARANCE}</label>
-                        <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
-                            let value = event_target_value(&ev);
-                            apply_theme(&value);
-                            theme.set(value);
-                        }>
-                            {text::THEMES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
-                        </select>
-                        <label for="hand">{text::HAND}</label>
-                        <select id="hand" prop:value=move || hand.get() on:change=move |ev| {
-                            let value = event_target_value(&ev);
-                            apply_hand(&value);
-                            hand.set(value);
-                        }>
-                            {text::HANDS.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
-                        </select>
-                        <button id="change-incident" type="button" class="button" on:click={
-                            let change = on_change_incident.clone();
-                            move |_| change()
-                        }>{text::CHANGE_INCIDENT}</button>
-                        <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
-                    </div>
-                </div>
+                <Disclosure id="profile" open=profile_open class="profile-menu"
+                    button_class="profile-menu__button" panel_class="profile-menu__panel"
+                    on_open=Some(Callback::new(move |()| open.set(false)))
+                    button=Box::new({
+                        let me = me.clone();
+                        move || view! {
+                            <crate::profile::Avatar core revision user=me.clone() />
+                            <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
+                            <span class="profile-menu__name">{me.localpart().to_owned()}</span>
+                        }.into_any()
+                    })>
+                    <h2 class="launcher__title">{text::PROFILE}</h2>
+                    <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
+                    <p id="my-roles">{text::MY_ROLES} ": " {my_roles}</p>
+                    <crate::profile::ProfilePicture core revision />
+                    <SettingSelect id="theme" label=text::APPEARANCE options=&text::THEMES value=theme apply=apply_theme />
+                    <SettingSelect id="hand" label=text::HAND options=&text::HANDS value=hand apply=apply_hand />
+                    <button id="change-incident" type="button" class="button"
+                        on:click=move |_| on_change_incident.with_value(|f| f())>{text::CHANGE_INCIDENT}</button>
+                    <button type="button" class="button" on:click=unpair>{text::UNPAIR}</button>
+                </Disclosure>
             </div>
         </header>
         <div class="layout">
             <div class="navigation">
               <div class="navigation__inner">
                 <div class="launcher">
-                    <button
-                        id="launcher-bar-button"
-                        type="button"
-                        class="launcher__button launcher__button--bar"
-                        aria-expanded=move || open.get().to_string()
-                        aria-controls="launcher-panel"
-                        on:click=move |_| {
-                            profile_open.set(false);
-                            open.update(|o| *o = !*o);
-                        }
-                    >
-                        <span class="launcher__icon" aria-hidden="true"></span>
-                        <span>{text::MENU}</span>
-                        <span class="visually-hidden">" – " {text::LAUNCHER}</span>
-                    </button>
+                    <DisclosureButton id="launcher-bar-button" controls="launcher-panel" open
+                        class="launcher__button launcher__button--bar" on_open=Some(close_profile)>
+                        <MenuLabel />
+                    </DisclosureButton>
                     <div id="launcher-panel" class="launcher__panel" hidden=move || !open.get()>
                         <h2 class="launcher__title">{text::LAUNCHER}</h2>
                         {nav::packages()
@@ -826,7 +809,8 @@ fn Workspace(
                                                 href=nav::Route::view(w.id, v.id).to_path()
                                                 aria-current=move || selected().then_some("page")
                                             >
-                                                {v.label}
+                                                <Icon name=v.icon />
+                                                <span class="views__label">{v.label}</span>
                                             </a>
                                         }
                                     })
@@ -888,9 +872,10 @@ pub(crate) fn click(id: &str) {
 }
 
 /// Connection and outbox state, as text (OFF-5).
+// [impl->dsn~compact-navigation~1]
 #[component]
 fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let state = move || {
+    let state = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {
             (
@@ -900,25 +885,45 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 c.storage_failed,
             )
         })
+    });
+    let words = move || match state.get().0 {
+        Connection::Online => text::ONLINE,
+        Connection::Connecting => text::CONNECTING,
+        Connection::Offline => text::OFFLINE,
     };
+    // On narrow screens only an icon (its shape tells the state, never its colour alone)
+    // and the number of unsent inputs; the words are behind the button (ADR-0049).
+    let icon = move || match state.get() {
+        (Connection::Online, 0, ..) => "cloud-check",
+        (Connection::Online, ..) => "cloud-upload",
+        (Connection::Connecting, ..) => "refresh-cw",
+        (Connection::Offline, ..) => "cloud-off",
+    };
+    let label =
+        Signal::derive(move || text::connection_label(words(), &text::pending(state.get().1)));
+    let open = RwSignal::new(false);
     view! {
-        <div class="status" data-state=move || match state().0 {
-            Connection::Online => "online",
-            Connection::Connecting => "connecting",
-            Connection::Offline => "offline",
-        }>
-            <span class="status__dot" aria-hidden="true"></span>
-            <span>
-                {move || match state().0 {
-                    Connection::Online => text::ONLINE,
-                    Connection::Connecting => text::CONNECTING,
-                    Connection::Offline => text::OFFLINE,
-                }}
-            </span>
-            <span class="status__pending">{move || text::pending(state().1)}</span>
-            {move || state().2.map(|e| view! { <span role="alert" class="error">{e}</span> })}
-            {move || state().3.then(|| view! { <span role="alert" class="error">{text::STORAGE_FAILED}</span> })}
-        </div>
+        <Disclosure id="connection" open class="connection" button_class="connection__button"
+            panel_class="connection__panel" label=Some(label)
+            button=Box::new(move || view! {
+                {move || view! { <Icon name=icon() /> }}
+                <span class="connection__count">{move || {
+                    let n = state.get().1;
+                    (n > 0).then(|| n.to_string())
+                }}</span>
+            }.into_any())>
+            <div class="status" data-state=move || match state.get().0 {
+                Connection::Online => "online",
+                Connection::Connecting => "connecting",
+                Connection::Offline => "offline",
+            }>
+                <span class="status__dot" aria-hidden="true"></span>
+                <span>{words}</span>
+                <span class="status__pending">{move || text::pending(state.get().1)}</span>
+            </div>
+        </Disclosure>
+        {move || state.get().2.map(|e| view! { <p role="alert" class="error connection__error">{e}</p> })}
+        {move || state.get().3.then(|| view! { <p role="alert" class="error connection__error">{text::STORAGE_FAILED}</p> })}
     }
 }
 

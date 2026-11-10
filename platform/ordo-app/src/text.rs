@@ -37,6 +37,9 @@ pub const RETRY: &str = "Erneut versuchen";
 pub const STARTING: &str = "ORDO wird gestartet …";
 
 pub const ONLINE: &str = "Verbunden";
+pub fn connection_label(state: &str, pending: &str) -> String {
+    format!("Verbindung: {state}. {pending}")
+}
 pub const CONNECTING: &str = "Verbinde …";
 pub const OFFLINE: &str = "Offline – Eingaben werden gespeichert und später gesendet";
 pub fn pending(n: usize) -> String {

@@ -53,3 +53,15 @@ sits on wide screens; everything else in ADR-0025 and ADR-0026 stands.
 * Good, because the main menu is about workspaces only; personal settings have one place.
 * Bad, because two menu buttons exist in the page, of which style rules hide one: tests
   check that exactly one is visible at each width.
+
+### Additions (2026-11-10)
+
+Asked for by the project lead after the first version:
+
+* The profile menu shows the person's roles in the incident (not the header itself).
+* Views get icons with labels, the same in the rail and in the bottom bar: icon above a
+  short label in the bar, as in Material's navigation bar and iOS's tab bar, which both
+  recommend three to five destinations with visible labels. A workspace has at most four
+  views; more would go behind a "Mehr" entry, which no workspace needs yet.
+* On narrow screens the connection state is an icon (with the number of unsent inputs)
+  that opens the full state; errors stay visible.

@@ -220,6 +220,8 @@
     .only-wide { display: none; }
   }
 
+  /* Hidden from sight, kept for screen readers; on phones also the name in the profile
+     button (the picture stays, the name is in the panel). */
   .visually-hidden {
     position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -277,14 +279,40 @@
   }
   .launcher__button.launcher__button--bar { display: none; }
   @media (max-width: 48rem) {
-    /* Heading and person, then the connection, then the search. */
-    .app-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "start person" "status status" "search search"; }
+    /* Heading, connection icon and person in one row, the search below. */
+    .app-header { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "start status person" "search search search"; }
     .app-header__end { display: contents; }
-    .app-header .status { grid-area: status; }
+    .app-header .connection { grid-area: status; }
     .app-header .profile-menu { grid-area: person; align-self: start; }
+    .app-header .connection { align-self: start; }
+    .profile-menu__name {
+      position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
     .app-header .search-button { justify-self: stretch; }
     .launcher__button.launcher__button--header { display: none; }
     .launcher__button.launcher__button--bar { display: inline-flex; }
+  }
+
+  /* Connection (ADR-0049): the words on wide screens; on phones an icon (shape per state)
+     with the number of unsent inputs, the words behind it. Errors are always shown. */
+  .connection { position: relative; }
+  .connection .connection__button { display: none; }
+  .connection__panel, .connection__panel[hidden] { display: block; }
+  .connection__count:empty { display: none; }
+  .connection__error { margin: 0; flex-basis: 100%; text-align: end; }
+  @media (max-width: 48rem) {
+    .app-header__end > .connection__error { grid-column: 1 / -1; text-align: start; }
+    .connection .connection__button { display: inline-flex; gap: var(--ordo-space-1); }
+    .connection__panel[hidden] { display: none; }
+    .connection__panel {
+      position: absolute; top: calc(100% + var(--ordo-space-2)); right: 0; z-index: 20;
+      width: min(20rem, calc(100vw - 2 * var(--ordo-space-4))); padding: var(--ordo-space-4);
+      background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+      border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+      border-radius: var(--ordo-radius-medium);
+      box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
+    }
   }
 
   /* The person's own menu (ADR-0049). */
@@ -309,7 +337,7 @@
   .profile-menu__panel[hidden] { display: none; }
   .profile-menu__panel .button { justify-self: start; }
 
-  .search-button, .launcher__button, .profile-menu__button {
+  .search-button, .launcher__button, .profile-menu__button, .connection__button {
     display: inline-flex; align-items: center; justify-content: center; gap: var(--ordo-space-3);
     min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-4);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
@@ -317,14 +345,9 @@
     background: var(--ordo-color-surface-default); color: var(--ordo-color-text-primary);
     font: inherit; font-weight: var(--ordo-font-weight-bold); cursor: pointer;
   }
-  .search-button__icon {
-    width: 0.9rem; height: 0.9rem; border: var(--ordo-size-border-thick) solid currentColor; border-radius: 50%;
-    position: relative; margin-inline-end: var(--ordo-space-1);
-  }
-  .search-button__icon::after {
-    content: ""; position: absolute; width: 0.45rem; height: var(--ordo-size-border-thick);
-    background: currentColor; right: -0.4rem; bottom: -0.2rem; transform: rotate(45deg);
-  }
+  /* Icons (Lucide, ui::Icon): decorative, sized with the text, coloured like it. */
+  .icon { display: inline-flex; flex: none; inline-size: var(--ordo-size-icon); block-size: var(--ordo-size-icon); }
+  .icon svg { inline-size: 100%; block-size: 100%; }
   kbd {
     font-family: var(--ordo-font-family-mono); font-size: var(--ordo-font-size-1); font-weight: var(--ordo-font-weight-regular);
     padding: 0 var(--ordo-space-1); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
@@ -333,10 +356,6 @@
 
   .launcher { position: relative; }
   .launcher__button[aria-expanded="true"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
-  .launcher__icon {
-    flex: none; width: 1.1rem; height: 1.1rem;
-    background: radial-gradient(circle, currentColor 0.17rem, transparent 0.19rem) 0 0 / 0.37rem 0.37rem;
-  }
   .launcher__panel {
     position: absolute; top: calc(100% + var(--ordo-space-2)); left: 0; z-index: 20;
     width: min(44rem, calc(100vw - 2 * var(--ordo-space-4)));
@@ -384,7 +403,7 @@
   }
   .views { display: flex; flex-direction: column; gap: var(--ordo-space-2); }
   .views__item {
-    display: flex; align-items: center;
+    display: flex; align-items: center; gap: var(--ordo-space-3);
     min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-4);
     color: var(--ordo-color-text-primary); text-decoration: none;
     border: var(--ordo-size-border-thick) solid transparent; border-radius: var(--ordo-radius-small);
@@ -413,11 +432,17 @@
       border-right: 0; border-top: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
     }
     .views { flex: 1 1 auto; flex-direction: row; min-width: 0; }
-    .views__item { flex: 1 1 0; justify-content: center; text-align: center; padding: 0 var(--ordo-space-2); min-width: 0; }
+    /* Icon above a short label (Material navigation bar, iOS tab bar): five places fit a
+       phone; the labels stay, icons alone are not understood reliably. */
+    .views__item, .launcher__button {
+      flex-direction: column; justify-content: center; gap: var(--ordo-space-1);
+      padding: var(--ordo-space-1); font-size: var(--ordo-font-size-1); line-height: 1.2;
+    }
+    .views__item { flex: 1 1 0; text-align: center; min-width: 0; hyphens: auto; overflow-wrap: break-word; }
     .launcher { order: 2; flex: none; position: static; }
     /* Left-handed use (ADR-0049): the menu at the start of the bar. */
     :root[data-hand="left"] .launcher { order: -1; }
-    .launcher__button { flex-direction: column; justify-content: center; gap: var(--ordo-space-1); height: 100%; padding: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-1); }
+    .launcher__button { height: 100%; padding-inline: var(--ordo-space-3); }
     /* Anchored to the bar itself (the fixed .navigation is its containing block), so it
        sits right above the bar whatever the bar's height (fonts, text size). */
     .launcher__panel {
@@ -496,7 +521,7 @@
   .transport-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
   .transport-card p, .order-card p { margin: 0; }
   .order-form { display: grid; gap: var(--ordo-space-2); }
-  .transport-card__history ol, .order-card__history ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
+  .history-list ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
   .transport-assign { display: grid; gap: var(--ordo-space-2); }
   .incident-card h2 { margin: 0; font-size: var(--ordo-font-size-4); }
   .incident-card p { margin: 0; }
@@ -568,7 +593,7 @@
   .entry .button { justify-self: start; }
   .entry--corrected { border-style: dashed; }
   .entry--corrected .facts dd { text-decoration: line-through; }
-  .corrected summary, .transport-card__history summary, .order-card__history summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+  .corrected summary, .history-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }

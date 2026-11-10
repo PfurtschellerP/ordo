@@ -13,6 +13,7 @@ use ordo_med_patients::{self as med, PatientRegister};
 use crate::core::{self, Handle};
 use crate::patients::record_route;
 use crate::text;
+use crate::ui::{Action, Actions, History, RadioChips};
 use crate::views::{Nav, after_render, focus};
 
 /// Routes of administration from the profile (checked at build time, see `build.rs`).
@@ -80,44 +81,29 @@ fn OrderItem(
             })}
             <p class="order-card__what"><strong>{what.clone()}</strong></p>
             <p class="order-card__status">{text::order_status(order.status)} " · " {by}</p>
-            <details class="order-card__history">
-                <summary>{text::TRANSPORT_HISTORY}</summary>
-                <ol>
-                    {order
-                        .history
-                        .iter()
-                        .map(|s| view! {
-                            <li>{core::clock(s.at.wall_ms)} " " {text::order_status(s.status)} " · " {s.by.to_string()}</li>
-                        })
-                        .collect_view()}
-                </ol>
-            </details>
-            <div class="row">
-                {order
-                    .status
-                    .next()
-                    .into_iter()
-                    .map(|status| {
-                        let id = id.clone();
-                        let step = text::order_step(status);
-                        let class = if status == OrderStatus::Withdrawn {
-                            "button button--small button--quiet"
-                        } else {
-                            "button button--small"
-                        };
-                        view! {
-                            <button type="button" class=class
-                                aria-label=text::transport_step_label(step, &what)
-                                on:click=move |_| {
-                                    let update = OrderUpdated { order: id.clone(), status };
-                                    let _ = core::update_order(core, revision, &update);
-                                }>
-                                {step}
-                            </button>
-                        }
-                    })
-                    .collect_view()}
-            </div>
+            <History entries=order
+                .history
+                .iter()
+                .map(|s| (core::clock(s.at.wall_ms), text::order_status(s.status).to_owned(), s.by.to_string()))
+                .collect() />
+            <Actions actions=order
+                .status
+                .next()
+                .into_iter()
+                .map(|status| {
+                    let id = id.clone();
+                    let text = text::order_step(status);
+                    Action {
+                        text,
+                        label: text::transport_step_label(text, &what),
+                        quiet: status == OrderStatus::Withdrawn,
+                        run: Callback::new(move |()| {
+                            let update = OrderUpdated { order: id.clone(), status };
+                            let _ = core::update_order(core, revision, &update);
+                        }),
+                    }
+                })
+                .collect() />
         </li>
     }
 }
@@ -143,7 +129,8 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
         revision.track();
         may_give(core)
     });
-    let medication = RwSignal::new(true);
+    let kind = RwSignal::new("medication".to_owned());
+    let medication = move || kind.get() == "medication";
     let substance = RwSignal::new(String::new());
     let dose = RwSignal::new(String::new());
     let route = RwSignal::new(String::new());
@@ -154,7 +141,7 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
         let tag = tag.clone();
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
-            let ordered = if medication.get_untracked() {
+            let ordered = if kind.get_untracked() == "medication" {
                 Ordered::Medication {
                     substance: substance.get_untracked().trim().to_owned(),
                     dose: dose.get_untracked().trim().to_owned(),
@@ -204,21 +191,12 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
             }}
             <Show when=move || can_give.get()>
                 <form class="form order-form" novalidate on:submit=submit.clone()>
-                    <fieldset class="choices">
-                        <legend>{text::ORDER_KIND}</legend>
-                        <label class="choice chip">
-                            <input type="radio" name="order-kind" prop:checked=move || medication.get()
-                                on:change=move |_| medication.set(true) />
-                            {text::ORDER_MEDICATION}
-                        </label>
-                        <label class="choice chip">
-                            <input type="radio" name="order-kind" prop:checked=move || !medication.get()
-                                on:change=move |_| medication.set(false) />
-                            {text::ORDER_MEASURE}
-                        </label>
-                    </fieldset>
+                    <RadioChips legend=text::ORDER_KIND name="order-kind" value=kind options=vec![
+                        ("medication".to_owned(), text::ORDER_MEDICATION.to_owned()),
+                        ("measure".to_owned(), text::ORDER_MEASURE.to_owned()),
+                    ] />
                     <Show
-                        when=move || medication.get()
+                        when=medication
                         fallback=move || view! {
                             <div class="field">
                                 <label for="order-measure">{text::ORDER_MEASURE_TEXT}</label>

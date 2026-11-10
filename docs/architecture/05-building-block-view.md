@@ -433,6 +433,28 @@ Needs: impl, itest
 
 Tags: should, m16
 
+#### Compact navigation
+`dsn~compact-navigation~1`
+
+Every view has an icon (Lucide, `design/assets/icons/lucide`, ISC) next to its label in the
+rail and above a short label in the bottom bar, as on the platforms people know (Material
+navigation bar and rail, iOS tab bar): the same icon in both places, never an icon alone.
+A workspace has at most four views, so the bar holds five places with the menu; a unit
+test checks every workspace. On narrow screens the connection state is a disclosure
+button: an icon whose shape differs per state (connected and all sent, sending, connecting,
+offline) and the number of unsent inputs; it opens the full state. Error messages stay
+outside the disclosure, always visible. The profile menu shows the person's roles in this
+incident. Menus, profile menu and connection share one disclosure component (`ui.rs`), as
+do icons, history lists, action buttons and choice chips.
+
+Covers:
+
+* [req~ux-12~1](../requirements/07-quality.md#ux-12--compact-navigation-on-phones)
+
+Needs: impl, utest, itest
+
+Tags: should, m16
+
 #### Command palette
 `dsn~command-palette~1`
 

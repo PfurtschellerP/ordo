@@ -37,3 +37,15 @@ SPDX-License-Identifier = "Apache-2.0"
 path = "spec/conformance/**"
 SPDX-FileCopyrightText = "ORDO contributors"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Icons from Lucide 1.70.0 (lucide-static), ISC; see design/assets/icons/lucide/LICENSE.
+[[annotations]]
+path = "design/assets/icons/lucide/**"
+SPDX-FileCopyrightText = "Lucide Icons and Contributors"
+SPDX-License-Identifier = "ISC"
+
+# ... except icons derived from Feather, which are also MIT.
+[[annotations]]
+path = "design/assets/icons/lucide/search.svg"
+SPDX-FileCopyrightText = ["Lucide Icons and Contributors", "2013-present Cole Bemis"]
+SPDX-License-Identifier = "ISC AND MIT"

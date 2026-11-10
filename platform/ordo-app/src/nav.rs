@@ -20,6 +20,8 @@ pub struct View {
     pub label: &'static str,
     /// English name, found by the command palette in every language (ADR-0036).
     pub name: &'static str,
+    /// Icon (Lucide name), shown with the label in the rail and the bottom bar.
+    pub icon: &'static str,
 }
 
 /// A workspace: the environment of one role.
@@ -55,16 +57,19 @@ pub const WORKSPACES: &[Workspace] = &[
                 id: "patients",
                 label: "Patienten",
                 name: "patients",
+                icon: "users",
             },
             View {
                 id: "orders",
                 label: text::ORDERS,
                 name: "orders",
+                icon: "clipboard-list",
             },
             View {
                 id: "uhs",
                 label: "UHS verwalten",
                 name: "manage uhs",
+                icon: "tent",
             },
         ],
     },
@@ -81,21 +86,25 @@ pub const WORKSPACES: &[Workspace] = &[
                 id: "counts",
                 label: "Patientenzahlen",
                 name: "patient counts",
+                icon: "chart-column",
             },
             View {
                 id: "transports",
                 label: text::TRANSPORTS,
                 name: "transports",
+                icon: "ambulance",
             },
             View {
                 id: "units",
                 label: text::TAB_RESOURCES,
                 name: "units",
+                icon: "truck",
             },
             View {
                 id: "roster",
                 label: text::ROSTER,
                 name: "roster",
+                icon: "id-card",
             },
         ],
     },
@@ -112,6 +121,7 @@ pub const WORKSPACES: &[Workspace] = &[
             id: "devices",
             label: text::DEVICES,
             name: "devices",
+            icon: "tablet-smartphone",
         }],
     },
 ];
@@ -210,6 +220,26 @@ impl Route {
 
 #[cfg(test)]
 mod tests {
+
+    /// Most views a workspace may have: with the menu they fill the five places of the
+    /// bottom bar on phones (ADR-0049).
+    const MAX_VIEWS: usize = 4;
+
+    // [utest->dsn~compact-navigation~1]
+    #[test]
+    fn every_workspace_fits_the_bottom_bar_and_every_view_has_an_icon() {
+        for w in WORKSPACES {
+            assert!(
+                w.views.len() <= MAX_VIEWS,
+                "{}: {} views",
+                w.id,
+                w.views.len()
+            );
+            for v in w.views {
+                assert!(!v.icon.is_empty(), "{}/{} has no icon", w.id, v.id);
+            }
+        }
+    }
     use super::*;
 
     #[test]

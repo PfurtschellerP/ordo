@@ -78,9 +78,9 @@ theme, for example:
 It is rejected if it changes a token that doesn't exist in the base theme, touches
 `color.safety.*`, or breaks any contrast pair.
 
-## Assets (to come)
+## Assets
 
 - Typeface: **Atkinson Hyperlegible Next** and **Mono** (SIL OFL 1.1)
 - Icons: **Lucide** (ISC)
 
-Fonts and icons will be stored under `assets/` together with their licence files.
+Icons are stored under `assets/icons/` with their licence files: Lucide 1.70.0 (only the icons the app uses, copied from the `lucide-static` package after checking its npm integrity hash). Fonts will follow.

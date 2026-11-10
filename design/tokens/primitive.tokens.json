@@ -489,6 +489,13 @@
       },
       "$description": "Minimum size of touch targets: 48 px at default text size, about 12.7 mm (requirement UX-2)."
     },
+    "icon": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      },
+      "$description": "Size of icons (Lucide, 24 px grid): 24 px at default text size, growing with the text."
+    },
     "border": {
       "thin": {
         "$value": {

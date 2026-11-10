@@ -253,7 +253,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openRecord(anna, "DE-0044");
     await expect(anna.locator("[aria-labelledby=section-orders] .order-card__status"), "the record keeps it").toContainText("Durchgeführt");
     await anna.locator("[aria-labelledby=section-orders] summary").click();
-    await expect(anna.locator("[aria-labelledby=section-orders] .order-card__history li"), "with every step").toHaveCount(3);
+    await expect(anna.locator("[aria-labelledby=section-orders] .history-list li"), "with every step").toHaveCount(3);
 
     // [itest->dsn~attachment-transfer~1]
     // Another device of Anna's gets the preview with the record, then the full photo from
@@ -394,6 +394,27 @@ test("ORDO in the browser", async ({ browser }) => {
         return [v.every((r) => r.right <= m.left + 1), v.every((r) => r.left >= m.right - 1)];
       });
     expect(await menuAtEnd(), "right-handed: the menu at the right end").toEqual([true, false]);
+    // [itest->dsn~compact-navigation~1]
+    await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(3);
+    const [iconTop, labelTop] = await anna.evaluate(() => {
+      const item = document.querySelector(".navigation .views__item")!;
+      return [item.querySelector(".icon")!.getBoundingClientRect().top, item.querySelector(".views__label")!.getBoundingClientRect().top];
+    });
+    expect(iconTop, "the icon sits above the label").toBeLessThan(labelTop);
+    await expect(anna.locator(".app-header .status"), "on phones the connection is an icon").toBeHidden();
+    const connection = anna.locator("#connection-button");
+    await expect(connection).toHaveAccessibleName("Verbindung: Verbunden. Alles gesendet");
+    await connection.click();
+    await expect(anna.locator("#connection-panel"), "it opens the full state").toContainText("Verbunden");
+    await anna.keyboard.press("Escape");
+    await expect(anna.locator("#connection-panel")).toBeHidden();
+    await expect(connection, "focus returns to it").toBeFocused();
+    const headerRows = await anna.evaluate(() => {
+      const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const [connection, person, search] = ["#connection-button", "#profile-button", "#palette-button"].map(box);
+      return [connection.top < person.bottom && connection.bottom > person.top, search.top >= person.bottom];
+    });
+    expect(headerRows, "heading, connection and person in one row, the search below").toEqual([true, true]);
     await anna.locator("#profile-button").click();
     await anna.locator("#hand").selectOption({ label: "linker Hand" });
     await expect(anna.locator("html"), "left-handed use is kept on the device").toHaveAttribute("data-hand", "left");
@@ -477,6 +498,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#profile-button").click();
     await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als ben@localhost");
     await expect(ben.locator("#profile-panel #theme")).toBeVisible();
+    await expect(ben.locator("#my-roles"), "the roles show only in the profile menu").toHaveText("Rollen: Einsatzleitung");
+    // [itest->dsn~compact-navigation~1]
+    await expect(ben.locator(".views__item .icon svg"), "every view has an icon in the rail").toHaveCount(4);
+    await expect(ben.locator(".app-header .status"), "wide screens show the connection in words").toBeVisible();
+    await expect(ben.locator("#connection-button")).toBeHidden();
     await audit(ben, "Profile menu");
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#profile-panel")).toBeHidden();
@@ -568,7 +594,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("Abgefahren · RTW 83/1 → Klinikum Mitte");
     await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
     await request.locator("summary").click();
-    await expect(request.locator(".transport-card__history li"), "every change with time and person").toHaveCount(3);
+    await expect(request.locator(".history-list li"), "every change with time and person").toHaveCount(3);
     await expect.poll(() => status(ben), { message: "the transport is sent" }).toContain("Alles gesendet");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "the command device never receives the triage tag number").toBe(false);
     await audit(ben, "Transports");

@@ -13,6 +13,7 @@ mod profile;
 mod storage;
 mod text;
 mod transports;
+mod ui;
 mod vault;
 mod views;
 

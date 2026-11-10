@@ -105,6 +105,15 @@ Tags: should, quality, m16
 
 Needs: dsn
 
+#### UX-12 — Compact navigation on phones
+`req~ux-12~1`
+
+ORDO shall show every view with an icon and a short label, the same in the rail and in the bottom bar, and at most four views plus the menu in the bottom bar; on narrow screens ORDO shall show the connection state as an icon whose shape tells the state, with the number of unsent inputs, and the full state when the person opens it; errors stay visible.
+
+Tags: should, quality, m16
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline
