@@ -1,4 +1,7 @@
 [workspace]
+# The device storage worker has its own workspace (own lockfile): it links SQLite for the
+# browser, which the server's SQLite (sqlx) cannot share yet (ADR-0034).
+exclude = ["platform/ordo-store"]
 resolver = "3"
 members = [
   "platform/ordo-core",
@@ -76,6 +79,7 @@ web-sys = { version = "0.3", features = [
   "Headers", "HtmlInputElement", "ImageBitmap", "Location", "MessageEvent", "Navigator", "Request",
   "RequestInit", "Response", "ScrollIntoViewOptions",
   "ScrollLogicalPosition", "Storage", "SubtleCrypto", "UrlSearchParams", "WebSocket", "Window",
+  "Worker", "WorkerOptions", "WorkerType",
 ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

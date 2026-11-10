@@ -66,3 +66,14 @@ Roadmap item 1. Replaces the local-persistence design of the prototype
 * **Decision:** go ahead with SQLite on OPFS (no IndexedDB fallback needed for the
   browsers tested).
 
+### Implementation notes (2026-11-10)
+
+* The worker (`platform/ordo-store`) is a key-value store; the app encrypts every value
+  before it reaches the worker, so the keys never leave the main thread.
+* It is its own Cargo workspace: `rusqlite` for the browser needs `libsqlite3-sys` 0.39,
+  which the server's `sqlx` 0.9 does not allow yet (same reason as the RUSTSEC-2026-0459
+  exception). Join the workspaces again once `sqlx` allows it. CI checks the worker apart
+  (format, Clippy for WebAssembly, cargo-deny), Dependabot updates it.
+* The worker announces `ready` before the app's first request; messages sent before its
+  WebAssembly was loaded would be lost.
+

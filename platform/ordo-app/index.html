@@ -18,6 +18,8 @@
       // Apply the chosen colour theme before the first paint (no flash of the wrong theme).
       try { const t = localStorage.getItem("ordo.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
     </script>
+    <!-- Device storage worker (ADR-0034): SQLite on OPFS, built from its own workspace. -->
+    <link data-trunk rel="rust" href="../ordo-store/Cargo.toml" data-type="worker" data-bindgen-target="web" data-loader-shim data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals">
     <link data-trunk rel="rust" data-bin="ordo-app" data-cargo-profile="release-wasm" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals">
   </head>
   <body></body>

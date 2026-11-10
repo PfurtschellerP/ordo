@@ -121,3 +121,29 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           command: check
+      - name: Device storage worker (own workspace)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+          manifest-path: platform/ordo-store/Cargo.toml
+          arguments: --all-features
+
+  storage-worker:
+    name: Device storage worker (format, lint)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: platform/ordo-store
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: platform/ordo-store
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy for WebAssembly (SQLite is compiled with clang)
+        run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings

@@ -30,3 +30,4 @@ platform/ordo-app/generated/
 __pycache__/
 *.pyc
 deploy/demo/.data/
+platform/ordo-store/target/

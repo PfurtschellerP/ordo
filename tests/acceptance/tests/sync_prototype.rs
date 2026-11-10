@@ -1083,3 +1083,58 @@ fn patients_are_assigned_to_treatment_places() {
         "but not who lies where"
     );
 }
+
+// [itest->dsn~device-storage~1]
+/// Device storage keeps events row by row: the state without events plus each stream's
+/// events restore the same replica, and after a change only the new events are written.
+#[test]
+fn replica_is_stored_row_by_row() {
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0042", Immediate);
+    world.sync();
+    let heads = world.replica("anna").stream_heads();
+    let saved: Vec<(ordo_sync::StreamKey, u64)> = heads.clone();
+
+    register(&mut world, "clara", "DE-0043", Urgent);
+    world.sync();
+    let replica = world.replica("anna");
+    let new: usize = saved
+        .iter()
+        .map(|(key, seq)| replica.events_after(key, *seq).len())
+        .sum();
+    assert_eq!(
+        new, 2,
+        "only the new events are written: the registration and the updated counts"
+    );
+
+    // Reassemble from rows, as the device storage does when the app starts.
+    let mut state = replica.snapshot_without_events();
+    for (key, events) in &mut state.streams {
+        *events = replica.events_after(key, 0).to_vec();
+    }
+    let user: ordo_core::UserId = "anna@ordo.drk-musterstadt.de".parse().unwrap();
+    let device = replica.device();
+    let signer = ordo_crypto::EventSigner::new(
+        ordo_crypto::ed25519_dalek::SigningKey::from_bytes(&[1; 32]),
+        "device-anna@ordo.drk-musterstadt.de".parse().unwrap(),
+    );
+    let loaded = ordo_sync::Replica::restore(
+        user,
+        device,
+        signer,
+        ordo_acceptance::test_entropy(78),
+        state,
+    )
+    .unwrap();
+    let original = world.replica("anna");
+    let mut a = loaded.stream_heads();
+    let mut b = original.stream_heads();
+    a.sort();
+    b.sort();
+    assert_eq!(a, b, "the same streams up to the same events");
+    for (key, _) in &a {
+        assert_eq!(loaded.events_after(key, 0), original.events_after(key, 0));
+    }
+    assert_eq!(loaded.outbox_len(), original.outbox_len());
+}

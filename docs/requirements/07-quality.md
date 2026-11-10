@@ -154,6 +154,15 @@ Tags: must, quality, m13
 
 Needs: dsn
 
+#### OFF-7 — Device storage
+`req~off-7~1`
+
+ORDO shall keep an incident's data on the device in a database that is not limited to a few megabytes and is written change by change, encrypted with the device's storage key; where the browser cannot run that database, ORDO shall keep working with its simpler storage.
+
+Tags: must, quality, m13
+
+Needs: dsn
+
 #### PERF-1 — Older tablets
 `req~perf-1~1`
 

@@ -496,6 +496,29 @@ Needs: impl, utest, itest
 
 Tags: must, m12
 
+#### Device storage
+`dsn~device-storage~1`
+
+The web app keeps the replica in SQLite on the browser's file system (OPFS) in a dedicated
+worker, `platform/ordo-store` ([ADR-0034](../adr/0034-device-storage-sqlite-opfs.md)): a
+key-value table, one row per event (`e/<incident>/<compartment>/<seq>`) and one for the rest
+of the replica (`state`). The app encrypts every value with the vault's storage key before
+it leaves the main thread (ADR-0041), so the worker sees only ciphertext. After a change
+only the new events and the state row are written; streams the device lost are deleted.
+At start the app waits for the worker's `ready`, opens and loads the database (time limit
+ten seconds); data of older versions moves over from `localStorage` with the first write;
+without OPFS in workers the app keeps using `localStorage`. The worker is its own Cargo
+workspace (own lockfile): its SQLite for the browser cannot share the dependency graph with
+the server's SQLite yet.
+
+Covers:
+
+* [req~off-7~1](../requirements/07-quality.md#off-7--device-storage)
+
+Needs: impl, itest
+
+Tags: must, m13
+
 #### Attachments
 `dsn~attachments~1`
 

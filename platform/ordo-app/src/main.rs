@@ -8,6 +8,7 @@ mod nav;
 mod palette;
 mod patients;
 mod profile;
+mod storage;
 mod text;
 mod vault;
 mod views;

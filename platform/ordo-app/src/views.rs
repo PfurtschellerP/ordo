@@ -56,7 +56,16 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
     let vault = RwSignal::new(None::<Result<(), String>>);
-    leptos::task::spawn_local(async move { vault.set(Some(crate::vault::open().await)) });
+    leptos::task::spawn_local(async move {
+        let opened = crate::vault::open().await;
+        if opened.is_ok()
+            && let Err(e) = crate::storage::open().await
+        {
+            // Without OPFS in workers the device keeps its data in `localStorage`.
+            web_sys::console::warn_1(&format!("ORDO device storage: {e}").into());
+        }
+        vault.set(Some(opened));
+    });
     move || match vault.get() {
         None => view! { <main id="main" class="page page--narrow"><p>{text::STARTING}</p></main> }
             .into_any(),

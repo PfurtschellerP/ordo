@@ -341,7 +341,7 @@ palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Flu
 #### Local persistence
 `dsn~local-persistence~1`
 
-The app saves the replica state (ordered events, outbox, data keys) to browser storage after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Prototype limitation: browser storage is not additionally encrypted.
+The app saves the replica state (ordered events, outbox, data keys) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8).
 
 Covers:
 

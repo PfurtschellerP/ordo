@@ -17,7 +17,7 @@ use crate::message::{ClientMessage, Hello, KeyGrant, Rejected, ServerMessage, Su
 /// Everything a device stores locally, for saving and loading (e.g. browser storage).
 ///
 /// Contains the compartment data keys. Stored at rest, it must be protected by the
-/// device (prototype limitation: the browser app stores it as is).
+/// device: the web app encrypts it with its storage key (ADR-0041).
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReplicaState {
     /// Compartments that must be sealed, once known.
@@ -111,6 +111,29 @@ impl Replica {
     /// The local state, for saving.
     pub fn snapshot(&self) -> ReplicaState {
         ReplicaState {
+            streams: self
+                .streams
+                .iter()
+                .map(|(key, stream)| (key.clone(), stream.events.clone()))
+                .collect(),
+            ..self.snapshot_meta()
+        }
+    }
+
+    /// The state without the streams' events, for storage that keeps events row by row
+    /// (see [`Replica::stream_heads`] and [`Replica::events_after`]).
+    pub fn snapshot_without_events(&self) -> ReplicaState {
+        let mut state = self.snapshot_meta();
+        state.streams = self
+            .streams
+            .keys()
+            .map(|key| (key.clone(), Vec::new()))
+            .collect();
+        state
+    }
+
+    fn snapshot_meta(&self) -> ReplicaState {
+        ReplicaState {
             protected: self.protected.clone(),
             wanted: self.wanted.iter().cloned().collect(),
             granted: self.granted.iter().cloned().collect(),
@@ -125,14 +148,26 @@ impl Replica {
                     key: *key.as_bytes(),
                 })
                 .collect(),
-            streams: self
-                .streams
-                .iter()
-                .map(|(key, stream)| (key.clone(), stream.events.clone()))
-                .collect(),
+            streams: Vec::new(),
             outbox: self.outbox.clone(),
             valid_until: self.valid_until,
         }
+    }
+
+    /// Every stored stream with its last sequence number.
+    pub fn stream_heads(&self) -> Vec<(StreamKey, u64)> {
+        self.streams
+            .iter()
+            .map(|(key, stream)| (key.clone(), stream.last_seq()))
+            .collect()
+    }
+
+    /// The ordered events of a stream after sequence number `after`.
+    pub fn events_after(&self, key: &StreamKey, after: u64) -> &[SequencedEvent] {
+        self.streams.get(key).map_or(&[][..], |s| {
+            let start = s.events.partition_point(|e| e.seq <= after);
+            &s.events[start..]
+        })
     }
 
     /// Loads a saved state. Hash chains are checked again, so damaged storage is noticed.

@@ -106,7 +106,7 @@ test("ORDO in the browser", async () => {
     await openIncident(anna, INCIDENT);
     await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user").toHaveText("Angemeldet als anna@localhost");
     // [itest->dsn~device-storage-encryption~1]
-    for (const item of ["ordo.pairing", "ordo.replica", "ordo.storage-key"]) {
+    for (const item of ["ordo.pairing", "ordo.storage-key"]) {
       await expect.poll(() => storedItem(anna, item), { message: `${item} is stored` }).not.toBeNull();
     }
     const pairing = (await storedItem(anna, "ordo.pairing"))!;
@@ -213,7 +213,15 @@ test("ORDO in the browser", async () => {
     await expect.poll(() => pathOf(anna), { message: "the back button returns to the list" }).toBe("/med.uhs/patients");
     await expect(anna.locator("#record-title")).toHaveCount(0);
     await expect(anna.locator(".patient-card[data-tag='DE-0044']"), "the list shows the name").toContainText("Mustermann, Max");
-    expect((await storedItem(anna, "ordo.replica"))!.startsWith("enc1:"), "the device stores its data encrypted").toBe(true);
+    // [itest->dsn~device-storage~1]
+    expect(await storedItem(anna, "ordo.replica"), "the incident data is no longer in localStorage").toBeNull();
+    const opfs = await anna.evaluate(async () => {
+      const names: string[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for await (const name of (await navigator.storage.getDirectory() as any).keys()) names.push(name);
+      return names;
+    });
+    expect(opfs.length, "it is in the device database on the browser's file system (OPFS)").toBeGreaterThan(0);
     const sent = Buffer.concat(annaFrames.sent);
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.includes("Mustermann") || sent.includes("Penicillin"), "clinical entries travel sealed, not in plain text").toBe(false);

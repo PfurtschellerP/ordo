@@ -90,10 +90,9 @@ Done in phase 0:
 
 Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
-Order of the next steps: (1) roles and views; (2) "Betroffene", transport priority and
-treatment places; (3) storage: attachments as encrypted blobs in an object store (local
-directory, or a fully open-source S3-compatible store, reference Garage; ADR-0033) and
-device storage as SQLite on OPFS (ADR-0034); then the rest of this backlog.
+Next steps of the storage work: (3) patient photos become attachments (preview in the
+event, full image on demand); (4) Garage as S3-compatible store in the Compose bundle and
+the tests (licence check of object_store's S3 support); then the rest of this backlog.
 
 **Done already:** palette quick actions bring the opened form into view with the cursor
 in its first field; the app is installable as a PWA (it lacked icons); incidents are
@@ -104,7 +103,8 @@ ORDO → identity provider → Gravatar by the server (ADR-0047); views by role:
 Einsatzleitung sees the whole incident (UHS load and counts, no clinical details), UHS crews
 only their UHS work, units are changed by the incident command only; "Betroffene" as a
 category of their own, transport priority from the profile, treatment places per UHS
-(milestone `m12`).
+(milestone `m12`); storage (milestone `m13`): attachments as encrypted blobs with
+tickets in an object store (local directory), device data in SQLite on OPFS in a worker.
 
 *Incident and command (Einsatzleitung)*
 

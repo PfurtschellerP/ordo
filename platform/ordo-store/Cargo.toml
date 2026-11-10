@@ -1,0 +1,35 @@
+# ORDO device storage worker (ADR-0034): SQLite on the browser's file system (OPFS), in a
+# dedicated web worker. Its own workspace with its own lockfile: it links SQLite for the
+# browser, which cannot share the dependency graph with the server's SQLite (sqlx) yet.
+[package]
+name = "ordo-store"
+description = "ORDO device storage: SQLite on OPFS in a web worker (ADR-0034)"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.89"
+license = "AGPL-3.0-or-later"
+authors = ["ORDO contributors"]
+publish = false
+
+[workspace]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+rusqlite = { version = "0.41", default-features = false, features = ["ffi-sqlite-wasm-rs"] }
+sqlite-wasm-rs = { version = "0.6", features = ["wasm-bindgen"] }
+sqlite-wasm-vfs = { version = "0.3", features = ["sahpool"] }
+wasm-bindgen = "=0.2.130"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["DedicatedWorkerGlobalScope", "MessageEvent"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

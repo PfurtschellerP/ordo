@@ -1051,6 +1051,7 @@ pub fn forget_device() {
         let _ = storage.remove_item(REPLICA_KEY);
         let _ = storage.remove_item(PENDING_KEY);
     }
+    crate::storage::clear();
     vault::shred();
 }
 
@@ -1063,6 +1064,28 @@ const BASE64_PREFIX: &str = "b64:";
 
 // [impl->dsn~local-persistence~1]
 fn load_replica() -> Option<ReplicaState> {
+    // Device storage in the worker (ADR-0034); data of older versions moves there from
+    // `localStorage` with the first write.
+    if crate::storage::active() {
+        if let Some(state) = crate::storage::take_loaded() {
+            return Some(state);
+        }
+        let legacy = load_legacy_replica();
+        if legacy.is_some() {
+            crate::storage::after_first_write(|| {
+                if let Some(s) = storage() {
+                    let _ = s.remove_item(REPLICA_KEY);
+                }
+            });
+        }
+        return legacy;
+    }
+    load_legacy_replica()
+}
+
+/// The replica as older versions stored it in `localStorage` (and browsers without OPFS
+/// in workers still do).
+fn load_legacy_replica() -> Option<ReplicaState> {
     let text = storage()?.get_item(REPLICA_KEY).ok()??;
     let bytes = if vault::is_encrypted(&text) {
         load(REPLICA_KEY)?
@@ -1082,6 +1105,9 @@ fn load_replica() -> Option<ReplicaState> {
 /// Saves the replica, encrypted. An error means the browser refused (storage full or
 /// blocked); the caller shows it, because unsaved input would be lost on reload (UX-5).
 fn save_replica(replica: &Replica) -> Result<(), ()> {
+    if crate::storage::active() {
+        return crate::storage::save(replica);
+    }
     let bytes = message::encode(&replica.snapshot()).map_err(|_| ())?;
     if store(REPLICA_KEY, &bytes) {
         Ok(())
