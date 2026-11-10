@@ -327,7 +327,7 @@ pub enum ValueError {
     WrongKind,
 }
 
-fn parse_number(text: &str) -> Option<f64> {
+pub(crate) fn parse_number(text: &str) -> Option<f64> {
     // Accept a decimal comma, as typed on German keyboards.
     let text = text.trim().replace(',', ".");
     let valid = !text.is_empty()

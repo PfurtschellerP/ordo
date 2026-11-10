@@ -388,3 +388,16 @@ shall not come from groups of the identity provider.
 Tags: must, shared, m11
 
 Needs: dsn
+
+#### ORG-7 — Display names
+`req~org-7~1`
+
+ORDO shall show people by a display name (e.g. "Anna Schmidt") wherever it names them —
+roster, history entries, orders, person fields, suggestions — and keep the user ID only
+where it must be exact. The display name shall come from the identity provider at login
+(OpenID Connect `name`), and a person may change their own. Where no display name is
+known, ORDO shall show the user ID.
+
+Tags: should, shared
+
+Needs: dsn

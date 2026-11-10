@@ -625,6 +625,29 @@ Needs: impl, utest, itest
 
 Tags: must, m15
 
+#### Order documentation
+`dsn~order-documentation~1`
+
+The profile file `med/orders.toml` names, in `[record]`, the series form of the ePCR
+forms where an administration is documented and which of its fields take the substance,
+the dose and its unit, the route, who ordered and who gave it (DE: the form "Medikation").
+The build checks that the form and fields exist with fitting types, and that every route
+of the order catalogue is an option of the form's route field, so the two catalogues
+cannot drift apart. A done medication order on the record offers "In Dokumentation
+übernehmen": it opens a new entry of that form, filled in with the substance, the dose
+(split into number and unit when the ordered dose is a number followed by a unit of the
+form, otherwise left for the crew), the route, the person who gave the order, the person
+using the device and the time now. The crew checks, completes and saves it like any
+entry; ORDO saves nothing on its own and converts no dose.
+
+Covers:
+
+* [req~order-5~1](../requirements/04-med.md#order-5--document-a-done-medication-order)
+
+Needs: impl, utest, itest
+
+Tags: should, m21
+
 #### Order permission
 `dsn~order-permission~1`
 

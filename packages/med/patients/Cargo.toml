@@ -23,3 +23,4 @@ workspace = true
 
 [dev-dependencies]
 ciborium.workspace = true
+toml.workspace = true

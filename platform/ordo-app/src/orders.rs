@@ -8,10 +8,11 @@ use leptos::prelude::*;
 use ordo_med_patients::orders::{
     Order, OrderBook, OrderCatalogue, OrderGiven, OrderStatus, OrderUpdated, Ordered,
 };
+use ordo_med_patients::record::FormCatalogue;
 use ordo_med_patients::{self as med, PatientRegister};
 
 use crate::core::{self, Handle};
-use crate::patients::record_route;
+use crate::patients::{FORMS, open_prefilled, record_route};
 use crate::text;
 use crate::ui::{Action, Actions, History, RadioChips};
 use crate::views::{Nav, after_render, focus};
@@ -60,6 +61,31 @@ fn OrderItem(
     let what = ordered_line(&order.given);
     let id = order.given.order.clone();
     let by = text::order_by(&core::clock(order.at().wall_ms), order.by().as_str());
+    // [impl->dsn~order-documentation~1]
+    // On the record, a done medication order can be taken into the documentation.
+    let drafts = use_context::<crate::patients::Drafts>();
+    let documentable = patient.is_none()
+        && order.status == OrderStatus::Done
+        && matches!(order.given.ordered, Ordered::Medication { .. })
+        && CATALOGUE.record.is_some();
+    let document = documentable.then(|| {
+        let (given, ordered_by, label) = (order.given.clone(), order.by().to_string(), text::document_order_label(&what));
+        view! {
+            <div class="row">
+                <button type="button" class="button button--small" aria-label=label on:click=move |_| {
+                    let me = core.with_value(|c| c.replica.user().to_string());
+                    let forms: &'static FormCatalogue = &FORMS;
+                    if let Some((form, values)) = CATALOGUE.documentation(&given, &ordered_by, &me, forms)
+                        && let (Some(form), Some(drafts)) = (forms.form(&form), drafts)
+                    {
+                        open_prefilled(drafts, &given.tag, form, values);
+                    }
+                }>
+                    {text::DOCUMENT_ORDER}
+                </button>
+            </div>
+        }
+    });
     view! {
         <li class="order-card" data-order=id.clone() data-status=format!("{:?}", order.status).to_lowercase()>
             {patient.map(|(tag, uhs)| {
@@ -104,6 +130,7 @@ fn OrderItem(
                     }
                 })
                 .collect() />
+            {document}
         </li>
     }
 }

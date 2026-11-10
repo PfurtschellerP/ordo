@@ -691,3 +691,10 @@ pub const PLANNED_EMPTY: &str = "Keine geplanten Transporte.";
 pub fn planned_for(at: &str) -> String {
     format!("Geplant für {at}")
 }
+
+// Documenting a done order (ORDER-5).
+pub const DOCUMENT_ORDER: &str = "In Dokumentation übernehmen";
+
+pub fn document_order_label(what: &str) -> String {
+    format!("{DOCUMENT_ORDER}: {what}")
+}

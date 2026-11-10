@@ -126,7 +126,11 @@ transports (milestone `m19`): a request can name a later date and time, and the 
 lists planned transports apart, the earliest first; person suggestions (milestone `m20`):
 form fields that name a member of the crew (FHIR `reference` to `Practitioner`) suggest the
 incident's people, and granting a role suggests the people the installation knows
-(`listPeople`, only for those who grant roles); any other name is accepted.
+(`listPeople`, only for those who grant roles); any other name is accepted; orders into
+the record (milestone `m21`): a done medication order opens a new entry of the record's
+medication form, filled with substance, dose, route and who ordered and gave it, for the
+crew to check and save; the profile names the form and fields, and the build checks that
+order routes and form routes match.
 
 *Incident and command (Einsatzleitung)*
 
@@ -170,10 +174,9 @@ incident's people, and granting a role suggests the people the installation know
   eHealth once an organisation's agreement covers it; a hospital list kept by the
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
-- **Orders, next steps:** substances from the medication catalogue (below); a done
-  medication order prefilled into the record's medication form; an overview per UHS for
-  the medical lead (LNA, OrgL); orders given by voice or radio recorded with the person
-  who gave them.
+- **Orders, next steps:** substances from the medication catalogue (below); an overview
+  per UHS for the medical lead (LNA, OrgL); orders given by voice or radio recorded with
+  the person who gave them.
 - **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
   chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances
@@ -186,6 +189,10 @@ incident's people, and granting a role suggests the people the installation know
 
 - **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
   every list, alongside the arrow keys (extends ADR-0036).
+- **Display names** (ORG-7): people are shown by name instead of their user ID (roster,
+  histories, orders, person fields, suggestions); the name comes from the identity
+  provider at login (OIDC `name`) and can be changed by the person. Suggestions then show
+  the name and keep the user ID as the value.
 - **API microversioning:** every interface (sync protocol, HTTP APIs, later federation)
   states a version per request: the client names the version it speaks (e.g. a header
   `ORDO-API-Version: 1.4`, in the sync protocol a field of `hello`), the server announces the

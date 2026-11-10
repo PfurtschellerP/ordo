@@ -12,6 +12,8 @@ use ordo_core::{Hlc, UserId};
 use ordo_sync::AppliedEvent;
 use serde::{Deserialize, Serialize};
 
+use crate::record::{Field, FieldType, FormCatalogue, FormKind, Value, parse_number};
+
 /// Module ID.
 pub const MODULE: &str = "med.orders";
 /// Orders are clinical.
@@ -21,19 +23,147 @@ pub const GIVEN: &str = "orders.given";
 /// Event type: an order was acknowledged, done or withdrawn.
 pub const UPDATED: &str = "orders.updated";
 
-/// Profile settings (`med/orders.toml`): the routes a medication order can name.
+/// Profile settings (`med/orders.toml`): the routes a medication order can name, and
+/// where a done medication order is documented.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrderCatalogue {
     /// Routes of administration, e.g. `iv` "i.v.".
     #[serde(rename = "route", default)]
     pub routes: Vec<crate::transport::Choice>,
+    /// The series form of the ePCR forms and its fields that document an administration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub record: Option<RecordFields>,
+}
+
+/// Where a done medication order is documented (ORDER-5): form and field IDs of the
+/// profile's ePCR forms.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordFields {
+    /// A series form, e.g. `medication`.
+    pub form: String,
+    /// Text field for the substance.
+    pub substance: String,
+    /// Number field for the dose.
+    pub dose: String,
+    /// Choice field for the dose's unit.
+    pub dose_unit: String,
+    /// Choice field for the route; every route of the catalogue must be one of its options.
+    pub route: String,
+    /// Person field for who ordered it.
+    pub ordered_by: String,
+    /// Person field for who gave it.
+    pub given_by: String,
 }
 
 impl OrderCatalogue {
+    // [impl->dsn~order-documentation~1]
+    /// Checks `record` against the ePCR forms: a series form whose fields exist with
+    /// fitting types, and whose route field offers every route of the catalogue.
+    pub fn check_record(&self, forms: &FormCatalogue) -> Result<(), String> {
+        let Some(r) = &self.record else {
+            return Ok(());
+        };
+        let form = forms
+            .form(&r.form)
+            .ok_or_else(|| format!("record form {:?} is not an ePCR form", r.form))?;
+        if form.kind != FormKind::Series {
+            return Err(format!("record form {:?} must be a series form", r.form));
+        }
+        for (name, id, kind) in [
+            ("substance", &r.substance, FieldType::Text),
+            ("dose", &r.dose, FieldType::Number),
+            ("dose_unit", &r.dose_unit, FieldType::Choice),
+            ("route", &r.route, FieldType::Choice),
+            ("ordered_by", &r.ordered_by, FieldType::Person),
+            ("given_by", &r.given_by, FieldType::Person),
+        ] {
+            match form.field(id) {
+                Some(f) if f.field_type == kind => {}
+                Some(_) => return Err(format!("record field {name} ({id:?}) must be {kind:?}")),
+                None => {
+                    return Err(format!(
+                        "record field {name} ({id:?}) is not in {:?}",
+                        r.form
+                    ));
+                }
+            }
+        }
+        let route = form.field(&r.route).expect("checked above");
+        if let Some(missing) = self
+            .routes
+            .iter()
+            .find(|c| !route.options.iter().any(|o| o.id == c.id))
+        {
+            return Err(format!(
+                "route {:?} is not an option of {}.{}",
+                missing.id, r.form, r.route
+            ));
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~order-documentation~1]
+    /// The values a new entry of the record form starts with for a done medication order:
+    /// substance, dose and unit (when the ordered dose is a number followed by a unit of
+    /// the form, else left empty), route, who ordered and who gives it. `None` for a
+    /// measure, or without `record`. The crew checks and saves the entry.
+    pub fn documentation(
+        &self,
+        order: &OrderGiven,
+        ordered_by: &str,
+        given_by: &str,
+        forms: &FormCatalogue,
+    ) -> Option<(String, BTreeMap<String, Value>)> {
+        let r = self.record.as_ref()?;
+        let Ordered::Medication {
+            substance,
+            dose,
+            route,
+        } = &order.ordered
+        else {
+            return None;
+        };
+        let form = forms.form(&r.form)?;
+        let mut values = BTreeMap::from([
+            (r.substance.clone(), Value::One(substance.clone())),
+            (r.ordered_by.clone(), Value::One(ordered_by.to_owned())),
+            (r.given_by.clone(), Value::One(given_by.to_owned())),
+        ]);
+        if form
+            .field(&r.route)
+            .is_some_and(|f| f.options.iter().any(|o| &o.id == route))
+        {
+            values.insert(r.route.clone(), Value::One(route.clone()));
+        }
+        if let Some((number, unit)) = form
+            .field(&r.dose_unit)
+            .and_then(|units| split_dose(dose, units))
+        {
+            values.insert(r.dose.clone(), Value::One(number));
+            values.insert(r.dose_unit.clone(), Value::One(unit));
+        }
+        Some((r.form.clone(), values))
+    }
+
     /// The label of a route, or the ID if the profile no longer has it.
     pub fn route_label<'a>(&'a self, id: &'a str) -> &'a str {
         crate::transport::TransportCatalogue::label(&self.routes, id)
     }
+}
+
+/// Splits a dose as typed ("1 g", "0,5mg", "2 Hub") into the number and the ID of a unit
+/// option of `units` (by ID or label, ignoring case). Nothing is converted.
+fn split_dose(dose: &str, units: &Field) -> Option<(String, String)> {
+    let dose = dose.trim();
+    let end = dose
+        .find(|c: char| !(c.is_ascii_digit() || c == ',' || c == '.'))
+        .unwrap_or(dose.len());
+    let (number, unit) = (dose[..end].trim(), dose[end..].trim());
+    parse_number(number)?;
+    let unit = units.options.iter().find(|o| {
+        o.id.eq_ignore_ascii_case(unit) || o.label.to_lowercase() == unit.to_lowercase()
+    })?;
+    Some((number.to_owned(), unit.id.clone()))
 }
 
 /// What is ordered.
@@ -293,7 +423,94 @@ mod tests {
                 label: "i.v.".into(),
                 description: None,
             }],
+            record: None,
         }
+    }
+
+    /// The DE profile: order settings and ePCR forms.
+    fn de() -> (OrderCatalogue, FormCatalogue) {
+        let orders: OrderCatalogue =
+            toml_from(include_str!("../../../../profiles/de/med/orders.toml"));
+        let forms = FormCatalogue::from_questionnaire_json(include_str!(
+            "../../../../profiles/de/med/epcr-forms.json"
+        ))
+        .expect("valid forms");
+        (orders, forms)
+    }
+
+    fn toml_from(text: &str) -> OrderCatalogue {
+        toml::from_str(text).expect("valid order settings")
+    }
+
+    // [utest->dsn~order-documentation~1]
+    #[test]
+    fn a_done_medication_order_prefills_the_record_form_of_the_profile() {
+        let (orders, forms) = de();
+        orders
+            .check_record(&forms)
+            .expect("the DE profile fits together");
+        let order = medication("o1", "DE-0001");
+        let (form, values) = orders
+            .documentation(&order, "petra@x", "anna@x", &forms)
+            .expect("a medication order is documented");
+        assert_eq!(form, "medication");
+        let one = |k: &str| match values.get(k) {
+            Some(Value::One(v)) => v.as_str(),
+            _ => "",
+        };
+        assert_eq!(
+            [
+                one("drug"),
+                one("dose"),
+                one("dose_unit"),
+                one("route"),
+                one("ordered_by"),
+                one("given_by")
+            ],
+            ["Paracetamol", "1", "g", "iv", "petra@x", "anna@x"]
+        );
+
+        // A dose that is not a number and a unit of the form stays for the crew.
+        let mut odd = order.clone();
+        odd.ordered = Ordered::Medication {
+            substance: "Glukose".into(),
+            dose: "nach Wirkung".into(),
+            route: "iv".into(),
+        };
+        let (_, values) = orders.documentation(&odd, "p", "a", &forms).unwrap();
+        assert!(!values.contains_key("dose") && !values.contains_key("dose_unit"));
+        // Measures are not documented as a medication.
+        let mut measure = order;
+        measure.ordered = Ordered::Measure {
+            text: "Lagerung".into(),
+        };
+        assert!(orders.documentation(&measure, "p", "a", &forms).is_none());
+    }
+
+    // [utest->dsn~order-documentation~1]
+    #[test]
+    fn the_record_mapping_must_fit_the_forms() {
+        let (mut orders, forms) = de();
+        orders.routes.push(Choice {
+            id: "intrathecal".into(),
+            label: "i.th.".into(),
+            description: None,
+        });
+        assert!(
+            orders
+                .check_record(&forms)
+                .unwrap_err()
+                .contains("intrathecal")
+        );
+        let (mut orders, forms) = de();
+        orders.record.as_mut().unwrap().dose = "drug".into();
+        assert!(
+            orders.check_record(&forms).is_err(),
+            "the dose must be a number field"
+        );
+        let (mut orders, forms) = de();
+        orders.record.as_mut().unwrap().form = "identity".into();
+        assert!(orders.check_record(&forms).is_err(), "a series form");
     }
 
     fn event(n: u64, user: &str, event_type: &str, payload: Vec<u8>) -> AppliedEvent {

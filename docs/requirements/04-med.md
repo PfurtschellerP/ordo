@@ -293,6 +293,15 @@ Tags: must, med, m15
 
 Needs: dsn
 
+#### ORDER-5 — Document a done medication order
+`req~order-5~1`
+
+When a medication order is done, ORDO shall offer to document the administration in the patient care record with the ordered substance, dose, route and the person who ordered it filled in, for the crew to check, complete and save; ORDO shall save nothing without the crew's confirmation.
+
+Tags: should, med, m21
+
+Needs: dsn
+
 ### 4.12 Med package: transport planning
 
 #### TRANS-1 — Transport request

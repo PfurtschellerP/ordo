@@ -276,6 +276,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("[aria-labelledby=section-orders] .order-card__status"), "the record keeps it").toContainText("Durchgeführt");
     await anna.locator("[aria-labelledby=section-orders] summary").click();
     await expect(anna.locator("[aria-labelledby=section-orders] .history-list li"), "with every step").toHaveCount(3);
+    // [itest->dsn~order-documentation~1]
+    await anna.getByRole("button", { name: "In Dokumentation übernehmen: Paracetamol 1 g i.v." }).click();
+    await expect(anna.locator("#f-medication-drug"), "the done order fills a new medication entry").toHaveValue("Paracetamol");
+    await expect(anna.locator("#f-medication-dose")).toHaveValue("1");
+    await expect(anna.locator("#f-medication-dose_unit").getByLabel("g", { exact: true })).toBeChecked();
+    await expect(anna.locator("#f-medication-route").getByLabel("i.v.", { exact: true })).toBeChecked();
+    await expect(anna.locator("#f-medication-ordered_by"), "with who ordered it").toHaveValue("petra@localhost");
+    await expect(anna.locator("#f-medication-given_by"), "and who gives it").toHaveValue("anna@localhost");
+    await expect(anna.locator("#f-medication-time"), "at the time now").not.toHaveValue("");
+    await saveForm(anna, "medication");
+    await expect(anna.locator("[aria-labelledby=section-medication] .entry"), "the crew saves it").toContainText("Paracetamol");
 
     // [itest->dsn~attachment-transfer~1]
     // Another device of Anna's gets the preview with the record, then the full photo from

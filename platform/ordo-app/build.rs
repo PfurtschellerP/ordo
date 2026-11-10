@@ -64,10 +64,12 @@ fn main() {
     embed(&med, "transport-requests.toml", |c: &TransportCatalogue| {
         c.check().map_err(|e| e.to_string())
     });
+    // The order settings must fit the ePCR forms they document into (ORDER-5).
     embed(&med, "orders.toml", |c: &OrderCatalogue| {
-        (!c.routes.is_empty())
-            .then_some(())
-            .ok_or_else(|| "at least one route".to_owned())
+        if c.routes.is_empty() {
+            return Err("at least one route".to_owned());
+        }
+        c.check_record(&catalogue)
     });
     embed(&med, "hospitals.toml", |c: &HospitalCatalogue| {
         c.check().map_err(|e| e.to_string())

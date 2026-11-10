@@ -42,7 +42,7 @@ id = "nasal"
 label = "nasal"
 
 [[route]]
-id = "inhaled"
+id = "inhal"
 label = "inhalativ"
 
 [[route]]
@@ -52,3 +52,15 @@ label = "rektal"
 [[route]]
 id = "topical"
 label = "topisch"
+
+# Where a done medication order is documented (ORDER-5): a series form of the ePCR forms
+# (epcr-forms.json) and its fields. The routes above must be options of its route field;
+# the build checks both. The crew checks the prefilled entry and saves it.
+[record]
+form = "medication"
+substance = "drug"
+dose = "dose"
+dose_unit = "dose_unit"
+route = "route"
+ordered_by = "ordered_by"
+given_by = "given_by"

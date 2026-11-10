@@ -1333,6 +1333,18 @@
                 "code": "rectal",
                 "display": "rektal"
               }
+            },
+            {
+              "valueCoding": {
+                "code": "sl",
+                "display": "sublingual"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "topical",
+                "display": "topisch"
+              }
             }
           ]
         },

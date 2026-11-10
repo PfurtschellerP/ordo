@@ -107,6 +107,7 @@ the build fails.
 | 18 — Hospitals and transport board | `m18` | Hospital list with capacity, hospitals as destinations, transport board (TRANS-2, TRANS-4) |
 | 19 — Planned transports | `m19` | Transports requested for a planned time, listed apart on the board (TRANS-5) |
 | 20 — Person suggestions | `m20` | Person fields suggest the incident's people; role grants suggest the installation's people (UX-13) |
+| 21 — Orders into the record | `m21` | A done medication order prefills the record's medication form (ORDER-5) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -115,5 +116,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21 docs platform modules packages tests
 ```
