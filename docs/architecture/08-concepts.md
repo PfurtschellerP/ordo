@@ -531,6 +531,50 @@ Needs: impl, utest, itest
 
 Tags: must, m14
 
+#### Medical orders
+`dsn~medical-orders~1`
+
+Module `med.orders`, in `med.clinical`. A physician or paramedic gives an order on the
+patient's record: a medication (substance and dose as free text, route from the profile
+file `med/orders.toml`) or a measure (free text), with an optional note. The device writes
+`orders.given` with a new order ID (ULID) and the triage tag number. The crew moves it on
+with `orders.updated`: acknowledged, done, or withdrawn; the status of an order is its
+latest update by hybrid logical clock, and every update stays in its history with who and
+when. Steps only go forward: given → acknowledged → done; withdrawn ends an order that is
+not done. The record lists the patient's orders, open ones first; the Med workspace has a
+view *Anordnungen* with the open orders of every UHS the person may read, oldest first,
+with tag number and UHS. ORDO shows what was ordered and by whom; it checks no dose and
+suggests nothing (EPCR-9).
+
+Covers:
+
+* [req~order-1~1](../requirements/04-med.md#order-1--give-orders)
+* [req~order-2~1](../requirements/04-med.md#order-2--carry-out-orders)
+* [req~order-4~1](../requirements/04-med.md#order-4--open-orders-across-all-uhs)
+
+Needs: impl, utest, itest
+
+Tags: must, m15
+
+#### Order permission
+`dsn~order-permission~1`
+
+The server's write check passes the event type to the policy next to the module (Cedar
+context `event_type`, [ADR-0035](../adr/0035-authorization-with-cedar.md)). The Med
+policies let roles `medic`, `physician` and `paramedic` read and write `med.clinical`, but
+`orders.given` only with `physician` or `paramedic`; organisations change this in their own
+policy files. The incident permission `give_orders` tells the app whether to offer the
+order form; the server's check is what counts, so a device that writes an order anyway is
+rejected.
+
+Covers:
+
+* [req~order-3~1](../requirements/04-med.md#order-3--only-permitted-roles-give-orders)
+
+Needs: impl, utest, itest
+
+Tags: must, m15
+
 #### Device storage
 `dsn~device-storage~1`
 

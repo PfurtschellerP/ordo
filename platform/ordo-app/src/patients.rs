@@ -409,6 +409,7 @@ fn PatientRecord(
             </nav>
             <PhotoSection core revision tag=tag.clone() records />
             <TriageSection core revision tag=tag.clone() register />
+            <crate::orders::OrdersSection core revision tag=tag.clone() />
             <crate::transports::TransportSection core revision tag=tag.clone() />
             {FORMS
                 .forms

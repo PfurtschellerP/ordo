@@ -6,6 +6,7 @@ mod devices;
 mod images;
 mod incidents;
 mod nav;
+mod orders;
 mod palette;
 mod patients;
 mod profile;

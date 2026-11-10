@@ -101,6 +101,7 @@ the build fails.
 | 12 — MANV basics | `m12` | "Betroffene" (PAT-9), transport priority (PAT-10), treatment places (UHS-7) |
 | 13 — Storage | `m13` | Attachments as encrypted blobs in an object store (OFF-6); device storage as SQLite on OPFS |
 | 14 — Transport requests | `m14` | Transport request from the UHS (TRANS-1); assignment of unit and destination, status with times (TRANS-3) |
+| 15 — Medical orders | `m15` | Orders by physicians and paramedics, carried out by the UHS crew (ORDER-1…4) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -109,5 +110,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15 docs platform modules packages tests
 ```

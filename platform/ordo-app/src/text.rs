@@ -380,7 +380,12 @@ pub const START_INCIDENT: &str = "Einsatz beginnen";
 pub const CLOSE_INCIDENT: &str = "Einsatz abschließen";
 
 /// Roles offered when granting (prototype; later from the profile).
-pub const ROLES: [(&str, &str); 2] = [("commander", "Einsatzleitung"), ("medic", "Sanitätsdienst")];
+pub const ROLES: [(&str, &str); 4] = [
+    ("commander", "Einsatzleitung"),
+    ("medic", "Sanitätsdienst"),
+    ("physician", "Arzt/Ärztin"),
+    ("paramedic", "Notfallsanitäter/in"),
+];
 
 pub fn role_label(role: &str) -> String {
     ROLES
@@ -537,4 +542,57 @@ pub fn transport_requested(tag: &str) -> String {
 
 pub fn transport_status_set(status: ordo_med_patients::transport::TransportStatus) -> String {
     format!("Transport: {}", transport_status(status))
+}
+
+// Medical orders (ORDER-1…4)
+pub const ORDERS: &str = "Anordnungen";
+pub const ORDERS_TITLE: &str = "Offene Anordnungen";
+pub const ORDERS_EMPTY: &str = "Keine offenen Anordnungen.";
+pub const ORDERS_NONE: &str = "Keine Anordnungen.";
+pub const ORDER_GIVE: &str = "Anordnen";
+pub const ORDER_KIND: &str = "Art";
+pub const ORDER_MEDICATION: &str = "Medikament";
+pub const ORDER_MEASURE: &str = "Maßnahme";
+pub const ORDER_SUBSTANCE: &str = "Wirkstoff";
+pub const ORDER_DOSE: &str = "Dosis mit Einheit";
+pub const ORDER_ROUTE: &str = "Applikationsweg";
+pub const ORDER_ROUTE_CHOOSE: &str = "Weg wählen";
+pub const ORDER_MEASURE_TEXT: &str = "Maßnahme";
+pub const ORDER_NOTE: &str = "Hinweis (optional)";
+pub const ORDER_INCOMPLETE: &str = "Bitte die Anordnung vollständig angeben.";
+pub const ORDER_RECORDS_ONLY: &str =
+    "ORDO dokumentiert Anordnungen; Dosis und Indikation prüft die anordnende Person.";
+
+pub fn order_status(status: ordo_med_patients::orders::OrderStatus) -> &'static str {
+    use ordo_med_patients::orders::OrderStatus as S;
+    match status {
+        S::Given => "Angeordnet",
+        S::Acknowledged => "Übernommen",
+        S::Done => "Durchgeführt",
+        S::Withdrawn => "Zurückgenommen",
+    }
+}
+
+/// Button text that moves an order to `status`.
+pub fn order_step(status: ordo_med_patients::orders::OrderStatus) -> &'static str {
+    use ordo_med_patients::orders::OrderStatus as S;
+    match status {
+        S::Given => "Anordnen",
+        S::Acknowledged => "Übernehmen",
+        S::Done => "Durchgeführt",
+        S::Withdrawn => "Zurücknehmen",
+    }
+}
+
+pub fn order_given(tag: &str) -> String {
+    format!("{tag}: Anordnung erfasst")
+}
+
+pub fn order_status_set(status: ordo_med_patients::orders::OrderStatus) -> String {
+    format!("Anordnung: {}", order_status(status))
+}
+
+/// "Angeordnet 10:12 von petra@…"
+pub fn order_by(at: &str, by: &str) -> String {
+    format!("{at} von {by}")
 }

@@ -9,11 +9,12 @@ use ordo_contracts::TriageCategory::{self, Immediate, Urgent};
 use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
+use ordo_med_patients::orders::{self, OrderBook, OrderGiven, OrderStatus, OrderUpdated, Ordered};
 use ordo_med_patients::{self as patients, PatientRegister, Registered};
 use ordo_server::config::to_hex;
 use ordo_server::{Config, Running, ServerError, start};
 use ordo_sync::Replica;
-use ordo_sync::message::{self, BlobRequest, ClientMessage, ServerMessage};
+use ordo_sync::message::{self, BlobRequest, ClientMessage, Rejection, ServerMessage};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -29,10 +30,11 @@ fn incident() -> IncidentId {
 }
 
 /// (user, key seed, roles)
-const PEOPLE: [(&str, u8, &[&str]); 3] = [
+const PEOPLE: [(&str, u8, &[&str]); 4] = [
     ("anna", 1, &["medic"]),
     ("clara", 2, &["medic"]),
     ("ben", 3, &["commander"]),
+    ("petra", 4, &["physician"]),
 ];
 
 fn device_id(seed: u8) -> DeviceId {
@@ -432,6 +434,105 @@ async fn sync_over_websocket_survives_a_restart() {
         [(1, 1, 0)],
         "counts continue from the restored state"
     );
+
+    running.stop().await.unwrap();
+}
+
+impl Client {
+    /// Records an event of the orders module; returns its ID.
+    fn order_event(&mut self, event_type: &str, payload: &[u8]) -> ordo_core::EventId {
+        self.replica
+            .record(
+                &incident(),
+                orders::COMPARTMENT,
+                orders::MODULE,
+                event_type,
+                1,
+                payload,
+                now(),
+            )
+            .unwrap()
+    }
+
+    /// Pushes and waits until the server has ordered or rejected everything.
+    async fn push_and_settle(&mut self) {
+        if let Some(push) = self.replica.push() {
+            self.send(push).await;
+        }
+        self.receive_until(|r| r.outbox_len() == 0).await;
+    }
+}
+
+// [itest->dsn~order-permission~1]
+// [itest->dsn~medical-orders~1]
+#[tokio::test(flavor = "multi_thread")]
+async fn only_a_physician_gives_orders_and_the_crew_carries_them_out() {
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [6; 32]);
+    let running = start_server(dir.path()).await.unwrap();
+    let addr = running.addr;
+    let order = |id: &str| {
+        OrderGiven {
+            order: id.into(),
+            tag: "DE-0042".into(),
+            ordered: Ordered::Medication {
+                substance: "Paracetamol".into(),
+                dose: "1 g".into(),
+                route: "iv".into(),
+            },
+            note: None,
+        }
+        .encode()
+        .unwrap()
+    };
+
+    // A medic's device writes an order anyway (e.g. an old app): the server refuses it.
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    let refused = anna.order_event(orders::GIVEN, &order("by-anna"));
+    anna.push_and_settle().await;
+    assert!(
+        anna.replica
+            .rejected()
+            .iter()
+            .any(|r| r.event == refused && r.reason == Rejection::Forbidden),
+        "{:?}",
+        anna.replica.rejected()
+    );
+
+    // The physician gives it; the medic acknowledges and completes it.
+    let mut petra = Client::connect(addr, replica("petra")).await;
+    petra.order_event(orders::GIVEN, &order("by-petra"));
+    petra.sync().await;
+    anna.receive_until(|r| {
+        OrderBook::from_events(&r.events(&incident(), orders::COMPARTMENT).unwrap())
+            .orders
+            .contains_key("by-petra")
+    })
+    .await;
+    for status in [OrderStatus::Acknowledged, OrderStatus::Done] {
+        let update = OrderUpdated {
+            order: "by-petra".into(),
+            status,
+        }
+        .encode()
+        .unwrap();
+        anna.order_event(orders::UPDATED, &update);
+    }
+    anna.sync().await;
+    let book = OrderBook::from_events(
+        &anna
+            .replica
+            .events(&incident(), orders::COMPARTMENT)
+            .unwrap(),
+    );
+    assert!(
+        !book.orders.contains_key("by-anna"),
+        "the refused order is gone"
+    );
+    let done = &book.orders["by-petra"];
+    assert_eq!(done.status, OrderStatus::Done);
+    assert_eq!(done.by().as_str(), format!("petra@{SERVER}"));
+    assert_eq!(done.history[2].by.as_str(), format!("anna@{SERVER}"));
 
     running.stop().await.unwrap();
 }

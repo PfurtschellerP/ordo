@@ -753,6 +753,7 @@ fn Workspace(
             <main id="main" class="page" tabindex="-1">
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
+                    (Some("med.uhs"), Some("orders")) => view! { <crate::orders::OrdersView core revision nav /> }.into_any(),
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }

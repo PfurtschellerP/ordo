@@ -55,3 +55,11 @@ schema, so mistakes in organisation roles are caught before use.
 
 Implemented with the login work (roadmap item 1). Sources: [Cedar](https://github.com/cedar-policy/cedar),
 [CNCF project page](https://www.cncf.io/projects/cedar/).
+
+### Implementation notes (2026-11-10)
+
+* Write checks pass the event type next to the module (context `event_type`), so a
+  policy can allow a module but restrict one kind of event in it: medical orders
+  (`orders.given`) only from physicians and paramedics, acknowledging and completing them
+  from the whole crew (architecture 8, "Order permission"). Reading and the view
+  permissions pass an empty event type.

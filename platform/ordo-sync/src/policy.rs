@@ -15,13 +15,16 @@ pub trait AccessPolicy: Send {
         compartment: &CompartmentId,
         roles: &[String],
     ) -> bool;
-    /// Whether `user` may write an event of `module` to `compartment` of `incident`.
+    /// Whether `user` may write an event of `module` and `event_type` to `compartment` of
+    /// `incident` (both empty for attachments, which follow their stream).
+    #[allow(clippy::too_many_arguments)]
     fn can_write(
         &self,
         user: &UserId,
         incident: &IncidentId,
         compartment: &CompartmentId,
         module: &str,
+        event_type: &str,
         roles: &[String],
     ) -> bool;
     /// The app's views and functions `user` may use in `incident` with `roles`, e.g.
@@ -134,6 +137,7 @@ impl AccessPolicy for StaticPolicy {
         incident: &IncidentId,
         compartment: &CompartmentId,
         _module: &str,
+        _event_type: &str,
         roles: &[String],
     ) -> bool {
         self.can_read(user, incident, compartment, roles)

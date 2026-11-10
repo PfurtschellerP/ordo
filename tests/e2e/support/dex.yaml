@@ -46,3 +46,9 @@ staticPasswords:
     preferredUsername: "dora"
     userID: "8f8a6a4e-2d4b-4b3a-9b1e-0a6a1d1e0003"
     groups: ["admin"]
+  - email: "petra@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: "petra"
+    preferredUsername: "petra"
+    userID: "8f8a6a4e-2d4b-4b3a-9b1e-0a6a1d1e0004"
+    groups: []

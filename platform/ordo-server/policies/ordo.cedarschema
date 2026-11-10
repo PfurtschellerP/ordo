@@ -15,6 +15,8 @@ type Request = {
   // The module of the event being written, e.g. "units"; empty for reading and for the
   // view permissions.
   module: String,
+  // The type of the event being written, e.g. "orders.given"; empty like `module`.
+  event_type: String,
 };
 
 action read, write appliesTo {
@@ -27,7 +29,8 @@ action read, write appliesTo {
 // server tells each device which of them the user's roles allow.
 //   view_situation: the incident command's situation view (counts per UHS, units, roster)
 //   edit_units: add units and set their status
-action view_situation, edit_units appliesTo {
+//   give_orders: give medical orders (the server still checks every `orders.given`)
+action view_situation, edit_units, give_orders appliesTo {
   principal: [User],
   resource: [Compartment],
   context: Request,

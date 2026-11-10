@@ -1,0 +1,54 @@
+# Medical orders (Anordnungen, ORDER-1): the routes of administration a medication order
+# can name. Labels are the German abbreviations used in emergency documentation. ORDO
+# records orders; it never proposes, checks or calculates them (EPCR-9). A state profile
+# may replace this file (layering, architecture 8.8.3).
+
+[[route]]
+id = "iv"
+label = "i.v."
+description = "intravenös"
+
+[[route]]
+id = "io"
+label = "i.o."
+description = "intraossär"
+
+[[route]]
+id = "im"
+label = "i.m."
+description = "intramuskulär"
+
+[[route]]
+id = "sc"
+label = "s.c."
+description = "subkutan"
+
+[[route]]
+id = "po"
+label = "p.o."
+description = "oral"
+
+[[route]]
+id = "sl"
+label = "s.l."
+description = "sublingual"
+
+[[route]]
+id = "buccal"
+label = "bukkal"
+
+[[route]]
+id = "nasal"
+label = "nasal"
+
+[[route]]
+id = "inhaled"
+label = "inhalativ"
+
+[[route]]
+id = "rectal"
+label = "rektal"
+
+[[route]]
+id = "topical"
+label = "topisch"

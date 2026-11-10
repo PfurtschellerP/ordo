@@ -93,6 +93,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".roster__entry"), "the planner is its commander").toHaveCount(1);
     await grantRole(dora, "anna@localhost", "Sanitätsdienst");
     await grantRole(dora, "ben@localhost", "Einsatzleitung");
+    await grantRole(dora, "petra@localhost", "Arzt/Ärztin");
     await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
     await expect(dora.locator("#incident-state")).toHaveText("Laufend");
     await audit(dora, "Roster", [1200, 320]);
@@ -219,6 +220,40 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(transport.locator(".transport-card__status"), "the request is shown on the record").toHaveText("Angefordert");
     await expect(transport.locator(".transport-card")).toContainText("RTW · Sofort · Infektiös");
     await expect(transport.locator("form"), "no second request while one is open").toHaveCount(0);
+
+    // [itest->dsn~medical-orders~1]
+    // [itest->dsn~order-permission~1]
+    await expect(anna.locator(".order-form"), "a medic gives no orders").toHaveCount(0);
+    const petra = await newDevice(browser);
+    await loginPair(petra, server, "petra@example.org");
+    await openIncident(petra, INCIDENT);
+    await openView(petra, "Patienten");
+    await openRecord(petra, "DE-0044");
+    await petra.locator("#order-substance").fill("Paracetamol");
+    await petra.locator("#order-dose").fill("1 g");
+    await petra.getByRole("button", { name: "Anordnen" }).click();
+    await expect(petra.locator(".order-form [role=alert]"), "an incomplete order is not saved").toHaveText("Bitte die Anordnung vollständig angeben.");
+    await petra.locator("#order-route").selectOption({ label: "i.v. – intravenös" });
+    await petra.getByRole("button", { name: "Anordnen" }).click();
+    await expect(petra.locator(".order-card .order-card__what"), "the physician gives an order").toHaveText("Paracetamol 1 g i.v.");
+    await expect(petra.locator(".order-card .order-card__status")).toContainText("Angeordnet");
+    await expect.poll(() => status(petra), { message: "the order is sent" }).toContain("Alles gesendet");
+    await petra.context().close();
+
+    await openView(anna, "Anordnungen");
+    const order = anna.locator(".order-card");
+    await expect(order, "the crew sees the open order with patient and UHS").toContainText("DE-0044 · UHS Eingang");
+    await expect(order).toContainText("petra@localhost");
+    await order.getByRole("button", { name: "Übernehmen: Paracetamol 1 g i.v." }).click();
+    await expect(order.locator(".order-card__status")).toContainText("Übernommen");
+    await audit(anna, "Orders");
+    await order.getByRole("button", { name: "Durchgeführt: Paracetamol 1 g i.v." }).click();
+    await expect(anna.locator("#main"), "done orders leave the open list").toContainText("Keine offenen Anordnungen.");
+    await openView(anna, "Patienten");
+    await openRecord(anna, "DE-0044");
+    await expect(anna.locator("[aria-labelledby=section-orders] .order-card__status"), "the record keeps it").toContainText("Durchgeführt");
+    await anna.locator("[aria-labelledby=section-orders] summary").click();
+    await expect(anna.locator("[aria-labelledby=section-orders] .order-card__history li"), "with every step").toHaveCount(3);
 
     // [itest->dsn~attachment-transfer~1]
     // Another device of Anna's gets the preview with the record, then the full photo from
@@ -532,7 +567,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator("#launcher-button").click();
     await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
     await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(4);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(5);
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();
@@ -540,7 +575,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(3);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(4);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

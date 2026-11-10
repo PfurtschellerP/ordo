@@ -14,7 +14,7 @@ use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
 use ordo_med_patients::{
-    self as patients, Registered, Retriaged, UhsCreated, UhsKind, record, transport,
+    self as patients, Registered, Retriaged, UhsCreated, UhsKind, orders, record, transport,
 };
 use ordo_sync::incidents::{self, IncidentState, Planned, Registry, RoleChange, StateChanged};
 use ordo_sync::message::{
@@ -736,6 +736,51 @@ pub fn update_transport(
         transport::UPDATED,
         &payload,
         text::transport_status_set(update.status),
+    )
+}
+
+// [impl->dsn~medical-orders~1]
+/// Gives a medical order (ORDER-1). The server accepts it only from roles that may give
+/// orders (ORDER-3).
+pub fn give_order(
+    core: Handle,
+    revision: RwSignal<u64>,
+    order: orders::OrderGiven,
+) -> Result<(), String> {
+    let mut random = [0u8; 16];
+    entropy(&mut random);
+    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let order = orders::OrderGiven {
+        order: id.to_string(),
+        ..order
+    };
+    let payload = order.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        orders::COMPARTMENT,
+        orders::MODULE,
+        orders::GIVEN,
+        &payload,
+        text::order_given(&order.tag),
+    )
+}
+
+/// Acknowledges, completes or withdraws an order (ORDER-2).
+pub fn update_order(
+    core: Handle,
+    revision: RwSignal<u64>,
+    update: &orders::OrderUpdated,
+) -> Result<(), String> {
+    let payload = update.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        orders::COMPARTMENT,
+        orders::MODULE,
+        orders::UPDATED,
+        &payload,
+        text::order_status_set(update.status),
     )
 }
 

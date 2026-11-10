@@ -108,7 +108,10 @@ queue and downloaded when shown); attachments optionally in Garage (S3-compatibl
 Compose bundle and in CI; transport requests (milestone `m14`): the UHS requests a
 transport on the record (type, priority, special needs from the profile), the incident
 command assigns a unit and a destination in *Lage – Transporte* and follows the status;
-the shared request carries no patient data.
+the shared request carries no patient data; medical orders (milestone `m15`): physicians and
+paramedics (new incident roles) give orders on the record, the crew acknowledges and
+completes them, the view *UHS – Anordnungen* lists the open orders of every UHS; the
+server accepts new orders only from these roles.
 
 *Incident and command (Einsatzleitung)*
 
@@ -151,9 +154,10 @@ the shared request carries no patient data.
   instead of free text; transport board with available units and patients per hospital
   (TRANS-4); planned transports (TRANS-5); the UHS discharge as "transported" when the
   patient is handed over (UHS-3).
-- **Physician and paramedic module across all UHS:** overview of every UHS; orders
-  (medication, measures) as tasks for the UHS crew, acknowledged and documented when done.
-  ORDO records orders; it never proposes them.
+- **Orders, next steps:** substances from the medication catalogue (below); a done
+  medication order prefilled into the record's medication form; an overview per UHS for
+  the medical lead (LNA, OrgL); orders given by voice or radio recorded with the person
+  who gave them.
 - **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
   chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances

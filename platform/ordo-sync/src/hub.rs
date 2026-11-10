@@ -296,7 +296,7 @@ impl<P: AccessPolicy> Hub<P> {
         let roles = self.registry.roles(user, incident);
         if write {
             self.policy
-                .can_write(user, incident, compartment, "", &roles)
+                .can_write(user, incident, compartment, "", "", &roles)
         } else {
             self.policy.can_read(user, incident, compartment, &roles)
         }
@@ -765,6 +765,7 @@ impl<P: AccessPolicy> Hub<P> {
                 &body.incident,
                 &body.compartment,
                 body.module.as_str(),
+                body.event_type.as_str(),
                 &roles,
             )
         };

@@ -32,7 +32,7 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
-pub const INCIDENT_PERMISSIONS: [&str; 2] = ["view_situation", "edit_units"];
+pub const INCIDENT_PERMISSIONS: [&str; 3] = ["view_situation", "edit_units", "give_orders"];
 
 /// A policy file could not be used.
 #[derive(Debug, thiserror::Error)]
@@ -150,17 +150,26 @@ impl RolePolicy {
         compartment: &CompartmentId,
         incident_roles: &[String],
     ) -> bool {
-        self.allows_module(user, action, incident, compartment, "", incident_roles)
+        self.allows_write(
+            user,
+            action,
+            incident,
+            compartment,
+            ("", ""),
+            incident_roles,
+        )
     }
 
-    /// Like [`Self::allows`], for writing an event of `module` (e.g. `units`).
-    pub fn allows_module(
+    // [impl->dsn~order-permission~1]
+    /// Like [`Self::allows`], for writing an event of `(module, event type)`, e.g.
+    /// `("med.orders", "orders.given")`.
+    pub fn allows_write(
         &self,
         user: &UserId,
         action: &str,
         incident: &IncidentId,
         compartment: &CompartmentId,
-        module: &str,
+        (module, event_type): (&str, &str),
         incident_roles: &[String],
     ) -> bool {
         let mut roles = self.roles.of(user);
@@ -179,6 +188,10 @@ impl RolePolicy {
             (
                 "module".to_owned(),
                 RestrictedExpression::new_string(module.to_owned()),
+            ),
+            (
+                "event_type".to_owned(),
+                RestrictedExpression::new_string(event_type.to_owned()),
             ),
         ]);
         let Ok(context) = context else { return false };
@@ -253,9 +266,17 @@ impl AccessPolicy for RolePolicy {
         incident: &IncidentId,
         compartment: &CompartmentId,
         module: &str,
+        event_type: &str,
         roles: &[String],
     ) -> bool {
-        self.allows_module(user, "write", incident, compartment, module, roles)
+        self.allows_write(
+            user,
+            "write",
+            incident,
+            compartment,
+            (module, event_type),
+            roles,
+        )
     }
 
     // [impl->dsn~views-by-role~1]
@@ -314,7 +335,7 @@ mod tests {
             p.can_read(&user("anna"), &incident, &clinical, &[]),
             "medics read clinical data"
         );
-        assert!(p.can_write(&user("anna"), &incident, &shared, "", &[]));
+        assert!(p.can_write(&user("anna"), &incident, &shared, "", "", &[]));
         assert!(
             p.can_read(&user("ben"), &incident, &shared, &[]),
             "commanders read incident data"
@@ -402,15 +423,27 @@ mod tests {
             p.incident_permissions(&erik, &incident, &commander),
             ["view_situation", "edit_units"]
         );
+        assert_eq!(
+            p.incident_permissions(&erik, &incident, &["physician".to_owned()]),
+            ["give_orders"],
+            "physicians give orders"
+        );
         assert!(
-            p.can_write(&erik, &incident, &shared, "med.uhs", &medic),
+            p.can_write(&erik, &incident, &shared, "med.uhs", "uhs.created", &medic),
             "medics manage UHS"
         );
         assert!(
-            !p.can_write(&erik, &incident, &shared, "units", &medic),
+            !p.can_write(&erik, &incident, &shared, "units", "units.added", &medic),
             "but not units"
         );
-        assert!(p.can_write(&erik, &incident, &shared, "units", &commander));
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "units",
+            "units.added",
+            &commander
+        ));
     }
 
     // [utest->dsn~role-policies~1]
@@ -436,6 +469,7 @@ mod tests {
             &incident(),
             &compartment("med.clinical"),
             "",
+            "",
             &[]
         ));
     }
@@ -451,5 +485,54 @@ mod tests {
             "{error:?}"
         );
         assert!(policy(&[("broken.cedar".to_owned(), "permit (".to_owned())]).is_err());
+    }
+
+    // [utest->dsn~order-permission~1]
+    #[test]
+    fn only_physicians_and_paramedics_give_orders_the_crew_carries_them_out() {
+        let p = policy(&[]).expect("valid");
+        let (incident, clinical) = (incident(), compartment("med.clinical"));
+        let erik = user("erik");
+        let write = |roles: &[&str], event_type: &str| {
+            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            p.can_write(
+                &erik,
+                &incident,
+                &clinical,
+                "med.orders",
+                event_type,
+                &roles,
+            )
+        };
+        assert!(write(&["physician"], "orders.given"));
+        assert!(write(&["paramedic"], "orders.given"));
+        assert!(
+            !write(&["medic"], "orders.given"),
+            "a medic gives no orders"
+        );
+        assert!(
+            write(&["medic"], "orders.updated"),
+            "but acknowledges and completes them"
+        );
+        assert!(write(&["medic", "physician"], "orders.given"));
+        assert!(!write(&[], "orders.updated"));
+        for role in ["physician", "paramedic"] {
+            let roles = [role.to_owned()];
+            assert!(
+                p.can_read(&erik, &incident, &clinical, &roles),
+                "{role} reads clinical data"
+            );
+            assert!(
+                p.can_write(
+                    &erik,
+                    &incident,
+                    &clinical,
+                    "med.epcr",
+                    "epcr.entryRecorded",
+                    &roles
+                ),
+                "{role} documents"
+            );
+        }
     }
 }

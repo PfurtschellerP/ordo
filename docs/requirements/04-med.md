@@ -251,6 +251,48 @@ Tags: must, med
 
 Needs: dsn
 
+### 4.11.1 Med package: medical orders
+
+Orders (*Anordnungen*) are given by physicians and paramedics and carried out by the crew
+of the on-site care unit. ORDO records them; it never proposes, checks or calculates a
+medication, dose or measure ([EPCR-9](#epcr-9--no-clinical-decision-support)).
+
+#### ORDER-1 — Give orders
+`req~order-1~1`
+
+When a physician or a paramedic gives an order for a patient — a medication with substance, dose and route, or a measure — ORDO shall record it in the patient record with the person and the time, and show it to the crew of the patient's on-site care unit as an open order.
+
+Tags: must, med, m15
+
+Needs: dsn
+
+#### ORDER-2 — Carry out orders
+`req~order-2~1`
+
+When a crew member acknowledges an order or reports it done, ORDO shall record who did it and when; when an order is withdrawn, ORDO shall record who withdrew it and when. Orders and their status changes are never deleted.
+
+Tags: must, med, m15
+
+Needs: dsn
+
+#### ORDER-3 — Only permitted roles give orders
+`req~order-3~1`
+
+ORDO shall accept a new order only from a person whose roles in the incident permit giving orders (by default physicians and paramedics); the server checks this for every order.
+
+Tags: must, med, m15
+
+Needs: dsn
+
+#### ORDER-4 — Open orders across all UHS
+`req~order-4~1`
+
+ORDO shall list the open orders of every on-site care unit the person may read, oldest first, with the patient and the unit, so physicians and crews see what is pending.
+
+Tags: must, med, m15
+
+Needs: dsn
+
 ### 4.12 Med package: transport planning
 
 #### TRANS-1 — Transport request

@@ -57,6 +57,11 @@ pub const WORKSPACES: &[Workspace] = &[
                 name: "patients",
             },
             View {
+                id: "orders",
+                label: text::ORDERS,
+                name: "orders",
+            },
+            View {
                 id: "uhs",
                 label: "UHS verwalten",
                 name: "manage uhs",
