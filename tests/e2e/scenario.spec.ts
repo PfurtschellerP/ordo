@@ -408,6 +408,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // Ctrl+J and Ctrl+K move in the palette, where letters are typed (ADR-0051).
     await openPalette(anna);
     await anna.keyboard.type("DE-00");
+    await shot(anna, "palette");
     const first = await selectedOption(anna);
     await anna.keyboard.press("Control+j");
     await expect.poll(() => selectedOption(anna), { message: "Ctrl+J moves down" }).not.toBe(first);

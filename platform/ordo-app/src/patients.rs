@@ -482,10 +482,6 @@ fn PatientRecord(
         ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
         ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
         ("section-orders".to_owned(), text::ORDERS.to_owned()),
-        (
-            "section-transport".to_owned(),
-            text::TRANSPORT_TITLE.to_owned(),
-        ),
         ("section-stay".to_owned(), text::STAY_TITLE.to_owned()),
     ]
     .into_iter()
@@ -495,6 +491,11 @@ fn PatientRecord(
             .iter()
             .map(|f| (format!("section-{}", f.id), f.label.clone())),
     )
+    // Not every patient is transported: the request comes last.
+    .chain([(
+        "section-transport".to_owned(),
+        text::TRANSPORT_TITLE.to_owned(),
+    )])
     .collect();
     view! {
         <article class="card record" aria-labelledby="record-title">
@@ -523,13 +524,13 @@ fn PatientRecord(
             <PhotoSection core revision tag=tag.clone() records />
             <TriageSection core revision tag=tag.clone() register />
             <crate::orders::OrdersSection core revision tag=tag.clone() />
-            <crate::transports::TransportSection core revision tag=tag.clone() />
             <StaySection core revision tag=tag.clone() register />
             {FORMS
                 .forms
                 .iter()
                 .map(|form| view! { <FormSection core revision tag=tag.clone() form records /> })
                 .collect_view()}
+            <crate::transports::TransportSection core revision tag=tag.clone() />
         </article>
     }
     .into_any()

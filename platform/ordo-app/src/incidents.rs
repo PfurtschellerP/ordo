@@ -200,12 +200,14 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </div>
             </Show>
             {move || {
-                let roster: Vec<(String, String)> = info
+                // One entry per person, with all their roles.
+                let roster: Vec<(String, Vec<String>)> = info
                     .get()
                     .map(|i| {
                         i.roster
                             .iter()
-                            .flat_map(|(u, roles)| roles.iter().map(move |r| (u.to_string(), r.clone())))
+                            .filter(|(_, roles)| !roles.is_empty())
+                            .map(|(u, roles)| (u.to_string(), roles.iter().cloned().collect()))
                             .collect()
                     })
                     .unwrap_or_default();
@@ -216,29 +218,40 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <ul class="roster" data-keys="list">
                         {roster
                             .into_iter()
-                            .map(|(user, role)| {
-                                let label = text::withdraw_label(&user, &role);
-                                let (u, r) = (user.clone(), role.clone());
+                            .map(|(user, roles)| {
                                 view! {
                                     <li class="roster__entry">
                                         {user.parse::<ordo_core::UserId>().ok().map(|id| view! {
                                             <crate::profile::Avatar core revision user=id />
                                         })}
                                         <span class="roster__person">{user.clone()}</span>
-                                        <span class="roster__role">{text::role_label(&role)}</span>
-                                        <Show when=move || manage.get()>
-                                            <button type="button" class="button button--small" aria-label=label.clone()
-                                                on:click={
-                                                    let (u, r) = (u.clone(), r.clone());
-                                                    move |_| {
-                                                        if let Err(e) = core::change_role(core, revision, &u, &r, false) {
-                                                            error.set(Some(e));
-                                                        }
+                                        <ul class="roster__roles">
+                                            {roles
+                                                .into_iter()
+                                                .map(|role| {
+                                                    let label = text::withdraw_label(&user, &role);
+                                                    let (u, r) = (user.clone(), role.clone());
+                                                    view! {
+                                                        <li class="roster__role">
+                                                            {text::role_label(&role)}
+                                                            <Show when=move || manage.get()>
+                                                                <button type="button" class="button button--small" aria-label=label.clone()
+                                                                    on:click={
+                                                                        let (u, r) = (u.clone(), r.clone());
+                                                                        move |_| {
+                                                                            if let Err(e) = core::change_role(core, revision, &u, &r, false) {
+                                                                                error.set(Some(e));
+                                                                            }
+                                                                        }
+                                                                    }>
+                                                                    {text::WITHDRAW}
+                                                                </button>
+                                                            </Show>
+                                                        </li>
                                                     }
-                                                }>
-                                                {text::WITHDRAW}
-                                            </button>
-                                        </Show>
+                                                })
+                                                .collect_view()}
+                                        </ul>
                                     </li>
                                 }
                             })

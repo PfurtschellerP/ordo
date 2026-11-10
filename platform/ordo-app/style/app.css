@@ -418,7 +418,8 @@
   }
   /* min-width: 0 lets the content column and its cards shrink; nothing may be wider
      than its card (checked by the rendered-page audit). */
-  .layout > .page { margin: 0; max-width: 80rem; width: 100%; min-width: 0; }
+  /* Workspaces use the full width of wide screens; single forms (.page--narrow) stay narrow. */
+  .layout > .page { margin: 0; max-width: none; width: 100%; min-width: 0; }
   .page > * { min-width: 0; }
 
   /* Phones and tablets in portrait: navigation at the bottom, within thumb reach, as on
@@ -498,8 +499,10 @@
   .app-header__user { display: flex; align-items: center; gap: var(--ordo-space-2); margin: 0; }
   .profile-picture { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); margin-block: var(--ordo-space-2); }
   .profile-picture .error { flex-basis: 100%; }
-  .roster__role { color: var(--ordo-color-text-secondary); }
-  .roster__entry .button { margin-inline-start: auto; }
+  /* All roles of a person in one entry, each with its own way to withdraw it. */
+  .roster__roles { list-style: none; margin: 0; padding: 0; flex: 1 1 14rem; display: grid; gap: var(--ordo-space-1); }
+  .roster__role { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); color: var(--ordo-color-text-secondary); }
+  .roster__role .button { margin-inline-start: auto; }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);

@@ -500,7 +500,7 @@ pub fn transport_status(status: ordo_med_patients::transport::TransportStatus) -
         S::Loading => "Wird verladen",
         S::Departed => "Abgefahren",
         S::Arrived => "Am Ziel",
-        S::HandedOver => "Übergeben",
+        S::HandedOver => "Patient am Ziel übergeben",
         S::Cancelled => "Storniert",
     }
 }
@@ -514,7 +514,7 @@ pub fn transport_step(status: ordo_med_patients::transport::TransportStatus) -> 
         S::Loading => "Verladen",
         S::Departed => "Abgefahren",
         S::Arrived => "Am Ziel",
-        S::HandedOver => "Übergeben",
+        S::HandedOver => "Patient am Ziel übergeben",
         S::Cancelled => "Stornieren",
     }
 }

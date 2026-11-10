@@ -440,8 +440,13 @@ fn PlaceForm(
                     <div class="field">
                         <label for="place-reference">{text::MAP_PLACE_WHICH}</label>
                         <select id="place-reference" prop:value=move || reference.get() on:change=move |ev| reference.set(event_target_value(&ev))>
-                            <option value="">{text::MAP_PLACE_CHOOSE}</option>
-                            {move || choices.get().into_iter().map(|(id, name)| view! { <option value=id>{name}</option> }).collect_view()}
+                            <option value="" selected=move || reference.get().is_empty()>{text::MAP_PLACE_CHOOSE}</option>
+                            // Each option says whether it is chosen: when the list is drawn
+                            // anew (a sync), the browser would otherwise show the first one.
+                            {move || choices.get().into_iter().map(|(id, name)| {
+                                let chosen = id.clone();
+                                view! { <option value=id selected=move || reference.get() == chosen>{name}</option> }
+                            }).collect_view()}
                         </select>
                     </div>
                 </Show>
