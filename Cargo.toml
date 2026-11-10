@@ -53,6 +53,9 @@ openidconnect = { version = "4", default-features = false, features = ["reqwest"
 # HTTP client of the login (via openidconnect): TLS with the system's certificate store, so
 # identity providers with an organisation's own certificate authority work too.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
+# The S3 client of object_store (reqwest 0.13): rustls with ring as crypto provider, no aws-lc.
+reqwest-s3 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
@@ -66,7 +69,7 @@ tokio-tungstenite = "0.30"
 zeroize = { version = "1", features = ["derive"] }
 toml = "1"
 # Attachments (ADR-0033): local directory now; S3-compatible stores with Garage later.
-object_store = { version = "0.14", default-features = false, features = ["fs"] }
+object_store = { version = "0.14", default-features = false, features = ["fs", "aws-base", "ring", "reqwest"] }
 toml_edit = "0.25"
 time = { version = "0.3", features = ["std"] }
 tower-http = { version = "0.7", features = ["fs", "set-header"] }

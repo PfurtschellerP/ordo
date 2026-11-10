@@ -1,0 +1,39 @@
+# Attachments (photos) in Garage, an S3-compatible store (AGPL-3.0), instead of the ORDO
+# volume (ADR-0033). Add this file to every docker compose command, see README.md:
+#   docker compose -f compose.yaml -f compose.garage.yaml up -d
+services:
+  ordo:
+    environment:
+      ORDO_S3_ENDPOINT: http://garage:3900
+      ORDO_S3_BUCKET: ordo
+      ORDO_S3_ACCESS_KEY_ID: ${ORDO_S3_ACCESS_KEY_ID:?set ORDO_S3_ACCESS_KEY_ID in .env}
+      ORDO_S3_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_secret_key
+    secrets:
+      - s3_secret_key
+    depends_on:
+      - garage
+
+  garage:
+    image: docker.io/dxflrs/garage:v2.1.0@sha256:4c9b34c113e61358466e83fd6e7d66e6d18657ede14b776eb78a93ee8da7cf6a
+    environment:
+      GARAGE_RPC_SECRET_FILE: /run/secrets/garage_rpc_secret
+    secrets:
+      - garage_rpc_secret
+    volumes:
+      - ../../garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    networks: [internal]
+
+secrets:
+  s3_secret_key:
+    file: ./s3-secret.key
+  garage_rpc_secret:
+    file: ./garage-rpc.key
+
+volumes:
+  garage-meta:
+  garage-data:

@@ -92,9 +92,9 @@ source, it is marked *(secondary)*; replace it when the official source is known
 Data and security formats are listed with their purpose in
 [architecture 4.3](architecture/04-solution-strategy.md#43-open-standards-in-use):
 CBOR, CDDL, Ed25519 (RFC 8032), XChaCha20-Poly1305, BLAKE3, ULID, WebSocket (RFC 6455), URI
-fragments and percent-encoding (RFC 3986), JPEG, OCI images. Planned for attachments: the
-Amazon S3 API as implemented by fully open-source stores, reference
-[Garage](https://garagehq.deuxfleurs.fr) (AGPL-3.0, [ADR-0033](adr/0033-attachments-in-an-object-store.md)).
+fragments and percent-encoding (RFC 3986), JPEG, OCI images. For attachments: the
+Amazon S3 API as implemented by fully open-source stores, tested with
+[Garage](https://garagehq.deuxfleurs.fr) 2.1 (AGPL-3.0, [ADR-0033](adr/0033-attachments-in-an-object-store.md)).
 
 ## Regulation and product security
 

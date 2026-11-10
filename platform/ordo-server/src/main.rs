@@ -33,7 +33,13 @@ Environment for `serve`:
                          (plan incidents, grant roles)
   ORDO_GRAVATAR          Profile pictures from Gravatar: on (default) or off
   ORDO_MAX_BLOB_MB       Largest attachment in MB (default 20, 1 to 200); attachments
-                         are stored in <ORDO_DATA_DIR>/blobs
+                         are stored in <ORDO_DATA_DIR>/blobs, or with ORDO_S3_BUCKET in
+                         an S3-compatible store (Garage):
+  ORDO_S3_BUCKET         Bucket for attachments (optional)
+  ORDO_S3_ENDPOINT       Address of the S3 API, e.g. http://garage:3900
+  ORDO_S3_REGION         Region name (default garage)
+  ORDO_S3_ACCESS_KEY_ID  Access key ID
+  ORDO_S3_SECRET_ACCESS_KEY_FILE  File with the secret access key
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {

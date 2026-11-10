@@ -24,6 +24,34 @@ docker compose ps                 # ordo should become "healthy"
 Endpoints (through Caddy): the app at `https://<domain>/`, login at `/dex`, sync at
 `wss://<domain>/sync`, `/healthz`, `/readyz`, `/metrics`.
 
+## Attachments in Garage (optional)
+
+Photos and other attachments are stored encrypted, as ciphertext only
+([ADR-0033](../../../docs/adr/0033-attachments-in-an-object-store.md)). By default they
+live in the volume `ordo-data`. For more space, or to keep them on separate disks, put
+them into [Garage](https://garagehq.deuxfleurs.fr), an S3-compatible store that is free
+software as a whole:
+
+```sh
+openssl rand -hex 32 > garage-rpc.key
+s3_secret=$(openssl rand -hex 32) && echo "$s3_secret" > s3-secret.key
+sudo chown 0:0 garage-rpc.key && sudo chmod 400 garage-rpc.key        # Garage runs as root
+sudo chown 65532:65532 s3-secret.key && sudo chmod 400 s3-secret.key  # ORDO as user 65532
+echo "ORDO_S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)" >> .env
+. ./.env
+alias compose='docker compose -f compose.yaml -f compose.garage.yaml'
+compose up -d garage
+# Once: layout, bucket "ordo" and ORDO's key.
+../../garage/setup.sh "docker compose -f compose.yaml -f compose.garage.yaml exec -T garage /garage" \
+  ordo "$ORDO_S3_ACCESS_KEY_ID" "$s3_secret"
+unset s3_secret
+compose up -d
+```
+
+ORDO checks at start that the bucket answers and stops otherwise. Back up the volumes
+`garage-meta` and `garage-data` as well. Moving existing attachments from `ordo-data`
+into Garage is not automated yet.
+
 ## Login
 
 ORDO stores no passwords and talks only to the bundled Dex
@@ -92,4 +120,5 @@ field server checks itself. Plan it like this:
   certificate authority, mount its certificate into the ORDO container and set
   `SSL_CERT_FILE`.
 - For development without login, `seed.toml.example` shows how to pair devices by hand.
-- Back up the volumes `ordo-data` and `dex-data` **and** `master.key`.
+- Back up the volumes `ordo-data` and `dex-data` (with Garage also `garage-meta` and
+  `garage-data`) **and** `master.key`.

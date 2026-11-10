@@ -90,8 +90,7 @@ Done in phase 0:
 
 Next — backlog from the practitioners' feedback (screenshots and demo, 2026-11-08/09).
 
-Next step of the storage work: Garage as S3-compatible store in the Compose bundle and
-the tests (licence check of object_store's S3 support); then the rest of this backlog.
+The storage work is done (milestone `m13`); next comes the rest of this backlog.
 
 **Done already:** palette quick actions bring the opened form into view with the cursor
 in its first field; the app is installable as a PWA (it lacked icons); incidents are
@@ -105,7 +104,8 @@ category of their own, transport priority from the profile, treatment places per
 (milestone `m12`); storage (milestone `m13`): attachments as encrypted blobs with
 tickets in an object store (local directory), device data in SQLite on OPFS in a worker;
 patient photos as attachments (a preview in the event, the full photo uploaded from a
-queue and downloaded when shown).
+queue and downloaded when shown); attachments optionally in Garage (S3-compatible) in the
+Compose bundle and in CI.
 
 *Incident and command (Einsatzleitung)*
 

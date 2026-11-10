@@ -41,8 +41,37 @@ pub struct Config {
     /// Gravatar themselves.
     pub gravatar: bool,
     /// Largest attachment in bytes (`ORDO_MAX_BLOB_MB`, default 20, 1 to 200; ADR-0033).
-    /// Attachments are stored in `<ORDO_DATA_DIR>/blobs`.
+    /// Attachments are stored in `<ORDO_DATA_DIR>/blobs`, or in an S3-compatible store.
     pub max_blob_bytes: u64,
+    /// S3-compatible store for attachments (`ORDO_S3_BUCKET` and the other `ORDO_S3_*`
+    /// variables, optional; ADR-0033). Without it, a local directory is used.
+    pub s3: Option<S3Config>,
+}
+
+/// An S3-compatible object store, e.g. Garage (ADR-0033).
+#[derive(Clone)]
+pub struct S3Config {
+    /// Address of the S3 API, e.g. `http://garage:3900` (`ORDO_S3_ENDPOINT`).
+    pub endpoint: String,
+    /// Bucket (`ORDO_S3_BUCKET`).
+    pub bucket: String,
+    /// Region name the store expects (`ORDO_S3_REGION`, default `garage`).
+    pub region: String,
+    /// Access key ID (`ORDO_S3_ACCESS_KEY_ID`).
+    pub access_key_id: String,
+    /// Secret access key, read from a file (`ORDO_S3_SECRET_ACCESS_KEY_FILE`).
+    pub secret_access_key: String,
+}
+
+impl std::fmt::Debug for S3Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("S3Config")
+            .field("endpoint", &self.endpoint)
+            .field("bucket", &self.bucket)
+            .field("region", &self.region)
+            .field("access_key_id", &self.access_key_id)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Default access timeout in hours (ADR-0040).
@@ -237,7 +266,27 @@ impl Config {
                 .filter(|m| (1..=200).contains(m))
                 .ok_or_else(|| ConfigError::invalid("ORDO_MAX_BLOB_MB", "expected 1 to 200"))?,
         };
+        let s3 = match get("ORDO_S3_BUCKET").filter(|b| !b.trim().is_empty()) {
+            None => None,
+            Some(bucket) => Some(S3Config {
+                endpoint: get("ORDO_S3_ENDPOINT")
+                    .ok_or(ConfigError::Missing("ORDO_S3_ENDPOINT"))?
+                    .trim_end_matches('/')
+                    .to_owned(),
+                bucket: bucket.trim().to_owned(),
+                region: get("ORDO_S3_REGION").unwrap_or_else(|| "garage".into()),
+                access_key_id: get("ORDO_S3_ACCESS_KEY_ID")
+                    .ok_or(ConfigError::Missing("ORDO_S3_ACCESS_KEY_ID"))?,
+                secret_access_key: read(
+                    &get("ORDO_S3_SECRET_ACCESS_KEY_FILE")
+                        .ok_or(ConfigError::Missing("ORDO_S3_SECRET_ACCESS_KEY_FILE"))?,
+                )?
+                .trim()
+                .to_owned(),
+            }),
+        };
         Ok(Self {
+            s3,
             max_blob_bytes: max_blob_mb * 1024 * 1024,
             gravatar,
             admins,
@@ -312,6 +361,55 @@ mod tests {
             "ORDO_ACCESS_TIMEOUT_HOURS" => timeout.map(str::to_owned),
             _ => None,
         })
+    }
+
+    #[test]
+    fn an_s3_store_needs_endpoint_key_and_secret() {
+        let dir = std::env::temp_dir().join(format!("ordo-config-s3-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = dir.join("master.key");
+        std::fs::write(&key, "00".repeat(32)).unwrap();
+        let secret = dir.join("s3.secret");
+        std::fs::write(&secret, "geheim\n").unwrap();
+        let (key, secret) = (
+            key.to_string_lossy().into_owned(),
+            secret.to_string_lossy().into_owned(),
+        );
+        let with = |missing: &str| {
+            Config::from_lookup(|name| {
+                if name == missing {
+                    return None;
+                }
+                match name {
+                    "ORDO_SERVER_NAME" => Some("ordo.example.org".into()),
+                    "ORDO_MASTER_KEY_FILE" => Some(key.clone()),
+                    "ORDO_S3_BUCKET" => Some("ordo".into()),
+                    "ORDO_S3_ENDPOINT" => Some("http://garage:3900/".into()),
+                    "ORDO_S3_ACCESS_KEY_ID" => Some("GK0123".into()),
+                    "ORDO_S3_SECRET_ACCESS_KEY_FILE" => Some(secret.clone()),
+                    _ => None,
+                }
+            })
+        };
+        let s3 = with("").unwrap().s3.expect("S3 store configured");
+        assert_eq!(s3.endpoint, "http://garage:3900");
+        assert_eq!(s3.region, "garage");
+        assert_eq!(s3.secret_access_key, "geheim");
+        assert!(
+            !format!("{s3:?}").contains("geheim"),
+            "the secret is not logged"
+        );
+        assert!(
+            with("ORDO_S3_BUCKET").unwrap().s3.is_none(),
+            "local directory"
+        );
+        for missing in [
+            "ORDO_S3_ENDPOINT",
+            "ORDO_S3_ACCESS_KEY_ID",
+            "ORDO_S3_SECRET_ACCESS_KEY_FILE",
+        ] {
+            assert!(with(missing).is_err(), "{missing}");
+        }
     }
 
     // [utest->dsn~access-timeout~1]

@@ -204,6 +204,14 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         ),
         None => None,
     };
+    let blobs = match &config.s3 {
+        Some(s3) => {
+            let blobs = blobs::Blobs::s3(s3, config.max_blob_bytes).await?;
+            tracing::info!(endpoint = %s3.endpoint, bucket = %s3.bucket, "attachments in S3 store");
+            blobs
+        }
+        None => blobs::Blobs::local(&config.data_dir.join("blobs"), config.max_blob_bytes)?,
+    };
     let app = Arc::new(App::new(
         hub,
         store,
@@ -212,7 +220,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         login,
         config.access_timeout,
         config.gravatar,
-        blobs::Blobs::local(&config.data_dir.join("blobs"), config.max_blob_bytes)?,
+        blobs,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());

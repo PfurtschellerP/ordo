@@ -530,8 +530,9 @@ that stream, and for downloads only if the attachment was uploaded to that strea
 bytes travel over HTTP, `PUT`/`GET /blobs/<hash>` with `Authorization: Bearer <ticket>`;
 tickets are valid ten minutes, upload tickets once. The server checks size and hash, stores
 the bytes with `object_store` under `blobs/<2 hex>/<hash>` (local directory
-`<ORDO_DATA_DIR>/blobs`; S3-compatible stores follow with Garage) and records the stream in
-the `blobs` table. Largest attachment: `ORDO_MAX_BLOB_MB` (default 20).
+`<ORDO_DATA_DIR>/blobs`, or an S3-compatible bucket with `ORDO_S3_BUCKET`, tested with
+Garage; the server checks at start that the bucket answers) and records the stream in the
+`blobs` table. Largest attachment: `ORDO_MAX_BLOB_MB` (default 20).
 
 Covers:
 

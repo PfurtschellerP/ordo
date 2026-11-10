@@ -72,4 +72,10 @@ Implementation (2026-11-10): server side with tickets and a local directory
 (design item "Attachments", chapter 8); patient photos as the first attachments
 (`epcr.photoAttached`: preview at most 16 KiB in the event, full photo at most 1 MiB as an
 attachment) with the device's upload queue and download on demand (design item
-"Attachment transfer"). Open: Garage and S3 support, retention of blobs, federation.
+"Attachment transfer"). S3 support with `object_store`'s `aws-base` and `ring` features:
+the same crypto library (ring) and TLS (rustls) as the rest of the server, no second C
+library (aws-lc); all licences permissive (`cargo deny`; only the root-certificate data
+of `webpki-root-certs` is CDLA-Permissive-2.0, allowed for that crate). Garage 2.1 runs in
+CI for the server's store test and the browser test, and as an optional part of the
+Compose bundle (`compose.garage.yaml`). Open: moving existing attachments between stores,
+retention of blobs, federation.

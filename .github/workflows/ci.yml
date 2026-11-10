@@ -32,6 +32,21 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Start Garage, an S3-compatible store, for the attachment test (ADR-0033)
+        run: |
+          docker run -d --name garage -p 127.0.0.1:3900:3900 \
+            -e GARAGE_RPC_SECRET="$(openssl rand -hex 32)" \
+            -v "$PWD/deploy/garage/garage.toml:/etc/garage.toml:ro" \
+            dxflrs/garage:v2.1.0@sha256:4c9b34c113e61358466e83fd6e7d66e6d18657ede14b776eb78a93ee8da7cf6a
+          key="GK$(openssl rand -hex 12)"; secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$secret"
+          deploy/garage/setup.sh "docker exec garage /garage" ordo "$key" "$secret"
+          {
+            echo "ORDO_TEST_S3_ENDPOINT=http://127.0.0.1:3900"
+            echo "ORDO_TEST_S3_BUCKET=ordo"
+            echo "ORDO_TEST_S3_ACCESS_KEY_ID=$key"
+            echo "ORDO_TEST_S3_SECRET_ACCESS_KEY=$secret"
+          } >> "$GITHUB_ENV"
       - name: Test
         run: cargo test --workspace --locked
       - name: Build client-side crates for WebAssembly

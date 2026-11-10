@@ -46,6 +46,12 @@ confidence-threshold = 0.9
 # The list also covers licences of likely future dependencies.
 unused-allowed-license = "allow"
 
+# Mozilla's list of root certificates (data), used by rustls-platform-verifier where the
+# system has none of its own. CDLA-Permissive-2.0 puts no conditions on software using it.
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 [licenses.private]
 # ORDO's own crates (publish = false) are AGPL-3.0-or-later.
 ignore = true

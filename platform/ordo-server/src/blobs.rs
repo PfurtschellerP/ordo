@@ -14,12 +14,14 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use object_store::aws::AmazonS3Builder;
 use object_store::local::LocalFileSystem;
 use object_store::path::Path as StorePath;
 use object_store::{ObjectStore, ObjectStoreExt};
 use ordo_sync::StreamKey;
 
 use crate::app::{App, now_ms};
+use crate::config::S3Config;
 
 /// How long a ticket is valid.
 const TICKET_TTL: Duration = Duration::from_secs(10 * 60);
@@ -59,11 +61,40 @@ impl Blobs {
     pub fn local(dir: &std::path::Path, max_bytes: u64) -> Result<Self, std::io::Error> {
         std::fs::create_dir_all(dir)?;
         let store = LocalFileSystem::new_with_prefix(dir).map_err(std::io::Error::other)?;
-        Ok(Self {
-            store: Arc::new(store),
+        Ok(Self::with_store(Arc::new(store), max_bytes))
+    }
+
+    /// A store in an S3-compatible bucket, e.g. Garage. Checks once that the bucket answers.
+    pub async fn s3(config: &S3Config, max_bytes: u64) -> Result<Self, std::io::Error> {
+        // TLS for the S3 client uses ring, like the rest of the server (no aws-lc).
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let store = AmazonS3Builder::new()
+            .with_endpoint(&config.endpoint)
+            .with_allow_http(config.endpoint.starts_with("http://"))
+            .with_bucket_name(&config.bucket)
+            .with_region(&config.region)
+            .with_access_key_id(&config.access_key_id)
+            .with_secret_access_key(&config.secret_access_key)
+            .build()
+            .map_err(std::io::Error::other)?;
+        match store.head(&StorePath::from("blobs/.check")).await {
+            Ok(_) | Err(object_store::Error::NotFound { .. }) => {}
+            Err(error) => {
+                return Err(std::io::Error::other(format!(
+                    "the S3 store {} (bucket {}) does not answer: {error}",
+                    config.endpoint, config.bucket
+                )));
+            }
+        }
+        Ok(Self::with_store(Arc::new(store), max_bytes))
+    }
+
+    fn with_store(store: Arc<dyn ObjectStore>, max_bytes: u64) -> Self {
+        Self {
+            store,
             max_bytes,
             tickets: Mutex::new(HashMap::new()),
-        })
+        }
     }
 
     /// Issues a ticket; the caller has checked the permission.
@@ -212,5 +243,51 @@ mod tests {
         assert_eq!(parse_hash("ab"), None);
         assert_eq!(parse_hash(&"zz".repeat(32)), None);
         assert_eq!(location(&hash).as_ref(), format!("blobs/ab/{}", hex(&hash)));
+    }
+
+    // [utest->dsn~attachments~1]
+    /// Against a real S3-compatible store (Garage in CI, `deploy/garage`): runs when
+    /// `ORDO_TEST_S3_ENDPOINT`, `…_BUCKET`, `…_ACCESS_KEY_ID` and `…_SECRET_ACCESS_KEY`
+    /// are set, otherwise it only says that it was skipped.
+    #[tokio::test]
+    async fn an_s3_store_keeps_attachments() {
+        let var = |name: &str| std::env::var(format!("ORDO_TEST_S3_{name}")).ok();
+        let (Some(endpoint), Some(bucket), Some(access_key_id), Some(secret_access_key)) = (
+            var("ENDPOINT"),
+            var("BUCKET"),
+            var("ACCESS_KEY_ID"),
+            var("SECRET_ACCESS_KEY"),
+        ) else {
+            eprintln!("skipped: ORDO_TEST_S3_* not set");
+            return;
+        };
+        let config = S3Config {
+            endpoint,
+            bucket,
+            region: "garage".into(),
+            access_key_id,
+            secret_access_key,
+        };
+        let blobs = Blobs::s3(&config, 1024).await.expect("the store answers");
+        let mut data = [0u8; 600];
+        getrandom::fill(&mut data).unwrap();
+        let path = location(blake3::hash(&data).as_bytes());
+        blobs
+            .store
+            .put(&path, data.to_vec().into())
+            .await
+            .expect("stored");
+        let back = blobs.store.get(&path).await.expect("found");
+        assert_eq!(back.bytes().await.unwrap().as_ref(), data);
+        let missing = location(&[0; 32]);
+        assert!(matches!(
+            blobs.store.get(&missing).await,
+            Err(object_store::Error::NotFound { .. })
+        ));
+        let wrong = S3Config {
+            secret_access_key: "wrong".into(),
+            ..config
+        };
+        assert!(Blobs::s3(&wrong, 1024).await.is_err(), "wrong secret");
     }
 }
