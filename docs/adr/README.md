@@ -54,5 +54,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0049](0049-header-layout-and-handedness.md) | Header layout, profile menu and handedness | accepted | 2026-11-10 |
 | [0050](0050-hospital-capacity-sources.md) | Hospital capacity: entered by hand now, interfaces (IVENA, EDXL-HAVE) later | proposed | 2026-11-10 |
 | [0051](0051-vim-movement-keys.md) | Vim movement keys in lists and the command palette | accepted | 2026-11-10 |
+| [0052](0052-api-versions.md) | API versions: `major.minor` per specification, negotiated per connection and request | accepted | 2026-11-10 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -366,6 +366,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     c.devices = None;
                     return;
                 }
+                // [impl->dsn~protocol-versions~1]
+                Err(ordo_sync::SyncError::Refused(Rejection::UnsupportedVersion)) => {
+                    c.error = Some(text::VERSION_UNSUPPORTED.to_owned());
+                }
                 Err(error) => c.error = Some(error.to_string()),
             }
             if let Some(hello) = c.replica.hello() {
@@ -1168,6 +1172,20 @@ impl PendingDevice {
     }
 }
 
+// [impl->dsn~protocol-versions~1]
+/// Headers for a request to the ORDO server: the HTTP API version the app speaks
+/// (ADR-0052).
+pub fn api_headers() -> Option<web_sys::Headers> {
+    let headers = web_sys::Headers::new().ok()?;
+    headers
+        .set(
+            ordo_sync::version::HTTP_HEADER,
+            &ordo_sync::version::HTTP.max.to_string(),
+        )
+        .ok()?;
+    Some(headers)
+}
+
 /// Sends a request to the ORDO server and reads a JSON answer.
 pub async fn fetch_json(
     method: &str,
@@ -1176,12 +1194,12 @@ pub async fn fetch_json(
 ) -> Result<serde_json::Value, String> {
     let init = web_sys::RequestInit::new();
     init.set_method(method);
+    let headers = api_headers().ok_or("headers")?;
     if let Some(body) = body {
-        let headers = web_sys::Headers::new().map_err(|_| "headers")?;
         let _ = headers.set("content-type", "application/json");
-        init.set_headers(&headers);
         init.set_body(&wasm_bindgen::JsValue::from_str(&body.to_string()));
     }
+    init.set_headers(&headers);
     let request = web_sys::Request::new_with_str_and_init(url, &init).map_err(|_| "request")?;
     let window = web_sys::window().ok_or("window")?;
     let response: web_sys::Response =

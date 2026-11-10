@@ -13,6 +13,7 @@ pub mod incidents;
 pub mod message;
 pub mod policy;
 mod replica;
+pub mod version;
 
 pub use applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey};
 pub use error::SyncError;

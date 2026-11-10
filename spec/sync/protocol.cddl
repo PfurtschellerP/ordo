@@ -1,4 +1,4 @@
-; ORDO sync protocol — draft 1
+; ORDO sync protocol — draft 1, version 1.0
 ;
 ; Messages between devices and the server, CBOR-encoded (RFC 8949). Enums use the
 ; externally tagged form { "name": content }. Event structures: event.cddl.
@@ -11,6 +11,7 @@ client-message = { "hello": hello }
                / "listDevices"                ; own devices, all with manage_devices
                / { "revokeDevice": device-id } ; own device, any with manage_devices
                / "listIncidents"              ; incidents with a role; all for planners
+               / "listPeople"                 ; people to suggest when granting roles
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
@@ -22,7 +23,12 @@ hello = {
   ; Ed25519 signature with the device key over
   ;   "ORDO hello v1" 0x00 || challenge nonce (32) || device-id (16) || UTF-8 user-id
   "proof": bstr .size 64,
+  ? "version": version,          ; protocol version spoken; none means "1.0" (§11)
 }
+
+; "major.minor", e.g. "1.4" (ADR-0052)
+version = tstr .regexp "[0-9]+\\.[0-9]+"
+version-range = { "min": version, "max": version }
 
 subscription = {
   "incident": incident-id,
@@ -39,12 +45,15 @@ server-message = { "challenge": challenge }
                / { "rejected": rejected }
                / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
                / { "incidents": [* incident-summary] } ; answer to listIncidents
+               / { "people": [* user-id] }    ; answer to listPeople; empty unless the
+                                              ; user may grant roles somewhere
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
                / { "blobTicket": blob-ticket } ; answer to blobTicket
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {
   "nonce": bstr .size 32,          ; random, used once
+  ? "versions": version-range,     ; protocol versions the server supports (§11)
 }
 
 welcome = {
@@ -57,6 +66,7 @@ welcome = {
                                    ; views per incident, e.g. "view_situation"
   ? "valid_until": uint,           ; end of this device's login (ms since 1970); the
                                    ; device locks itself afterwards, also offline
+  ? "version": version,            ; protocol version agreed for this connection
 }
 
 device-info = {
@@ -127,4 +137,4 @@ rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
           / "revoked" / "rolesChanged"
           / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
-          / "duplicateId"
+          / "duplicateId" / "unsupportedVersion"

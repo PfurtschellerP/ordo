@@ -134,7 +134,10 @@ order routes and form routes match; overview for the medical lead (milestone `m2
 Med workspace's view *Übersicht* shows per UHS the patients by category against capacity,
 free places, open orders, open and planned transports, and discharged patients; list keys
 (milestone `m23`, ADR-0051): `j`/`k` and the arrow keys move through lists while they have
-the focus, Ctrl+J/Ctrl+K through the palette.
+the focus, Ctrl+J/Ctrl+K through the palette; API versions (milestone `m24`, ADR-0052): the sync
+protocol and the HTTP API each have a `major.minor` version (now `1.0`), announced in the
+challenge and at `/.well-known/ordo`, asked for in `hello` and the `ORDO-API-Version`
+header; no version means the oldest, one outside the range is refused with the range.
 
 *Incident and command (Einsatzleitung)*
 
@@ -194,14 +197,6 @@ the focus, Ctrl+J/Ctrl+K through the palette.
   histories, orders, person fields, suggestions); the name comes from the identity
   provider at login (OIDC `name`) and can be changed by the person. Suggestions then show
   the name and keep the user ID as the value.
-- **API microversioning:** every interface (sync protocol, HTTP APIs, later federation)
-  states a version per request: the client names the version it speaks (e.g. a header
-  `ORDO-API-Version: 1.4`, in the sync protocol a field of `hello`), the server announces the
-  range it supports and answers in the requested version. Old apps on tablets that were
-  offline for days, field servers on an older release and federation partners keep
-  working while the server moves on; a change that breaks clients raises the version
-  instead of breaking them. Document each version in `spec/` and test the oldest
-  supported one in CI.
 - **PDF/A exports with Typst** (Apache-2.0, embeddable, PDF/A): incident log, patient
   record for the handover (layout after the DIVI emergency protocol where no open
   standard exists), other printable views.

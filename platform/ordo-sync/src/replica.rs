@@ -13,6 +13,7 @@ use ordo_crypto::{CHAIN_GENESIS, EventSigner, chain_next, event_hash};
 use crate::SyncError;
 use crate::applied::{AppliedEvent, Entropy, StreamKey, random_u128};
 use crate::message::{ClientMessage, Hello, KeyGrant, Rejected, ServerMessage, Subscription};
+use crate::version::{SYNC as SYNC_VERSIONS, Version};
 
 /// Everything a device stores locally, for saving and loading (e.g. browser storage).
 ///
@@ -72,6 +73,10 @@ pub struct Replica {
     rejected: Vec<Rejected>,
     /// The server's challenge on the current connection, until the hello answers it.
     challenge: Option<[u8; 32]>,
+    /// The protocol version to ask for on this connection (ADR-0052).
+    asked: Version,
+    /// The protocol version the server confirmed on the current connection.
+    version: Option<Version>,
     /// End of this device's login, as the server said in its last welcome (ADR-0040).
     valid_until: Option<u64>,
     /// Permissions beyond compartments, from the last welcome (e.g. `manage_devices`).
@@ -102,6 +107,8 @@ impl Replica {
             outbox: Vec::new(),
             rejected: Vec::new(),
             challenge: None,
+            asked: SYNC_VERSIONS.max,
+            version: None,
             valid_until: None,
             permissions: Vec::new(),
             incident_permissions: Vec::new(),
@@ -220,6 +227,11 @@ impl Replica {
         self.wanted.insert((incident.clone(), compartment));
     }
 
+    /// The protocol version the server confirmed on the current connection, if any.
+    pub fn version(&self) -> Option<Version> {
+        self.version
+    }
+
     /// The first message after connecting.
     ///
     /// Answers the server's challenge with a proof of the device key (ADR-0038), so it
@@ -234,6 +246,7 @@ impl Replica {
             user: self.author.user.clone(),
             device: self.author.device,
             proof,
+            version: Some(self.asked),
             subscriptions: self
                 .wanted
                 .iter()
@@ -397,9 +410,17 @@ impl Replica {
         match message {
             ServerMessage::Challenge(challenge) => {
                 self.challenge = Some(challenge.nonce);
+                // [impl->dsn~protocol-versions~1]
+                // The newest version both sides speak; without a shared one, ask for our
+                // newest, which the server refuses with `unsupportedVersion`.
+                self.asked = challenge
+                    .versions
+                    .and_then(|server| SYNC_VERSIONS.agree(&server))
+                    .unwrap_or(SYNC_VERSIONS.max);
                 Ok(())
             }
             ServerMessage::Welcome(welcome) => {
+                self.version = welcome.version;
                 self.protected = Some(welcome.protected);
                 self.valid_until = welcome.valid_until;
                 self.permissions = welcome.permissions;

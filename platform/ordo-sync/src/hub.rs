@@ -18,6 +18,7 @@ use crate::message::{
     KeyGrant, Rejected, Rejection, ServerMessage, StreamRef, Subscription, Welcome,
 };
 use crate::policy::AccessPolicy;
+use crate::version::{SYNC as SYNC_VERSIONS, Version};
 
 /// Identifies one connection of a device.
 pub type SessionId = u64;
@@ -118,6 +119,8 @@ struct Session {
     device: DeviceId,
     user: UserId,
     streams: HashSet<StreamKey>,
+    /// The protocol version agreed in the hello; the server sends nothing newer.
+    version: Version,
 }
 
 /// The server side of sync for the incidents this server is home of.
@@ -460,8 +463,16 @@ impl<P: AccessPolicy> Hub<P> {
         self.challenges.insert(session, nonce);
         vec![Outgoing {
             session,
-            message: ServerMessage::Challenge(Challenge { nonce }),
+            message: ServerMessage::Challenge(Challenge {
+                nonce,
+                versions: Some(SYNC_VERSIONS),
+            }),
         }]
+    }
+
+    /// The protocol version agreed with a connected session (ADR-0052).
+    pub fn session_version(&self, session: SessionId) -> Option<Version> {
+        self.sessions.get(&session).map(|s| s.version)
     }
 
     /// The session ended (network lost, app closed).
@@ -548,6 +559,12 @@ impl<P: AccessPolicy> Hub<P> {
         let Some(challenge) = self.challenges.remove(&session) else {
             return refuse(Rejection::NotAuthenticated);
         };
+        // [impl->dsn~protocol-versions~1]
+        // No version is the oldest; one outside the range is refused (ADR-0052).
+        let version = hello.version.unwrap_or(SYNC_VERSIONS.min);
+        if !SYNC_VERSIONS.contains(version) {
+            return refuse(Rejection::UnsupportedVersion);
+        }
         // [impl->dsn~device-revocation~1]
         // A revoked device is told so (and deletes its data), whatever it proves.
         if self.revoked.contains(&hello.device) {
@@ -597,6 +614,7 @@ impl<P: AccessPolicy> Hub<P> {
             .collect(),
             incident_permissions: Vec::new(),
             valid_until,
+            version: Some(version),
         };
         let mut deliveries = Vec::new();
         let mut streams = HashSet::new();
@@ -664,6 +682,7 @@ impl<P: AccessPolicy> Hub<P> {
                 device: hello.device,
                 user: hello.user,
                 streams,
+                version,
             },
         );
         let mut out = vec![Outgoing {

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
-use web_sys::{Headers, RequestInit, Response};
+use web_sys::{RequestInit, Response};
 
 use crate::core::Handle;
 use crate::storage;
@@ -192,7 +192,7 @@ fn unavailable(revision: RwSignal<u64>, hash: [u8; 32]) {
 }
 
 async fn fetch(hash: &[u8; 32], ticket: &str, body: Option<&[u8]>) -> Option<Response> {
-    let headers = Headers::new().ok()?;
+    let headers = crate::core::api_headers()?;
     headers
         .set("Authorization", &format!("Bearer {ticket}"))
         .ok()?;

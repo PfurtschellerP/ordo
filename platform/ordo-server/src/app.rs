@@ -1,5 +1,6 @@
 //! HTTP and WebSocket handling.
 
+use ordo_sync::version::{HTTP, HTTP_HEADER, Version};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
@@ -170,11 +171,8 @@ impl App {
         use axum::http::{HeaderName, HeaderValue};
         use tower_http::services::{ServeDir, ServeFile};
         use tower_http::set_header::SetResponseHeaderLayer;
-        let api = Router::new()
-            .route("/sync", get(sync))
-            .route("/healthz", get(|| async { "ok\n" }))
-            .route("/readyz", get(readyz))
-            .route("/metrics", get(metrics))
+        // The HTTP API: versioned per request (ADR-0052).
+        let versioned = Router::new()
             .route("/auth/config", get(login::config))
             .route("/auth/login", get(login::start))
             .route("/auth/callback", get(login::callback))
@@ -189,6 +187,14 @@ impl App {
                     ),
                 ),
             )
+            .layer(axum::middleware::from_fn(api_version));
+        let api = Router::new()
+            .route("/sync", get(sync))
+            .route("/healthz", get(|| async { "ok\n" }))
+            .route("/readyz", get(readyz))
+            .route("/metrics", get(metrics))
+            .route("/.well-known/ordo", get(well_known))
+            .merge(versioned)
             .with_state(self);
         let router = match app_dir {
             Some(dir) => {
@@ -463,6 +469,47 @@ pub(crate) fn now_ms() -> u64 {
 /// are cached for a year; everything else (app shell, service worker, manifest) is
 /// revalidated on every load, so updates arrive at once and offline starts come from the
 /// service worker rather than from a stale HTTP cache.
+// [impl->dsn~protocol-versions~1]
+/// Answers in the HTTP API version the request names (none: the oldest), and refuses a
+/// version outside the supported range with `406` and the range.
+async fn api_version(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::{HeaderValue, StatusCode};
+    use axum::response::IntoResponse;
+    let asked = request.headers().get(HTTP_HEADER).map(|v| {
+        v.to_str()
+            .ok()
+            .and_then(|s| s.trim().parse::<Version>().ok())
+    });
+    let version = match asked {
+        None => HTTP.min,
+        Some(Some(v)) if HTTP.contains(v) => v,
+        Some(_) => {
+            return (
+                StatusCode::NOT_ACCEPTABLE,
+                axum::Json(serde_json::json!({ "http": HTTP })),
+            )
+                .into_response();
+        }
+    };
+    let mut response = next.run(request).await;
+    if let Ok(value) = HeaderValue::from_str(&version.to_string()) {
+        response.headers_mut().insert(HTTP_HEADER, value);
+    }
+    response
+}
+
+// [impl->dsn~protocol-versions~1]
+/// `/.well-known/ordo`: the versions of each specification this server supports.
+async fn well_known() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "sync": ordo_sync::version::SYNC,
+        "http": HTTP,
+    }))
+}
+
 async fn cache_control(
     request: axum::extract::Request,
     next: axum::middleware::Next,

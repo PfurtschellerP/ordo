@@ -146,6 +146,10 @@ pub struct Hello {
     /// (`ordo_crypto::hello_message`).
     #[serde(with = "fixed_bytes")]
     pub proof: [u8; 64],
+    /// The protocol version the device speaks on this connection; none is `1.0`
+    /// (ADR-0052).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<crate::version::Version>,
 }
 
 /// A random challenge the server sends right after the connection opens; the device
@@ -155,6 +159,9 @@ pub struct Challenge {
     /// 32 random bytes, used once.
     #[serde(with = "fixed_bytes")]
     pub nonce: [u8; 32],
+    /// The protocol versions the server supports (ADR-0052).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub versions: Option<crate::version::VersionRange>,
 }
 
 /// A stream the device wants, and how far it already is.
@@ -219,6 +226,9 @@ pub struct Welcome {
     /// `None`: no limit (devices paired by hand for development).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valid_until: Option<u64>,
+    /// The protocol version agreed for this connection (ADR-0052).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<crate::version::Version>,
 }
 
 /// An incident compartment.
@@ -309,6 +319,9 @@ pub enum Rejection {
     /// The person's roles changed: the device reconnects to get what it may read now
     /// (ADR-0046). Not an error.
     RolesChanged,
+    /// The hello named a protocol version outside the range the server supports
+    /// (ADR-0052); the challenge named the range.
+    UnsupportedVersion,
 }
 
 /// Encodes a message as CBOR.

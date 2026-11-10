@@ -946,11 +946,37 @@ commercial control-centre or hospital software, can talk to ORDO.
 - **Spec-first** for the sync protocol, federation and connectors: the spec is the
   contract, the Rust code implements it, and CI checks that they match.
 - **Conformance test suite** in the repository that any implementation can run.
-- **Versioning:** each specification has its own semantic version; servers announce
-  supported versions in `/.well-known/ordo`.
+- **Versioning:** each specification has its own `major.minor` version; servers announce
+  the supported ranges in `/.well-known/ordo` and answer in the version a client asks for
+  ([ADR-0052](../adr/0052-api-versions.md), design item below).
 - **Licence:** CC BY 4.0 for spec texts, Apache-2.0 for schemas and the
   conformance suite. Permissive on purpose: anyone may implement the interfaces, while
   ORDO's own code stays AGPL.
+
+### 8.7.1 Design items
+
+#### Protocol versions
+`dsn~protocol-versions~1`
+
+`ordo-sync` defines the version type (`major.minor`, written as text) and the range the
+server supports for the sync protocol; the server defines the range of its HTTP API. Sync:
+the `challenge` carries `versions` (`min`, `max`); the device sends the newest version it
+speaks within that range in `hello` (`version`), or none, which counts as `1.0`; the hub
+refuses a version outside the range (`unsupportedVersion`), keeps the agreed version per
+session and confirms it in `welcome`. HTTP: a middleware reads `ORDO-API-Version` (absent:
+the oldest), answers `406` with the range for a version outside it, and sets the header on
+every response. `GET /.well-known/ordo` returns both ranges as JSON. The app asks for its
+version in both places and tells the person when the server does not support it. Tests
+cover the oldest version, a missing version and versions outside the range.
+
+Covers:
+
+* [req~api-2~1](../requirements/06-federation-and-interfaces.md#api-2--independent-spec-versions)
+* [req~api-5~1](../requirements/06-federation-and-interfaces.md#api-5--version-negotiation)
+
+Needs: impl, utest, itest
+
+Tags: must, m24
 
 ## 8.8 Regional profiles
 

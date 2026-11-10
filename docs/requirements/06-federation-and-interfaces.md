@@ -83,7 +83,16 @@ Needs: dsn
 
 Specifications are versioned independently of the software; servers announce which versions they support
 
-Tags: must, interfaces
+Tags: must, interfaces, m24
+
+Needs: dsn
+
+#### API-5 — Version negotiation
+`req~api-5~1`
+
+When a client names the version of a specification it speaks (sync protocol, HTTP API), ORDO shall answer in that version if it lies in the range the server supports, treat a request without a version as the oldest supported version, and refuse a version outside the range with the supported range.
+
+Tags: must, interfaces, m24
 
 Needs: dsn
 

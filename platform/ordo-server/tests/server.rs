@@ -411,6 +411,54 @@ async fn sync_over_websocket_survives_a_restart() {
     );
     assert!(metrics.contains("ordo_sessions 2"), "{metrics}");
 
+    // [itest->dsn~protocol-versions~1]
+    // API versions (ADR-0052): announced, and negotiated per request.
+    let http = reqwest::Client::new();
+    let url = |path: &str| format!("http://{addr}{path}");
+    let announced: serde_json::Value = serde_json::from_str(
+        &http
+            .get(url("/.well-known/ordo"))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(announced["sync"]["min"], "1.0");
+    assert_eq!(announced["http"]["max"], "1.0");
+    let version_of = |r: &reqwest::Response| {
+        r.headers()
+            .get("ORDO-API-Version")
+            .map(|v| v.to_str().unwrap().to_owned())
+    };
+    let none = http.get(url("/auth/config")).send().await.unwrap();
+    assert_eq!(
+        version_of(&none).as_deref(),
+        Some("1.0"),
+        "no version: the oldest"
+    );
+    let oldest = http
+        .get(url("/auth/config"))
+        .header("ORDO-API-Version", "1.0")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(version_of(&oldest).as_deref(), Some("1.0"));
+    for unsupported in ["9.0", "0.1", "one"] {
+        let refused = http
+            .get(url("/auth/config"))
+            .header("ORDO-API-Version", unsupported)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(refused.status(), 406, "{unsupported}");
+        let range: serde_json::Value =
+            serde_json::from_str(&refused.text().await.unwrap()).unwrap();
+        assert_eq!(range["http"]["min"], "1.0", "the answer names the range");
+    }
+
     drop((anna, ben));
     running.stop().await.unwrap();
 

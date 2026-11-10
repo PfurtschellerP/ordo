@@ -19,16 +19,19 @@ message per frame.
 
 ## 2. Connecting
 
-1. The server sends `challenge` with 32 random bytes, new for every connection.
+1. The server sends `challenge` with 32 random bytes, new for every connection, and
+   `versions`: the range of protocol versions it supports (§11).
 2. The device sends `hello` with its user, device, the streams it wants (each with the
-   last sequence number it already has), and a `proof`: the Ed25519 signature with its
+   last sequence number it already has), the protocol `version` it speaks (§11), and a
+   `proof`: the Ed25519 signature with its
    device key over `"ORDO hello v1"`, a zero byte, the challenge, the 16-byte device ID
    and the UTF-8 user ID. The different prefix keeps proofs and event signatures apart.
 3. The server MUST refuse (`refused: notAuthenticated`) a hello on a connection without an
    unused challenge, or with a proof that does not verify against the device's registered
    key; and (`refused: unknownDevice`) if the device is not paired with that user. A
-   challenge is used once, so a recorded hello cannot be replayed. Nothing is sent to a
-   refused connection; the server closes it after the refusal.
+   challenge is used once, so a recorded hello cannot be replayed. The server MUST refuse
+   (`refused: unsupportedVersion`) a hello whose version is outside its range. Nothing is
+   sent to a refused connection; the server closes it after the refusal.
 4. The server answers `welcome`:
    - `granted`: streams the user may read. The server then sends every event the device
      is missing (`deliver`).
@@ -38,6 +41,7 @@ message per frame.
    - `keys`: data keys of granted protected streams.
    - `permissions` (optional): what the user may do beyond compartments, e.g.
      `manage_devices` (§6).
+   - `version`: the protocol version agreed for this connection (§11).
    - `valid_until` (optional): the end of this device's login. The device locks itself
      afterwards, also offline, until the person logs in again. The server MUST refuse
      (`refused: loginExpired`) a hello of a device whose login has ended, and MUST end open
@@ -152,3 +156,29 @@ Open for draft 2:
 - Key grants encrypted for the device key (X25519); key rotation.
 - Verifying signatures of other devices' events on the device (key directory).
 - AsyncAPI description of the WebSocket channel.
+
+## 11. Versions
+
+Each specification has its own version, `major.minor`
+([ADR-0052](../../docs/adr/0052-api-versions.md)). A change that adds something a client
+may ignore (a new message, an optional field) raises `minor`; a change that breaks older
+clients raises `major`.
+
+- **Sync protocol:** the server names its range in `challenge` (`versions`: `min`, `max`).
+  The device SHOULD send the newest version both support in `hello` (`version`). A hello
+  without a version is version `1.0`. The server MUST refuse a version outside its range
+  (`unsupportedVersion`), MUST confirm the agreed version in `welcome`, and MUST NOT send
+  messages or fields newer than that version on the connection.
+- **HTTP API** (login, attachments): a request names its version in the header
+  `ORDO-API-Version`; without it the oldest supported version applies. The server MUST
+  answer a version outside its range with `406 Not Acceptable` and a JSON body naming the
+  range (`{"http": {"min": "1.0", "max": "1.0"}}`), and MUST name the version it answers
+  in on every other response in the same header.
+- **Discovery:** `GET /.well-known/ordo` returns the supported range of each
+  specification as JSON, e.g. `{"sync": {"min": "1.0", "max": "1.0"}, "http": {…}}`.
+- Event payloads are versioned apart, by `schema_version` per event type ([`event.md`](event.md)).
+
+| Version | Sync protocol | HTTP API |
+|---|---|---|
+| 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
+

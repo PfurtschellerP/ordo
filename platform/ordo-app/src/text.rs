@@ -710,3 +710,7 @@ pub fn open_orders(n: usize) -> String {
 pub fn transports_count(open: usize, planned: usize) -> String {
     format!("Transporte: {open} offen, {planned} geplant")
 }
+
+// API versions (ADR-0052).
+pub const VERSION_UNSUPPORTED: &str =
+    "Diese App und der Server haben keine gemeinsame Version. Bitte die Seite neu laden.";
