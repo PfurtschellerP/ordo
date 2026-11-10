@@ -54,8 +54,11 @@ Roadmap item 1. Replaces the local-persistence design of the prototype
   SQLite3 Multiple Ciphers (MIT) to encrypt the whole database with the storage key of
   ADR-0041.
 * **Works** in Firefox and Chromium: a worker opens a database in OPFS, writes, and finds
-  the rows again after a reload. WebKit (Safari, iPadOS) is to be confirmed in CI, where
-  WebKit runs.
+  the rows again after a reload. In CI, Playwright's WebKit build for Linux fails already
+  at `navigator.storage.getDirectory()` ("UnknownError"), so the app keeps its documented
+  fallback (`localStorage`, attachments in memory; `data-storage="local"` on `<html>`).
+  Safari and iPadOS themselves support OPFS sync access handles in workers; this still
+  needs a test on real Apple devices.
 * **Size:** SQLite adds 1.08 MB of WebAssembly (484 KB compressed) to today's app (1.35 MB,
   567 KB compressed): about 1 MB compressed in total, cached once by the offline app.
 * **Build:** compiling SQLite for WebAssembly needs `clang`; GitHub's runners have it,

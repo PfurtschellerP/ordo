@@ -538,7 +538,7 @@ Covers:
 
 * [req~off-6~1](../requirements/07-quality.md#off-6--attachments)
 
-Needs: impl, itest
+Needs: impl, utest, itest
 
 Tags: must, m13
 
