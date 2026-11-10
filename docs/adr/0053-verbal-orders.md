@@ -10,7 +10,7 @@ date: 2026-11-10
 [ORDER-1 to ORDER-4](../requirements/04-med.md#4111-med-package-medical-orders) let
 physicians and paramedics give orders on the patient record; the server accepts
 `orders.given` only from these roles ([ORDER-3](../requirements/04-med.md#order-3--only-permitted-roles-give-orders),
-`dsn~order-permission~1`). In practice many orders are spoken: the emergency physician at
+design item *Order permission*). In practice many orders are spoken: the emergency physician at
 the stretcher with gloves on, the medical lead (LNA) or a tele-emergency physician by
 radio or phone. The crew carries them out at once and must document them with who gave
 them. Today the crew cannot record such an order, because the server rejects an
