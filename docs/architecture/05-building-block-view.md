@@ -499,6 +499,26 @@ Needs: impl, utest, itest
 
 Tags: should, m20
 
+#### List keys
+`dsn~list-keys~1`
+
+Lists whose items people move through are marked `data-keys="list"` (patients,
+discharged patients, orders, transports, hospitals, units, roster, devices, incidents).
+One window key handler (`ui.rs`) moves the focus to the first link, button or summary of
+the next or previous item on `j`/Arrow Down or `k`/Arrow Up, but only when the focus is
+on such an element inside an item and no modifier is held; at either end the focus stays.
+The palette's own key handler adds Ctrl+J and Ctrl+K (⌘ on Apple devices) to its arrow
+keys; the window handler opens the palette with Ctrl+K only while it is closed
+([ADR-0051](../adr/0051-vim-movement-keys.md)).
+
+Covers:
+
+* [req~ux-14~1](../requirements/07-quality.md#ux-14--move-through-lists-with-the-keyboard)
+
+Needs: impl, utest, itest
+
+Tags: should, m23
+
 #### Command palette
 `dsn~command-palette~1`
 

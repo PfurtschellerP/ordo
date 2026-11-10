@@ -364,6 +364,33 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(firstField, "and is on screen").toBeInViewport();
     await anna.locator("[aria-labelledby=section-vitals] .editor").getByRole("button", { name: "Abbrechen" }).click();
     await anna.goBack();
+
+    // [itest->dsn~list-keys~1]
+    // Ctrl+J and Ctrl+K move in the palette, where letters are typed (ADR-0051).
+    await openPalette(anna);
+    await anna.keyboard.type("DE-00");
+    const first = await selectedOption(anna);
+    await anna.keyboard.press("Control+j");
+    await expect.poll(() => selectedOption(anna), { message: "Ctrl+J moves down" }).not.toBe(first);
+    await anna.keyboard.press("Control+k");
+    await expect.poll(() => selectedOption(anna), { message: "Ctrl+K moves up, and keeps the palette open" }).toBe(first);
+    await expect(anna.locator("#palette")).toHaveAttribute("open", "");
+    await closePalette(anna);
+    // j and k move through a list while it has the focus.
+    const card = (tag: string) => anna.locator(`.patient-card[data-tag='${tag}']`);
+    await card("DE-0042").focus();
+    await anna.keyboard.press("j");
+    await expect(card("DE-0043"), "j: the next patient").toBeFocused();
+    await anna.keyboard.press("ArrowDown");
+    await expect(card("DE-0044"), "or Arrow Down").toBeFocused();
+    await anna.keyboard.press("j");
+    await expect(card("DE-0044"), "at the end the focus stays").toBeFocused();
+    await anna.keyboard.press("k");
+    await expect(card("DE-0043"), "k: the previous one").toBeFocused();
+    await anna.locator("#tag").focus();
+    await anna.keyboard.type("jk");
+    await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
+    await anna.locator("#tag").fill("");
   });
 
   await test.step("input survives being offline and a reload", async () => {

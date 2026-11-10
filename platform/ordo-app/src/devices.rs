@@ -59,7 +59,7 @@ pub fn DevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     Some(list) => {
                         let show_person = all.get();
                         view! {
-                            <ul class="device-list">
+                            <ul class="device-list" data-keys="list">
                                 {list
                                     .into_iter()
                                     .map(|info| {

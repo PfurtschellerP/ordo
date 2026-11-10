@@ -398,7 +398,7 @@ fn PatientList(
     });
     let list = move |cards: Vec<Card>| {
         view! {
-            <ul class="patient-list">
+            <ul class="patient-list" data-keys="list">
                 {cards.into_iter().map(|card| view! { <PatientCard card nav selected /> }).collect_view()}
             </ul>
         }

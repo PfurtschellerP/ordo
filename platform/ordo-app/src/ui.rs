@@ -284,3 +284,82 @@ pub fn PeopleList(
 /// The people of the incident, for person fields of forms (provided by the patient view).
 #[derive(Clone, Copy)]
 pub struct IncidentPeople(pub Signal<Vec<String>>);
+
+// [impl->dsn~list-keys~1]
+/// Moves the focus to the next or previous item of a list marked `data-keys="list"`, with
+/// `j`/Arrow Down or `k`/Arrow Up, when the focus is on a link, button or summary inside
+/// one of its items and no modifier is held (ADR-0051). At either end the focus stays.
+/// Returns whether it handled the key.
+pub fn move_in_list(ev: &web_sys::KeyboardEvent) -> bool {
+    use wasm_bindgen::JsCast;
+    let modified = ev.ctrl_key() || ev.meta_key() || ev.alt_key() || ev.shift_key();
+    let Some(forward) = list_direction(&ev.key(), modified) else {
+        return false;
+    };
+    let Some(active) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.active_element())
+    else {
+        return false;
+    };
+    if !matches!(active.tag_name().as_str(), "A" | "BUTTON" | "SUMMARY") {
+        return false;
+    }
+    let Ok(Some(item)) = active.closest("[data-keys=list] > li") else {
+        return false;
+    };
+    let mut next = if forward {
+        item.next_element_sibling()
+    } else {
+        item.previous_element_sibling()
+    };
+    // Skip items without anything to focus.
+    while let Some(candidate) = next {
+        if let Ok(Some(target)) = candidate.query_selector(FOCUSABLE)
+            && let Ok(target) = target.dyn_into::<web_sys::HtmlElement>()
+        {
+            ev.prevent_default();
+            let _ = target.focus();
+            return true;
+        }
+        next = if forward {
+            candidate.next_element_sibling()
+        } else {
+            candidate.previous_element_sibling()
+        };
+    }
+    // At the end: the key is used up, the focus stays.
+    ev.prevent_default();
+    true
+}
+
+// [impl->dsn~list-keys~1]
+/// The direction a key moves in a list: `Some(true)` down, `Some(false)` up, `None` for
+/// any other key or with a modifier held.
+fn list_direction(key: &str, modified: bool) -> Option<bool> {
+    match (key, modified) {
+        ("j" | "ArrowDown", false) => Some(true),
+        ("k" | "ArrowUp", false) => Some(false),
+        _ => None,
+    }
+}
+
+/// What the list keys move the focus to within an item.
+const FOCUSABLE: &str = "a[href], button:not([hidden]):not([disabled]), summary";
+
+#[cfg(test)]
+mod tests {
+    use super::list_direction;
+
+    // [utest->dsn~list-keys~1]
+    #[test]
+    fn j_and_k_move_like_the_arrows_and_never_with_a_modifier() {
+        assert_eq!(list_direction("j", false), Some(true));
+        assert_eq!(list_direction("ArrowDown", false), Some(true));
+        assert_eq!(list_direction("k", false), Some(false));
+        assert_eq!(list_direction("ArrowUp", false), Some(false));
+        assert_eq!(list_direction("j", true), None, "Ctrl+J is the palette's");
+        assert_eq!(list_direction("J", false), None);
+        assert_eq!(list_direction("x", false), None);
+    }
+}

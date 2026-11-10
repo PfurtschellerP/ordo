@@ -237,7 +237,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                     return view! { <p class="hint">{text::TRANSPORT_NONE}</p> }.into_any();
                 }
                 view! {
-                    <ul class="transport-list">
+                    <ul class="transport-list" data-keys="list">
                         {transports
                             .into_iter()
                             .rev()
@@ -333,7 +333,7 @@ fn RequestList(
                     return view! { <p>{empty}</p> }.into_any();
                 }
                 view! {
-                    <ul class="transport-list">
+                    <ul class="transport-list" data-keys="list">
                         {list
                             .into_iter()
                             .map(|t| view! {
@@ -418,7 +418,7 @@ fn HospitalBoard(
                 }
                 let sent = sent.get();
                 view! {
-                    <ul class="hospital-list">
+                    <ul class="hospital-list" data-keys="list">
                         {list
                             .into_iter()
                             .map(|hospital| {

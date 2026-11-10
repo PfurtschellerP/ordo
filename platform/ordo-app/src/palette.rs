@@ -442,7 +442,14 @@ pub fn Palette(
     };
     let keydown = move |ev: leptos::ev::KeyboardEvent| {
         let n = results.with(Vec::len);
-        match ev.key().as_str() {
+        // [impl->dsn~list-keys~1]
+        // Ctrl+J / Ctrl+K (⌘ on Apple devices) move like the arrow keys (ADR-0051).
+        let key = match ev.key().to_lowercase().as_str() {
+            "j" if ev.ctrl_key() || ev.meta_key() => "ArrowDown".to_owned(),
+            "k" if ev.ctrl_key() || ev.meta_key() => "ArrowUp".to_owned(),
+            _ => ev.key(),
+        };
+        match key.as_str() {
             "ArrowDown" if n > 0 => {
                 ev.prevent_default();
                 active.update(|a| *a = (*a + 1) % n);

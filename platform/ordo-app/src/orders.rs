@@ -207,7 +207,7 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                     return view! { <p class="hint">{text::ORDERS_NONE}</p> }.into_any();
                 }
                 view! {
-                    <ul class="order-list">
+                    <ul class="order-list" data-keys="list">
                         {orders
                             .into_iter()
                             .map(|order| view! { <OrderItem core revision order /> })
@@ -304,7 +304,7 @@ pub fn OrdersView(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoV
                     return view! { <p>{text::ORDERS_EMPTY}</p> }.into_any();
                 }
                 view! {
-                    <ul class="order-list">
+                    <ul class="order-list" data-keys="list">
                         {list
                             .into_iter()
                             .map(|(order, uhs)| {

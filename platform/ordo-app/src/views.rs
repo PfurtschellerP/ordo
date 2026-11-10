@@ -644,14 +644,19 @@ fn Workspace(
     } else {
         palette::SHORTCUT
     };
-    // Ctrl+K / ⌘K opens and closes the command palette from anywhere (UX-10).
+    // Ctrl+K / ⌘K opens the command palette from anywhere (UX-10).
     let profile_open = RwSignal::new(false);
+    // While the palette is open, Ctrl+K moves its selection up and Esc closes it (ADR-0051).
     let keys = window_event_listener(leptos::ev::keydown, move |ev| {
         if (ev.ctrl_key() || ev.meta_key()) && !ev.alt_key() && ev.key().eq_ignore_ascii_case("k") {
             ev.prevent_default();
-            open.set(false);
-            profile_open.set(false);
-            palette.update(|p| *p = !*p);
+            if !palette.get_untracked() {
+                open.set(false);
+                profile_open.set(false);
+                palette.set(true);
+            }
+        } else if crate::ui::move_in_list(&ev) {
+            // j/k and the arrow keys in lists (ADR-0051).
         } else if ev.key() == "Escape" {
             // Escape closes an open menu wherever the focus is, and returns it to the
             // menu's button (ADR-0025, ADR-0049).
@@ -1196,7 +1201,7 @@ fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
                 }
                 view! {
-                    <ul class="unit-list">
+                    <ul class="unit-list" data-keys="list">
                         {units
                             .into_values()
                             .map(|u| {

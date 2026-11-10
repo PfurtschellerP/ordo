@@ -76,7 +76,7 @@ pub fn IncidentPicker(
                     None => view! { <p>{text::INCIDENTS_LOADING}</p> }.into_any(),
                     Some(list) if list.is_empty() => view! { <p class="notice">{text::INCIDENTS_EMPTY}</p> }.into_any(),
                     Some(list) => view! {
-                        <ul class="incident-list">
+                        <ul class="incident-list" data-keys="list">
                             {list
                                 .into_iter()
                                 .map(|i| {
@@ -213,7 +213,7 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     return view! { <p>{text::ROSTER_EMPTY}</p> }.into_any();
                 }
                 view! {
-                    <ul class="roster">
+                    <ul class="roster" data-keys="list">
                         {roster
                             .into_iter()
                             .map(|(user, role)| {

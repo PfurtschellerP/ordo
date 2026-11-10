@@ -132,7 +132,9 @@ medication form, filled with substance, dose, route and who ordered and gave it,
 crew to check and save; the profile names the form and fields, and the build checks that
 order routes and form routes match; overview for the medical lead (milestone `m22`): the
 Med workspace's view *Übersicht* shows per UHS the patients by category against capacity,
-free places, open orders, open and planned transports, and discharged patients.
+free places, open orders, open and planned transports, and discharged patients; list keys
+(milestone `m23`, ADR-0051): `j`/`k` and the arrow keys move through lists while they have
+the focus, Ctrl+J/Ctrl+K through the palette.
 
 *Incident and command (Einsatzleitung)*
 
@@ -188,8 +190,6 @@ free places, open orders, open and planned transports, and discharged patients.
 
 *App*
 
-- **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
-  every list, alongside the arrow keys (extends ADR-0036).
 - **Display names** (ORG-7): people are shown by name instead of their user ID (roster,
   histories, orders, person fields, suggestions); the name comes from the identity
   provider at login (OIDC `name`) and can be changed by the person. Suggestions then show

@@ -123,6 +123,15 @@ Tags: should, quality, m20
 
 Needs: dsn
 
+#### UX-14 — Move through lists with the keyboard
+`req~ux-14~1`
+
+While the focus is on an item of a list, ORDO shall move it to the next item with `j` or Arrow Down and to the previous item with `k` or Arrow Up; in the command palette, ORDO shall move the selection with Ctrl+J and Ctrl+K besides the arrow keys.
+
+Tags: should, quality, m23
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline
