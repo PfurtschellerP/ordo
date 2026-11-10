@@ -258,7 +258,7 @@ Needs: dsn
 
 When a patient needs transport, ORDO shall allow creating a transport request with priority, required transport type (e.g. RTW, KTW, with physician) and special needs (child, intensive care, infectious).
 
-Tags: must, med
+Tags: must, med, m14
 
 Needs: dsn
 
@@ -276,7 +276,7 @@ Needs: dsn
 
 When a transport request is assigned, ORDO shall record the transport unit and destination and track the status requested → assigned → loading → departed → arrived → handed over, with the time of every change.
 
-Tags: must, med
+Tags: must, med, m14
 
 Needs: dsn
 

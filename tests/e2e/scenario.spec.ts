@@ -208,6 +208,18 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(prefix, "re-encoded as JPEG").toBe("data:image/jpeg;base64,");
     await expect.poll(() => status(anna), { message: "record entries and photo are sent" }).toContain("Alles gesendet");
 
+    // [itest->dsn~transport-request~1]
+    const transport = anna.locator("[aria-labelledby=section-transport]");
+    await transport.getByLabel("RTW – Rettungswagen").check();
+    await transport.getByRole("button", { name: "Transport anfordern" }).click();
+    await expect(transport.locator("[role=alert]"), "type and priority are needed").toHaveText("Bitte Transportmittel und Dringlichkeit wählen.");
+    await transport.getByLabel("Sofort", { exact: true }).check();
+    await transport.getByLabel("Infektiös", { exact: true }).check();
+    await transport.getByRole("button", { name: "Transport anfordern" }).click();
+    await expect(transport.locator(".transport-card__status"), "the request is shown on the record").toHaveText("Angefordert");
+    await expect(transport.locator(".transport-card")).toContainText("RTW · Sofort · Infektiös");
+    await expect(transport.locator("form"), "no second request while one is open").toHaveCount(0);
+
     // [itest->dsn~attachment-transfer~1]
     // Another device of Anna's gets the preview with the record, then the full photo from
     // the server (an encrypted attachment, ADR-0033).
@@ -446,6 +458,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.keyboard.type("on scene"); // English name in a German UI (ADR-0036)
     await ben.keyboard.press("Enter");
     await expect(card, "a status is set from the palette by its English name").toContainText("Status: 4 – Am Einsatzort");
+
     await openPalette(ben);
     await ben.keyboard.type("patienten");
     await expect(
@@ -459,6 +472,30 @@ test("ORDO in the browser", async ({ browser }) => {
     await settle(ben);
     await shot(ben, "command-high-contrast");
     await ben.evaluate(() => delete document.documentElement.dataset.theme);
+  });
+
+  await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
+    // [itest->dsn~transport-request~1]
+    await openView(ben, "Transporte");
+    const request = ben.locator(".transport-card");
+    await expect(request, "the command sees the open request").toHaveCount(1);
+    await expect(request).toContainText("UHS Eingang · RTW · Sofort · Infektiös");
+    await expect(request, "without patient data").not.toContainText("DE-0044");
+    await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
+    await request.getByLabel("Ziel (z. B. Klinik)").fill("Klinikum Mitte");
+    await request.getByRole("button", { name: /^Zuweisen: / }).click();
+    const transportStatus = request.locator(".transport-card__status");
+    await expect(transportStatus, "a unit and a destination are assigned").toHaveText("Zugewiesen · RTW 83/1 → Klinikum Mitte");
+    await request.getByRole("button", { name: /^Abgefahren: / }).click();
+    await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("Abgefahren · RTW 83/1 → Klinikum Mitte");
+    await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
+    await request.locator("summary").click();
+    await expect(request.locator(".transport-card__history li"), "every change with time and person").toHaveCount(3);
+    await expect.poll(() => status(ben), { message: "the transport is sent" }).toContain("Alles gesendet");
+    expect(Buffer.concat(benFrames.received).includes("DE-0044"), "the command device never receives the triage tag number").toBe(false);
+    await audit(ben, "Transports");
+    await shot(ben, "transports");
+    await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
   // [itest->dsn~access-timeout~1]

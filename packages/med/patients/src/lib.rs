@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod questionnaire;
 pub mod record;
+pub mod transport;
 
 /// Module ID.
 pub const MODULE: &str = "med.patients";

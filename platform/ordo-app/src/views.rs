@@ -756,6 +756,7 @@ fn Workspace(
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
+                    (Some("command.situation"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
                     (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
                     (Some("command.situation"), Some("roster")) => view! { <incidents::RosterView core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),

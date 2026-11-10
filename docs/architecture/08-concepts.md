@@ -496,6 +496,41 @@ Needs: impl, utest, itest
 
 Tags: must, m12
 
+#### Transport requests
+`dsn~transport-request~1`
+
+A UHS crew requests a transport on the patient's record: transport type, priority and
+special needs, chosen from the profile file `med/transport-requests.toml` (DE: KTW, RTW,
+ITW, RTH; needs such as physician escort, child, intensive care, infectious, heavy
+patient). The device writes two events:
+
+* `transport.requested` (module `med.transport`) in the `incident` compartment: a new
+  request ID (ULID), the UHS, type, priority and needs. It carries no patient data, not
+  even the tag number: the incident command plans the vehicle, the UHS hands over the
+  patient (CONN-3). The needs are what the transport crew must know to bring the right
+  vehicle and protect itself.
+* `patients.transportRequested` in `med.clinical`: tag number and request ID, so the
+  record and the patient list show the transport.
+
+The incident command assigns a unit of the incident and a destination (free text until the
+hospital list, TRANS-2) with `transport.updated`, which also moves the status on:
+requested → assigned → loading → departed → arrived → handed over, or cancelled. Both
+the UHS and the command may set the next status; ORDO records who set it and when. The
+current state of a request is the latest update by hybrid logical clock; every update
+stays in its history. A status that skips steps is accepted (radio messages arrive late),
+a step back is not offered. The command workspace lists the open requests in its view
+*Transporte*, by priority (as the profile orders it), then oldest first; the record shows status, unit, destination
+and history. ORDO never proposes a vehicle, a destination or an order of transports.
+
+Covers:
+
+* [req~trans-1~1](../requirements/04-med.md#trans-1--transport-request)
+* [req~trans-3~1](../requirements/04-med.md#trans-3--transport-assignment-and-status)
+
+Needs: impl, utest, itest
+
+Tags: must, m14
+
 #### Device storage
 `dsn~device-storage~1`
 

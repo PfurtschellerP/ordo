@@ -1,11 +1,12 @@
 //! Embeds the profile catalogues the app needs, checked here so a broken profile fails the
 //! build: the ePCR forms, an HL7 FHIR Questionnaire (ADR-0037), handed to the app in ORDO's
-//! internal form model; the transport priority settings.
+//! internal form model; the transport priority settings; the transport request catalogue.
 
 use std::path::Path;
 
 use ordo_med_patients::TransportPriorityConfig;
 use ordo_med_patients::record::FormCatalogue;
+use ordo_med_patients::transport::TransportCatalogue;
 
 fn main() {
     let profile = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../profiles/de/med");
@@ -37,4 +38,18 @@ fn main() {
         serde_json::to_string(&config).expect("serialise"),
     )
     .expect("write the transport priority settings");
+
+    let source = profile.join("transport-requests.toml");
+    println!("cargo:rerun-if-changed={}", source.display());
+    let text = std::fs::read_to_string(&source).expect("read the transport request catalogue");
+    let catalogue: TransportCatalogue = toml::from_str(&text)
+        .unwrap_or_else(|e| panic!("transport requests in {}: {e}", source.display()));
+    catalogue
+        .check()
+        .unwrap_or_else(|e| panic!("transport requests in {}: {e}", source.display()));
+    std::fs::write(
+        out.join("transport-requests.json"),
+        serde_json::to_string(&catalogue).expect("serialise"),
+    )
+    .expect("write the transport request catalogue");
 }

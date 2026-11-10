@@ -78,6 +78,11 @@ pub const WORKSPACES: &[Workspace] = &[
                 name: "patient counts",
             },
             View {
+                id: "transports",
+                label: text::TRANSPORTS,
+                name: "transports",
+            },
+            View {
                 id: "units",
                 label: text::TAB_RESOURCES,
                 name: "units",

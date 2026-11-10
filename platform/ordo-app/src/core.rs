@@ -13,7 +13,9 @@ use ordo_contracts::TriageCategory;
 use ordo_core::{DeviceId, IncidentId, KeyId, ServerName, Ulid, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::SigningKey;
-use ordo_med_patients::{self as patients, Registered, Retriaged, UhsCreated, UhsKind, record};
+use ordo_med_patients::{
+    self as patients, Registered, Retriaged, UhsCreated, UhsKind, record, transport,
+};
 use ordo_sync::incidents::{self, IncidentState, Planned, Registry, RoleChange, StateChanged};
 use ordo_sync::message::{
     self, ClientMessage, DeviceInfo, IncidentSummary, Rejection, ServerMessage,
@@ -673,6 +675,67 @@ pub fn set_status(
         units::STATUS_CHANGED,
         &payload,
         text::status_set(unit, status),
+    )
+}
+
+// [impl->dsn~transport-request~1]
+/// Requests a transport for a patient (TRANS-1): the request without patient data in the
+/// shared incident compartment, the patient it is for in `med.clinical`.
+pub fn request_transport(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    request: transport::TransportRequested,
+) -> Result<(), String> {
+    let mut random = [0u8; 16];
+    entropy(&mut random);
+    let id = Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).map_err(|e| e.to_string())?;
+    let request = transport::TransportRequested {
+        request: id.to_string(),
+        ..request
+    };
+    let link = transport::TransportLinked {
+        tag: tag.to_owned(),
+        request: request.request.clone(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    let payload = request.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        transport::COMPARTMENT,
+        transport::MODULE,
+        transport::REQUESTED,
+        &payload,
+        String::new(),
+    )?;
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        transport::LINKED,
+        &link,
+        text::transport_requested(tag),
+    )
+}
+
+/// Assigns a transport or moves its status on (TRANS-3).
+pub fn update_transport(
+    core: Handle,
+    revision: RwSignal<u64>,
+    update: &transport::TransportUpdated,
+) -> Result<(), String> {
+    let payload = update.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        transport::COMPARTMENT,
+        transport::MODULE,
+        transport::UPDATED,
+        &payload,
+        text::transport_status_set(update.status),
     )
 }
 

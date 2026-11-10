@@ -443,13 +443,18 @@
   .patient-card__name { font-weight: var(--ordo-font-weight-bold); }
   .patient-card__meta { color: var(--ordo-color-text-secondary); }
 
-  .unit-card, .device-card, .incident-card, .count-card {
+  .unit-card, .device-card, .incident-card, .count-card, .transport-card {
     display: grid; gap: var(--ordo-space-2); align-content: start; padding: var(--ordo-space-3) var(--ordo-space-4);
     background: var(--ordo-color-surface-default);
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-medium);
   }
-  .unit-card, .device-card, .incident-card, .count-card { grid-template-columns: minmax(0, 1fr); }
+  .unit-card, .device-card, .incident-card, .count-card, .transport-card { grid-template-columns: minmax(0, 1fr); }
+  .transport-list { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; list-style: none; }
+  .transport-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
+  .transport-card p { margin: 0; }
+  .transport-card__history ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
+  .transport-assign { display: grid; gap: var(--ordo-space-2); }
   .incident-card h2 { margin: 0; font-size: var(--ordo-font-size-4); }
   .incident-card p { margin: 0; }
   .incident-card .button { justify-self: start; }
@@ -520,7 +525,7 @@
   .entry .button { justify-self: start; }
   .entry--corrected { border-style: dashed; }
   .entry--corrected .facts dd { text-decoration: line-through; }
-  .corrected summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+  .corrected summary, .transport-card__history summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }

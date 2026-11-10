@@ -11,6 +11,7 @@ mod patients;
 mod profile;
 mod storage;
 mod text;
+mod transports;
 mod vault;
 mod views;
 

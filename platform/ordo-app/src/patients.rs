@@ -380,6 +380,10 @@ fn PatientRecord(
     let sections: Vec<(String, String)> = [
         ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
         ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
+        (
+            "section-transport".to_owned(),
+            text::TRANSPORT_TITLE.to_owned(),
+        ),
     ]
     .into_iter()
     .chain(
@@ -405,6 +409,7 @@ fn PatientRecord(
             </nav>
             <PhotoSection core revision tag=tag.clone() records />
             <TriageSection core revision tag=tag.clone() register />
+            <crate::transports::TransportSection core revision tag=tag.clone() />
             {FORMS
                 .forms
                 .iter()

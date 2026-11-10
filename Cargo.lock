@@ -2670,6 +2670,7 @@ dependencies = [
 name = "ordo-med-patients"
 version = "0.0.0"
 dependencies = [
+ "ciborium",
  "ordo-contracts",
  "ordo-core",
  "ordo-sync",

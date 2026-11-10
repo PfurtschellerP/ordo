@@ -1,0 +1,60 @@
+# Transport requests (Transportanforderung, TRANS-1): what a UHS crew can ask the
+# incident command for. Labels are German user labels; IDs are stable. A state profile
+# may replace this file (layering, architecture 8.8.3). The content goes into the shared
+# incident compartment, so it holds no clinical details beyond what the transport crew
+# needs to bring the right vehicle and protect itself (CONN-3).
+
+# Transport types, smallest first. Vehicle names per DIN EN 1789 and German practice.
+[[type]]
+id = "ktw"
+label = "KTW"
+description = "Krankentransportwagen"
+
+[[type]]
+id = "rtw"
+label = "RTW"
+description = "Rettungswagen"
+
+[[type]]
+id = "itw"
+label = "ITW"
+description = "Intensivtransportwagen"
+
+[[type]]
+id = "rth"
+label = "RTH"
+description = "Rettungstransporthubschrauber"
+
+# Priorities, highest first.
+[[priority]]
+id = "immediate"
+label = "Sofort"
+
+[[priority]]
+id = "urgent"
+label = "Dringend"
+
+[[priority]]
+id = "normal"
+label = "Normal"
+
+# Special needs.
+[[need]]
+id = "physician"
+label = "Notarztbegleitung"
+
+[[need]]
+id = "child"
+label = "Kind"
+
+[[need]]
+id = "intensive"
+label = "Intensivpflichtig"
+
+[[need]]
+id = "infectious"
+label = "Infektiös"
+
+[[need]]
+id = "heavy"
+label = "Schwergewichtig"

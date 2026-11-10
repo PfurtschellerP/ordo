@@ -470,3 +470,71 @@ pub fn places_of(name: &str) -> String {
 pub fn places_free(free: usize, total: usize) -> String {
     format!("{free} von {total} frei")
 }
+
+// Transport requests (TRANS-1, TRANS-3)
+pub const TRANSPORTS: &str = "Transporte";
+pub const TRANSPORTS_TITLE: &str = "Offene Transporte";
+pub const TRANSPORTS_EMPTY: &str = "Keine offenen Transporte.";
+pub const TRANSPORT_TITLE: &str = "Transport";
+pub const TRANSPORT_TYPE: &str = "Transportmittel";
+pub const TRANSPORT_PRIORITY_OF_REQUEST: &str = "Dringlichkeit";
+pub const TRANSPORT_NEEDS: &str = "Besonderheiten";
+pub const TRANSPORT_REQUEST: &str = "Transport anfordern";
+pub const TRANSPORT_CHOOSE: &str = "Bitte Transportmittel und Dringlichkeit wählen.";
+pub const TRANSPORT_NONE: &str = "Kein Transport angefordert.";
+pub const TRANSPORT_HISTORY: &str = "Verlauf";
+pub const TRANSPORT_UNIT: &str = "Einsatzmittel";
+pub const TRANSPORT_DESTINATION: &str = "Ziel (z. B. Klinik)";
+pub const TRANSPORT_ASSIGN: &str = "Zuweisen";
+pub const TRANSPORT_ASSIGN_MISSING: &str = "Bitte Einsatzmittel und Ziel angeben.";
+pub const TRANSPORT_NO_UNITS: &str = "Noch keine Einsatzmittel im Einsatz.";
+pub const TRANSPORT_CHOOSE_UNIT: &str = "Einsatzmittel wählen";
+
+pub fn transport_status(status: ordo_med_patients::transport::TransportStatus) -> &'static str {
+    use ordo_med_patients::transport::TransportStatus as S;
+    match status {
+        S::Requested => "Angefordert",
+        S::Assigned => "Zugewiesen",
+        S::Loading => "Wird verladen",
+        S::Departed => "Abgefahren",
+        S::Arrived => "Am Ziel",
+        S::HandedOver => "Übergeben",
+        S::Cancelled => "Storniert",
+    }
+}
+
+/// Button text that moves a transport to `status`.
+pub fn transport_step(status: ordo_med_patients::transport::TransportStatus) -> &'static str {
+    use ordo_med_patients::transport::TransportStatus as S;
+    match status {
+        S::Requested => "Angefordert",
+        S::Assigned => "Zuweisen",
+        S::Loading => "Verladen",
+        S::Departed => "Abgefahren",
+        S::Arrived => "Am Ziel",
+        S::HandedOver => "Übergeben",
+        S::Cancelled => "Stornieren",
+    }
+}
+
+/// Accessible name of a step button: the step and which transport.
+pub fn transport_step_label(step: &str, transport: &str) -> String {
+    format!("{step}: {transport}")
+}
+
+/// Short description of a transport for lists and button names.
+pub fn transport_summary(transport_type: &str, uhs: &str, at: &str) -> String {
+    format!("{transport_type} für {uhs}, {at}")
+}
+
+pub fn transport_unit(unit: &str, destination: &str) -> String {
+    format!("{unit} → {destination}")
+}
+
+pub fn transport_requested(tag: &str) -> String {
+    format!("{tag}: Transport angefordert")
+}
+
+pub fn transport_status_set(status: ordo_med_patients::transport::TransportStatus) -> String {
+    format!("Transport: {}", transport_status(status))
+}

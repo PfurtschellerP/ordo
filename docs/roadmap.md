@@ -105,7 +105,10 @@ category of their own, transport priority from the profile, treatment places per
 tickets in an object store (local directory), device data in SQLite on OPFS in a worker;
 patient photos as attachments (a preview in the event, the full photo uploaded from a
 queue and downloaded when shown); attachments optionally in Garage (S3-compatible) in the
-Compose bundle and in CI.
+Compose bundle and in CI; transport requests (milestone `m14`): the UHS requests a
+transport on the record (type, priority, special needs from the profile), the incident
+command assigns a unit and a destination in *Lage – Transporte* and follows the status;
+the shared request carries no patient data.
 
 *Incident and command (Einsatzleitung)*
 
@@ -144,8 +147,10 @@ Compose bundle and in CI.
 
 - **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
   transport organisation, overview for the medical command (LNA, OrgL).
-- **Transport request** from the UHS to the Einsatzleitung with a hint on the vehicle
-  needed (RTW, KTW, NEF, ITW, …).
+- **Transports, next steps:** hospital list with capacity (TRANS-2) as the destination
+  instead of free text; transport board with available units and patients per hospital
+  (TRANS-4); planned transports (TRANS-5); the UHS discharge as "transported" when the
+  patient is handed over (UHS-3).
 - **Physician and paramedic module across all UHS:** overview of every UHS; orders
   (medication, measures) as tasks for the UHS crew, acknowledged and documented when done.
   ORDO records orders; it never proposes them.
