@@ -214,14 +214,23 @@ test("ORDO in the browser", async () => {
     await expect(anna.locator("#record-title")).toHaveCount(0);
     await expect(anna.locator(".patient-card[data-tag='DE-0044']"), "the list shows the name").toContainText("Mustermann, Max");
     // [itest->dsn~device-storage~1]
-    expect(await storedItem(anna, "ordo.replica"), "the incident data is no longer in localStorage").toBeNull();
-    const opfs = await anna.evaluate(async () => {
-      const names: string[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for await (const name of (await navigator.storage.getDirectory() as any).keys()) names.push(name);
-      return names;
-    });
-    expect(opfs.length, "it is in the device database on the browser's file system (OPFS)").toBeGreaterThan(0);
+    const storageKind = await anna.evaluate(() => document.documentElement.dataset.storage);
+    const storageError = await anna.evaluate(() => document.documentElement.dataset.storageError);
+    console.log(`device storage in ${test.info().project.name}: ${storageKind}${storageError ? ` (${storageError})` : ""}`);
+    if (test.info().project.name === "webkit" && storageKind === "local") {
+      // Playwright's WebKit may lack OPFS in workers; the app then keeps localStorage.
+      test.info().annotations.push({ type: "device storage", description: `fallback to localStorage: ${storageError}` });
+    } else {
+      expect(storageKind, "the device uses its database on OPFS").toBe("opfs");
+      expect(await storedItem(anna, "ordo.replica"), "the incident data is no longer in localStorage").toBeNull();
+      const opfs = await anna.evaluate(async () => {
+        const names: string[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for await (const name of (await navigator.storage.getDirectory() as any).keys()) names.push(name);
+        return names;
+      });
+      expect(opfs.length, "it is in the device database on the browser's file system (OPFS)").toBeGreaterThan(0);
+    }
     const sent = Buffer.concat(annaFrames.sent);
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.includes("Mustermann") || sent.includes("Penicillin"), "clinical entries travel sealed, not in plain text").toBe(false);

@@ -58,11 +58,26 @@ pub fn App() -> impl IntoView {
     let vault = RwSignal::new(None::<Result<(), String>>);
     leptos::task::spawn_local(async move {
         let opened = crate::vault::open().await;
-        if opened.is_ok()
-            && let Err(e) = crate::storage::open().await
-        {
-            // Without OPFS in workers the device keeps its data in `localStorage`.
-            web_sys::console::warn_1(&format!("ORDO device storage: {e}").into());
+        // Which storage the device uses, for support and tests (`data-storage` on <html>).
+        let root = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.document_element());
+        if opened.is_ok() {
+            match crate::storage::open().await {
+                Ok(()) => {
+                    if let Some(root) = &root {
+                        let _ = root.set_attribute("data-storage", "opfs");
+                    }
+                }
+                Err(e) => {
+                    // Without OPFS in workers the device keeps its data in `localStorage`.
+                    web_sys::console::warn_1(&format!("ORDO device storage: {e}").into());
+                    if let Some(root) = &root {
+                        let _ = root.set_attribute("data-storage", "local");
+                        let _ = root.set_attribute("data-storage-error", &e);
+                    }
+                }
+            }
         }
         vault.set(Some(opened));
     });
