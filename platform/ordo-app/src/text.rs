@@ -133,7 +133,6 @@ pub const REASON_NO_ACCESS: &str = "Kein Zugriff in diesem Einsatz";
 pub const REASON_NOT_CONNECTED: &str = "Verfügbar nach der ersten Verbindung";
 pub const NO_WORKSPACE: &str =
     "Für dieses Gerät ist in diesem Einsatz noch kein Arbeitsbereich freigegeben.";
-pub const DEVICE: &str = "Gerät";
 
 pub const UHS_TITLE: &str = "Unfallhilfsstellen";
 pub const UHS_EMPTY: &str = "Noch keine UHS angelegt.";
@@ -226,6 +225,9 @@ pub const THEMES: [(&str, &str); 4] = [
     ("night", "Nacht"),
     ("high-contrast", "Hoher Kontrast"),
 ];
+pub const PROFILE: &str = "Profil und Gerät";
+pub const HAND: &str = "Bedienung mit";
+pub const HANDS: [(&str, &str); 2] = [("", "rechter Hand"), ("left", "linker Hand")];
 pub fn theme_set(label: &str) -> String {
     format!("Darstellung: {label}")
 }

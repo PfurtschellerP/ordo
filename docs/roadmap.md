@@ -111,7 +111,9 @@ command assigns a unit and a destination in *Lage – Transporte* and follows th
 the shared request carries no patient data; medical orders (milestone `m15`): physicians and
 paramedics (new incident roles) give orders on the record, the crew acknowledges and
 completes them, the view *UHS – Anordnungen* lists the open orders of every UHS; the
-server accepts new orders only from these roles.
+server accepts new orders only from these roles; header layout (milestone `m16`,
+ADR-0049): menu, heading, search in the middle, connection and person on the right, the
+person's settings in a profile menu, and a bottom bar for left-handed use.
 
 *Incident and command (Einsatzleitung)*
 
@@ -168,9 +170,6 @@ server accepts new orders only from these roles.
 
 *App*
 
-- **Header:** on wide screens the main menu sits on the left of the header, the search in
-  the middle, the signed-in person and their roles on the right; phones keep the bottom
-  bar.
 - **Vim key bindings as a guiding principle:** j/k move up and down in the palette and in
   every list, alongside the arrow keys (extends ADR-0036).
 - **Person fields** suggest the registered users of the installation; free text allowed.

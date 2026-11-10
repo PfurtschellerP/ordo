@@ -191,7 +191,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.locator("#photo-upload").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
     // Anna's own profile picture (ADR-0047): set in the menu, shown in her header.
     await anna.locator("#avatar-upload").setInputFiles({ name: "me.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
-    await expect(anna.locator(".app-header__user img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
+    await expect(anna.locator("#profile-button img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
     const photo = anna.locator("img.photo");
     await expect(photo, "a photo for identification is shown in the record").toBeVisible({ timeout: 20_000 });
     await expect(photo, "the taking device shows the full photo at once").toHaveAttribute("data-photo", "full");
@@ -379,14 +379,35 @@ test("ORDO in the browser", async ({ browser }) => {
     await settle(anna);
     const [barBottom, viewportHeight, menuInBar] = await anna.evaluate(() => {
       const n = document.querySelector(".navigation")!.getBoundingClientRect();
-      const m = document.getElementById("launcher-button")!.getBoundingClientRect();
+      const m = document.getElementById("launcher-bar-button")!.getBoundingClientRect();
       return [Math.round(n.bottom), innerHeight, m.top >= n.top && m.bottom <= n.bottom];
     });
     expect(barBottom, "the bar sits at the bottom").toBe(viewportHeight);
     expect(menuInBar, "the menu is in the bar").toBe(true);
+    // [itest->dsn~header-layout~1]
+    await expect(anna.getByRole("button", { name: "Menü – Arbeitsbereich wechseln" }), "exactly one menu button: the one in the bar").toHaveCount(1);
+    await expect(anna.locator("#launcher-button"), "the header's menu button is hidden on phones").toBeHidden();
+    const menuAtEnd = () =>
+      anna.evaluate(() => {
+        const m = document.getElementById("launcher-bar-button")!.getBoundingClientRect();
+        const v = [...document.querySelectorAll(".views__item")].map((e) => e.getBoundingClientRect());
+        return [v.every((r) => r.right <= m.left + 1), v.every((r) => r.left >= m.right - 1)];
+      });
+    expect(await menuAtEnd(), "right-handed: the menu at the right end").toEqual([true, false]);
+    await anna.locator("#profile-button").click();
+    await anna.locator("#hand").selectOption({ label: "linker Hand" });
+    await expect(anna.locator("html"), "left-handed use is kept on the device").toHaveAttribute("data-hand", "left");
+    await anna.keyboard.press("Escape");
+    await expect(anna.locator("#profile-panel")).toBeHidden();
+    expect(await menuAtEnd(), "left-handed: the menu at the left end").toEqual([false, true]);
+    await shot(anna, "med-phone-left", false);
+    await anna.locator("#profile-button").click();
+    await anna.locator("#hand").selectOption({ label: "rechter Hand" });
+    await anna.keyboard.press("Escape");
+    expect(await menuAtEnd()).toEqual([true, false]);
     await anna.evaluate(() => window.scrollTo(0, 0));
     await shot(anna, "med-phone", false);
-    await anna.locator("#launcher-button").click();
+    await anna.locator("#launcher-bar-button").click();
     const [sheetBottom, barTop, sheetTop] = await anna.evaluate(() => {
       const p = document.getElementById("launcher-panel")!.getBoundingClientRect();
       const n = document.querySelector(".navigation")!.getBoundingClientRect();
@@ -405,13 +426,13 @@ test("ORDO in the browser", async ({ browser }) => {
     });
     expect(atLargeText[0], "at 150 % text size the menu still opens above the bar").toBeLessThanOrEqual(atLargeText[1] + 1);
     await shot(anna, "launcher-phone", false);
-    await anna.locator("#launcher-button").click();
+    await anna.locator("#launcher-bar-button").click();
     await openRecord(anna, "DE-0042");
     await shot(anna, "record-phone", false);
     await expect(anna.locator(".master"), "on phones the record is a page of its own").toBeHidden();
     await anna.goBack();
     await anna.setViewportSize({ width: 1200, height: 1000 });
-    await expect(anna.locator(".app-header__user img.avatar"), "the own picture is back after offline and reload").toBeVisible();
+    await expect(anna.locator("#profile-button img.avatar"), "the own picture is back after offline and reload").toBeVisible();
     await anna.evaluate(() => (document.documentElement.dataset.theme = "night"));
     await settle(anna);
     await shot(anna, "med-night");
@@ -427,7 +448,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     await openView(ben, "Patientenzahlen");
-    // [itest->dsn~workspace-navigation~2]
+    // [itest->dsn~workspace-navigation~3]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
     await ben.locator("#launcher-button").click();
     const uhs = ben.locator(".launcher__item", { hasText: "UHS" });
@@ -438,6 +459,28 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#launcher-panel"), "Escape closes the menu").toBeHidden();
     await expect(ben.locator("#launcher-button"), "focus returns to the menu button").toBeFocused();
+    // [itest->dsn~header-layout~1]
+    const header = await ben.evaluate(() => {
+      const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const [menu, title, search, status, person, bar] = ["#launcher-button", ".app-header__title", "#palette-button", ".app-header .status", "#profile-button", ".app-header"].map(box);
+      return {
+        order: menu.right <= title.left && title.right <= search.left && search.right <= status.left && status.right <= person.left,
+        centred: Math.abs((search.left + search.right) / 2 - (bar.left + bar.right) / 2) < 2,
+      };
+    });
+    expect(header, "header: menu, heading, search in the middle, connection, person").toEqual({ order: true, centred: true });
+    await expect(ben.getByRole("button", { name: "Menü – Arbeitsbereich wechseln" }), "exactly one menu button on wide screens").toHaveCount(1);
+    await ben.locator("#launcher-button").click();
+    await expect(ben.locator("#launcher-panel"), "the main menu lists workspaces only").not.toContainText("Gerät entkoppeln");
+    await expect(ben.locator("#launcher-panel #theme")).toHaveCount(0);
+    await ben.locator("#launcher-button").click();
+    await ben.locator("#profile-button").click();
+    await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als ben@localhost");
+    await expect(ben.locator("#profile-panel #theme")).toBeVisible();
+    await audit(ben, "Profile menu");
+    await ben.keyboard.press("Escape");
+    await expect(ben.locator("#profile-panel")).toBeHidden();
+    await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
 
     // DE-0043 was re-triaged to SK III from the palette.
     const cards = () =>

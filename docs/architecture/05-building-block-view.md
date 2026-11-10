@@ -387,18 +387,20 @@ Needs: impl, itest
 Tags: must, m3
 
 #### Workspace navigation
-`dsn~workspace-navigation~2`
+`dsn~workspace-navigation~3`
 
 Workspaces (package, label, required compartments, views) are defined as data. A menu
 (launcher) switches workspaces; it lists every workspace of the packages in use and keeps
-unavailable ones in place, disabled, with the reason. On wide screens a rail holds the
-menu at its top and the views of the current workspace below; on phones and tablets in
-portrait, one bar at the bottom holds the views and, at its end, the menu, which opens
+unavailable ones in place, disabled, with the reason. On wide screens the menu button sits
+in the header and a rail on the left holds the views of the current workspace; on phones
+and tablets in portrait, one bar at the bottom holds the views and the menu, which opens
 upwards; the content never lies beneath the bar. The header shows the workspace as page
-heading, search, incident and connection. The route (workspace, view, record) is the URL
-path, handled by Leptos' router, so the back button works; a device opens the last used workspace, or the
-first one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md),
-[ADR-0026](../adr/0026-navigation-at-the-bottom-on-phones.md)).
+heading, the incident, search, connection and the signed-in person (see "Header and
+profile menu"). The route (workspace, view, record) is the URL path, handled by Leptos'
+router, so the back button works; a device opens the last used workspace, or the first
+one the user may use ([ADR-0025](../adr/0025-workspace-navigation.md),
+[ADR-0026](../adr/0026-navigation-at-the-bottom-on-phones.md),
+[ADR-0049](../adr/0049-header-layout-and-handedness.md)).
 
 Covers:
 
@@ -407,6 +409,29 @@ Covers:
 Needs: impl, itest
 
 Tags: must, m5
+
+#### Header and profile menu
+`dsn~header-layout~1`
+
+The header is a grid of three columns: menu button, page heading and incident on the left,
+the search in the middle column, connection state and the person's button on the right;
+the outer columns share the remaining width equally, so the search stays centred. Up to
+48 rem the heading, connection and person share the first row and the search takes the
+second; the menu button of the header is hidden and the one in the bottom bar shown. Both
+buttons control the same panel (`aria-controls`, `aria-expanded`), and only the visible
+one is in the accessibility tree. The person's button (picture and name, disclosure)
+opens the profile menu with who is signed in, profile picture, appearance, handedness,
+change incident and unpair; Escape closes either menu and returns the focus to its
+button. Handedness ("right" by default, or "left") is kept on the device like the theme
+and set as `data-hand` on `<html>`; with "left", the bottom bar puts the menu first.
+
+Covers:
+
+* [req~ux-11~1](../requirements/07-quality.md#ux-11--header-and-reach-for-both-hands)
+
+Needs: impl, itest
+
+Tags: should, m16
 
 #### Command palette
 `dsn~command-palette~1`

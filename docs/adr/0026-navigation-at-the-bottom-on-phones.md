@@ -48,3 +48,6 @@ Rules:
 
 Amends ADR-0025 (position of the menu). Sources: [standards register](../standards.md#accessibility-and-user-interface).
 Design item: [5.5.3 Web app](../architecture/05-building-block-view.md#553-web-app-ordo-app).
+
+Where the menu sits on wide screens, the profile menu and the bar for left-handed use are
+decided in [ADR-0049](0049-header-layout-and-handedness.md).

@@ -96,6 +96,15 @@ Tags: should, quality, m6
 
 Needs: dsn
 
+#### UX-11 — Header and reach for both hands
+`req~ux-11~1`
+
+ORDO shall show, on wide screens, the menu, the page heading, the search in the middle, the connection state and the signed-in person in the header from left to right, with the person's settings in a menu of their own; when a person chooses left-handed use on a device, ORDO shall put the menu of the bottom bar at its left end on that device.
+
+Tags: should, quality, m16
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline

@@ -55,6 +55,7 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
 #[component]
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
+    apply_hand(&core::preference(HAND_KEY).unwrap_or_default());
     let vault = RwSignal::new(None::<Result<(), String>>);
     leptos::task::spawn_local(async move {
         let opened = crate::vault::open().await;
@@ -349,6 +350,7 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
 
 const NAV_KEY: &str = "ordo.nav";
 const THEME_KEY: &str = "ordo.theme";
+const HAND_KEY: &str = "ordo.hand";
 
 /// Applies a colour theme (`""` = follow the system) and remembers it on this device.
 pub(crate) fn apply_theme(theme: &str) {
@@ -363,6 +365,40 @@ pub(crate) fn apply_theme(theme: &str) {
         };
     }
     core::set_preference(THEME_KEY, (!theme.is_empty()).then_some(theme));
+}
+
+// [impl->dsn~header-layout~1]
+/// Applies the handedness (`""` = right, `"left"`) and remembers it on this device: the
+/// bottom bar puts the menu at the end the thumb reaches.
+pub(crate) fn apply_hand(hand: &str) {
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    {
+        let _ = if hand.is_empty() {
+            root.remove_attribute("data-hand")
+        } else {
+            root.set_attribute("data-hand", hand)
+        };
+    }
+    core::set_preference(HAND_KEY, (!hand.is_empty()).then_some(hand));
+}
+
+/// Focuses the menu button of the current layout (header on wide screens, bottom bar on
+/// phones); the other one is hidden.
+fn focus_menu_button() {
+    let visible = |id: &str| {
+        web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.get_element_by_id(id))
+            .and_then(|e| wasm_bindgen::JsCast::dyn_into::<web_sys::HtmlElement>(e).ok())
+            .is_some_and(|e| e.offset_parent().is_some())
+    };
+    focus(if visible("launcher-button") {
+        "launcher-button"
+    } else {
+        "launcher-bar-button"
+    });
 }
 
 /// Programmatic navigation for all views; the route itself is the URL path, managed by
@@ -408,7 +444,7 @@ pub(crate) fn after_render(f: impl FnOnce() + 'static) {
     set_timeout(f, std::time::Duration::from_millis(60));
 }
 
-// [impl->dsn~workspace-navigation~2]
+// [impl->dsn~workspace-navigation~3]
 /// Layout: header with title, search and connection; navigation as a rail (wide
 /// screens) or a bottom bar (phones, tablets in portrait), holding the views and the menu
 /// (launcher) for switching workspaces.
@@ -599,15 +635,28 @@ fn Workspace(
         palette::SHORTCUT
     };
     // Ctrl+K / ⌘K opens and closes the command palette from anywhere (UX-10).
+    let profile_open = RwSignal::new(false);
     let keys = window_event_listener(leptos::ev::keydown, move |ev| {
         if (ev.ctrl_key() || ev.meta_key()) && !ev.alt_key() && ev.key().eq_ignore_ascii_case("k") {
             ev.prevent_default();
             open.set(false);
+            profile_open.set(false);
             palette.update(|p| *p = !*p);
+        } else if ev.key() == "Escape" {
+            // Escape closes an open menu wherever the focus is, and returns it to the
+            // menu's button (ADR-0025, ADR-0049).
+            if open.get_untracked() {
+                open.set(false);
+                focus_menu_button();
+            } else if profile_open.get_untracked() {
+                profile_open.set(false);
+                focus("profile-button");
+            }
         }
     });
     on_cleanup(move || keys.remove());
     let theme = RwSignal::new(core::preference(THEME_KEY).unwrap_or_default());
+    let hand = RwSignal::new(core::preference(HAND_KEY).unwrap_or_default());
 
     view! {
         <a class="skip-link" href="#main" on:click=move |ev| {
@@ -615,7 +664,30 @@ fn Workspace(
             focus("main");
         }>{text::SKIP_LINK}</a>
         <header class="app-header">
-            <h1 class="app-header__title">{title}</h1>
+            <div class="app-header__start">
+                <button
+                    id="launcher-button"
+                    type="button"
+                    class="launcher__button launcher__button--header"
+                    aria-expanded=move || open.get().to_string()
+                    aria-controls="launcher-panel"
+                    on:click=move |_| {
+                        profile_open.set(false);
+                        open.update(|o| *o = !*o);
+                    }
+                >
+                    <span class="launcher__icon" aria-hidden="true"></span>
+                    <span>{text::MENU}</span>
+                    <span class="visually-hidden">" – " {text::LAUNCHER}</span>
+                </button>
+                <div class="app-header__heading">
+                    <h1 class="app-header__title">{title}</h1>
+                    <p class="app-header__incident">
+                        <span>{text::INCIDENT} ": "</span>
+                        <span id="incident-name" title=incident.clone()>{incident_name}</span>
+                    </p>
+                </div>
+            </div>
             <button
                 id="palette-button"
                 type="button"
@@ -627,35 +699,67 @@ fn Workspace(
                 <span>{text::SEARCH}</span>
                 <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
             </button>
-            <div class="app-header__state">
-                <p class="app-header__incident">
-                    <span>{text::INCIDENT} ": "</span>
-                    <span id="incident-name" title=incident.clone()>{incident_name}</span>
-                </p>
+            <div class="app-header__end">
                 <ConnectionStatus core revision />
-                <p class="app-header__user">
-                    <crate::profile::Avatar core revision user=me.clone() />
-                    <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
-                    <span>{me.localpart().to_owned()}</span>
-                </p>
+                <div class="profile-menu">
+                    <button
+                        id="profile-button"
+                        type="button"
+                        class="profile-menu__button"
+                        aria-expanded=move || profile_open.get().to_string()
+                        aria-controls="profile-panel"
+                        on:click=move |_| {
+                            open.set(false);
+                            profile_open.update(|o| *o = !*o);
+                        }
+                    >
+                        <crate::profile::Avatar core revision user=me.clone() />
+                        <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
+                        <span class="profile-menu__name">{me.localpart().to_owned()}</span>
+                    </button>
+                    <div id="profile-panel" class="profile-menu__panel" hidden=move || !profile_open.get()>
+                        <h2 class="launcher__title">{text::PROFILE}</h2>
+                        <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
+                        <crate::profile::ProfilePicture core revision />
+                        <label for="theme">{text::APPEARANCE}</label>
+                        <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
+                            let value = event_target_value(&ev);
+                            apply_theme(&value);
+                            theme.set(value);
+                        }>
+                            {text::THEMES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
+                        </select>
+                        <label for="hand">{text::HAND}</label>
+                        <select id="hand" prop:value=move || hand.get() on:change=move |ev| {
+                            let value = event_target_value(&ev);
+                            apply_hand(&value);
+                            hand.set(value);
+                        }>
+                            {text::HANDS.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
+                        </select>
+                        <button id="change-incident" type="button" class="button" on:click={
+                            let change = on_change_incident.clone();
+                            move |_| change()
+                        }>{text::CHANGE_INCIDENT}</button>
+                        <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
+                    </div>
+                </div>
             </div>
         </header>
         <div class="layout">
             <div class="navigation">
               <div class="navigation__inner">
-                <div class="launcher" on:keydown=move |ev| {
-                    if ev.key() == "Escape" && open.get() {
-                        open.set(false);
-                        focus("launcher-button");
-                    }
-                }>
+                <div class="launcher">
                     <button
-                        id="launcher-button"
+                        id="launcher-bar-button"
                         type="button"
-                        class="launcher__button"
+                        class="launcher__button launcher__button--bar"
                         aria-expanded=move || open.get().to_string()
                         aria-controls="launcher-panel"
-                        on:click=move |_| open.update(|o| *o = !*o)
+                        on:click=move |_| {
+                            profile_open.set(false);
+                            open.update(|o| *o = !*o);
+                        }
                     >
                         <span class="launcher__icon" aria-hidden="true"></span>
                         <span>{text::MENU}</span>
@@ -704,24 +808,6 @@ fn Workspace(
                                 }
                             })
                             .collect_view()}
-                        <section class="launcher__package" aria-label=text::DEVICE>
-                            <h3>{text::DEVICE}</h3>
-                            <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
-                            <crate::profile::ProfilePicture core revision />
-                            <label for="theme">{text::APPEARANCE}</label>
-                            <select id="theme" prop:value=move || theme.get() on:change=move |ev| {
-                                let value = event_target_value(&ev);
-                                apply_theme(&value);
-                                theme.set(value);
-                            }>
-                                {text::THEMES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
-                            </select>
-                            <button id="change-incident" type="button" class="button" on:click={
-                                let change = on_change_incident.clone();
-                                move |_| change()
-                            }>{text::CHANGE_INCIDENT}</button>
-                            <button type="button" class="button" on:click=unpair.clone()>{text::UNPAIR}</button>
-                        </section>
                     </div>
                 </div>
                 <nav class="views" aria-label=text::VIEWS>

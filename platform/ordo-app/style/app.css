@@ -258,17 +258,58 @@
 /* Navigation (ADR-0025, ADR-0026): header with title, search and state; a rail on wide screens, a
    bottom bar on phones and tablets in portrait holding the views and the menu. */
 @layer components {
-  .app-header { position: relative; }
-  .app-header__title { margin: 0; flex: 1 1 auto; font-size: var(--ordo-font-size-5); }
-  .app-header__state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-5); flex: 1 1 100%; order: 3; }
-  .app-header__incident { margin: 0; color: var(--ordo-color-text-secondary); }
-  @media (min-width: 64rem) {
-    .app-header__title { flex: 0 1 auto; }
-    .app-header__state { flex: 1 1 auto; order: 2; }
-    .search-button { order: 3; }
+  /* ADR-0049: menu, heading and incident on the left, the search in the middle, connection
+     and person on the right. The outer columns share the rest equally, so the search stays
+     centred. On phones the search takes a row of its own and the menu is in the bottom bar. */
+  .app-header {
+    position: relative;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "start search end";
+  }
+  .app-header__start { grid-area: start; display: flex; align-items: center; gap: var(--ordo-space-4); min-width: 0; }
+  .app-header__heading { min-width: 0; }
+  .app-header__title { margin: 0; font-size: var(--ordo-font-size-5); }
+  .app-header__incident { margin: 0; color: var(--ordo-color-text-secondary); overflow-wrap: break-word; }
+  .app-header .search-button { grid-area: search; }
+  .app-header__end {
+    grid-area: end; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+    gap: var(--ordo-space-2) var(--ordo-space-4); min-width: 0;
+  }
+  .launcher__button.launcher__button--bar { display: none; }
+  @media (max-width: 48rem) {
+    /* Heading and person, then the connection, then the search. */
+    .app-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "start person" "status status" "search search"; }
+    .app-header__end { display: contents; }
+    .app-header .status { grid-area: status; }
+    .app-header .profile-menu { grid-area: person; align-self: start; }
+    .app-header .search-button { justify-self: stretch; }
+    .launcher__button.launcher__button--header { display: none; }
+    .launcher__button.launcher__button--bar { display: inline-flex; }
   }
 
-  .search-button, .launcher__button {
+  /* The person's own menu (ADR-0049). */
+  .profile-menu { position: relative; }
+  .profile-menu__button { padding-inline-start: var(--ordo-space-1); }
+  .profile-menu__button .avatar {
+    inline-size: calc(var(--ordo-component-button-min-height) - 2 * var(--ordo-space-2));
+    block-size: calc(var(--ordo-component-button-min-height) - 2 * var(--ordo-space-2));
+  }
+  .profile-menu__button[aria-expanded="true"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
+  .profile-menu__panel {
+    position: absolute; top: calc(100% + var(--ordo-space-2)); right: 0; z-index: 20;
+    width: min(24rem, calc(100vw - 2 * var(--ordo-space-4)));
+    max-height: calc(100vh - 8rem); overflow-y: auto;
+    display: grid; gap: var(--ordo-space-2); align-content: start;
+    padding: var(--ordo-space-5);
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
+  }
+  .profile-menu__panel[hidden] { display: none; }
+  .profile-menu__panel .button { justify-self: start; }
+
+  .search-button, .launcher__button, .profile-menu__button {
     display: inline-flex; align-items: center; justify-content: center; gap: var(--ordo-space-3);
     min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-4);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
@@ -291,7 +332,6 @@
   }
 
   .launcher { position: relative; }
-  .launcher__button { width: 100%; justify-content: flex-start; }
   .launcher__button[aria-expanded="true"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
   .launcher__icon {
     flex: none; width: 1.1rem; height: 1.1rem;
@@ -375,6 +415,8 @@
     .views { flex: 1 1 auto; flex-direction: row; min-width: 0; }
     .views__item { flex: 1 1 0; justify-content: center; text-align: center; padding: 0 var(--ordo-space-2); min-width: 0; }
     .launcher { order: 2; flex: none; position: static; }
+    /* Left-handed use (ADR-0049): the menu at the start of the bar. */
+    :root[data-hand="left"] .launcher { order: -1; }
     .launcher__button { flex-direction: column; justify-content: center; gap: var(--ordo-space-1); height: 100%; padding: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-1); }
     /* Anchored to the bar itself (the fixed .navigation is its containing block), so it
        sits right above the bar whatever the bar's height (fonts, text size). */
