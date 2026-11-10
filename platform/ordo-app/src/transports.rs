@@ -91,6 +91,9 @@ fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl 
                 " · " {text::transport_unit(&u, t.destination.as_deref().unwrap_or("–"))}
             })}
         </p>
+        {t.request.planned.map(|ms| view! {
+            <p class="transport-card__planned"><strong>{text::planned_for(&core::date_time(ms))}</strong></p>
+        })}
         <p>{uhs.map(|u| format!("{u} · "))}{request_line(&t.request)}</p>
         <History entries=t
             .history
@@ -179,6 +182,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
     let transport_type = RwSignal::new(String::new());
     let priority = RwSignal::new(String::new());
     let needs = RwSignal::new(BTreeSet::<String>::new());
+    let planned = RwSignal::new(String::new());
     let message = RwSignal::new(None::<&'static str>);
     let submit = {
         let tag = tag.clone();
@@ -193,6 +197,23 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                 transport_type: transport_type.get_untracked(),
                 priority: priority.get_untracked(),
                 needs: needs.with_untracked(|s| in_profile_order(&CATALOGUE.needs, s)),
+                planned: None,
+            };
+            // [impl->dsn~planned-transports~1]
+            let when = planned.get_untracked();
+            let request = if when.is_empty() {
+                request
+            } else {
+                match core::local_time_ms(&when) {
+                    Some(ms) => TransportRequested {
+                        planned: Some(ms),
+                        ..request
+                    },
+                    None => {
+                        message.set(Some(text::TRANSPORT_PLANNED_INVALID));
+                        return;
+                    }
+                }
             };
             if request.check(&CATALOGUE).is_err() {
                 message.set(Some(text::TRANSPORT_CHOOSE));
@@ -202,6 +223,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                 transport_type.set(String::new());
                 priority.set(String::new());
                 needs.set(BTreeSet::new());
+                planned.set(String::new());
                 message.set(None);
             }
         }
@@ -238,6 +260,10 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                     <RadioChips legend=text::TRANSPORT_TYPE name="transport-type" options=choices(&CATALOGUE.types) value=transport_type />
                     <RadioChips legend=text::TRANSPORT_PRIORITY_OF_REQUEST name="transport-priority" options=choices(&CATALOGUE.priorities) value=priority />
                     <CheckChips legend=text::TRANSPORT_NEEDS options=choices(&CATALOGUE.needs) value=needs />
+                    <div class="field">
+                        <label for="transport-planned">{text::TRANSPORT_PLANNED}</label>
+                        <input id="transport-planned" type="datetime-local" bind:value=planned />
+                    </div>
                     <p class="error" role="alert">{move || message.get()}</p>
                     <div class="row">
                         <button type="submit" class="button button--primary">{text::TRANSPORT_REQUEST}</button>
@@ -272,13 +298,39 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let unit_names =
         Memo::new(move |_| units.with(|u| u.units.keys().cloned().collect::<Vec<_>>()));
+    let planned =
+        Memo::new(move |_| board.with(|b| b.planned().into_iter().cloned().collect::<Vec<_>>()));
     view! {
-        <section aria-labelledby="transports-title" class="card">
-            <h2 id="transports-title">{text::TRANSPORTS_TITLE}</h2>
+        <RequestList core revision list=open units=unit_names hospitals
+            id="transports-title" title=text::TRANSPORTS_TITLE empty=text::TRANSPORTS_EMPTY />
+        // [impl->dsn~planned-transports~1]
+        <RequestList core revision list=planned units=unit_names hospitals
+            id="planned-title" title=text::PLANNED_TITLE empty=text::PLANNED_EMPTY />
+        <FreeUnits board units />
+        <HospitalBoard core revision hospitals board />
+    }
+}
+
+/// Open requests on the board: each with its details, the assignment while requested,
+/// and the next steps.
+#[component]
+fn RequestList(
+    core: Handle,
+    revision: RwSignal<u64>,
+    list: Memo<Vec<Transport>>,
+    units: Memo<Vec<String>>,
+    hospitals: Memo<HospitalList>,
+    id: &'static str,
+    title: &'static str,
+    empty: &'static str,
+) -> impl IntoView {
+    view! {
+        <section aria-labelledby=id class="card">
+            <h2 id=id>{title}</h2>
             {move || {
-                let list = open.get();
+                let list = list.get();
                 if list.is_empty() {
-                    return view! { <p>{text::TRANSPORTS_EMPTY}</p> }.into_any();
+                    return view! { <p>{empty}</p> }.into_any();
                 }
                 view! {
                     <ul class="transport-list">
@@ -289,7 +341,7 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                     <h3>{summary(core, &t)}</h3>
                                     <TransportDetails core transport=t.clone() show_uhs=true />
                                     {(t.status == TransportStatus::Requested)
-                                        .then(|| view! { <AssignForm core revision transport=t.clone() units=unit_names hospitals /> })}
+                                        .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals /> })}
                                     <StepButtons core revision transport=t.clone() />
                                 </li>
                             })
@@ -299,8 +351,6 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .into_any()
             }}
         </section>
-        <FreeUnits board units />
-        <HospitalBoard core revision hospitals board />
     }
 }
 

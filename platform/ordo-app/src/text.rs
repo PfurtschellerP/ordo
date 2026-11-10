@@ -681,3 +681,13 @@ pub fn hospital_saved(name: &str) -> String {
 pub fn capacity_saved(name: &str) -> String {
     format!("Aufnahme gespeichert: {name}")
 }
+
+// Planned transports (TRANS-5).
+pub const TRANSPORT_PLANNED: &str = "Geplant für (leer: sofort)";
+pub const TRANSPORT_PLANNED_INVALID: &str = "Bitte Datum und Uhrzeit vollständig angeben.";
+pub const PLANNED_TITLE: &str = "Geplante Transporte";
+pub const PLANNED_EMPTY: &str = "Keine geplanten Transporte.";
+
+pub fn planned_for(at: &str) -> String {
+    format!("Geplant für {at}")
+}

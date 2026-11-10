@@ -121,7 +121,9 @@ hospitals and the transport board (milestone `m18`): the command keeps a hospita
 departments, capabilities and capacity per triage category (catalogues from the profile),
 assigns transports to a hospital or a free-text destination, and sees in *Transporte* the
 open requests, the free transport units and the patients sent to each hospital; the unit
-status codes moved from the app into the profile (`units/status-codes.toml`).
+status codes moved from the app into the profile (`units/status-codes.toml`); planned
+transports (milestone `m19`): a request can name a later date and time, and the board
+lists planned transports apart, the earliest first.
 
 *Incident and command (Einsatzleitung)*
 
@@ -160,7 +162,7 @@ status codes moved from the app into the profile (`units/status-codes.toml`).
 
 - **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
   transport organisation, overview for the medical command (LNA, OrgL).
-- **Transports, next steps:** planned transports (TRANS-5). Later, not a priority
+- **Transports, next steps:** later, not a priority
   ([ADR-0050](adr/0050-hospital-capacity-sources.md), proposed): capacity from IVENA
   eHealth once an organisation's agreement covers it; a hospital list kept by the
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per

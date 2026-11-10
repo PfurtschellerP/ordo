@@ -336,7 +336,7 @@ Needs: dsn
 
 ORDO shall allow planning transports in advance (e.g. scheduled transports at planned operations, patient relocation).
 
-Tags: should, med
+Tags: should, med, m19
 
 Needs: dsn
 

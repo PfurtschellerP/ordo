@@ -118,7 +118,15 @@ pub struct TransportRequested {
     /// Special need IDs from the catalogue.
     #[serde(default)]
     pub needs: Vec<String>,
+    /// When the transport is planned for (Unix time in milliseconds); `None` is now
+    /// (TRANS-5, schema version 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planned: Option<u64>,
 }
+
+/// Schema version of `transport.requested`: 2 since a request can be planned; version 1
+/// payloads decode unchanged.
+pub const REQUESTED_SCHEMA: u32 = 2;
 
 /// A request that doesn't fit the catalogue.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -409,12 +417,13 @@ impl TransportBoard {
             .collect()
     }
 
-    /// The open transports: highest priority first, then the oldest.
+    /// The open transports wanted now (not planned): highest priority first, then the
+    /// oldest.
     pub fn open(&self, catalogue: &TransportCatalogue) -> Vec<&Transport> {
         let mut open: Vec<&Transport> = self
             .transports
             .values()
-            .filter(|t| t.status.is_open())
+            .filter(|t| t.status.is_open() && t.request.planned.is_none())
             .collect();
         open.sort_by_key(|t| {
             (
@@ -423,6 +432,18 @@ impl TransportBoard {
             )
         });
         open
+    }
+
+    // [impl->dsn~planned-transports~1]
+    /// The open planned transports: the earliest first, then the oldest request.
+    pub fn planned(&self) -> Vec<&Transport> {
+        let mut planned: Vec<&Transport> = self
+            .transports
+            .values()
+            .filter(|t| t.status.is_open() && t.request.planned.is_some())
+            .collect();
+        planned.sort_by_key(|t| (t.request.planned, t.requested_at()));
+        planned
     }
 }
 
@@ -473,8 +494,63 @@ mod tests {
             transport_type: "rtw".into(),
             priority: priority.into(),
             needs: vec!["infectious".into()],
+            planned: None,
         };
         event(n, "anna", MODULE, REQUESTED, r.encode().unwrap())
+    }
+
+    fn planned(n: u64, id: &str, at: u64) -> AppliedEvent {
+        let r = TransportRequested {
+            request: id.into(),
+            uhs: "uhs-1".into(),
+            transport_type: "ktw".into(),
+            priority: "normal".into(),
+            needs: Vec::new(),
+            planned: Some(at),
+        };
+        event(n, "anna", MODULE, REQUESTED, r.encode().unwrap())
+    }
+
+    // [utest->dsn~planned-transports~1]
+    #[test]
+    fn planned_transports_are_listed_apart_by_time_and_old_requests_still_decode() {
+        let events = vec![
+            request(1, "now", "normal"),
+            planned(2, "late", 90_000),
+            planned(3, "early", 60_000),
+            planned(4, "done", 30_000),
+            update(5, "erik", "done", TransportStatus::Cancelled, None),
+        ];
+        let board = TransportBoard::from_events(&events);
+        let ids = |list: Vec<&Transport>| -> Vec<String> {
+            list.iter().map(|t| t.request.request.clone()).collect()
+        };
+        assert_eq!(ids(board.open(&catalogue())), ["now"]);
+        assert_eq!(
+            ids(board.planned()),
+            ["early", "late"],
+            "the earliest first, open ones only"
+        );
+
+        // A version 1 payload has no `planned`: it is wanted now.
+        #[derive(Serialize)]
+        struct V1 {
+            request: String,
+            uhs: String,
+            transport_type: String,
+            priority: String,
+            needs: Vec<String>,
+        }
+        let v1 = codec::to_cbor(&V1 {
+            request: "old".into(),
+            uhs: "uhs-1".into(),
+            transport_type: "rtw".into(),
+            priority: "normal".into(),
+            needs: Vec::new(),
+        })
+        .unwrap();
+        let decoded: TransportRequested = codec::from_cbor(&v1).unwrap();
+        assert_eq!(decoded.planned, None);
     }
 
     fn update(
@@ -655,6 +731,7 @@ mod tests {
             transport_type: "rtw".into(),
             priority: "normal".into(),
             needs: vec!["child".into()],
+            planned: None,
         };
         assert_eq!(r.check(&c), Ok(()));
         r.needs.push("hazmat".into());

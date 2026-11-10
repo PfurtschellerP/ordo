@@ -197,6 +197,7 @@ impl Core {
                 patients::TRIAGE_SCHEMA
             }
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
+            (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             _ => 1,
         };
         self.replica
@@ -1357,6 +1358,14 @@ pub fn now_ms() -> u64 {
 pub fn clock(ms: u64) -> String {
     let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
     format!("{:02}:{:02}", date.get_hours(), date.get_minutes())
+}
+
+/// The timestamp in milliseconds of a local date and time as a `datetime-local` input
+/// gives it (`YYYY-MM-DDTHH:MM`), or `None` if it is not one.
+pub fn local_time_ms(value: &str) -> Option<u64> {
+    // ECMAScript reads a date-time form without an offset as local time.
+    let ms = js_sys::Date::new(&wasm_bindgen::JsValue::from_str(value)).get_time();
+    (ms.is_finite() && ms >= 0.0).then_some(ms as u64)
 }
 
 /// Local date and time, `DD.MM.YYYY, HH:MM`, of a timestamp in milliseconds.

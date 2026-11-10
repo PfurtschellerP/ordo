@@ -531,6 +531,26 @@ Needs: impl, utest, itest
 
 Tags: must, m14
 
+#### Planned transports
+`dsn~planned-transports~1`
+
+A UHS crew can request a transport for a later time (a relocation, a planned return at
+the end of an event): the request form has an optional date and time, and
+`transport.requested` (schema version 2) carries it as `planned`, a Unix time in
+milliseconds; version 1 payloads decode unchanged as "now". A planned request is like any
+other: the command assigns it and it moves through the same steps. The board lists the
+planned requests apart, the earliest first, with the time; the other open requests stay
+sorted by priority. The time carries no patient data. ORDO shows the time; it never
+starts, reminds or reorders on its own.
+
+Covers:
+
+* [req~trans-5~1](../requirements/04-med.md#trans-5--planned-transports)
+
+Needs: impl, utest, itest
+
+Tags: should, m19
+
 #### Hospital list
 `dsn~hospital-list~1`
 

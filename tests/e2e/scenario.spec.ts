@@ -221,6 +221,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(transport.locator(".transport-card")).toContainText("RTW · Sofort · Infektiös");
     await expect(transport.locator("form"), "no second request while one is open").toHaveCount(0);
 
+    // [itest->dsn~planned-transports~1]
+    await openRecord(anna, "DE-0042");
+    const later = anna.locator("[aria-labelledby=section-transport]");
+    await later.getByLabel("KTW – Krankentransportwagen").check();
+    await later.getByLabel("Normal", { exact: true }).check();
+    await anna.locator("#transport-planned").fill("2030-05-01T18:30");
+    await later.getByRole("button", { name: "Transport anfordern" }).click();
+    await expect(later.locator(".transport-card__planned"), "a transport is planned for later").toHaveText("Geplant für 01.05.2030, 18:30");
+    await anna.goBack();
+    await expect(anna.locator("#record-title")).toHaveText("Patient DE-0044");
+
     // [itest->dsn~medical-orders~1]
     // [itest->dsn~order-permission~1]
     await expect(anna.locator(".order-form"), "a medic gives no orders").toHaveCount(0);
@@ -593,8 +604,12 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
     // [itest->dsn~transport-request~1]
     await openView(ben, "Transporte");
-    const request = ben.locator(".transport-card");
+    const request = ben.locator("[aria-labelledby=transports-title] .transport-card");
     await expect(request, "the command sees the open request").toHaveCount(1);
+    // [itest->dsn~planned-transports~1]
+    const planned = ben.locator("[aria-labelledby=planned-title] .transport-card");
+    await expect(planned, "planned transports are listed apart, with their time").toContainText("Geplant für 01.05.2030, 18:30");
+    await expect(planned).toContainText("UHS Bühne Nord · KTW · Normal");
     await expect(request).toContainText("UHS Eingang · RTW · Sofort · Infektiös");
     await expect(request, "without patient data").not.toContainText("DE-0044");
 
