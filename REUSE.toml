@@ -49,3 +49,20 @@ SPDX-License-Identifier = "ISC"
 path = "design/assets/icons/lucide/search.svg"
 SPDX-FileCopyrightText = ["Lucide Icons and Contributors", "2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"
+
+# Map libraries, vendored from npm (ADR-0006): MapLibre GL JS, PMTiles, Protomaps basemap.
+[[annotations]]
+path = ["platform/ordo-app/map/vendor/maplibre-gl*"]
+SPDX-FileCopyrightText = "2023 MapLibre contributors"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["platform/ordo-app/map/vendor/pmtiles.js", "platform/ordo-app/map/vendor/basemaps.js"]
+SPDX-FileCopyrightText = "Protomaps LLC"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Label fonts for the map (Noto Sans glyphs from Protomaps' basemap assets).
+[[annotations]]
+path = ["platform/ordo-app/map/glyphs/**"]
+SPDX-FileCopyrightText = "2022 The Noto Project Authors (https://github.com/notofonts)"
+SPDX-License-Identifier = "OFL-1.1"

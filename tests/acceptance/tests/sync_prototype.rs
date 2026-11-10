@@ -1396,3 +1396,62 @@ fn the_command_structure_reaches_every_device_the_same() {
     );
     assert_eq!(sanel.units, ["RTW 1"]);
 }
+
+// [itest->dsn~situation-map~1]
+/// The command places the incident and a unit on the map, moves the unit, and every device
+/// shows the same objects; a medic's device may read but not write them.
+#[test]
+fn the_situation_map_reaches_every_device_the_same() {
+    use ordo_map::{self as map, Geometry, ObjectKind, ObjectPlaced, SituationMap};
+    let mut world = World::new();
+    world.sync();
+    let place = |world: &mut World, kind: ObjectKind, reference: &str, at: [f64; 2]| {
+        let p = ObjectPlaced {
+            object: kind.object_id(reference),
+            kind,
+            reference: Some(reference.into()),
+            label: reference.into(),
+            geometry: Geometry::Point(at),
+        };
+        let (incident, now) = (world.incident.clone(), world.now);
+        world
+            .replica("ben")
+            .record(
+                &incident,
+                map::COMPARTMENT,
+                map::MODULE,
+                map::PLACED,
+                1,
+                &p.encode().unwrap(),
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    };
+    place(
+        &mut world,
+        ObjectKind::Incident,
+        "Stadtfest",
+        [10.89, 48.37],
+    );
+    place(&mut world, ObjectKind::Unit, "RTW 1", [10.9, 48.4]);
+    place(&mut world, ObjectKind::Unit, "RTW 1", [10.91, 48.41]);
+    world.sync();
+    let incident = world.incident.clone();
+    let seen = |world: &mut World, user: &str| {
+        SituationMap::from_events(
+            &world
+                .replica(user)
+                .events(&incident, map::COMPARTMENT)
+                .unwrap(),
+        )
+    };
+    let clara = seen(&mut world, "clara");
+    assert_eq!(clara, seen(&mut world, "anna"));
+    assert_eq!(clara.objects.len(), 2);
+    assert_eq!(
+        clara.objects["unit:RTW 1"].placed.geometry,
+        Geometry::Point([10.91, 48.41])
+    );
+    assert_eq!(clara.centre(), Some([10.89, 48.37]));
+}

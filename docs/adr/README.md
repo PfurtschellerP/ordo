@@ -10,7 +10,7 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0003](0003-leptos-pwa.md) | Leptos as UI framework; PWA first | proposed | 2026-11-07 |
 | [0004](0004-sqlite-default-postgresql-optional.md) | SQLite by default, PostgreSQL optional | proposed | 2026-11-07 |
 | [0005](0005-own-sync-protocol.md) | Own sync protocol on WebSocket with CBOR | proposed | 2026-11-07 |
-| [0006](0006-maplibre-pmtiles.md) | MapLibre GL JS and PMTiles for offline maps | proposed | 2026-11-07 |
+| [0006](0006-maplibre-pmtiles.md) | MapLibre GL JS and PMTiles for offline maps | accepted | 2026-11-10 |
 | [0007](0007-licence-agpl.md) | Licence the software under AGPL-3.0-or-later | accepted | 2026-11-08 |
 | [0008](0008-german-profile-first.md) | German (DE) regional profile first | accepted | 2026-11-07 |
 | [0009](0009-layered-data-profiles.md) | Regional profiles as layered data packages | proposed | 2026-11-08 |

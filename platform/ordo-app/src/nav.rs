@@ -90,9 +90,9 @@ pub const WORKSPACES: &[Workspace] = &[
         views: &[
             View {
                 id: "counts",
-                label: "Patientenzahlen",
-                name: "patient counts",
-                icon: "chart-column",
+                label: "Lage",
+                name: "situation map patient counts",
+                icon: "map",
             },
             View {
                 id: "transports",

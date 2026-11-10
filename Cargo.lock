@@ -2606,6 +2606,7 @@ dependencies = [
  "ordo-contracts",
  "ordo-core",
  "ordo-crypto",
+ "ordo-map",
  "ordo-med-patients",
  "ordo-sync",
  "ordo-tasks",
@@ -2626,6 +2627,7 @@ dependencies = [
  "ordo-contracts",
  "ordo-core",
  "ordo-crypto",
+ "ordo-map",
  "ordo-med-patients",
  "ordo-sync",
  "ordo-tasks",
@@ -2679,6 +2681,16 @@ dependencies = [
  "ordo-core",
  "thiserror 2.0.21",
  "zeroize",
+]
+
+[[package]]
+name = "ordo-map"
+version = "0.0.0"
+dependencies = [
+ "ordo-core",
+ "ordo-sync",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

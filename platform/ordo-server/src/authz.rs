@@ -497,6 +497,11 @@ mod tests {
             "command.leaderSet",
             &commander
         ));
+        // [utest->dsn~situation-map~1]
+        assert!(
+            !p.can_write(&erik, &incident, &shared, "map", "map.objectPlaced", &medic),
+            "the situation map is the command's"
+        );
     }
 
     // [utest->dsn~role-policies~1]

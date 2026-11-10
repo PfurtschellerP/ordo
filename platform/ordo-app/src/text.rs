@@ -976,3 +976,68 @@ pub fn position_created(name: &str) -> String {
 pub fn position_of(unit: &str) -> String {
     format!("Funktion von {unit}")
 }
+
+// Situation map (MAP-1, MAP-2).
+pub const MAP_TITLE: &str = "Lagekarte";
+pub const MAP_LABEL: &str = "Lagekarte. Pfeiltasten verschieben, Plus und Minus zoomen.";
+pub const MAP_LOADING: &str = "Karte wird geladen …";
+pub const MAP_UNAVAILABLE: &str = "Die Karte kann auf diesem Gerät nicht angezeigt werden; die Liste unten zeigt alles, was auf ihr steht.";
+pub const MAP_FROM_DEVICE: &str = "Kartengrundlage: auf diesem Gerät gespeichert (auch ohne Netz).";
+pub const MAP_FROM_SERVER: &str = "Kartengrundlage: vom Server.";
+pub const MAP_NO_REGION: &str =
+    "Keine Kartengrundlage eingerichtet: die Objekte stehen auf neutralem Hintergrund.";
+pub const MAP_OBJECTS: &str = "Auf der Karte";
+pub const MAP_OBJECTS_NONE: &str = "Noch nichts auf der Karte.";
+pub const MAP_SHOW: &str = "Zeigen";
+pub const MAP_REMOVE: &str = "Entfernen";
+pub const MAP_SAVED: &str = "Lagekarte gespeichert";
+pub const MAP_PLACE: &str = "Auf der Karte platzieren";
+pub const MAP_PLACE_HINT: &str = "Karte so verschieben, dass die Stelle in der Mitte liegt (auch mit den Pfeiltasten), dann platzieren.";
+pub const MAP_PLACE_KIND: &str = "Was";
+pub const MAP_PLACE_WHICH: &str = "Welches";
+pub const MAP_PLACE_CHOOSE: &str = "Bitte wählen";
+pub const MAP_PLACE_LABEL: &str = "Bezeichnung";
+pub const MAP_PLACE_SUBMIT: &str = "In der Kartenmitte platzieren";
+pub const MAP_PLACE_MISSING: &str = "Bitte auswählen, was platziert werden soll.";
+pub const INCIDENT_LOCATION: &str = "Einsatzort";
+pub const MAP_OFFLINE: &str = "Karte ohne Netz";
+pub const MAP_NOT_ON_DEVICE: &str = "Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.";
+pub const MAP_SAVE: &str = "Karte offline speichern";
+pub const MAP_SAVING: &str = "Karte wird gespeichert …";
+pub const MAP_SAVE_FAILED: &str = "Die Karte konnte nicht gespeichert werden.";
+pub const MAP_REMOVE_OFFLINE: &str = "Offline-Karte löschen";
+pub const MAP_REMOVED: &str = "Offline-Karte gelöscht.";
+
+pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
+    use ordo_map::ObjectKind as K;
+    match kind {
+        K::Incident => INCIDENT_LOCATION,
+        K::Unit => TAB_RESOURCES,
+        K::Uhs => "UHS",
+        K::Position => POSITION,
+        K::Drawing => "Zeichnung",
+    }
+}
+
+pub fn map_show_label(label: &str) -> String {
+    format!("{label} auf der Karte zeigen")
+}
+
+pub fn map_remove_label(label: &str) -> String {
+    format!("{label} von der Karte entfernen")
+}
+
+fn megabytes(bytes: f64) -> String {
+    format!("{:.1}", bytes / 1_000_000.0).replace('.', ",")
+}
+
+pub fn map_saved(bytes: f64) -> String {
+    format!("Karte gespeichert ({} MB).", megabytes(bytes))
+}
+
+pub fn map_on_device(bytes: f64) -> String {
+    format!(
+        "Auf diesem Gerät gespeichert: {} MB, auch ohne Netz nutzbar.",
+        megabytes(bytes)
+    )
+}

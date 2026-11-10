@@ -840,7 +840,10 @@ fn Workspace(
                     (Some("command.situation"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
                     (Some("command.situation"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
                     (Some("command.situation"), Some("roster")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
-                    (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),
+                    (Some("command.situation"), _) => view! {
+                        <crate::situation::SituationView core revision />
+                        <CommandWorkspace core revision />
+                    }.into_any(),
                     (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}

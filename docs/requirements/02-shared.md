@@ -215,7 +215,7 @@ Needs: dsn
 
 Map centred on the incident, with units, sectors, UHS and drawn objects
 
-Tags: must, shared
+Tags: must, shared, m33
 
 Needs: dsn
 
@@ -224,7 +224,7 @@ Needs: dsn
 
 Map works offline: regions can be downloaded in advance
 
-Tags: must, shared
+Tags: must, shared, m33
 
 Needs: dsn
 

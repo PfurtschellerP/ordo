@@ -745,6 +745,25 @@ pub fn command_event(
     )
 }
 
+// [impl->dsn~situation-map~1]
+/// Records an event of the situation map: an object placed or removed (MAP-1).
+pub fn map_event(
+    core: Handle,
+    revision: RwSignal<u64>,
+    event_type: &str,
+    payload: &[u8],
+) -> Result<(), String> {
+    record(
+        core,
+        revision,
+        ordo_map::COMPARTMENT,
+        ordo_map::MODULE,
+        event_type,
+        payload,
+        text::MAP_SAVED.to_owned(),
+    )
+}
+
 // [impl->dsn~tasks~1]
 /// Gives a task (TASK-1): a new ID, then the event in the shared incident compartment.
 pub fn give_task(

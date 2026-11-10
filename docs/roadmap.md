@@ -162,7 +162,11 @@ first, and on each unit's card; command structure (milestone `m32`,
 CMD-1…4, ADR-0031): positions as incident data with kinds from the profile (FwDV 100 and
 the medical response), leaders and logged handovers, units and UHS under positions, the
 tree in the view *Führung* with the roster, span of control pointed out, tasks to
-positions.
+positions; situation map (milestone `m33`,
+MAP-1, MAP-2, ADR-0006 accepted): MapLibre GL JS with a PMTiles region of OpenStreetMap
+(`ORDO_MAP_FILE`, kept on the device for use without network), the incident location,
+units, UHS and positions placed at the map centre (also by keyboard) and listed beside the
+map; the command workspace's first view is now *Lage* (map and patient counts).
 
 *Incident and command (Einsatzleitung)*
 
@@ -178,7 +182,7 @@ positions.
   files viewable in place, immutable (events cannot change; corrections are new entries,
   hash-chained and signed). Legal requirements to be checked before building: state
   archive law, evidence value, qualified time stamps (eIDAS), retention.
-- **Situation map (Lagekarte)** with the official symbols (ADR-0006: MapLibre, PMTiles);
+- **Situation map, next steps:** tactical symbols (MAP-3, source to be decided);
   **map editor with geofencing**: sectors, hazard and restricted areas, collection points
   as shapes (GeoJSON, RFC 7946; drawing with an open-source plug-in such as Terra Draw);
   a geofence reports when a unit or person enters or leaves. Every change is an event.

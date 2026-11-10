@@ -578,7 +578,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
-    await openView(ben, "Patientenzahlen");
+    await openView(ben, "Lage");
     // [itest->dsn~workspace-navigation~3]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
     await ben.locator("#launcher-button").click();
@@ -778,6 +778,51 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
+  // [itest->dsn~situation-map~1]
+  await test.step("situation map: place the incident and a unit, keep the map region offline", async () => {
+    await openView(ben, "Lage");
+    const state = ben.locator(".situation__state");
+    await expect(state, "the map loads").not.toHaveText("Karte wird geladen …", { timeout: 30_000 });
+    const map = await ben.locator(".situation__map").getAttribute("data-map");
+    console.log(`situation map in ${test.info().project.name}: ${map}`);
+    if (map !== "ready") {
+      // Without WebGL (some headless browsers) the list stands in for the canvas (A11Y-5).
+      test.info().annotations.push({ type: "situation map", description: `not shown: ${await state.innerText()}` });
+      await expect(state).toHaveText(/Die Karte kann auf diesem Gerät nicht angezeigt werden/);
+      return;
+    }
+    await expect(state, "the region comes from the server").toHaveText("Kartengrundlage: vom Server.");
+    await expect(ben.locator(".situation__map canvas")).toHaveCount(1);
+    await expect(ben.locator(".maplibregl-ctrl-attrib"), "OpenStreetMap is credited").toContainText("OpenStreetMap");
+    await ben.locator("#place-kind").selectOption({ label: "Einsatzort" });
+    await ben.locator("#place-label").fill("Stadtfest");
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    const objects = ben.locator(".map-object");
+    await expect(objects.first(), "the incident is on the map and in the list").toContainText("Stadtfest · Einsatzort · 51.16000, 10.45000");
+    // The keyboard moves the map; the unit goes where the centre is now.
+    await ben.locator(".situation__map canvas").focus();
+    for (let i = 0; i < 3; i++) await ben.keyboard.press("ArrowRight");
+    await expect.poll(async () => ben.evaluate(() => document.activeElement?.classList.contains("maplibregl-canvas"))).toBe(true);
+    await ben.locator("#place-kind").selectOption({ label: "Einsatzmittel" });
+    await ben.locator("#place-reference").selectOption({ label: "RTW 83/1" });
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    const unit = ben.locator(".map-object[data-object='unit:RTW 83/1']");
+    await expect(unit).toContainText("RTW 83/1 · Einsatzmittel");
+    expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map").not.toBe("51.16000, 10.45000");
+    await audit(ben, "Situation map");
+    await shot(ben, "situation-map");
+    await ben.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }).click();
+    await expect(unit).toHaveCount(0);
+    // MAP-2: the region is kept on the device.
+    const offline = ben.locator(".offline-region");
+    await expect(offline.locator(".offline-region__state")).toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");
+    await offline.getByRole("button", { name: "Karte offline speichern" }).click();
+    await expect(offline.locator("[role=status]"), "saved on the device").toHaveText(/^Karte gespeichert/);
+    await expect(offline.locator(".offline-region__state")).toHaveText(/^Auf diesem Gerät gespeichert/);
+    await offline.getByRole("button", { name: "Offline-Karte löschen" }).click();
+    await expect(offline.locator(".offline-region__state")).toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");
+  });
+
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
     // [itest->dsn~transport-request~1]
     await openView(ben, "Transporte");
@@ -865,7 +910,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(medic, "Patients with discharged");
     await medic.context().close();
 
-    await openView(ben, "Patientenzahlen");
+    await openView(ben, "Lage");
     await expect
       .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient" })
       .toBe("Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 1");

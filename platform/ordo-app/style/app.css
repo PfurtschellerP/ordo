@@ -1,7 +1,8 @@
 /* ORDO app styles. Only design tokens (--ordo-*) for colours, sizes and motion, so all
    themes and organisation themes apply (architecture 8.6). */
 
-@layer base, components, utilities;
+/* `vendor`: third-party styles (MapLibre), below ORDO's own, so the design system wins. */
+@layer vendor, base, components, utilities;
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
@@ -185,7 +186,7 @@
   .table--counts { table-layout: fixed; }
   .table--counts th, .table--counts td { padding-inline: var(--ordo-space-2); }
   .table--counts thead th:first-child { width: 16%; }
-  .table--counts th .triage { white-space: normal; overflow-wrap: anywhere; }
+  .table--counts th .triage { white-space: normal; hyphens: auto; overflow-wrap: break-word; font-size: var(--ordo-font-size-1); }
   .table .number { text-align: center; font-variant-numeric: tabular-nums; }
   .table td.number { font-size: var(--ordo-font-size-4); }
   .table .total { font-weight: var(--ordo-font-weight-bold); }
@@ -629,6 +630,17 @@
   .position { display: grid; gap: var(--ordo-space-1); hyphens: auto; overflow-wrap: break-word; min-width: 0; }
   .position p { margin: 0; }
   .command-form { margin-block-start: var(--ordo-space-4); }
+  /* Situation map (MAP-1): the canvas, and the list of what is on it (A11Y-5). */
+  .situation { display: grid; gap: var(--ordo-space-3); margin-block-end: var(--ordo-space-4); }
+  .situation h2, .situation h3, .situation p { margin: 0; }
+  .situation__map { block-size: min(60vh, 32rem); inline-size: 100%; border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); overflow: hidden; background: var(--ordo-color-surface-sunken); }
+  .situation__map[data-map="unavailable"] { display: none; }
+  .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }
+  .map-object .row { margin-inline-start: auto; }
+  /* MapLibre's own controls: touch targets of the design system (UX-2). */
+  .situation__map .maplibregl-ctrl-group button { inline-size: var(--ordo-size-touch-target); block-size: var(--ordo-size-touch-target); }
+  .situation__map .maplibregl-ctrl-attrib { font-size: var(--ordo-font-size-1); }
   .load-list__details-panel[hidden] { display: none; }
   .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .load-list__details-panel h4 { margin: 0; }

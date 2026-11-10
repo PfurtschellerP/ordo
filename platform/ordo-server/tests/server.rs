@@ -58,6 +58,12 @@ fn write_setup(dir: &Path, master: [u8; 32]) {
         );
     }
     std::fs::write(dir.join("seed.toml"), seed).unwrap();
+    // A stand-in for a map region (PMTiles starts with this magic number).
+    std::fs::write(
+        dir.join("region.pmtiles"),
+        b"PMTiles\x03 region of the test",
+    )
+    .unwrap();
 }
 
 // [itest->dsn~environment-configuration~1]
@@ -73,6 +79,10 @@ async fn start_server(dir: &Path) -> Result<Running, ServerError> {
         (
             "ORDO_SEED_FILE",
             dir.join("seed.toml").display().to_string(),
+        ),
+        (
+            "ORDO_MAP_FILE",
+            dir.join("region.pmtiles").display().to_string(),
         ),
     ]);
     start(Config::from_lookup(|name| vars.get(name).cloned())?).await
@@ -459,6 +469,17 @@ async fn sync_over_websocket_survives_a_restart() {
             serde_json::from_str(&refused.text().await.unwrap()).unwrap();
         assert_eq!(range["http"]["min"], "1.0", "the answer names the range");
     }
+
+    // [itest->dsn~situation-map~1]
+    // The map region is read in parts (range requests), as PMTiles does.
+    let part = http
+        .get(url("/tiles/region.pmtiles"))
+        .header("Range", "bytes=0-6")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(part.status(), 206);
+    assert_eq!(part.text().await.unwrap(), "PMTiles");
 
     drop((anna, ben));
     running.stop().await.unwrap();

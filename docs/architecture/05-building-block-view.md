@@ -342,6 +342,40 @@ Needs: impl, utest, itest
 
 Tags: must, m32
 
+### 5.5.1c Shared module `map`
+
+#### Situation map
+`dsn~situation-map~1`
+
+Crate `ordo-map`, module `map`, in the shared `incident` compartment
+([ADR-0006](../adr/0006-maplibre-pmtiles.md)). `map.objectPlaced` puts an object on the
+map: the incident location, a unit, a UHS or a position (one object each, so placing it
+again moves it; its ID is the kind and the reference), with a label and a GeoJSON
+geometry (RFC 7946: point, line or area, longitude first); `map.objectRemoved` takes it
+off. The latest event of an object counts (hybrid logical clock). Drawn objects (lines and
+areas, MAP-4) use the same events with their own IDs.
+
+The command workspace's first view *Lage* shows the map with the objects and, beside or
+below it, the list of objects (A11Y-5) and the patient counts. The command places an
+object at the map's centre (the keyboard moves the map) and removes it from the list.
+The map opens on the incident location, else on the objects. Only the command writes the
+module (Cedar).
+
+Offline (MAP-2): the server serves a PMTiles region file (`ORDO_MAP_FILE`) at
+`/tiles/region.pmtiles` with range requests; *Karte offline speichern* keeps the whole
+file in the device's origin-private file system, and the map reads from there when it is
+present. Map code, fonts and glue are cached with the app shell; without a region file,
+the objects are shown on a plain background.
+
+Covers:
+
+* [req~map-1~1](../requirements/02-shared.md#map-1--situation-map)
+* [req~map-2~1](../requirements/02-shared.md#map-2--offline-map)
+
+Needs: impl, utest, itest
+
+Tags: must, m33
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS registry

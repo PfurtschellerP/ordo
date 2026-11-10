@@ -167,7 +167,11 @@ impl App {
         self.failed.load(Ordering::SeqCst)
     }
 
-    pub(crate) fn router(self: Arc<Self>, app_dir: Option<&std::path::Path>) -> Router {
+    pub(crate) fn router(
+        self: Arc<Self>,
+        app_dir: Option<&std::path::Path>,
+        map_file: Option<&std::path::Path>,
+    ) -> Router {
         use axum::http::{HeaderName, HeaderValue};
         use tower_http::services::{ServeDir, ServeFile};
         use tower_http::set_header::SetResponseHeaderLayer;
@@ -196,6 +200,12 @@ impl App {
             .route("/.well-known/ordo", get(well_known))
             .merge(versioned)
             .with_state(self);
+        // [impl->dsn~situation-map~1]
+        // The map region (ADR-0006), with range requests; map data, not personal data.
+        let api = match map_file {
+            Some(file) => api.route_service("/tiles/region.pmtiles", ServeFile::new(file)),
+            None => api,
+        };
         let router = match app_dir {
             Some(dir) => {
                 // Unknown paths fall back to index.html, so the app handles its own routes.

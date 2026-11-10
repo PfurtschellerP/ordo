@@ -225,7 +225,9 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());
-    let router = app.clone().router(config.app_dir.as_deref());
+    let router = app
+        .clone()
+        .router(config.app_dir.as_deref(), config.map_file.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");
     let task = tokio::spawn(async move {
         axum::serve(listener, router)

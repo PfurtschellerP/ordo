@@ -27,6 +27,7 @@ fn svg(name: &str) -> &'static str {
         "ellipsis",
         "id-card",
         "layout-grid",
+        "map",
         "refresh-cw",
         "search",
         "tablet-smartphone",

@@ -27,6 +27,9 @@ pub struct Config {
     pub protected: Vec<CompartmentId>,
     /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
     pub app_dir: Option<PathBuf>,
+    /// Map region for the situation map, a PMTiles file served at `/tiles/region.pmtiles`
+    /// (`ORDO_MAP_FILE`, optional, ADR-0006).
+    pub map_file: Option<PathBuf>,
     /// Directory with the organisation's own Cedar policies, `*.cedar`
     /// (`ORDO_POLICY_DIR`, optional, ADR-0035).
     pub policy_dir: Option<PathBuf>,
@@ -318,6 +321,7 @@ impl Config {
             vehicles,
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
+            map_file: get("ORDO_MAP_FILE").map(PathBuf::from),
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
             oidc: match get("ORDO_OIDC_ISSUER").filter(|issuer| !issuer.trim().is_empty()) {
                 None => None,

@@ -12,6 +12,7 @@ mod overview;
 mod palette;
 mod patients;
 mod profile;
+mod situation;
 mod storage;
 mod tasks;
 mod text;
