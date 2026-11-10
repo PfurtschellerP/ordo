@@ -113,7 +113,10 @@ paramedics (new incident roles) give orders on the record, the crew acknowledges
 completes them, the view *UHS – Anordnungen* lists the open orders of every UHS; the
 server accepts new orders only from these roles; header layout (milestone `m16`,
 ADR-0049): menu, heading, search in the middle, connection and person on the right, the
-person's settings in a profile menu, and a bottom bar for left-handed use.
+person's settings in a profile menu, and a bottom bar for left-handed use; discharge
+(milestone `m17`): the UHS discharges with an outcome (released on site, transported,
+refused, deceased), "transported" chosen once the transport has left; readmission corrects
+a mistake; the load counts only the patients in the unit, command sees how many left.
 
 *Incident and command (Einsatzleitung)*
 
@@ -154,8 +157,7 @@ person's settings in a profile menu, and a bottom bar for left-handed use.
   transport organisation, overview for the medical command (LNA, OrgL).
 - **Transports, next steps:** hospital list with capacity (TRANS-2) as the destination
   instead of free text; transport board with available units and patients per hospital
-  (TRANS-4); planned transports (TRANS-5); the UHS discharge as "transported" when the
-  patient is handed over (UHS-3).
+  (TRANS-4); planned transports (TRANS-5).
 - **Orders, next steps:** substances from the medication catalogue (below); a done
   medication order prefilled into the record's medication form; an overview per UHS for
   the medical lead (LNA, OrgL); orders given by voice or radio recorded with the person

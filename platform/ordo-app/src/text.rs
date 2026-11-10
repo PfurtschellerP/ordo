@@ -110,6 +110,7 @@ pub const SENT: &str = "gesendet";
 pub const COUNTS_TITLE: &str = "Patienten je UHS";
 pub const COUNTS_EMPTY: &str = "Noch keine Patientenzahlen.";
 pub const COL_TOTAL: &str = "Gesamt";
+pub const COL_DISCHARGED: &str = "Entlassen";
 
 pub fn registered(tag: &str, category: TriageCategory, uhs: &str) -> String {
     format!("Patient {tag} registriert: {}, {uhs}", label(category))
@@ -600,4 +601,49 @@ pub fn order_status_set(status: ordo_med_patients::orders::OrderStatus) -> Strin
 /// "Angeordnet 10:12 von petra@…"
 pub fn order_by(at: &str, by: &str) -> String {
     format!("{at} von {by}")
+}
+
+// Admission and discharge (UHS-3).
+pub const STAY_TITLE: &str = "Aufnahme und Entlassung";
+pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
+pub const DISCHARGE: &str = "Entlassen";
+pub const DISCHARGE_CHOOSE: &str = "Bitte das Ergebnis der Entlassung wählen.";
+pub const READMIT: &str = "Wieder aufnehmen";
+pub const ADMITTED: &str = "Aufgenommen";
+
+pub fn outcome(outcome: ordo_med_patients::Outcome) -> &'static str {
+    use ordo_med_patients::Outcome as O;
+    match outcome {
+        O::ReleasedOnSite => "Vor Ort entlassen",
+        O::Transported => "Transportiert",
+        O::Refused => "Behandlung oder Transport verweigert",
+        O::Deceased => "Verstorben",
+    }
+}
+
+/// "Entlassen: Transportiert"
+pub fn discharged_as(outcome: ordo_med_patients::Outcome) -> String {
+    format!("{DISCHARGE}: {}", self::outcome(outcome))
+}
+
+/// "Entlassene Patienten (2)"
+pub fn discharged_list(n: usize) -> String {
+    format!("Entlassene Patienten ({n})")
+}
+
+/// "Mit dem Transport: RTW → Klinikum Mitte"
+pub fn discharge_transport(line: &str) -> String {
+    format!("Mit dem Transport: {line}")
+}
+
+pub fn discharged(tag: &str, outcome: ordo_med_patients::Outcome) -> String {
+    format!("{tag}: {}", discharged_as(outcome))
+}
+
+pub fn readmit_label(tag: &str) -> String {
+    format!("{tag} {}", READMIT.to_lowercase())
+}
+
+pub fn readmitted(tag: &str) -> String {
+    format!("{tag} wieder aufgenommen")
 }

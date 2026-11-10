@@ -180,6 +180,11 @@ impl TransportStatus {
         !matches!(self, Self::HandedOver | Self::Cancelled)
     }
 
+    /// Whether the patient has left with the transport (departed, arrived, handed over).
+    pub fn has_left(self) -> bool {
+        matches!(self, Self::Departed | Self::Arrived | Self::HandedOver)
+    }
+
     /// The statuses that may follow: later steps (skipping is allowed, radio messages
     /// arrive late) and cancelling, as long as nobody departed. Never a step back.
     pub fn next(self) -> Vec<Self> {
@@ -377,8 +382,6 @@ pub fn requests_by_patient(clinical_events: &[AppliedEvent]) -> BTreeMap<String,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ordo_core::event::{Author, EventBody, Payload};
-    use ordo_core::{DeviceId, EventId, IncidentId, ServerName, Ulid};
 
     /// The shape of `profiles/de/med/transport-requests.toml`, small.
     fn catalogue() -> TransportCatalogue {
@@ -395,34 +398,7 @@ mod tests {
     }
 
     fn event(n: u64, user: &str, module: &str, event_type: &str, payload: Vec<u8>) -> AppliedEvent {
-        let server: ServerName = "ordo.example.org".parse().expect("valid server");
-        let device = DeviceId(Ulid::from_parts(1, 1).expect("valid"));
-        AppliedEvent {
-            seq: Some(n),
-            body: EventBody {
-                version: 1,
-                id: EventId(Ulid::from_parts(n, u128::from(n)).expect("valid")),
-                schema_version: 1,
-                hlc: Hlc {
-                    wall_ms: 1000 + n,
-                    counter: 0,
-                    node: device,
-                },
-                incident: IncidentId::new(Ulid::from_parts(9, 9).expect("valid"), &server),
-                module: module.parse().expect("valid"),
-                compartment: COMPARTMENT.parse().expect("valid"),
-                event_type: event_type.parse().expect("valid"),
-                author: Author {
-                    user: format!("{user}@ordo.example.org")
-                        .parse()
-                        .expect("valid user"),
-                    device,
-                },
-                origin: server,
-                payload: Payload::Plain(Vec::new()),
-            },
-            payload,
-        }
+        crate::testing::event(n, user, module, COMPARTMENT, event_type, payload)
     }
 
     fn request(n: u64, id: &str, priority: &str) -> AppliedEvent {

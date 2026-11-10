@@ -119,7 +119,7 @@ Needs: dsn
 
 When a patient is admitted to or discharged from a UHS, ORDO shall record the time and, on discharge, the outcome: released on site, transported, refused treatment or deceased.
 
-Tags: must, med
+Tags: must, med, m17
 
 Needs: dsn
 

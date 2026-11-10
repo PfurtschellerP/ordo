@@ -69,6 +69,31 @@ fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl 
     }
 }
 
+/// The transports requested for a patient, oldest first.
+pub fn patient_transports(core: Handle, tag: &str) -> Vec<Transport> {
+    core.with_value(|c| {
+        let mine = requests_by_patient(&c.events(med::COMPARTMENT))
+            .remove(tag)
+            .unwrap_or_default();
+        let board = TransportBoard::from_events(&c.events(med::transport::COMPARTMENT));
+        mine.iter()
+            .filter_map(|r| board.transports.get(r).cloned())
+            .collect()
+    })
+}
+
+/// Type, unit and destination of a transport, e.g. "RTW · RTW 83/1 → Klinikum Mitte".
+pub fn transport_line(t: &Transport) -> String {
+    let kind = label(&CATALOGUE.types, &t.request.transport_type);
+    match &t.unit {
+        Some(unit) => format!(
+            "{kind} · {}",
+            text::transport_unit(unit, t.destination.as_deref().unwrap_or("–"))
+        ),
+        None => kind,
+    }
+}
+
 /// Buttons for the next statuses; assigning needs a unit and a destination and is offered
 /// apart (incident command).
 #[component]
@@ -111,20 +136,12 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
         let tag = tag.clone();
         Memo::new(move |_| {
             revision.track();
-            core.with_value(|c| {
-                let uhs = PatientRegister::from_events(&c.events(med::COMPARTMENT))
+            let uhs = core.with_value(|c| {
+                PatientRegister::from_events(&c.events(med::COMPARTMENT))
                     .patient(&tag)
-                    .map(|p| p.uhs.clone());
-                let mine = requests_by_patient(&c.events(med::COMPARTMENT))
-                    .remove(&tag)
-                    .unwrap_or_default();
-                let board = TransportBoard::from_events(&c.events(med::transport::COMPARTMENT));
-                let transports: Vec<Transport> = mine
-                    .iter()
-                    .filter_map(|r| board.transports.get(r).cloned())
-                    .collect();
-                (uhs, transports)
-            })
+                    .map(|p| p.uhs.clone())
+            });
+            (uhs, patient_transports(core, &tag))
         })
     };
     let transport_type = RwSignal::new(String::new());

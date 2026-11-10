@@ -196,7 +196,7 @@ First contracts:
 
 | Contract | From → to | Content |
 |---|---|---|
-| `med.patientCounts.v1` | Med → all | Counts per triage category and location |
+| `med.patientCounts.v1` | Med → all | Counts per triage category and location, and the number discharged |
 | `med.transportStatus.v1` | Med → all | Transports: unit, destination hospital, status — no patient data |
 | `fire.responderInjured.v1` | Fire → Med | Request for care: location, unit, urgency |
 | `command.dangerZones.v1` | Command → all | Danger zones, staging areas, sectors |
@@ -207,7 +207,7 @@ First contracts:
 #### Server-derived connectors
 `dsn~server-derived-connectors~1`
 
-A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit name and one number per triage category.
+A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit name, one number per triage category (patients in the unit) and the number discharged.
 
 Covers:
 
@@ -663,6 +663,30 @@ Covers:
 Needs: impl, itest
 
 Tags: must, m12
+
+#### Discharge from the UHS
+`dsn~uhs-discharge~1`
+
+Registration admits a patient to their unit. The crew discharges with an outcome on the
+record (`patients.discharged`: released on site, transported, refused treatment or
+transport, deceased) and, if transported, the ID of the transport request; once the
+patient's transport has departed, the record has "transported" chosen already. A patient
+who comes back, or was discharged by mistake, is readmitted (`patients.readmitted`):
+events are never changed. Both are clinical events; the register keeps every admission and
+discharge with time and person, ordered by hybrid logical clock, and the latest discharge
+states the outcome. A discharge frees the treatment place. `patientCounts` count by
+category only the patients in the unit, so the load shows who is there, and carry the
+number discharged as a field of its own (absent in older counts, read as zero); command
+sees how many left, never who. The patient list shows discharged patients apart,
+collapsed, with the outcome. ORDO records the outcome; it never decides it.
+
+Covers:
+
+* [req~uhs-3~1](../requirements/04-med.md#uhs-3--admission-and-discharge)
+
+Needs: impl, utest, itest
+
+Tags: must, m17
 
 #### Views by role
 `dsn~views-by-role~1`

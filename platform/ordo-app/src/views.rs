@@ -1082,7 +1082,10 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         .map(|k| view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}</span></li> })
                                         .collect_view()}
                                 </ul>
-                                <p>{text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, *capacity)}</p>
+                                <p>
+                                    {text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, *capacity)}
+                                    " · " {text::COL_DISCHARGED} ": " {c.discharged}
+                                </p>
                             </li>
                         }
                     })
@@ -1096,6 +1099,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 {CATEGORIES.into_iter().map(|c| view! { <th scope="col" class="number"><TriageBadge category=c /></th> }).collect_view()}
                                 <th scope="col" class="number">{text::COL_TOTAL}</th>
                                 <th scope="col" class="number">{text::COL_LOAD}</th>
+                                <th scope="col" class="number">{text::COL_DISCHARGED}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1109,6 +1113,7 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                             {CATEGORIES.into_iter().map(|k| view! { <td class="number">{c.get(k)}</td> }).collect_view()}
                                             <td class="number total">{total}</td>
                                             <td class="number">{text::load(total, capacity)}</td>
+                                            <td class="number">{c.discharged}</td>
                                         </tr>
                                     }
                                 })

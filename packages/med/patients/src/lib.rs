@@ -203,6 +203,110 @@ impl TransportPrioritySet {
     }
 }
 
+/// Event type: a patient left their on-site care unit (UHS-3).
+pub const DISCHARGED: &str = "patients.discharged";
+/// Event type: a discharged patient is back in their unit (returned, or discharged by
+/// mistake: events are never changed, the readmission corrects it).
+pub const READMITTED: &str = "patients.readmitted";
+
+/// How a patient left the on-site care unit (UHS-3). ORDO records what the crew states.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Outcome {
+    /// Released on site.
+    ReleasedOnSite,
+    /// Transported (to a hospital or elsewhere).
+    Transported,
+    /// Refused treatment or transport.
+    Refused,
+    /// Deceased.
+    Deceased,
+}
+
+impl Outcome {
+    /// Every outcome, in the order the app offers them.
+    pub const ALL: [Self; 4] = [
+        Self::ReleasedOnSite,
+        Self::Transported,
+        Self::Refused,
+        Self::Deceased,
+    ];
+
+    /// The ID used in events, e.g. `releasedOnSite`.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::ReleasedOnSite => "releasedOnSite",
+            Self::Transported => "transported",
+            Self::Refused => "refused",
+            Self::Deceased => "deceased",
+        }
+    }
+
+    /// The outcome with this ID.
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|o| o.id() == id)
+    }
+}
+
+/// Payload of `patients.discharged` (clinical compartment).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Discharged {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// How the patient left.
+    pub outcome: Outcome,
+    /// The transport request the patient left with ([`transport::TransportRequested`]),
+    /// if transported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
+}
+
+/// Payload of `patients.readmitted` (clinical compartment).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Readmitted {
+    /// Number of the triage tag.
+    pub tag: String,
+}
+
+impl Discharged {
+    /// Encodes the payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+impl Readmitted {
+    /// Encodes the payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// An admission to or a discharge from the patient's unit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Stay {
+    /// Admitted: at registration, or readmitted later.
+    Admitted,
+    /// Discharged, with the outcome and the transport request, if any.
+    Discharged {
+        /// How the patient left.
+        outcome: Outcome,
+        /// The transport request, if transported.
+        transport: Option<String>,
+    },
+}
+
+/// One admission or discharge with time and person.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StayEntry {
+    /// What happened.
+    pub change: Stay,
+    /// When.
+    pub at: Hlc,
+    /// Who recorded it.
+    pub by: UserId,
+}
+
 /// Schema version of `patients.registered` and `patients.retriaged`: 2 since the category
 /// `uninjured` ("Betroffene") exists; version 1 payloads decode unchanged.
 pub const TRIAGE_SCHEMA: u32 = 2;
@@ -265,9 +369,24 @@ pub struct Patient {
     priority: Option<(String, Hlc)>,
     /// The treatment place ([`Place::id`]) in the patient's unit, if assigned.
     pub place: Option<String>,
+    /// Admissions and discharges, oldest first; starts with the registration.
+    pub stay: Vec<StayEntry>,
 }
 
 impl Patient {
+    // [impl->dsn~uhs-discharge~1]
+    /// The discharge, while the patient is discharged (the latest entry of the stay).
+    pub fn discharge(&self) -> Option<&StayEntry> {
+        self.stay
+            .last()
+            .filter(|e| matches!(e.change, Stay::Discharged { .. }))
+    }
+
+    /// Whether the patient is in their unit (admitted and not discharged since).
+    pub fn is_present(&self) -> bool {
+        self.discharge().is_none()
+    }
+
     /// The current triage category (the latest decision).
     pub fn category(&self) -> TriageCategory {
         self.history
@@ -312,6 +431,8 @@ enum Change {
     Retriaged(Retriaged),
     Priority(TransportPrioritySet),
     Place(PlaceAssigned),
+    Discharged(Discharged),
+    Readmitted(Readmitted),
 }
 
 impl PatientRegister {
@@ -327,6 +448,8 @@ impl PatientRegister {
                     RETRIAGED => Change::Retriaged(codec::from_cbor(&e.payload).ok()?),
                     TRANSPORT_PRIORITY => Change::Priority(codec::from_cbor(&e.payload).ok()?),
                     PLACE_ASSIGNED => Change::Place(codec::from_cbor(&e.payload).ok()?),
+                    DISCHARGED => Change::Discharged(codec::from_cbor(&e.payload).ok()?),
+                    READMITTED => Change::Readmitted(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e.body.hlc, e.body.author.user.clone(), change))
@@ -340,7 +463,7 @@ impl PatientRegister {
                     let entry = TriageEntry {
                         category: r.category,
                         at,
-                        by,
+                        by: by.clone(),
                     };
                     match register.patients.get_mut(&r.tag) {
                         Some(patient) => {
@@ -356,6 +479,11 @@ impl PatientRegister {
                                     history: vec![entry],
                                     priority: None,
                                     place: None,
+                                    stay: vec![StayEntry {
+                                        change: Stay::Admitted,
+                                        at,
+                                        by,
+                                    }],
                                 },
                             );
                         }
@@ -376,6 +504,33 @@ impl PatientRegister {
                 Change::Place(p) => match register.patients.get_mut(&p.tag) {
                     Some(patient) => patient.place = p.place,
                     None => register.notices.push(Notice::UnknownPatient(p.tag)),
+                },
+                // [impl->dsn~uhs-discharge~1]
+                // A discharge frees the treatment place; a later one (two devices offline)
+                // replaces the outcome, and both stay in the history.
+                Change::Discharged(d) => match register.patients.get_mut(&d.tag) {
+                    Some(patient) => {
+                        patient.place = None;
+                        patient.stay.push(StayEntry {
+                            change: Stay::Discharged {
+                                outcome: d.outcome,
+                                transport: d.transport,
+                            },
+                            at,
+                            by,
+                        });
+                    }
+                    None => register.notices.push(Notice::UnknownPatient(d.tag)),
+                },
+                // Readmitting a patient who is in the unit changes nothing.
+                Change::Readmitted(r) => match register.patients.get_mut(&r.tag) {
+                    Some(patient) if !patient.is_present() => patient.stay.push(StayEntry {
+                        change: Stay::Admitted,
+                        at,
+                        by,
+                    }),
+                    Some(_) => {}
+                    None => register.notices.push(Notice::UnknownPatient(r.tag)),
                 },
             }
         }
@@ -402,17 +557,23 @@ impl PatientRegister {
         self.patients.is_empty()
     }
 
-    /// Patient counts per on-site care unit, sorted by unit.
+    // [impl->dsn~uhs-discharge~1]
+    /// Patient counts per on-site care unit, sorted by unit: the patients in the unit per
+    /// triage category, and how many were discharged.
     pub fn counts(&self) -> BTreeMap<String, PatientCountsV1> {
         let mut counts: BTreeMap<String, PatientCountsV1> = BTreeMap::new();
         for patient in self.patients.values() {
-            counts
+            let unit = counts
                 .entry(patient.uhs.clone())
                 .or_insert_with(|| PatientCountsV1 {
                     uhs: patient.uhs.clone(),
                     ..Default::default()
-                })
-                .add(patient.category());
+                });
+            if patient.is_present() {
+                unit.add(patient.category());
+            } else {
+                unit.discharged += 1;
+            }
         }
         counts
     }
@@ -480,4 +641,167 @@ pub fn latest_counts(incident_events: &[AppliedEvent]) -> BTreeMap<String, Patie
         }
     }
     latest
+}
+
+/// Events for unit tests, shared by the modules of this package.
+#[cfg(test)]
+pub(crate) mod testing {
+    use ordo_core::event::{Author, EventBody, Payload};
+    use ordo_core::{DeviceId, EventId, Hlc, IncidentId, ServerName, Ulid};
+    use ordo_sync::AppliedEvent;
+
+    /// The `n`-th event of one incident (its clock and ID follow `n`), by `user`.
+    pub fn event(
+        n: u64,
+        user: &str,
+        module: &str,
+        compartment: &str,
+        event_type: &str,
+        payload: Vec<u8>,
+    ) -> AppliedEvent {
+        let server: ServerName = "ordo.example.org".parse().expect("valid server");
+        let device = DeviceId(Ulid::from_parts(1, 1).expect("valid"));
+        AppliedEvent {
+            seq: Some(n),
+            body: EventBody {
+                version: 1,
+                id: EventId(Ulid::from_parts(n, u128::from(n)).expect("valid")),
+                schema_version: 1,
+                hlc: Hlc {
+                    wall_ms: 1000 + n,
+                    counter: 0,
+                    node: device,
+                },
+                incident: IncidentId::new(Ulid::from_parts(9, 9).expect("valid"), &server),
+                module: module.parse().expect("valid"),
+                compartment: compartment.parse().expect("valid"),
+                event_type: event_type.parse().expect("valid"),
+                author: Author {
+                    user: format!("{user}@ordo.example.org")
+                        .parse()
+                        .expect("valid user"),
+                    device,
+                },
+                origin: server,
+                payload: Payload::Plain(Vec::new()),
+            },
+            payload,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event(n: u64, user: &str, event_type: &str, payload: Vec<u8>) -> AppliedEvent {
+        testing::event(n, user, MODULE, COMPARTMENT, event_type, payload)
+    }
+
+    fn registered(n: u64, tag: &str, category: TriageCategory) -> AppliedEvent {
+        let r = Registered {
+            tag: tag.into(),
+            uhs: "uhs-1".into(),
+            category,
+        };
+        event(n, "anna", REGISTERED, r.encode().unwrap())
+    }
+
+    fn discharged(n: u64, tag: &str, outcome: Outcome) -> AppliedEvent {
+        let d = Discharged {
+            tag: tag.into(),
+            outcome,
+            transport: (outcome == Outcome::Transported).then(|| "request-1".into()),
+        };
+        event(n, "anna", DISCHARGED, d.encode().unwrap())
+    }
+
+    fn readmitted(n: u64, tag: &str) -> AppliedEvent {
+        let r = Readmitted { tag: tag.into() };
+        event(n, "clara", READMITTED, r.encode().unwrap())
+    }
+
+    #[test]
+    fn outcome_ids_are_the_ids_in_events() {
+        for outcome in Outcome::ALL {
+            let json = serde_json::to_string(&outcome).unwrap();
+            assert_eq!(json, format!("\"{}\"", outcome.id()));
+            assert_eq!(Outcome::from_id(outcome.id()), Some(outcome));
+        }
+    }
+
+    // [utest->dsn~uhs-discharge~1]
+    #[test]
+    fn discharge_frees_the_place_leaves_the_counts_and_readmission_brings_back() {
+        let place = PlaceAssigned {
+            tag: "DE-0001".into(),
+            place: Some("p1".into()),
+        };
+        let mut events = vec![
+            registered(1, "DE-0001", TriageCategory::Immediate),
+            registered(2, "DE-0002", TriageCategory::Minor),
+            event(3, "anna", PLACE_ASSIGNED, place.encode().unwrap()),
+            discharged(4, "DE-0001", Outcome::Transported),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let patient = register.patient("DE-0001").unwrap();
+        assert!(!patient.is_present());
+        assert_eq!(patient.place, None, "the place is free again");
+        assert_eq!(
+            patient.discharge().map(|d| &d.change),
+            Some(&Stay::Discharged {
+                outcome: Outcome::Transported,
+                transport: Some("request-1".into()),
+            })
+        );
+        let counts = &register.counts()["uhs-1"];
+        assert_eq!(
+            (counts.immediate, counts.minor, counts.discharged),
+            (0, 1, 1),
+            "the load counts the patients in the unit"
+        );
+
+        // Discharged by mistake: readmitted, both entries stay.
+        events.push(readmitted(5, "DE-0001"));
+        events.push(readmitted(6, "DE-0002")); // in the unit: changes nothing
+        let register = PatientRegister::from_events(&events);
+        let patient = register.patient("DE-0001").unwrap();
+        assert!(patient.is_present());
+        let stay: Vec<(&Stay, &str)> = patient
+            .stay
+            .iter()
+            .map(|e| (&e.change, e.by.localpart()))
+            .collect();
+        assert_eq!(stay.len(), 3);
+        assert_eq!(
+            (stay[0].0, stay[2]),
+            (&Stay::Admitted, (&Stay::Admitted, "clara"))
+        );
+        assert_eq!(register.patient("DE-0002").unwrap().stay.len(), 1);
+        let counts = &register.counts()["uhs-1"];
+        assert_eq!((counts.immediate, counts.discharged), (1, 0));
+    }
+
+    // [utest->dsn~uhs-discharge~1]
+    #[test]
+    fn discharges_arriving_out_of_order_apply_in_clock_order() {
+        // Arriving out of order (offline devices) gives the same result.
+        let events = vec![
+            discharged(3, "DE-0001", Outcome::Refused),
+            registered(1, "DE-0001", TriageCategory::Urgent),
+            discharged(5, "DE-0001", Outcome::ReleasedOnSite),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let patient = register.patient("DE-0001").unwrap();
+        assert!(register.notices.is_empty());
+        assert_eq!(
+            patient.discharge().map(|d| &d.change),
+            Some(&Stay::Discharged {
+                outcome: Outcome::ReleasedOnSite,
+                transport: None,
+            }),
+            "the latest discharge states the outcome"
+        );
+        assert_eq!(patient.stay.len(), 3);
+    }
 }

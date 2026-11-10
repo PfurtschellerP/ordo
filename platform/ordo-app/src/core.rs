@@ -620,6 +620,43 @@ pub fn assign_place(
     )
 }
 
+// [impl->dsn~uhs-discharge~1]
+/// Discharges a patient from their unit (UHS-3).
+pub fn discharge(
+    core: Handle,
+    revision: RwSignal<u64>,
+    discharge: &patients::Discharged,
+) -> Result<(), String> {
+    let payload = discharge.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        patients::DISCHARGED,
+        &payload,
+        text::discharged(&discharge.tag, discharge.outcome),
+    )
+}
+
+/// Readmits a discharged patient to their unit.
+pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), String> {
+    let payload = patients::Readmitted {
+        tag: tag.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        patients::MODULE,
+        patients::READMITTED,
+        &payload,
+        text::readmitted(tag),
+    )
+}
+
 /// Adds a unit (vehicle, team, other resource) to the incident (UNIT-1).
 pub fn add_unit(
     core: Handle,

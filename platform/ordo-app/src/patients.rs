@@ -15,13 +15,15 @@ use ordo_contracts::TriageCategory;
 use ordo_med_patients::record::{
     self, EntryRecorded, Field, FieldType, Form, FormCatalogue, FormKind, Records, Value,
 };
-use ordo_med_patients::{self as med, PatientRegister};
+use ordo_med_patients::transport::TransportStatus;
+use ordo_med_patients::{self as med, Discharged, Outcome, Patient, PatientRegister, Stay};
 use wasm_bindgen::JsCast;
 
 use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
+use crate::ui::{Action, Actions, RadioChips};
 use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
@@ -230,6 +232,63 @@ fn person_name(records: &Records, tag: &str) -> Option<String> {
     }
 }
 
+/// What a card of the patient list shows.
+#[derive(Clone, PartialEq)]
+struct Card {
+    tag: String,
+    category: TriageCategory,
+    uhs: String,
+    triages: usize,
+    name: Option<String>,
+    pending: bool,
+    priority: Option<String>,
+    place: Option<String>,
+    discharged: Option<Outcome>,
+}
+
+/// One patient in the list: a link to the record.
+#[component]
+fn PatientCard(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl IntoView {
+    let route = record_route(&card.tag);
+    let current = {
+        let tag = card.tag.clone();
+        move || (selected.get().as_deref() == Some(tag.as_str())).then_some("page")
+    };
+    // Discharged: the outcome instead of the place.
+    let place = match card.discharged {
+        Some(outcome) => Some(text::outcome(outcome).to_owned()),
+        None => card.place,
+    };
+    view! {
+        <li>
+            <a
+                class="patient-card"
+                data-tag=card.tag.clone()
+                href=route.to_path()
+                aria-current=current
+                on:click=move |ev| {
+                    ev.prevent_default();
+                    nav.go(route.clone());
+                    after_render(|| focus("record-title"));
+                }
+            >
+                <span class="patient-card__head">
+                    <span class="patient-card__tag code">{card.tag.clone()}</span>
+                    <TriageBadge category=card.category />
+                    {card.priority.map(|label| view! { <PriorityBadge label /> })}
+                </span>
+                <span class="patient-card__name">{card.name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
+                <span class="patient-card__meta">
+                    {card.uhs} {place.map(|p| format!(" · {p}"))} " · " {text::triage_count(card.triages)} " · "
+                    <span class="patient-card__state">{if card.pending { text::NOT_SENT } else { text::SENT }}</span>
+                </span>
+            </a>
+        </li>
+    }
+}
+
+// [impl->dsn~uhs-discharge~1]
+/// The patients in their units; discharged patients apart, collapsed.
 #[component]
 fn PatientList(
     core: Handle,
@@ -239,7 +298,7 @@ fn PatientList(
     records: Memo<Records>,
     selected: Signal<Option<String>>,
 ) -> impl IntoView {
-    let cards = move || {
+    let cards = Memo::new(move |_| {
         revision.track();
         let names: HashMap<String, String> =
             uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
@@ -255,79 +314,67 @@ fn PatientList(
         register.with(|r| {
             records.with(|records| {
                 r.patients()
-                    .map(|p| {
-                        (
-                            p.tag.clone(),
-                            p.category(),
-                            names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone()),
-                            p.history.len(),
-                            person_name(records, &p.tag),
-                            pending.contains(&p.tag),
-                            p.transport_priority(&TRANSPORT_PRIORITY)
-                                .map(priority_label),
-                            p.place.as_ref().and_then(|id| {
-                                places
-                                    .get(&p.uhs)?
-                                    .iter()
-                                    .find(|pl| &pl.id == id)
-                                    .map(|pl| pl.label.clone())
-                            }),
-                        )
+                    .map(|p| Card {
+                        tag: p.tag.clone(),
+                        category: p.category(),
+                        uhs: names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone()),
+                        triages: p.history.len(),
+                        name: person_name(records, &p.tag),
+                        pending: pending.contains(&p.tag),
+                        priority: p
+                            .transport_priority(&TRANSPORT_PRIORITY)
+                            .map(priority_label),
+                        place: p.place.as_ref().and_then(|id| {
+                            places
+                                .get(&p.uhs)?
+                                .iter()
+                                .find(|pl| &pl.id == id)
+                                .map(|pl| pl.label.clone())
+                        }),
+                        discharged: discharged_outcome(p),
                     })
                     .collect::<Vec<_>>()
             })
         })
+    });
+    let present = Memo::new(move |_| {
+        cards.with(|c| {
+            c.iter()
+                .filter(|c| c.discharged.is_none())
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+    });
+    let discharged = Memo::new(move |_| {
+        cards.with(|c| {
+            c.iter()
+                .filter(|c| c.discharged.is_some())
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+    });
+    let list = move |cards: Vec<Card>| {
+        view! {
+            <ul class="patient-list">
+                {cards.into_iter().map(|card| view! { <PatientCard card nav selected /> }).collect_view()}
+            </ul>
+        }
     };
     view! {
         <section aria-labelledby="board-title" class="card">
             <h2 id="board-title">{text::PATIENTS_TITLE}</h2>
             {move || {
-                let cards = cards();
-                if cards.is_empty() {
+                if cards.with(Vec::is_empty) {
                     return view! { <p>{text::BOARD_EMPTY}</p> }.into_any();
                 }
-                view! {
-                    <ul class="patient-list">
-                        {cards
-                            .into_iter()
-                            .map(|(tag, category, uhs, history, name, pending, priority, place)| {
-                                let route = record_route(&tag);
-                                let current = {
-                                    let tag = tag.clone();
-                                    move || (selected.get().as_deref() == Some(tag.as_str())).then_some("page")
-                                };
-                                view! {
-                                    <li>
-                                        <a
-                                            class="patient-card"
-                                            data-tag=tag.clone()
-                                            href=route.to_path()
-                                            aria-current=current
-                                            on:click=move |ev| {
-                                                ev.prevent_default();
-                                                nav.go(route.clone());
-                                                after_render(|| focus("record-title"));
-                                            }
-                                        >
-                                            <span class="patient-card__head">
-                                                <span class="patient-card__tag code">{tag.clone()}</span>
-                                                <TriageBadge category />
-                                                {priority.map(|label| view! { <PriorityBadge label /> })}
-                                            </span>
-                                            <span class="patient-card__name">{name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
-                                            <span class="patient-card__meta">
-                                                {uhs} {place.map(|p| format!(" · {p}"))} " · " {text::triage_count(history)} " · "
-                                                <span class="patient-card__state">{if pending { text::NOT_SENT } else { text::SENT }}</span>
-                                            </span>
-                                        </a>
-                                    </li>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                }
-                .into_any()
+                let present = present.get();
+                (!present.is_empty()).then(|| list(present)).into_any()
             }}
+            // Created once, so it stays open while events arrive.
+            <details class="discharged-list" hidden=move || discharged.with(Vec::is_empty)>
+                <summary>{move || text::discharged_list(discharged.with(Vec::len))}</summary>
+                {move || list(discharged.get())}
+            </details>
         </section>
     }
 }
@@ -380,10 +427,12 @@ fn PatientRecord(
     let sections: Vec<(String, String)> = [
         ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
         ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
+        ("section-orders".to_owned(), text::ORDERS.to_owned()),
         (
             "section-transport".to_owned(),
             text::TRANSPORT_TITLE.to_owned(),
         ),
+        ("section-stay".to_owned(), text::STAY_TITLE.to_owned()),
     ]
     .into_iter()
     .chain(
@@ -397,6 +446,16 @@ fn PatientRecord(
         <article class="card record" aria-labelledby="record-title">
             {back_link}
             <h2 id="record-title" tabindex="-1">{text::patient_title(&tag)}</h2>
+            {
+                let tag = tag.clone();
+                move || {
+                    register.with(|r| {
+                        r.patient(&tag).and_then(discharged_outcome).map(|o| {
+                            view! { <p class="record__discharged"><strong>{text::discharged_as(o)}</strong></p> }
+                        })
+                    })
+                }
+            }
             <nav class="record__index" aria-label=text::SECTIONS>
                 {sections
                     .into_iter()
@@ -411,6 +470,7 @@ fn PatientRecord(
             <TriageSection core revision tag=tag.clone() register />
             <crate::orders::OrdersSection core revision tag=tag.clone() />
             <crate::transports::TransportSection core revision tag=tag.clone() />
+            <StaySection core revision tag=tag.clone() register />
             {FORMS
                 .forms
                 .iter()
@@ -419,6 +479,132 @@ fn PatientRecord(
         </article>
     }
     .into_any()
+}
+
+/// The outcome, while the patient is discharged.
+fn discharged_outcome(patient: &Patient) -> Option<Outcome> {
+    match patient.discharge()?.change {
+        Stay::Discharged { outcome, .. } => Some(outcome),
+        Stay::Admitted => None,
+    }
+}
+
+// [impl->dsn~uhs-discharge~1]
+/// Admission and discharge (UHS-3): every admission and discharge with time and person;
+/// discharging with an outcome, or readmitting. Once the patient's transport has left,
+/// "transported" is chosen already (the crew can still choose otherwise).
+#[component]
+fn StaySection(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: String,
+    register: Memo<PatientRegister>,
+) -> impl IntoView {
+    let patient = {
+        let tag = tag.clone();
+        Memo::new(move |_| register.with(|r| r.patient(&tag).cloned()))
+    };
+    let present = Memo::new(move |_| patient.with(|p| p.as_ref().is_none_or(Patient::is_present)));
+    // The transport the patient leaves with: the latest one not cancelled.
+    let transport = {
+        let tag = tag.clone();
+        Memo::new(move |_| {
+            revision.track();
+            crate::transports::patient_transports(core, &tag)
+                .into_iter()
+                .rev()
+                .find(|t| t.status != TransportStatus::Cancelled)
+        })
+    };
+    let outcome = RwSignal::new(String::new());
+    Effect::new(move || {
+        let left = transport.with(|t| t.as_ref().is_some_and(|t| t.status.has_left()));
+        if left && present.get() && outcome.get_untracked().is_empty() {
+            outcome.set(Outcome::Transported.id().to_owned());
+        }
+    });
+    let message = RwSignal::new(None::<&'static str>);
+    let submit = {
+        let tag = tag.clone();
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let Some(chosen) = Outcome::from_id(&outcome.get_untracked()) else {
+                message.set(Some(text::DISCHARGE_CHOOSE));
+                return;
+            };
+            let discharge = Discharged {
+                tag: tag.clone(),
+                outcome: chosen,
+                transport: (chosen == Outcome::Transported)
+                    .then(|| transport.get_untracked().map(|t| t.request.request))
+                    .flatten(),
+            };
+            if core::discharge(core, revision, &discharge).is_ok() {
+                outcome.set(String::new());
+                message.set(None);
+            }
+        }
+    };
+    let readmit = {
+        let tag = tag.clone();
+        move || {
+            let tag = tag.clone();
+            vec![Action {
+                text: text::READMIT,
+                label: text::readmit_label(&tag),
+                quiet: false,
+                run: Callback::new(move |()| {
+                    let _ = core::readmit(core, revision, &tag);
+                }),
+            }]
+        }
+    };
+    let options: Vec<(String, String)> = Outcome::ALL
+        .into_iter()
+        .map(|o| (o.id().to_owned(), text::outcome(o).to_owned()))
+        .collect();
+    view! {
+        <section class="record__section" aria-labelledby="section-stay">
+            <h3 id="section-stay" tabindex="-1">{text::STAY_TITLE}</h3>
+            <ol class="history">
+                {move || {
+                    patient.with(|p| {
+                        p.iter()
+                            .flat_map(|p| p.stay.iter())
+                            .map(|e| {
+                                let what = match e.change {
+                                    Stay::Admitted => text::ADMITTED.to_owned(),
+                                    Stay::Discharged { outcome, .. } => text::discharged_as(outcome),
+                                };
+                                let when = text::by_at(e.by.as_str(), &core::clock(e.at.wall_ms));
+                                view! { <li>{what} " · " {when}</li> }
+                            })
+                            .collect_view()
+                    })
+                }}
+            </ol>
+            <Show
+                when=move || present.get()
+                fallback=move || view! { <Actions actions=readmit() /> }
+            >
+                <form class="form stay-form" novalidate on:submit=submit.clone()>
+                    <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.clone() value=outcome />
+                    {move || {
+                        (outcome.get() == Outcome::Transported.id())
+                            .then(|| transport.get())
+                            .flatten()
+                            .map(|t| view! {
+                                <p class="hint">{text::discharge_transport(&crate::transports::transport_line(&t))}</p>
+                            })
+                    }}
+                    <p class="error" role="alert">{move || message.get()}</p>
+                    <div class="row">
+                        <button type="submit" class="button">{text::DISCHARGE}</button>
+                    </div>
+                </form>
+            </Show>
+        </section>
+    }
 }
 
 /// Which image of a photo is shown.

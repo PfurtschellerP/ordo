@@ -589,7 +589,10 @@
   .entry .button { justify-self: start; }
   .entry--corrected { border-style: dashed; }
   .entry--corrected .facts dd { text-decoration: line-through; }
-  .corrected summary, .history-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+  .discharged-list { margin-block-start: var(--ordo-space-4); }
+  .discharged-list > .patient-list { margin-block-start: var(--ordo-space-2); }
+  .record__discharged { margin: 0; }
+  .corrected summary, .history-list summary, .discharged-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }

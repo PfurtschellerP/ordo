@@ -822,8 +822,7 @@ impl Records {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ordo_core::event::{Author, EventBody, Payload};
-    use ordo_core::{DeviceId, EventId, IncidentId, ServerName, Ulid};
+    use ordo_core::{EventId, Ulid};
 
     /// A small questionnaire in ORDO's FHIR subset.
     fn catalogue() -> FormCatalogue {
@@ -932,32 +931,7 @@ mod tests {
     }
 
     fn event(n: u64, event_type: &str, payload: Vec<u8>) -> AppliedEvent {
-        let server: ServerName = "ordo.example.org".parse().expect("valid server");
-        let device = DeviceId(Ulid::from_parts(1, 1).expect("valid"));
-        AppliedEvent {
-            seq: Some(n),
-            body: EventBody {
-                version: 1,
-                id: EventId(Ulid::from_parts(n, u128::from(n)).expect("valid")),
-                schema_version: 1,
-                hlc: Hlc {
-                    wall_ms: 1000 + n,
-                    counter: 0,
-                    node: device,
-                },
-                incident: IncidentId::new(Ulid::from_parts(9, 9).expect("valid"), &server),
-                module: MODULE.parse().expect("valid"),
-                compartment: "med.clinical".parse().expect("valid"),
-                event_type: event_type.parse().expect("valid"),
-                author: Author {
-                    user: "anna@ordo.example.org".parse().expect("valid user"),
-                    device,
-                },
-                origin: server,
-                payload: Payload::Plain(Vec::new()),
-            },
-            payload,
-        }
+        crate::testing::event(n, "anna", MODULE, "med.clinical", event_type, payload)
     }
 
     fn entry(n: u64, form: &str, values: &[(&str, Value)], replaces: Option<u64>) -> AppliedEvent {

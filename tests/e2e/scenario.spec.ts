@@ -532,8 +532,8 @@ test("ORDO in the browser", async ({ browser }) => {
         ),
       );
     await expect.poll(cards, { message: "command sees counts and load per UHS" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 10",
-      "UHS Eingang 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 5",
+      "UHS Bühne Nord 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 10 · Entlassen: 0",
+      "UHS Eingang 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 5 · Entlassen: 0",
     ]);
     await ben.setViewportSize({ width: 1700, height: 1000 });
     const table = () =>
@@ -541,8 +541,8 @@ test("ORDO in the browser", async ({ browser }) => {
         rows.filter((r) => (r as HTMLElement).offsetParent).map((r) => [...(r as HTMLTableRowElement).cells].map((c) => c.innerText.split("\n")[0]).join(" ")),
       );
     await expect.poll(table, { message: "where there is room, the counts are a table" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 0 2 2 / 10",
-      "UHS Eingang 1 0 1 0 0 0 2 2 / 5",
+      "UHS Bühne Nord 1 0 1 0 0 0 2 2 / 10 0",
+      "UHS Eingang 1 0 1 0 0 0 2 2 / 5 0",
     ]);
     await audit(ben, "Command workspace (wide)", [1700]);
     const received = Buffer.concat(benFrames.received);
@@ -611,6 +611,39 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "the command device never receives the triage tag number").toBe(false);
     await audit(ben, "Transports");
     await shot(ben, "transports");
+  });
+
+  // [itest->dsn~uhs-discharge~1]
+  await test.step("the UHS discharges the transported patient; the load drops", async () => {
+    const medic = await newDevice(browser);
+    await loginPair(medic, server, "anna@example.org");
+    await openIncident(medic, INCIDENT);
+    await openView(medic, "Patienten");
+    await openRecord(medic, "DE-0044");
+    const stay = medic.locator("[aria-labelledby=section-stay]");
+    await expect(stay.locator(".history li"), "registration is the admission").toHaveCount(1);
+    await expect(stay.getByLabel("Transportiert", { exact: true }), "the transport has left: transported is chosen").toBeChecked();
+    await expect(stay.locator(".hint")).toHaveText("Mit dem Transport: RTW · RTW 83/1 → Klinikum Mitte");
+    await audit(medic, "Discharge");
+    await stay.getByRole("button", { name: "Entlassen", exact: true }).click();
+    await expect(medic.locator(".record__discharged"), "the record says so at the top").toHaveText("Entlassen: Transportiert");
+    await expect(stay.locator(".history li").nth(1)).toContainText("Entlassen: Transportiert");
+    await expect(stay.getByRole("button", { name: "DE-0044 wieder aufnehmen" }), "a mistake is undone by readmitting").toBeVisible();
+    await expect.poll(() => status(medic), { message: "the discharge is sent" }).toContain("Alles gesendet");
+    await medic.goBack();
+    const discharged = medic.locator(".discharged-list");
+    await expect(discharged.locator("summary"), "discharged patients are listed apart").toHaveText("Entlassene Patienten (1)");
+    await expect(medic.locator(".patient-card[data-tag='DE-0044']"), "collapsed").toBeHidden();
+    await discharged.locator("summary").click();
+    await expect(discharged.locator(".patient-card[data-tag='DE-0044']"), "with the outcome").toContainText("Transportiert");
+    await audit(medic, "Patients with discharged");
+    await medic.context().close();
+
+    await openView(ben, "Patientenzahlen");
+    await expect
+      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient" })
+      .toBe("Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 1");
+    expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
@@ -648,7 +681,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator("#launcher-button").click();
     await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
     await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(5);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(6);
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();
@@ -656,7 +689,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(4);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(5);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

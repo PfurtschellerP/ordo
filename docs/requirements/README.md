@@ -103,6 +103,7 @@ the build fails.
 | 14 — Transport requests | `m14` | Transport request from the UHS (TRANS-1); assignment of unit and destination, status with times (TRANS-3) |
 | 15 — Medical orders | `m15` | Orders by physicians and paramedics, carried out by the UHS crew (ORDER-1…4) |
 | 16 — Header and handedness | `m16` | Header order, profile menu, bottom bar for left-handed use (UX-11, ADR-0049) |
+| 17 — Discharge | `m17` | Discharge from the UHS with outcome, readmission, load without discharged patients (UHS-3) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -111,5 +112,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17 docs platform modules packages tests
 ```

@@ -8,6 +8,24 @@ use ordo_sync::SyncError;
 use ordo_sync::message::{ClientMessage, Rejection};
 use ordo_units::{self as units, StatusBoard, StatusChanged};
 
+/// Records a clinical patient event on `user`'s device, one second after the last.
+fn clinical(world: &mut World, user: &str, event_type: &str, payload: &[u8]) {
+    let (incident, now) = (world.incident.clone(), world.now);
+    world
+        .replica(user)
+        .record(
+            &incident,
+            patients::COMPARTMENT,
+            patients::MODULE,
+            event_type,
+            1,
+            payload,
+            now,
+        )
+        .unwrap();
+    world.tick(1_000);
+}
+
 fn register(world: &mut World, user: &str, tag: &str, category: TriageCategory) {
     let payload = Registered {
         tag: tag.into(),
@@ -16,20 +34,7 @@ fn register(world: &mut World, user: &str, tag: &str, category: TriageCategory) 
     }
     .encode()
     .unwrap();
-    let (incident, now) = (world.incident.clone(), world.now);
-    world
-        .replica(user)
-        .record(
-            &incident,
-            patients::COMPARTMENT,
-            patients::MODULE,
-            patients::REGISTERED,
-            1,
-            &payload,
-            now,
-        )
-        .unwrap();
-    world.tick(1_000);
+    clinical(world, user, patients::REGISTERED, &payload);
 }
 
 fn retriage(world: &mut World, user: &str, tag: &str, category: TriageCategory) {
@@ -39,20 +44,7 @@ fn retriage(world: &mut World, user: &str, tag: &str, category: TriageCategory) 
     }
     .encode()
     .unwrap();
-    let (incident, now) = (world.incident.clone(), world.now);
-    world
-        .replica(user)
-        .record(
-            &incident,
-            patients::COMPARTMENT,
-            patients::MODULE,
-            patients::RETRIAGED,
-            1,
-            &payload,
-            now,
-        )
-        .unwrap();
-    world.tick(1_000);
+    clinical(world, user, patients::RETRIAGED, &payload);
 }
 
 fn set_status(world: &mut World, user: &str, unit: &str, status: &str, replaces: Option<Hlc>) {
@@ -946,20 +938,7 @@ fn transport_priority(world: &mut World, user: &str, tag: &str, level: Option<&s
     }
     .encode()
     .unwrap();
-    let (incident, now) = (world.incident.clone(), world.now);
-    world
-        .replica(user)
-        .record(
-            &incident,
-            patients::COMPARTMENT,
-            patients::MODULE,
-            patients::TRANSPORT_PRIORITY,
-            1,
-            &payload,
-            now,
-        )
-        .unwrap();
-    world.tick(1_000);
+    clinical(world, user, patients::TRANSPORT_PRIORITY, &payload);
 }
 
 // [itest->dsn~transport-priority~1]
@@ -1137,4 +1116,58 @@ fn replica_is_stored_row_by_row() {
         assert_eq!(loaded.events_after(key, 0), original.events_after(key, 0));
     }
     assert_eq!(loaded.outbox_len(), original.outbox_len());
+}
+
+// [itest->dsn~uhs-discharge~1]
+/// A discharged patient leaves the unit's load; command sees how many were discharged,
+/// never who. A readmission brings the patient back on every device.
+#[test]
+fn discharge_and_readmission_reach_every_device_and_the_counts() {
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0010", Immediate);
+    register(&mut world, "anna", "DE-0011", Minor);
+    world.sync();
+    let discharged = patients::Discharged {
+        tag: "DE-0010".into(),
+        outcome: patients::Outcome::Transported,
+        transport: Some("01JTRANSPORT".into()),
+    }
+    .encode()
+    .unwrap();
+    clinical(&mut world, "anna", patients::DISCHARGED, &discharged);
+    world.sync();
+
+    let seen = register_of(&mut world, "clara");
+    assert!(
+        !seen.patient("DE-0010").unwrap().is_present(),
+        "another medic sees the discharge"
+    );
+    assert_eq!(
+        counts_of(&mut world, "ben"),
+        [(0, 0, 1)],
+        "the load leaves out discharged patients"
+    );
+    let incident = world.incident.clone();
+    let events = world.replica("ben").events(&incident, "incident").unwrap();
+    assert_eq!(
+        patients::latest_counts(&events)["UHS 1"].discharged,
+        1,
+        "command sees how many left"
+    );
+
+    let readmitted = patients::Readmitted {
+        tag: "DE-0010".into(),
+    }
+    .encode()
+    .unwrap();
+    clinical(&mut world, "clara", patients::READMITTED, &readmitted);
+    world.sync();
+    assert!(
+        register_of(&mut world, "anna")
+            .patient("DE-0010")
+            .unwrap()
+            .is_present()
+    );
+    assert_eq!(counts_of(&mut world, "ben"), [(1, 0, 1)]);
 }

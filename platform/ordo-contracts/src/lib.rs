@@ -45,6 +45,10 @@ pub struct PatientCountsV1 {
     /// Unharmed but affected (added later; absent in older counts).
     #[serde(default)]
     pub uninjured: u32,
+    /// Patients discharged from the unit (added later; absent in older counts). The
+    /// categories count only the patients in the unit.
+    #[serde(default)]
+    pub discharged: u32,
 }
 
 impl PatientCountsV1 {
