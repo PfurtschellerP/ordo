@@ -169,6 +169,7 @@ mod tests {
         let done = OrderUpdated {
             order: "o2".into(),
             status: OrderStatus::Done,
+            performed_by: None,
         };
         let clinical_events = vec![
             patient(1, "A", "nord", TriageCategory::Immediate),

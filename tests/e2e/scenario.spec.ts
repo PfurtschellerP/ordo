@@ -275,7 +275,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.goBack();
     await expect(anna.locator("#record-title")).toHaveText("Patient DE-0044");
 
-    // [itest->dsn~medical-orders~1]
+    // [itest->dsn~medical-orders~2]
     // [itest->dsn~order-permission~1]
     await expect(anna.locator(".order-form"), "a medic gives no orders").toHaveCount(0);
     const petra = await newDevice(browser);
@@ -301,22 +301,29 @@ test("ORDO in the browser", async ({ browser }) => {
     await order.getByRole("button", { name: "Übernehmen: Paracetamol 1 g i.v." }).click();
     await expect(order.locator(".order-card__status")).toContainText("Übernommen");
     await audit(anna, "Orders");
+    // ORDER-2: Anna reports it, Paul gave it.
+    await expect(order.getByLabel("Durchgeführt von"), "the reporting person by default").toHaveValue("anna@localhost");
+    await order.getByLabel("Durchgeführt von").fill("Paul Beispiel");
     await order.getByRole("button", { name: "Durchgeführt: Paracetamol 1 g i.v." }).click();
     await expect(anna.locator("#main"), "done orders leave the open list").toContainText("Keine offenen Anordnungen.");
     await openView(anna, "Patienten");
     await openRecord(anna, "DE-0044");
     await expect(anna.locator("[aria-labelledby=section-orders] .order-card__status"), "the record keeps it").toContainText("Durchgeführt");
     await anna.locator("[aria-labelledby=section-orders] summary").click();
-    await expect(anna.locator("[aria-labelledby=section-orders] .history-list li"), "with every step").toHaveCount(3);
-    // [itest->dsn~order-documentation~1]
+    await expect(anna.locator("[aria-labelledby=section-orders] .order-card__performed"), "who carried it out").toHaveText("Durchgeführt von Paul Beispiel");
+    const steps = anna.locator("[aria-labelledby=section-orders] .history-list li");
+    await expect(steps, "with every step").toHaveCount(3);
+    await expect(steps.nth(2), "apart from who reported it").toHaveText(/^\d\d:\d\d Durchgeführt \(durch Paul Beispiel\) · anna@localhost$/);
+    const doneAt = (await steps.nth(2).innerText()).slice(0, 5);
+    // [itest->dsn~order-documentation~2]
     await anna.getByRole("button", { name: "In Dokumentation übernehmen: Paracetamol 1 g i.v." }).click();
     await expect(anna.locator("#f-medication-drug"), "the done order fills a new medication entry").toHaveValue("Paracetamol");
     await expect(anna.locator("#f-medication-dose")).toHaveValue("1");
     await expect(anna.locator("#f-medication-dose_unit").getByLabel("g", { exact: true })).toBeChecked();
     await expect(anna.locator("#f-medication-route").getByLabel("i.v.", { exact: true })).toBeChecked();
     await expect(anna.locator("#f-medication-ordered_by"), "with who ordered it").toHaveValue("petra@localhost");
-    await expect(anna.locator("#f-medication-given_by"), "and who gives it").toHaveValue("anna@localhost");
-    await expect(anna.locator("#f-medication-time"), "at the time now").not.toHaveValue("");
+    await expect(anna.locator("#f-medication-given_by"), "and who gave it, not who documents it").toHaveValue("Paul Beispiel");
+    await expect(anna.locator("#f-medication-time"), "when it was reported done").toHaveValue(doneAt);
     await saveForm(anna, "medication");
     await expect(anna.locator("[aria-labelledby=section-medication] .entry"), "the crew saves it").toContainText("Paracetamol");
 

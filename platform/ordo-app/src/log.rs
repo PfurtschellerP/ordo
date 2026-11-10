@@ -257,7 +257,11 @@ fn describe(e: &AppliedEvent, c: &Context) -> Line {
             med::orders::UPDATED => {
                 let p = decode::<med::orders::OrderUpdated>(e)?;
                 let tag = Context::name(&c.orders, &p.order);
-                text::log_order_updated(tag, text::order_status(p.status)).into()
+                let status = match &p.performed_by {
+                    Some(by) => text::order_status_performed(text::order_status(p.status), by),
+                    None => text::order_status(p.status).to_owned(),
+                };
+                text::log_order_updated(tag, &status).into()
             }
             med::record::ENTRY_RECORDED => {
                 let p = decode::<med::record::EntryRecorded>(e)?;

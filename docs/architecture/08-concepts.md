@@ -691,7 +691,7 @@ Needs: impl, utest, itest
 Tags: must, m18
 
 #### Medical orders
-`dsn~medical-orders~1`
+`dsn~medical-orders~2`
 
 Module `med.orders`, in `med.clinical`. A physician or paramedic gives an order on the
 patient's record: a medication (substance and dose as free text, route from the profile
@@ -699,7 +699,9 @@ file `med/orders.toml`) or a measure (free text), with an optional note. The dev
 `orders.given` with a new order ID (ULID) and the triage tag number. The crew moves it on
 with `orders.updated`: acknowledged, done, or withdrawn; the status of an order is its
 latest update by hybrid logical clock, and every update stays in its history with who and
-when. Steps only go forward: given → acknowledged → done; withdrawn ends an order that is
+when. Reporting an order done names who carried it out, the reporting person unless
+another one is chosen (`performedBy`, schema version 2): a physician's order given by a
+paramedic and documented by a third person keeps all three apart. Steps only go forward: given → acknowledged → done; withdrawn ends an order that is
 not done. The record lists the patient's orders, open ones first; the Med workspace has a
 view *Anordnungen* with the open orders of every UHS the person may read, oldest first,
 with tag number and UHS. ORDO shows what was ordered and by whom; it checks no dose and
@@ -708,7 +710,7 @@ suggests nothing (EPCR-9).
 Covers:
 
 * [req~order-1~1](../requirements/04-med.md#order-1--give-orders)
-* [req~order-2~1](../requirements/04-med.md#order-2--carry-out-orders)
+* [req~order-2~2](../requirements/04-med.md#order-2--carry-out-orders)
 * [req~order-4~1](../requirements/04-med.md#order-4--open-orders-across-all-uhs)
 
 Needs: impl, utest, itest
@@ -716,7 +718,7 @@ Needs: impl, utest, itest
 Tags: must, m15
 
 #### Order documentation
-`dsn~order-documentation~1`
+`dsn~order-documentation~2`
 
 The profile file `med/orders.toml` names, in `[record]`, the series form of the ePCR
 forms where an administration is documented and which of its fields take the substance,
@@ -727,12 +729,12 @@ cannot drift apart. A done medication order on the record offers "In Dokumentati
 übernehmen": it opens a new entry of that form, filled in with the substance, the dose
 (split into number and unit when the ordered dose is a number followed by a unit of the
 form, otherwise left for the crew), the route, the person who gave the order, the person
-using the device and the time now. The crew checks, completes and saves it like any
+who carried it out (not the person using the device) and the time it was reported done. The crew checks, completes and saves it like any
 entry; ORDO saves nothing on its own and converts no dose.
 
 Covers:
 
-* [req~order-5~1](../requirements/04-med.md#order-5--document-a-done-medication-order)
+* [req~order-5~2](../requirements/04-med.md#order-5--document-a-done-medication-order)
 
 Needs: impl, utest, itest
 

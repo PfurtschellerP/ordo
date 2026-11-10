@@ -534,7 +534,7 @@ impl Client {
 }
 
 // [itest->dsn~order-permission~1]
-// [itest->dsn~medical-orders~1]
+// [itest->dsn~medical-orders~2]
 #[tokio::test(flavor = "multi_thread")]
 async fn only_a_physician_gives_orders_and_the_crew_carries_them_out() {
     let dir = tempfile::tempdir().unwrap();
@@ -583,6 +583,7 @@ async fn only_a_physician_gives_orders_and_the_crew_carries_them_out() {
         let update = OrderUpdated {
             order: "by-petra".into(),
             status,
+            performed_by: None,
         }
         .encode()
         .unwrap();

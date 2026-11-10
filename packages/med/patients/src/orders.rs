@@ -56,7 +56,7 @@ pub struct RecordFields {
 }
 
 impl OrderCatalogue {
-    // [impl->dsn~order-documentation~1]
+    // [impl->dsn~order-documentation~2]
     /// Checks `record` against the ePCR forms: a series form whose fields exist with
     /// fitting types, and whose route field offers every route of the catalogue.
     pub fn check_record(&self, forms: &FormCatalogue) -> Result<(), String> {
@@ -102,7 +102,7 @@ impl OrderCatalogue {
         Ok(())
     }
 
-    // [impl->dsn~order-documentation~1]
+    // [impl->dsn~order-documentation~2]
     /// The values a new entry of the record form starts with for a done medication order:
     /// substance, dose and unit (when the ordered dose is a number followed by a unit of
     /// the form, else left empty), route, who ordered and who gives it. `None` for a
@@ -275,13 +275,20 @@ impl OrderStatus {
     }
 }
 
+/// Schema version of `orders.updated` payloads: 2 added `performed_by`.
+pub const UPDATED_SCHEMA: u32 = 2;
+
 /// Payload of `orders.updated` (ORDER-2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrderUpdated {
     /// The order.
     pub order: String,
     /// The new status.
     pub status: OrderStatus,
+    /// Done: who carried it out (a user ID or a name), when not the person reporting it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub performed_by: Option<String>,
 }
 
 impl OrderUpdated {
@@ -298,8 +305,19 @@ pub struct OrderStep {
     pub status: OrderStatus,
     /// When.
     pub at: Hlc,
-    /// Who.
+    /// Who reported it.
     pub by: UserId,
+    /// Done: who carried it out, when another person than `by`.
+    pub performed_by: Option<String>,
+}
+
+impl OrderStep {
+    /// Who carried it out: the person named, else the one who reported it.
+    pub fn performer(&self) -> String {
+        self.performed_by
+            .clone()
+            .unwrap_or_else(|| self.by.to_string())
+    }
 }
 
 /// An order with its current status.
@@ -324,6 +342,14 @@ impl Order {
     pub fn at(&self) -> Hlc {
         self.history[0].at
     }
+
+    // [impl->dsn~medical-orders~2]
+    /// The step that reported it done, if it is done.
+    pub fn done(&self) -> Option<&OrderStep> {
+        (self.status == OrderStatus::Done)
+            .then(|| self.history.last())
+            .flatten()
+    }
 }
 
 /// All orders of an incident, computed from events of `med.clinical`.
@@ -334,7 +360,7 @@ pub struct OrderBook {
 }
 
 impl OrderBook {
-    // [impl->dsn~medical-orders~1]
+    // [impl->dsn~medical-orders~2]
     /// Computes the book. The result doesn't depend on the order of `events`: an order
     /// given twice keeps its first version, updates apply in clock order and the latest
     /// sets the status, updates of unknown orders are ignored.
@@ -368,6 +394,7 @@ impl OrderBook {
                     status: OrderStatus::Given,
                     at,
                     by,
+                    performed_by: None,
                 }],
             });
         }
@@ -379,10 +406,14 @@ impl OrderBook {
                 continue;
             }
             order.status = u.status;
+            let performed_by = u.performed_by.filter(|p| {
+                u.status == OrderStatus::Done && !p.trim().is_empty() && *p != by.to_string()
+            });
             order.history.push(OrderStep {
                 status: u.status,
                 at,
                 by,
+                performed_by,
             });
         }
         Self { orders }
@@ -442,7 +473,7 @@ mod tests {
         toml::from_str(text).expect("valid order settings")
     }
 
-    // [utest->dsn~order-documentation~1]
+    // [utest->dsn~order-documentation~2]
     #[test]
     fn a_done_medication_order_prefills_the_record_form_of_the_profile() {
         let (orders, forms) = de();
@@ -487,7 +518,7 @@ mod tests {
         assert!(orders.documentation(&measure, "p", "a", &forms).is_none());
     }
 
-    // [utest->dsn~order-documentation~1]
+    // [utest->dsn~order-documentation~2]
     #[test]
     fn the_record_mapping_must_fit_the_forms() {
         let (mut orders, forms) = de();
@@ -538,11 +569,60 @@ mod tests {
         let u = OrderUpdated {
             order: order.into(),
             status,
+            performed_by: None,
         };
         event(n, user, UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~medical-orders~1]
+    // [utest->dsn~medical-orders~2]
+    #[test]
+    fn done_names_who_carried_it_out_apart_from_who_reported_it() {
+        let done = |n, by: &str, performer: Option<&str>| {
+            let u = OrderUpdated {
+                order: "o1".into(),
+                status: OrderStatus::Done,
+                performed_by: performer.map(str::to_owned),
+            };
+            event(n, by, UPDATED, u.encode().unwrap())
+        };
+        // Paul gave it, Anna reports it.
+        let book = OrderBook::from_events(&[
+            given(1, "o1", "DE-1"),
+            done(2, "anna", Some("paul@ordo.example.org")),
+        ]);
+        let step = book.orders["o1"].done().expect("done");
+        assert_eq!(step.by.as_str(), "anna@ordo.example.org", "who reported it");
+        assert_eq!(
+            step.performer(),
+            "paul@ordo.example.org",
+            "who carried it out"
+        );
+        // Without a name, or naming herself, the reporting person carried it out.
+        for performer in [None, Some(""), Some("anna@ordo.example.org")] {
+            let book =
+                OrderBook::from_events(&[given(1, "o1", "DE-1"), done(2, "anna", performer)]);
+            let step = book.orders["o1"].done().expect("done");
+            assert_eq!(step.performed_by, None);
+            assert_eq!(step.performer(), "anna@ordo.example.org");
+        }
+        // A version-1 payload (no field) still reads.
+        let old =
+            ordo_core::codec::to_cbor(&serde_json::json!({ "order": "o1", "status": "done" }))
+                .unwrap();
+        let book =
+            OrderBook::from_events(&[given(1, "o1", "DE-1"), event(2, "anna", UPDATED, old)]);
+        assert_eq!(
+            book.orders["o1"].done().expect("done").performer(),
+            "anna@ordo.example.org"
+        );
+        assert!(
+            OrderBook::from_events(&[given(1, "o1", "DE-1")]).orders["o1"]
+                .done()
+                .is_none()
+        );
+    }
+
+    // [utest->dsn~medical-orders~2]
     #[test]
     fn an_order_is_acknowledged_and_done_with_who_and_when() {
         use OrderStatus::*;
@@ -575,7 +655,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~medical-orders~1]
+    // [utest->dsn~medical-orders~2]
     #[test]
     fn open_orders_of_all_patients_oldest_first_and_per_patient_open_first() {
         let events = vec![
@@ -599,7 +679,7 @@ mod tests {
         assert!(!book.orders.contains_key("unknown"));
     }
 
-    // [utest->dsn~medical-orders~1]
+    // [utest->dsn~medical-orders~2]
     #[test]
     fn steps_go_forward_and_orders_must_be_complete() {
         use OrderStatus::*;

@@ -2,6 +2,7 @@
 //! carried out by the crew, and listed across every UHS in the view *Anordnungen*.
 //! ORDO records orders; it never proposes, checks or calculates them (EPCR-9).
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use leptos::prelude::*;
@@ -14,7 +15,7 @@ use ordo_med_patients::{self as med, PatientRegister};
 use crate::core::{self, Handle};
 use crate::patients::{FORMS, open_prefilled, record_route};
 use crate::text;
-use crate::ui::{Action, Actions, History, RadioChips};
+use crate::ui::{Action, Actions, History, IncidentPeople, RadioChips, Suggestions};
 use crate::views::{Nav, after_render, focus};
 
 /// Routes of administration from the profile (checked at build time, see `build.rs`).
@@ -22,6 +23,17 @@ pub static CATALOGUE: LazyLock<OrderCatalogue> = LazyLock::new(|| {
     serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/orders.json")))
         .expect("order settings were checked at build time")
 });
+
+/// Who carries out each open order, as typed (by order ID), kept for the workspace so a
+/// re-render keeps the input (provided by the workspace).
+#[derive(Clone, Copy)]
+pub struct Performers(StoredValue<HashMap<String, String>, LocalStorage>);
+
+impl Default for Performers {
+    fn default() -> Self {
+        Self(StoredValue::new_local(HashMap::new()))
+    }
+}
 
 /// What was ordered, as one line: "Paracetamol 1 g i.v." or the measure.
 fn ordered_line(o: &OrderGiven) -> String {
@@ -61,24 +73,50 @@ fn OrderItem(
     let what = ordered_line(&order.given);
     let id = order.given.order.clone();
     let by = text::order_by(&core::clock(order.at().wall_ms), order.by().as_str());
-    // [impl->dsn~order-documentation~1]
+    // [impl->dsn~order-documentation~2]
     // On the record, a done medication order can be taken into the documentation.
     let drafts = use_context::<crate::patients::Drafts>();
+    let me = core.with_value(|c| c.replica.user().to_string());
+    let performers = use_context::<Performers>().unwrap_or_default();
+    // While it can still be reported done: who carries it out, the reporting person
+    // unless another is named (ORDER-2).
+    let performer_field = order.status.next().contains(&OrderStatus::Done).then(|| {
+        let field = format!("performer-{id}");
+        let list = format!("{field}-people");
+        let people = use_context::<IncidentPeople>().map_or_else(|| Signal::stored(Vec::new()), |p| p.0);
+        let (key, key_in) = (id.clone(), id.clone());
+        let me_value = me.clone();
+        view! {
+            <div class="field order-card__performer">
+                <label for=field.clone()>{text::ORDER_PERFORMED_BY}</label>
+                <input id=field type="text" autocomplete="off" list=list.clone()
+                    prop:value=move || performers.0.with_value(|p| p.get(&key).cloned()).unwrap_or_else(|| me_value.clone())
+                    on:input=move |ev| {
+                        let value = event_target_value(&ev);
+                        performers.0.update_value(|p| { p.insert(key_in.clone(), value); });
+                    } />
+                <Suggestions id=list values=people />
+            </div>
+        }
+    });
+    let done = order.done().cloned();
     let documentable = patient.is_none()
-        && order.status == OrderStatus::Done
+        && done.is_some()
         && matches!(order.given.ordered, Ordered::Medication { .. })
         && CATALOGUE.record.is_some();
     let document = documentable.then(|| {
         let (given, ordered_by, label) = (order.given.clone(), order.by().to_string(), text::document_order_label(&what));
+        // Who carried it out and when, not who documents it now (ORDER-5).
+        let step = done.clone().expect("done");
+        let (performer, at) = (step.performer(), core::clock(step.at.wall_ms));
         view! {
             <div class="row">
                 <button type="button" class="button button--small" aria-label=label on:click=move |_| {
-                    let me = core.with_value(|c| c.replica.user().to_string());
                     let forms: &'static FormCatalogue = &FORMS;
-                    if let Some((form, values)) = CATALOGUE.documentation(&given, &ordered_by, &me, forms)
+                    if let Some((form, values)) = CATALOGUE.documentation(&given, &ordered_by, &performer, forms)
                         && let (Some(form), Some(drafts)) = (forms.form(&form), drafts)
                     {
-                        open_prefilled(drafts, &given.tag, form, values);
+                        open_prefilled(drafts, &given.tag, form, values, Some(at.clone()));
                     }
                 }>
                     {text::DOCUMENT_ORDER}
@@ -107,24 +145,41 @@ fn OrderItem(
             })}
             <p class="order-card__what"><strong>{what.clone()}</strong></p>
             <p class="order-card__status">{text::order_status(order.status)} " · " {by}</p>
+            {done.as_ref().and_then(|s| s.performed_by.clone()).map(|p| view! {
+                <p class="order-card__performed">{text::order_performed_by(&p)}</p>
+            })}
             <History entries=order
                 .history
                 .iter()
-                .map(|s| (core::clock(s.at.wall_ms), text::order_status(s.status).to_owned(), s.by.to_string()))
+                .map(|s| {
+                    let what = match &s.performed_by {
+                        Some(p) => text::order_status_performed(text::order_status(s.status), p),
+                        None => text::order_status(s.status).to_owned(),
+                    };
+                    (core::clock(s.at.wall_ms), what, s.by.to_string())
+                })
                 .collect() />
+            {performer_field}
             <Actions actions=order
                 .status
                 .next()
                 .into_iter()
                 .map(|status| {
-                    let id = id.clone();
+                    let (id, me) = (id.clone(), me.clone());
                     let text = text::order_step(status);
                     Action {
                         text,
                         label: text::transport_step_label(text, &what),
                         quiet: status == OrderStatus::Withdrawn,
                         run: Callback::new(move |()| {
-                            let update = OrderUpdated { order: id.clone(), status };
+                            // [impl->dsn~medical-orders~2]
+                            // Done: who carried it out, if another person than the one reporting.
+                            let performed_by = (status == OrderStatus::Done)
+                                .then(|| performers.0.with_value(|p| p.get(&id).cloned()))
+                                .flatten()
+                                .map(|p| p.trim().to_owned())
+                                .filter(|p| !p.is_empty() && *p != me);
+                            let update = OrderUpdated { order: id.clone(), status, performed_by };
                             let _ = core::update_order(core, revision, &update);
                         }),
                     }
@@ -135,7 +190,7 @@ fn OrderItem(
     }
 }
 
-// [impl->dsn~medical-orders~1]
+// [impl->dsn~medical-orders~2]
 /// The orders of one patient on the record; the form for those who may give orders.
 #[component]
 pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl IntoView {
@@ -273,10 +328,16 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
     }
 }
 
-// [impl->dsn~medical-orders~1]
+// [impl->dsn~medical-orders~2]
 /// The open orders of every UHS this person may read, oldest first (ORDER-4).
 #[component]
 pub fn OrdersView(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoView {
+    // Suggestions for who carried an order out.
+    let people = Memo::new(move |_| {
+        revision.track();
+        core::incident_people(core)
+    });
+    provide_context(IncidentPeople(people.into()));
     let open = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {

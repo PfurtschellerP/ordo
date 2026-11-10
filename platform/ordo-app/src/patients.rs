@@ -102,15 +102,16 @@ fn draft_key(tag: &str, form: &str) -> String {
     format!("{tag}/{form}")
 }
 
-// [impl->dsn~order-documentation~1]
+// [impl->dsn~order-documentation~2]
 /// Opens a new entry of `form` on the record of `tag`, filled with `values` (time fields
-/// with the time now). If an entry of that form is open already, it is only brought into
-/// view: the crew's input is never overwritten.
+/// with `time`, else the time now). If an entry of that form is open already, it is only
+/// brought into view: the crew's input is never overwritten.
 pub fn open_prefilled(
     drafts: Drafts,
     tag: &str,
     form: &'static Form,
     values: BTreeMap<String, Value>,
+    time: Option<String>,
 ) {
     let key = draft_key(tag, &form.id);
     let open = drafts.0.with_value(|d| d.contains_key(&key));
@@ -124,7 +125,7 @@ pub fn open_prefilled(
                     .cloned()
                     .unwrap_or_else(|| match f.field_type {
                         FieldType::Choices => Value::Many(Vec::new()),
-                        FieldType::Time => Value::One(core::now_clock()),
+                        FieldType::Time => Value::One(time.clone().unwrap_or_else(core::now_clock)),
                         _ => Value::One(String::new()),
                     });
                 (f.id.clone(), value)

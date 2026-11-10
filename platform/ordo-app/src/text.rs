@@ -594,6 +594,18 @@ pub fn order_by(at: &str, by: &str) -> String {
     format!("{at} von {by}")
 }
 
+pub const ORDER_PERFORMED_BY: &str = "Durchgeführt von";
+
+pub fn order_performed_by(person: &str) -> String {
+    format!("{ORDER_PERFORMED_BY} {person}")
+}
+
+/// "Durchgeführt (durch paul@…)", in the history: who carried it out, apart from who
+/// reported it.
+pub fn order_status_performed(status: &str, person: &str) -> String {
+    format!("{status} (durch {person})")
+}
+
 // Admission and discharge (UHS-3).
 pub const STAY_TITLE: &str = "Patientenweg";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";

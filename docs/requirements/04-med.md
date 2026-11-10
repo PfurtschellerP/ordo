@@ -285,9 +285,9 @@ Tags: must, med, m15
 Needs: dsn
 
 #### ORDER-2 — Carry out orders
-`req~order-2~1`
+`req~order-2~2`
 
-When a crew member acknowledges an order or reports it done, ORDO shall record who did it and when; when an order is withdrawn, ORDO shall record who withdrew it and when. Orders and their status changes are never deleted.
+When a crew member acknowledges an order, ORDO shall record who did it and when. When a crew member reports an order done, ORDO shall record who carried it out (which may be another person than the one reporting it), who reported it, and when. When an order is withdrawn, ORDO shall record who withdrew it and when. Orders and their status changes are never deleted.
 
 Tags: must, med, m15
 
@@ -312,9 +312,9 @@ Tags: must, med, m15
 Needs: dsn
 
 #### ORDER-5 — Document a done medication order
-`req~order-5~1`
+`req~order-5~2`
 
-When a medication order is done, ORDO shall offer to document the administration in the patient care record with the ordered substance, dose, route and the person who ordered it filled in, for the crew to check, complete and save; ORDO shall save nothing without the crew's confirmation.
+When a medication order is done, ORDO shall offer to document the administration in the patient care record with the ordered substance, dose, route, the person who ordered it, the person who carried it out and the time it was reported done filled in, for the crew to check, complete and save; ORDO shall save nothing without the crew's confirmation.
 
 Tags: should, med, m21
 

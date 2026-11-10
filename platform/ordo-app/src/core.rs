@@ -205,6 +205,7 @@ impl Core {
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
+            (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
             _ => 1,
         };
         self.replica
@@ -1044,7 +1045,7 @@ pub fn set_capacity(
     )
 }
 
-// [impl->dsn~medical-orders~1]
+// [impl->dsn~medical-orders~2]
 /// Gives a medical order (ORDER-1). The server accepts it only from roles that may give
 /// orders (ORDER-3).
 pub fn give_order(

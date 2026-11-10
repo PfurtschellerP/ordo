@@ -574,6 +574,7 @@ fn Workspace(
 ) -> impl IntoView {
     let nav = Nav::new();
     provide_context(patients::Drafts::default());
+    provide_context(crate::orders::Performers::default());
     let open = RwSignal::new(false);
     let palette = RwSignal::new(false);
     let pathname = use_location().pathname;
