@@ -909,14 +909,22 @@ fn reveal_editor(heading: &str) {
     let Some(document) = web_sys::window().and_then(|w| w.document()) else {
         return;
     };
+    // Runs a moment after opening: if the person already moved into the editor, the
+    // focus stays where they are, or their first input would land in another field.
+    let editor = format!("[aria-labelledby='{heading}'] .editor");
+    if document
+        .active_element()
+        .and_then(|e| e.closest(&editor).ok().flatten())
+        .is_some()
+    {
+        return;
+    }
     if let Some(section_head) = document.get_element_by_id(heading) {
         let options = web_sys::ScrollIntoViewOptions::new();
         options.set_block(web_sys::ScrollLogicalPosition::Start);
         section_head.scroll_into_view_with_scroll_into_view_options(&options);
     }
-    let selector = format!(
-        "[aria-labelledby='{heading}'] .editor :is(input, select, textarea):not([type=hidden])"
-    );
+    let selector = format!("{editor} :is(input, select, textarea):not([type=hidden])");
     if let Some(field) = document
         .query_selector(&selector)
         .ok()
