@@ -333,6 +333,24 @@ Needs: itest
 
 Tags: must, m27
 
+#### Software bill of materials
+`dsn~sbom~1`
+
+The container workflow makes a CycloneDX 1.6 bill of materials for the server and the web
+app with `cargo-cyclonedx` (pinned version) on every build. `tests/sbom/check_sbom.py`
+fails the build unless each is CycloneDX 1.6, names its component, lists every dependency
+with version and package URL, and contains the crates ORDO's security rests on
+(signatures, sealing, hashing, TLS). The bills are kept as a build artifact; publishing
+them with releases, signing and provenance follow [ADR-0043](../adr/0043-supply-chain.md).
+
+Covers:
+
+* [req~sec-15~1](../requirements/07-quality.md#sec-15--software-bill-of-materials)
+
+Needs: itest
+
+Tags: must, m28
+
 #### Device proof
 `dsn~device-proof~1`
 

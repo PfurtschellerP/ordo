@@ -274,6 +274,24 @@ Tags: must, quality, m27
 
 Needs: dsn
 
+#### SEC-15 — Software bill of materials
+`req~sec-15~1`
+
+For every build of what ORDO ships (server, web app), ORDO's build shall produce a software bill of materials in CycloneDX that lists every dependency with its version, and shall fail if it is missing or incomplete.
+
+Tags: must, quality, m28
+
+Needs: dsn
+
+#### SEC-16 — Signed releases with provenance
+`req~sec-16~1`
+
+ORDO shall publish every release with signed container images and binaries, a build provenance attestation and its software bills of materials, so operators can verify what they run ([ADR-0043](../adr/0043-supply-chain.md)).
+
+Tags: should, quality
+
+Needs: dsn
+
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 

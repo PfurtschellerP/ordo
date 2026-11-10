@@ -25,7 +25,8 @@ same program, scaled out.
 - Static binary in a minimal image (`scratch` / distroless): no shell, non-root,
   read-only file system, roughly 20–30 MB.
 - Multi-architecture: `linux/amd64` and `linux/arm64` (Raspberry Pi, ARM servers).
-- Published with every release, signed (cosign), with a software bill of materials.
+- Published with every release, signed (cosign), with a software bill of materials
+  ([ADR-0043](../adr/0043-supply-chain.md); the bills are made on every build already).
 
 ## 7.3 Deployment options
 

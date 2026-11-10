@@ -149,7 +149,8 @@ and source, shown as *Sichtungshilfe* next to the triage input; the algorithm us
 recorded with every triage, the category stays the person's choice; post-quantum transport
 (milestone `m27`, ADR-0042): the Compose bundle's TLS endpoint offers the hybrid key
 exchange X25519MLKEM768 first, checked in CI; ADR-0042 lists every algorithm and how each
-is replaced.
+is replaced; bills of materials (milestone `m28`, ADR-0043): CycloneDX for the server and the
+web app on every build, checked in CI.
 
 *Incident and command (Einsatzleitung)*
 
@@ -222,8 +223,8 @@ Then:
 
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
-   supply chain with SBOM (CycloneDX), build provenance, signed images and OpenSSF
-   Scorecard (ADR-0043); later the device lock with WebAuthn PRF or PIN (SEC-13).
+   at the first release, when the repository is public: signed images, build provenance
+   and OpenSSF Scorecard (ADR-0043, SEC-16); later the device lock with WebAuthn PRF or PIN (SEC-13).
 2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure

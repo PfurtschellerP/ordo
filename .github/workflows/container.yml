@@ -8,6 +8,7 @@ on:
     paths:
       - "deploy/**"
       - "tests/tls/**"
+      - "tests/sbom/**"
       - "platform/**"
       - "modules/**"
       - "packages/**"
@@ -19,6 +20,7 @@ on:
     paths:
       - "deploy/**"
       - "tests/tls/**"
+      - "tests/sbom/**"
       - "platform/**"
       - "modules/**"
       - "packages/**"
@@ -100,6 +102,26 @@ jobs:
             docker.io/library/alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f \
             sh -c "apk add -q openssl python3 && python3 /t/check_hybrid_tls.py localhost:8443" \
             | tee -a "$GITHUB_STEP_SUMMARY"
+      # Software bills of materials of what ships: server and web app (ADR-0043).
+      - name: Software bills of materials (CycloneDX)
+        run: |
+          set -o pipefail
+          cargo install --locked cargo-cyclonedx@0.5.10
+          mkdir -p "$RUNNER_TEMP/sbom"
+          for crate in ordo-server ordo-app; do
+            dir=$(cargo metadata --format-version 1 --no-deps | jq -r --arg c "$crate" '.packages[] | select(.name == $c) | .manifest_path' | xargs dirname)
+            cargo cyclonedx --format json --spec-version 1.6 --manifest-path "$dir/Cargo.toml"
+            cp "$dir/$crate.cdx.json" "$RUNNER_TEMP/sbom/"
+          done
+          python3 tests/sbom/check_sbom.py "$RUNNER_TEMP/sbom/ordo-server.cdx.json" ordo-server \
+            ed25519-dalek chacha20poly1305 blake3 rustls | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 tests/sbom/check_sbom.py "$RUNNER_TEMP/sbom/ordo-app.cdx.json" ordo-app \
+            leptos ed25519-dalek | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the bills of materials
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom/
       - name: Container logs
         if: always()
         run: |

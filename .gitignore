@@ -1,5 +1,7 @@
 # Rust
 /target/
+# Software bills of materials, made in CI (ADR-0043)
+*.cdx.json
 **/*.rs.bk
 
 # WASM / frontend build output
