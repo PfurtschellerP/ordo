@@ -1,0 +1,23 @@
+# Triage algorithms in use (PAT-11, ADR-0045): shown as references next to the triage
+# input; the person chooses the algorithm used and always the category. ORDO never
+# proposes, pre-selects or checks a category. The charts themselves are not shipped: no
+# licence for redistribution is stated. An organisation may add a local copy once its
+# rights are clear. A state profile may replace this file (layering, architecture 8.8.3).
+
+[[algorithm]]
+id = "prior"
+name = "PRIOR"
+stage = "pretriage"
+description = "Primäres Ranking zur Initialen Orientierung im Rettungsdienst"
+publisher = "Bundesamt für Bevölkerungsschutz und Katastrophenhilfe (BBK) und Deutsche Gesellschaft für Katastrophenmedizin (DGKM)"
+edition = "überarbeitete Fassung 2018"
+url = "https://www.bbk.bund.de/DE/Themen/Gesundheitlicher-Bevoelkerungsschutz/Triage-Sichtung/Vorsichtungsalgorithmus-PRIOR/vorsichtungsalgorithmus-prior_node.html"
+
+[[algorithm]]
+id = "mstart"
+name = "mSTaRT"
+stage = "pretriage"
+description = "modified Simple Triage and Rapid Treatment"
+publisher = "Berufsfeuerwehr München und LMU München"
+edition = "Kanz et al., Notfall + Rettungsmedizin 9 (2006), S. 264–270"
+url = "https://doi.org/10.1007/s10049-006-0821-3"

@@ -215,6 +215,7 @@ impl Client {
             tag: tag.into(),
             category,
             uhs: "UHS 1".into(),
+            algorithm: None,
         }
         .encode()
         .unwrap();

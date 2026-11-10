@@ -42,6 +42,15 @@ pub static FORMS: LazyLock<FormCatalogue> = LazyLock::new(|| {
 
 /// Transport priority of the profile: which categories, which levels (checked at build
 /// time, see `build.rs`).
+/// Triage algorithms of the profile, as references (checked at build time, see `build.rs`).
+pub static TRIAGE: LazyLock<med::triage::TriageCatalogue> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/triage-algorithms.json"
+    )))
+    .expect("triage algorithms were checked at build time")
+});
+
 pub static TRANSPORT_PRIORITY: LazyLock<med::TransportPriorityConfig> = LazyLock::new(|| {
     serde_json::from_str(include_str!(concat!(
         env!("OUT_DIR"),
@@ -231,6 +240,7 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
                                 })
                                 .collect_view()}
                         </fieldset>
+                        <TriageAid id="triage-algorithm" />
                         <label for="uhs">{text::REGISTER_UHS}</label>
                         <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
                             <option value="">{text::UHS_CHOOSE}</option>
@@ -699,6 +709,63 @@ fn MoveForm(
     }
 }
 
+// [impl->dsn~triage-reference~1]
+/// "Sichtung nach": the algorithm used, kept on the device and recorded with every triage;
+/// and the *Sichtungshilfe*: the profile's algorithms with their sources (ADR-0045). The
+/// category is always the person's choice; nothing here proposes or checks one.
+#[component]
+fn TriageAid(id: &'static str) -> impl IntoView {
+    if TRIAGE.algorithms.is_empty() {
+        return ().into_any();
+    }
+    let chosen = RwSignal::new(core::triage_algorithm().unwrap_or_default());
+    let open = RwSignal::new(false);
+    view! {
+        <div class="triage-aid">
+            <div class="field">
+                <label for=id>{text::TRIAGE_WITH}</label>
+                <select id=id prop:value=move || chosen.get() on:change=move |ev| {
+                    let value = event_target_value(&ev);
+                    core::set_triage_algorithm(&value);
+                    chosen.set(value);
+                }>
+                    <option value="">{text::TRIAGE_WITH_NONE}</option>
+                    {TRIAGE
+                        .algorithms
+                        .iter()
+                        .map(|a| view! { <option value=a.id.clone()>{format!("{} ({})", a.name, text::triage_stage(a.stage))}</option> })
+                        .collect_view()}
+                </select>
+            </div>
+            <crate::ui::Disclosure
+                id=format!("{id}-help")
+                open
+                class="triage-aid__help"
+                button_class="button button--small button--quiet"
+                panel_class="triage-aid__panel"
+                button=Box::new(|| view! { {text::TRIAGE_AID} }.into_any())
+            >
+                <ul class="triage-aid__list">
+                    {TRIAGE
+                        .algorithms
+                        .iter()
+                        .map(|a| view! {
+                            <li>
+                                <strong>{a.name.clone()}</strong>
+                                {a.description.clone().map(|d| format!(" – {d}"))}
+                                <br />{text::triage_stage(a.stage)} " · " {a.publisher.clone()} " · " {a.edition.clone()}
+                                <br /><a href=a.url.clone() target="_blank" rel="noopener noreferrer">{text::TRIAGE_SOURCE}</a>
+                            </li>
+                        })
+                        .collect_view()}
+                </ul>
+                <p class="hint">{text::TRIAGE_AID_NOTE}</p>
+            </crate::ui::Disclosure>
+        </div>
+    }
+    .into_any()
+}
+
 /// Which image of a photo is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PhotoKind {
@@ -850,7 +917,14 @@ fn TriageSection(
                         p.history
                             .iter()
                             .rev()
-                            .map(|h| (h.category, core::clock(h.at.wall_ms), h.by.to_string()))
+                            .map(|h| {
+                                (
+                                    h.category,
+                                    core::clock(h.at.wall_ms),
+                                    h.by.to_string(),
+                                    h.algorithm.clone(),
+                                )
+                            })
                             .collect::<Vec<_>>(),
                     )
                 })
@@ -868,6 +942,7 @@ fn TriageSection(
                 let current = current.clone();
                 move || current().map(|category| view! { <p><TriageBadge category /></p> })
             }
+            <TriageAid id="retriage-algorithm" />
             <fieldset class="choices">
                 <legend>{text::RETRIAGE_TO}</legend>
                 {CATEGORIES
@@ -900,8 +975,13 @@ fn TriageSection(
                         .map(|(_, history)| {
                             history
                                 .into_iter()
-                                .map(|(category, time, by)| {
-                                    view! { <li><TriageBadge category /> " " {text::by_at(&by, &time)}</li> }
+                                .map(|(category, time, by, algorithm)| {
+                                    // [impl->dsn~triage-reference~1]
+                                    let used = algorithm.map(|a| {
+                                        let name = TRIAGE.get(&a).map_or(a.clone(), |x| x.name.clone());
+                                        format!(" {}", text::triage_with(&name))
+                                    });
+                                    view! { <li><TriageBadge category />{used} " " {text::by_at(&by, &time)}</li> }
                                 })
                                 .collect_view()
                         })

@@ -49,6 +49,7 @@ fn register(world: &mut World, name: &str, tag: &str) -> Result<(), ordo_sync::S
         tag: tag.into(),
         category: TriageCategory::Urgent,
         uhs: String::new(),
+        algorithm: None,
     }
     .encode()
     .unwrap();

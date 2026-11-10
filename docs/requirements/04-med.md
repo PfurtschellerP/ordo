@@ -94,6 +94,15 @@ Tags: must, med, m12
 
 Needs: dsn
 
+#### PAT-11 — Triage algorithms as reference
+`req~pat-11~1`
+
+When a person triages or pre-triages a patient, ORDO shall offer the triage algorithms of the active profile as references, with their publisher, edition and source, one step away from the triage input, and record which algorithm the person used; ORDO shall never propose, pre-select or check a category ([ADR-0045](../adr/0045-triage-algorithms-as-reference.md)).
+
+Tags: should, med, m26
+
+Needs: dsn
+
 ### 4.10 Med package: on-site care units (UHS)
 
 #### UHS-1 — On-site care units

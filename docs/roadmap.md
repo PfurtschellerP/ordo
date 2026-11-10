@@ -31,6 +31,9 @@
 8. State profiles: find the missing sources (Berlin, Hamburg, Thuringia; status codes,
    MANV concepts and medical command structure per state), see
    [German state sources](standards-de-states.md).
+9. Triage charts: may ORDO, or an organisation, keep a local copy of the official PRIOR
+   chart (BBK, DGKM) and the mSTaRT chart (Berufsfeuerwehr München, LMU) for offline use?
+   Neither states a licence; ask the publishers.
 
 ## Next steps
 
@@ -140,7 +143,10 @@ challenge and at `/.well-known/ordo`, asked for in `hello` and the `ORDO-API-Ver
 header; no version means the oldest, one outside the range is refused with the range; MANV
 patient flow (milestone `m25`): patients move between units (collection point, treatment
 area, UHS) with time and person, shown as the record's *Patientenweg*; counts follow the
-current unit, and the overview adds all units up.
+current unit, and the overview adds all units up; triage references (milestone `m26`,
+ADR-0045): the profile names the algorithms (DE: PRIOR, mSTaRT) with publisher, edition
+and source, shown as *Sichtungshilfe* next to the triage input; the algorithm used is
+recorded with every triage, the category stays the person's choice.
 
 *Incident and command (Einsatzleitung)*
 
@@ -191,8 +197,8 @@ current unit, and the overview adds all units up.
   by voice or radio recorded by the crew with who gave them, how, and whether they were
   read back, confirmed later ([ADR-0053](adr/0053-verbal-orders.md), proposed: to be
   confirmed by practitioners and the medical director).
-- **Triage algorithms** (PRIOR, mSTaRT, …) as reference cards from the profile; the person
-  chooses the category, the algorithm used is recorded ([ADR-0045](adr/0045-triage-algorithms-as-reference.md)).
+- **Triage references, next step:** a local copy of the official charts for offline use,
+  once the rights are clear (open question 9).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances
   used in emergency medicine (open source and licence to be found), free text allowed.
 - **Vital signs from patient monitors** (corpuls C3 first): interface to be clarified with

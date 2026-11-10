@@ -468,6 +468,7 @@ pub fn register(
         tag: tag.to_owned(),
         category,
         uhs: uhs.to_owned(),
+        algorithm: triage_algorithm(),
     }
     .encode()
     .map_err(|e| e.to_string())?;
@@ -518,6 +519,7 @@ pub fn retriage(
     let payload = Retriaged {
         tag: tag.to_owned(),
         category,
+        algorithm: triage_algorithm(),
     }
     .encode()
     .map_err(|e| e.to_string())?;
@@ -1328,6 +1330,20 @@ pub fn save_pairing(pairing: &Pairing) {
 /// A per-device preference (e.g. the colour theme), not synchronised.
 pub fn preference(key: &str) -> Option<String> {
     storage()?.get_item(key).ok()?
+}
+
+/// Where the device keeps the triage algorithm the person uses (PAT-11).
+const TRIAGE_ALGORITHM_KEY: &str = "ordo.triage-algorithm";
+
+// [impl->dsn~triage-reference~1]
+/// The triage algorithm the person chose on this device, recorded with every triage.
+pub fn triage_algorithm() -> Option<String> {
+    preference(TRIAGE_ALGORITHM_KEY).filter(|a| !a.is_empty())
+}
+
+/// Chooses (or, with an empty ID, clears) the triage algorithm on this device.
+pub fn set_triage_algorithm(id: &str) {
+    set_preference(TRIAGE_ALGORITHM_KEY, (!id.is_empty()).then_some(id));
 }
 
 /// Saves or (with `None`) removes a per-device preference.

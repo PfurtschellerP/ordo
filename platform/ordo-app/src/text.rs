@@ -729,3 +729,23 @@ pub fn moved(from: &str, to: &str) -> String {
 pub fn patient_moved(tag: &str, to: &str) -> String {
     format!("{tag} verlegt nach {to}")
 }
+
+// Triage references (PAT-11, ADR-0045).
+pub const TRIAGE_WITH: &str = "Sichtung nach";
+pub const TRIAGE_WITH_NONE: &str = "ohne Angabe";
+pub const TRIAGE_AID: &str = "Sichtungshilfe";
+pub const TRIAGE_SOURCE: &str = "Offizielle Quelle öffnen (neues Fenster)";
+pub const TRIAGE_AID_NOTE: &str =
+    "Die Kategorie entscheidet die sichtende Person; ORDO schlägt keine vor und prüft keine.";
+
+pub fn triage_stage(stage: ordo_med_patients::triage::Stage) -> &'static str {
+    match stage {
+        ordo_med_patients::triage::Stage::Pretriage => "Vorsichtung",
+        ordo_med_patients::triage::Stage::Triage => "Sichtung",
+    }
+}
+
+/// "nach PRIOR"
+pub fn triage_with(name: &str) -> String {
+    format!("nach {name}")
+}

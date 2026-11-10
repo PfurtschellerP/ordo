@@ -31,6 +31,7 @@ fn register(world: &mut World, user: &str, tag: &str, category: TriageCategory) 
         tag: tag.into(),
         category,
         uhs: "UHS 1".into(),
+        algorithm: None,
     }
     .encode()
     .unwrap();
@@ -41,6 +42,7 @@ fn retriage(world: &mut World, user: &str, tag: &str, category: TriageCategory) 
     let payload = Retriaged {
         tag: tag.into(),
         category,
+        algorithm: None,
     }
     .encode()
     .unwrap();
@@ -741,6 +743,7 @@ fn several_uhs_and_units_in_one_incident() {
             tag: tag.into(),
             category,
             uhs: uhs.into(),
+            algorithm: None,
         }
         .encode()
         .unwrap();

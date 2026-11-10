@@ -496,6 +496,28 @@ Needs: impl, utest, itest
 
 Tags: must, m12
 
+#### Triage references
+`dsn~triage-reference~1`
+
+The profile file `med/triage-algorithms.toml` lists the algorithms in use: ID, name, stage
+(pre-triage or triage), publisher, edition and the address of the official source (DE:
+PRIOR of the BBK and mSTaRT, both for pre-triage). Next to the triage input (registration
+and re-triage), *Sichtungshilfe* opens them with their source; the person chooses the
+algorithm used, which the device remembers, and always the category. `patients.registered`
+and `patients.retriaged` carry the algorithm's ID (schema version 3; older payloads decode
+without one), and the triage history shows it ("SK II nach PRIOR"). ORDO does not ship the
+charts: no licence for redistribution is stated. An organisation may add a local copy for
+offline use once its rights are clear. ORDO never proposes, pre-selects or checks a
+category ([ADR-0045](../adr/0045-triage-algorithms-as-reference.md)).
+
+Covers:
+
+* [req~pat-11~1](../requirements/04-med.md#pat-11--triage-algorithms-as-reference)
+
+Needs: impl, utest, itest
+
+Tags: should, m26
+
 #### Transport requests
 `dsn~transport-request~1`
 

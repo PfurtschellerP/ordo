@@ -122,6 +122,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".load-list__item"), "two UHS are listed with their load").toHaveCount(2);
 
     await openView(anna, "Patienten");
+    // [itest->dsn~triage-reference~1]
+    await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
+    const aid = anna.locator("#triage-algorithm-help-panel");
+    await expect(aid, "the profile's algorithms, with their sources").toContainText("PRIOR");
+    await expect(aid.getByRole("link", { name: /Offizielle Quelle/ }).first()).toHaveAttribute("href", /bbk\.bund\.de/);
+    await expect(aid, "the person decides the category").toContainText("ORDO schlägt keine vor");
+    await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
+    await anna.locator("#triage-algorithm").selectOption({ label: "PRIOR (Vorsichtung)" });
     for (const [tag, category, uhs] of [["DE-0042", 0, "UHS Bühne Nord"], ["DE-0043", 1, "UHS Bühne Nord"], ["DE-0044", 1, "UHS Eingang"]] as const) {
       await register(anna, tag, category, uhs);
       await expect(anna.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible();
@@ -137,6 +145,7 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("the patient record documents identity, vital signs and a photo", async () => {
     await openRecord(anna, "DE-0044");
     expect(pathOf(anna), "the record has its own address").toBe("/med.uhs/patients/DE-0044");
+    await expect(anna.locator("[aria-labelledby=section-triage] .history li").first(), "the algorithm used is recorded").toContainText("nach PRIOR");
     await anna.getByRole("button", { name: "Nachsichtung DE-0044: SK I", exact: true }).click();
     await expect.poll(() => announced(anna), { message: "re-triage is announced to screen readers" }).toContain("nachgesichtet");
     await expect.poll(() => status(anna), { message: "re-triage is sent" }).toContain("Alles gesendet");

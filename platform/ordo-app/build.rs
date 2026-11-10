@@ -1,7 +1,8 @@
 //! Embeds the profile catalogues the app needs, checked here so a broken profile fails the
 //! build: the ePCR forms, an HL7 FHIR Questionnaire (ADR-0037), handed to the app in ORDO's
 //! internal form model; the transport priority settings; the transport request catalogue;
-//! the routes for medical orders; the hospital catalogue; the status codes of units.
+//! the routes for medical orders; the hospital catalogue; the triage algorithms; the status
+//! codes of units.
 
 use std::path::Path;
 
@@ -10,6 +11,7 @@ use ordo_med_patients::hospitals::HospitalCatalogue;
 use ordo_med_patients::orders::OrderCatalogue;
 use ordo_med_patients::record::FormCatalogue;
 use ordo_med_patients::transport::TransportCatalogue;
+use ordo_med_patients::triage::TriageCatalogue;
 use ordo_units::StatusCatalogue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -74,6 +76,7 @@ fn main() {
     embed(&med, "hospitals.toml", |c: &HospitalCatalogue| {
         c.check().map_err(|e| e.to_string())
     });
+    embed(&med, "triage-algorithms.toml", TriageCatalogue::check);
     embed(
         &profile.join("units"),
         "status-codes.toml",

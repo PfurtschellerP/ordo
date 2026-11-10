@@ -18,6 +18,7 @@ pub mod overview;
 pub mod questionnaire;
 pub mod record;
 pub mod transport;
+pub mod triage;
 
 /// Module ID.
 pub const MODULE: &str = "med.patients";
@@ -336,8 +337,9 @@ pub struct StayEntry {
 }
 
 /// Schema version of `patients.registered` and `patients.retriaged`: 2 since the category
-/// `uninjured` ("Betroffene") exists; version 1 payloads decode unchanged.
-pub const TRIAGE_SCHEMA: u32 = 2;
+/// `uninjured` ("Betroffene") exists, 3 since they name the algorithm used (PAT-11);
+/// older payloads decode unchanged.
+pub const TRIAGE_SCHEMA: u32 = 3;
 
 /// Payload of `patients.registered`: the minimum needed (requirement PAT-1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -348,6 +350,9 @@ pub struct Registered {
     pub category: TriageCategory,
     /// ID of the on-site care unit ([`UhsCreated::id`]).
     pub uhs: String,
+    /// The triage algorithm used ([`triage::Algorithm::id`]), if the person named one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub algorithm: Option<String>,
 }
 
 /// Payload of `patients.retriaged`.
@@ -357,6 +362,9 @@ pub struct Retriaged {
     pub tag: String,
     /// New triage category.
     pub category: TriageCategory,
+    /// The triage algorithm used, if the person named one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub algorithm: Option<String>,
 }
 
 impl Registered {
@@ -378,6 +386,8 @@ impl Retriaged {
 pub struct TriageEntry {
     /// Category.
     pub category: TriageCategory,
+    /// The algorithm used, if named (PAT-11).
+    pub algorithm: Option<String>,
     /// When.
     pub at: Hlc,
     /// Who.
@@ -494,6 +504,7 @@ impl PatientRegister {
                 Change::Registered(r) => {
                     let entry = TriageEntry {
                         category: r.category,
+                        algorithm: r.algorithm.clone(),
                         at,
                         by: by.clone(),
                     };
@@ -524,6 +535,7 @@ impl PatientRegister {
                 Change::Retriaged(r) => match register.patients.get_mut(&r.tag) {
                     Some(patient) => patient.history.push(TriageEntry {
                         category: r.category,
+                        algorithm: r.algorithm,
                         at,
                         by,
                     }),
@@ -751,6 +763,7 @@ mod tests {
             tag: tag.into(),
             uhs: "uhs-1".into(),
             category,
+            algorithm: None,
         };
         event(n, "anna", REGISTERED, r.encode().unwrap())
     }
@@ -828,6 +841,37 @@ mod tests {
         assert_eq!(register.patient("DE-0002").unwrap().stay.len(), 1);
         let counts = &register.counts()["uhs-1"];
         assert_eq!((counts.immediate, counts.discharged), (1, 0));
+    }
+
+    // [utest->dsn~triage-reference~1]
+    #[test]
+    fn the_algorithm_used_is_recorded_and_older_triage_payloads_still_decode() {
+        let r = Registered {
+            tag: "DE-0001".into(),
+            category: TriageCategory::Urgent,
+            uhs: "uhs-1".into(),
+            algorithm: Some("prior".into()),
+        };
+        let register =
+            PatientRegister::from_events(&[event(1, "anna", REGISTERED, r.encode().unwrap())]);
+        let entry = &register.patient("DE-0001").unwrap().history[0];
+        assert_eq!(entry.algorithm.as_deref(), Some("prior"));
+
+        // Schema version 2, before the algorithm was recorded.
+        #[derive(Serialize)]
+        struct V2 {
+            tag: String,
+            category: TriageCategory,
+            uhs: String,
+        }
+        let v2 = codec::to_cbor(&V2 {
+            tag: "DE-0002".into(),
+            category: TriageCategory::Minor,
+            uhs: "uhs-1".into(),
+        })
+        .unwrap();
+        let decoded: Registered = codec::from_cbor(&v2).unwrap();
+        assert_eq!(decoded.algorithm, None);
     }
 
     // [utest->dsn~patient-pathway~1]

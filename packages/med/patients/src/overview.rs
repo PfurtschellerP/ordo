@@ -111,6 +111,7 @@ mod tests {
             tag: tag.into(),
             category,
             uhs: uhs.into(),
+            algorithm: None,
         };
         clinical(n, MODULE, REGISTERED, r.encode().unwrap())
     }
