@@ -25,16 +25,30 @@ pub fn task_list(core: Handle) -> TaskList {
     core.with_value(|c| TaskList::from_events(&c.events(ordo_tasks::COMPARTMENT)))
 }
 
+/// Who a task is for: the unit's call sign, or the position's title.
+fn assignee(task: &Task, structure: &ordo_command::CommandStructure) -> String {
+    match (&task.given.unit, &task.given.sector) {
+        (Some(unit), _) => unit.clone(),
+        (None, Some(id)) => structure
+            .positions
+            .get(id)
+            .map_or_else(|| id.clone(), crate::command::position_title),
+        (None, None) => String::new(),
+    }
+}
+
 /// One open task: what, for whom, status, follow-up, and the next steps.
 #[component]
 fn TaskItem(
     core: Handle,
     revision: RwSignal<u64>,
     task: Task,
+    /// Who it is for: a unit's call sign or a position's title.
+    assignee: String,
     editable: bool,
     now: u64,
 ) -> impl IntoView {
-    let unit = task.given.unit.clone().unwrap_or_default();
+    let unit = assignee;
     let what = task.given.text.clone();
     let due = task.is_due(now);
     let follow_up = task.follow_up.map(|at| {
@@ -140,7 +154,15 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let editable = editable.get();
                 view! {
                     <ul class="task-list" data-keys="list">
-                        {list.into_iter().map(|task| view! { <TaskItem core revision task editable now /> }).collect_view()}
+                        {
+                            let structure = crate::command::structure(core);
+                            list.into_iter()
+                                .map(|task| {
+                                    let assignee = assignee(&task, &structure);
+                                    view! { <TaskItem core revision task assignee editable now /> }
+                                })
+                                .collect_view()
+                        }
                     </ul>
                 }
                 .into_any()
@@ -179,6 +201,12 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .collect::<Vec<_>>()
         })
     });
+    // [impl->dsn~command-structure~1]
+    // Tasks can also go to a position (CMD-1).
+    let positions = Memo::new(move |_| {
+        revision.track();
+        crate::command::position_choices(&crate::command::structure(core))
+    });
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let minutes_text = minutes.get_untracked().trim().to_owned();
@@ -194,10 +222,16 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }
         };
         let chosen = template.get_untracked();
+        let chosen_for = unit.get_untracked();
+        let (for_unit, for_sector) = match chosen_for.split_once(':') {
+            Some(("position", id)) => (None, Some(id.to_owned())),
+            Some(("unit", call_sign)) => (Some(call_sign.to_owned()), None),
+            _ => (None, None),
+        };
         let task = TaskGiven {
             task: String::new(),
-            unit: Some(unit.get_untracked()),
-            sector: None,
+            unit: for_unit,
+            sector: for_sector,
             text: text_value.get_untracked().trim().to_owned(),
             template: (!chosen.is_empty()).then_some(chosen),
             follow_up,
@@ -220,7 +254,12 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <label for="task-unit">{text::TASK_UNIT}</label>
                     <select id="task-unit" prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
                         <option value="">{text::TASK_UNIT_CHOOSE}</option>
-                        {move || units.get().into_iter().map(|u| view! { <option value=u.clone()>{u.clone()}</option> }).collect_view()}
+                        <optgroup label=text::TAB_RESOURCES>
+                            {move || units.get().into_iter().map(|u| view! { <option value=format!("unit:{u}")>{u.clone()}</option> }).collect_view()}
+                        </optgroup>
+                        <optgroup label=text::STRUCTURE_TITLE>
+                            {move || positions.get().into_iter().map(|(id, title)| view! { <option value=format!("position:{id}")>{title}</option> }).collect_view()}
+                        </optgroup>
                     </select>
                 </div>
                 <div class="field">

@@ -224,6 +224,9 @@ fn UnitCard(
     draft: CrewDraft,
     /// The unit's open tasks (TASK-3).
     tasks: Vec<String>,
+    /// The open positions (ID, title) and the unit's position (CMD-2).
+    positions: Vec<(String, String)>,
+    position: Option<String>,
 ) -> impl IntoView {
     let u = unit;
     let name = u.unit.clone();
@@ -266,6 +269,32 @@ fn UnitCard(
             {(!tasks.is_empty()).then(|| view! {
                 <p class="unit-card__tasks">{text::TASKS_OF_UNIT} ": " {tasks.join(" · ")}</p>
             })}
+            // [impl->dsn~command-structure~1]
+            // Under which position: one choice, two taps (CMD-2).
+            {(editable && !positions.is_empty()).then(|| {
+                let name = name.clone();
+                let current = position.clone().unwrap_or_default();
+                view! {
+                    <select class="unit-card__position" aria-label=text::position_of(&name) on:change=move |ev| {
+                        let id = event_target_value(&ev);
+                        let a = ordo_command::Assigned {
+                            unit: Some(name.clone()),
+                            uhs: None,
+                            position: (!id.is_empty()).then_some(id),
+                        };
+                        let _ = core::command_event(core, revision, ordo_command::ASSIGNED, &a.encode().unwrap_or_default());
+                    }>
+                        <option value="" selected=current.is_empty()>{text::NO_POSITION}</option>
+                        {positions
+                            .iter()
+                            .map(|(id, title)| view! { <option value=id.clone() selected=*id == current>{title.clone()}</option> })
+                            .collect_view()}
+                    </select>
+                }
+            })}
+            {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
+                <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
+            }))}
             {editable.then(|| {
                 let name = name.clone();
                 view! {
@@ -370,6 +399,8 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let editable = can_edit.get();
                 revision.track();
                 let task_list = crate::tasks::task_list(core);
+                let structure = crate::command::structure(core);
+                let positions = crate::command::position_choices(&structure);
                 if units.is_empty() {
                     return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
                 }
@@ -384,7 +415,9 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                     .iter()
                                     .map(|t| t.given.text.clone())
                                     .collect::<Vec<_>>();
-                                view! { <UnitCard core revision unit editable draft tasks /> }
+                                let position = structure.unit_positions.get(&unit.unit).cloned();
+                                let positions = positions.clone();
+                                view! { <UnitCard core revision unit editable draft tasks positions position /> }
                             })
                             .collect_view()}
                     </ul>

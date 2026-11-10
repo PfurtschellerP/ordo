@@ -364,7 +364,7 @@ pub const PLAN_TITLE: &str = "Einsatz planen";
 pub const PLAN_NAME: &str = "Name des Einsatzes";
 pub const PLAN_SUBMIT: &str = "Einsatz anlegen";
 pub const CHANGE_INCIDENT: &str = "Einsatz wechseln";
-pub const ROSTER: &str = "Personal";
+pub const ROSTER: &str = "Führung";
 pub const ROSTER_TITLE: &str = "Personal und Rollen";
 pub const ROSTER_EMPTY: &str = "Noch niemand hat eine Rolle in diesem Einsatz.";
 pub const ROSTER_PERSON: &str = "Person (name@server)";
@@ -855,13 +855,13 @@ pub fn uhs_updated(name: &str) -> String {
 pub const TASKS_TITLE: &str = "Offene Aufträge";
 pub const TASKS_EMPTY: &str = "Keine offenen Aufträge.";
 pub const TASK_GIVE: &str = "Auftrag geben";
-pub const TASK_UNIT: &str = "Einsatzmittel";
-pub const TASK_UNIT_CHOOSE: &str = "Einsatzmittel wählen";
+pub const TASK_UNIT: &str = "Für";
+pub const TASK_UNIT_CHOOSE: &str = "Einsatzmittel oder Funktion wählen";
 pub const TASK_TEMPLATE: &str = "Vorlage";
 pub const TASK_TEMPLATE_NONE: &str = "ohne Vorlage";
 pub const TASK_TEXT: &str = "Auftrag";
 pub const TASK_FOLLOW_UP: &str = "Nachfragen in (Minuten, optional)";
-pub const TASK_MISSING: &str = "Bitte Einsatzmittel und Auftrag angeben.";
+pub const TASK_MISSING: &str = "Bitte Empfänger und Auftrag angeben.";
 pub const TASK_FOLLOW_UP_NUMBER: &str = "Bitte die Minuten als ganze Zahl angeben.";
 pub const FOLLOW_UP_LATER: &str = "In 10 Minuten nachfragen";
 pub const FOLLOW_UP_LATER_DONE: &str = "Nachfrage verschoben";
@@ -918,4 +918,61 @@ pub fn follow_up_due(at: &str) -> String {
 /// "10:12, ben@…"
 pub fn task_given_by(at: &str, by: &str) -> String {
     format!("Gegeben {at} von {by}")
+}
+
+// Command structure (CMD-1…4, ADR-0031).
+pub const STRUCTURE_TITLE: &str = "Führungsstruktur";
+pub const STRUCTURE_EMPTY: &str = "Noch keine Führungsstruktur angelegt.";
+pub const STRUCTURE_SAVED: &str = "Führungsstruktur gespeichert";
+pub const POSITION: &str = "Funktion";
+pub const POSITION_CHOOSE: &str = "Funktion wählen";
+pub const POSITION_CREATE: &str = "Funktion anlegen";
+pub const POSITION_KIND: &str = "Art";
+pub const POSITION_KIND_CHOOSE: &str = "Art wählen";
+pub const POSITION_NAME: &str = "Bezeichnung";
+pub const POSITION_PARENT: &str = "Unterstellt";
+pub const POSITION_TOP: &str = "oberste Ebene";
+pub const POSITION_MISSING: &str = "Bitte Art und Bezeichnung angeben.";
+pub const POSITION_CLOSE: &str = "Auflösen";
+pub const NO_POSITION: &str = "ohne Zuordnung";
+pub const NO_LEADER: &str = "Leitung: nicht besetzt";
+pub const LEADER: &str = "Leitung";
+pub const LEADER_SET: &str = "Leitung festlegen oder übergeben";
+pub const UHS_ASSIGN: &str = "UHS zuordnen";
+
+pub fn leader(name: &str) -> String {
+    format!("{LEADER}: {name}")
+}
+
+/// "Übergabe: Dr. M. → Dr. K." or "Leitung: Dr. M."
+pub fn handover(from: Option<&str>, to: &str) -> String {
+    match from {
+        Some(from) => format!("Übergabe: {from} → {to}"),
+        None => leader(to),
+    }
+}
+
+pub fn assigned_units(units: &str) -> String {
+    format!("Einsatzmittel: {units}")
+}
+
+pub fn assigned_uhs(uhs: &str) -> String {
+    format!("UHS: {uhs}")
+}
+
+/// Shown, never enforced (ADR-0031).
+pub fn span_of_control(n: usize) -> String {
+    format!("{n} direkt unterstellt: mehr als 5, Führungsspanne beachten.")
+}
+
+pub fn position_close_label(title: &str) -> String {
+    format!("{title} auflösen")
+}
+
+pub fn position_created(name: &str) -> String {
+    format!("{name} angelegt")
+}
+
+pub fn position_of(unit: &str) -> String {
+    format!("Funktion von {unit}")
 }

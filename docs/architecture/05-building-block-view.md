@@ -306,6 +306,42 @@ Needs: impl, utest, itest
 
 Tags: must, m31
 
+### 5.5.1b Shared module `command`
+
+#### Command structure
+`dsn~command-structure~1`
+
+Crate `ordo-command`, module `command`, in the shared `incident` compartment, following
+[ADR-0031](../adr/0031-command-structure-from-doctrine.md). Positions grow with the incident:
+`command.positionCreated` (new ID, a kind from the profile file `command/structure.toml`,
+name, parent position, optionally service and organisation) and `command.positionClosed`.
+Kinds carry a core meaning after ISO 22320 (command, sector, staff, liaison); the DE
+profile names them after FwDV 100 and the medical response (*Einsatzleitung*,
+*Einsatzabschnitt*, *Unterabschnitt*, *Sanitätseinsatzleitung*, *Patientenablage*,
+*Behandlungsplatz*, *Transportorganisation*, staff functions S1–S6, *Verbindungsperson*).
+`command.leaderSet` names the leader; each one after the first is a handover, kept with
+time and both people (CMD-4). `command.assigned` puts a unit (call sign) or a UHS under a
+position, or takes it out; the latest assignment counts. Everything is ordered by hybrid
+logical clock, so every device computes the same tree.
+
+The command workspace's view *Führung* shows the tree as nested lists with the leader,
+units and UHS of each position, and the roster below; it points out a position with more
+than five direct subordinates (span of control) without enforcing anything. Each unit
+card offers its position in one choice (two taps, CMD-2); tasks can go to a position.
+Only the command writes the module (Cedar). Positions giving roles, and so access, follow
+in a later step (ADR-0031).
+
+Covers:
+
+* [req~cmd-1~1](../requirements/02-shared.md#cmd-1--sectors)
+* [req~cmd-2~1](../requirements/02-shared.md#cmd-2--assign-units-to-sectors)
+* [req~cmd-3~1](../requirements/02-shared.md#cmd-3--command-structure-view)
+* [req~cmd-4~1](../requirements/02-shared.md#cmd-4--hand-over-leadership)
+
+Needs: impl, utest, itest
+
+Tags: must, m32
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS registry

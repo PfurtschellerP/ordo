@@ -6,6 +6,7 @@
 
 use std::path::Path;
 
+use ordo_command::StructureCatalogue;
 use ordo_med_patients::TransportPriorityConfig;
 use ordo_med_patients::hospitals::HospitalCatalogue;
 use ordo_med_patients::orders::OrderCatalogue;
@@ -87,6 +88,11 @@ fn main() {
         &profile.join("tasks"),
         "templates.toml",
         TemplateCatalogue::check,
+    );
+    embed(
+        &profile.join("command"),
+        "structure.toml",
+        StructureCatalogue::check,
     );
     embed(
         &profile.join("units"),

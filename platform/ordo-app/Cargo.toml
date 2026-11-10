@@ -22,6 +22,7 @@ ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 ordo-units.workspace = true
 ordo-tasks.workspace = true
+ordo-command.workspace = true
 percent-encoding.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -30,6 +31,7 @@ wasm-bindgen-futures.workspace = true
 web-sys.workspace = true
 
 [build-dependencies]
+ordo-command.workspace = true
 ordo-med-patients.workspace = true
 ordo-tasks.workspace = true
 ordo-units.workspace = true

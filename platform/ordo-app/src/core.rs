@@ -703,6 +703,48 @@ pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), S
     )
 }
 
+// [impl->dsn~command-structure~1]
+/// Creates a position of the command structure (CMD-1) with a new ID.
+pub fn create_position(
+    core: Handle,
+    revision: RwSignal<u64>,
+    position: ordo_command::PositionCreated,
+) -> Result<(), String> {
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let position = ordo_command::PositionCreated {
+        position: id.to_string(),
+        ..position
+    };
+    let payload = position.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_command::COMPARTMENT,
+        ordo_command::MODULE,
+        ordo_command::POSITION_CREATED,
+        &payload,
+        text::position_created(&position.name),
+    )
+}
+
+/// Records another event of the command structure: leader, closing, assignment.
+pub fn command_event(
+    core: Handle,
+    revision: RwSignal<u64>,
+    event_type: &str,
+    payload: &[u8],
+) -> Result<(), String> {
+    record(
+        core,
+        revision,
+        ordo_command::COMPARTMENT,
+        ordo_command::MODULE,
+        event_type,
+        payload,
+        text::STRUCTURE_SAVED.to_owned(),
+    )
+}
+
 // [impl->dsn~tasks~1]
 /// Gives a task (TASK-1): a new ID, then the event in the shared incident compartment.
 pub fn give_task(

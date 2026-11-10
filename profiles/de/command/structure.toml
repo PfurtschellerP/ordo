@@ -1,0 +1,75 @@
+# Position kinds of the command structure (CMD-1, ADR-0031). The core meaning follows
+# ISO 22320 (command, sector, staff, liaison); the German names follow FwDV 100 (3.2) and
+# the medical response (Sanitätseinsatzleitung with LNA and OrgL, DIN 13050). The medical
+# branch comes first; the general kinds are those of FwDV 100, so it fits into the whole
+# tree. A state profile may replace this file (layering, architecture 8.8.3).
+
+[[kind]]
+id = "incident-command"
+label = "Einsatzleitung"
+core = "command"
+
+[[kind]]
+id = "sector"
+label = "Einsatzabschnitt"
+core = "sector"
+
+[[kind]]
+id = "sub-sector"
+label = "Unterabschnitt"
+core = "sector"
+
+[[kind]]
+id = "medical-command"
+label = "Sanitätseinsatzleitung"
+core = "command"
+
+[[kind]]
+id = "collection-point"
+label = "Patientenablage"
+core = "sector"
+
+[[kind]]
+id = "treatment-area"
+label = "Behandlungsplatz"
+core = "sector"
+
+[[kind]]
+id = "transport-organisation"
+label = "Transportorganisation"
+core = "sector"
+
+[[kind]]
+id = "s1"
+label = "S1 Personal/Innerer Dienst"
+core = "staff"
+
+[[kind]]
+id = "s2"
+label = "S2 Lage"
+core = "staff"
+
+[[kind]]
+id = "s3"
+label = "S3 Einsatz"
+core = "staff"
+
+[[kind]]
+id = "s4"
+label = "S4 Versorgung"
+core = "staff"
+
+[[kind]]
+id = "s5"
+label = "S5 Presse- und Medienarbeit"
+core = "staff"
+
+[[kind]]
+id = "s6"
+label = "S6 Information und Kommunikation"
+core = "staff"
+
+[[kind]]
+id = "liaison"
+label = "Verbindungsperson"
+core = "liaison"

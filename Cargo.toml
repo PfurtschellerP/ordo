@@ -14,6 +14,7 @@ members = [
   "platform/ordo-app",
   "modules/units",
   "modules/tasks",
+  "modules/command",
   "packages/med/patients",
   "tests/acceptance",
 ]
@@ -33,6 +34,7 @@ ordo-crypto = { path = "platform/ordo-crypto" }
 ordo-sync = { path = "platform/ordo-sync" }
 ordo-units = { path = "modules/units" }
 ordo-tasks = { path = "modules/tasks" }
+ordo-command = { path = "modules/command" }
 ordo-med-patients = { path = "packages/med/patients" }
 
 axum = { version = "0.8", features = ["ws"] }

@@ -16,9 +16,8 @@ when {
   context.roles.contains("paramedic")
 };
 
-// … and write to it, except units, tasks and the hospital list: adding units, setting their
-// status, giving tasks and keeping the hospitals belong to the incident command (edit_units,
-// TASK-1, TRANS-2).
+// … and write to it, except units, tasks, the command structure and the hospital list:
+// these belong to the incident command (edit_units, TASK-1, CMD-1, TRANS-2).
 @id("med.medic-incident-write")
 permit (
   principal,
@@ -31,6 +30,7 @@ when {
    context.roles.contains("paramedic")) &&
   context.module != "units" &&
   context.module != "tasks" &&
+  context.module != "command" &&
   context.module != "med.hospitals"
 };
 

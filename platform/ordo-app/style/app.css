@@ -17,6 +17,8 @@
   body { margin: 0; font-size: var(--ordo-component-body-font-size); }
 
   h1, h2 { line-height: var(--ordo-font-line-height-heading); margin: 0 0 var(--ordo-space-4); }
+  /* Long German compounds (Führungsstruktur) break with a hyphen on narrow screens. */
+  h1, h2, h3 { hyphens: auto; overflow-wrap: break-word; }
   h1 { font-size: var(--ordo-font-size-6); }
   h2 { font-size: var(--ordo-font-size-5); }
   p { margin: 0 0 var(--ordo-space-4); }
@@ -58,7 +60,7 @@
   .form { display: grid; gap: var(--ordo-space-3); }
   /* Form controls never get wider than their container (reflow at 320 px). */
   .form > * { min-width: 0; }
-  input, select, textarea { max-width: 100%; }
+  input, select, textarea { max-width: 100%; min-width: 0; }
   .form > input[type="text"], .form > select { width: 100%; }
   .row { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
   .row > input { flex: 1 1 16rem; }
@@ -236,7 +238,7 @@
   }
 
   .form--inline { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ordo-space-3); margin-top: var(--ordo-space-4); }
-  .field { display: grid; gap: var(--ordo-space-2); flex: 1 1 14rem; }
+  .field { display: grid; gap: var(--ordo-space-2); flex: 1 1 14rem; min-width: 0; }
   .field--small { flex: 0 1 10rem; }
   .field input, .field select { width: 100%; }
 
@@ -620,6 +622,13 @@
   .task-card--due { border-width: var(--ordo-size-border-thick); }
   .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
   .tasks-panel__form[hidden] { display: none; }
+  /* Command structure (CMD-3): nested lists as a tree, a line showing each level. */
+  .position-tree { list-style: none; margin: 0; padding-inline-start: var(--ordo-space-3); display: grid; gap: var(--ordo-space-2); }
+  .position-tree--root { padding-inline-start: 0; }
+  .position-tree .position-tree { border-inline-start: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); margin-block-start: var(--ordo-space-2); }
+  .position { display: grid; gap: var(--ordo-space-1); hyphens: auto; overflow-wrap: break-word; min-width: 0; }
+  .position p { margin: 0; }
+  .command-form { margin-block-start: var(--ordo-space-4); }
   .load-list__details-panel[hidden] { display: none; }
   .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .load-list__details-panel h4 { margin: 0; }

@@ -139,7 +139,7 @@ Needs: dsn
 
 Create sectors (*Einsatzabschnitte*) and sub-sectors; each has a name, a leader and optionally a service
 
-Tags: must, shared
+Tags: must, shared, m32
 
 Needs: dsn
 
@@ -148,7 +148,7 @@ Needs: dsn
 
 Assign units to sectors by drag & drop (tablet) or two taps
 
-Tags: must, shared
+Tags: must, shared, m32
 
 Needs: dsn
 
@@ -157,7 +157,7 @@ Needs: dsn
 
 Show the command structure as a tree/org chart
 
-Tags: must, shared
+Tags: must, shared, m32
 
 Needs: dsn
 
@@ -166,7 +166,7 @@ Needs: dsn
 
 Hand over a leadership role to another person; logged
 
-Tags: must, shared
+Tags: must, shared, m32
 
 Needs: dsn
 

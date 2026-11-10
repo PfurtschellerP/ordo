@@ -477,6 +477,26 @@ mod tests {
             "tasks.given",
             &commander
         ));
+        // [utest->dsn~command-structure~1]
+        assert!(
+            !p.can_write(
+                &erik,
+                &incident,
+                &shared,
+                "command",
+                "command.positionCreated",
+                &medic
+            ),
+            "the command structure is the command's"
+        );
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "command",
+            "command.leaderSet",
+            &commander
+        ));
     }
 
     // [utest->dsn~role-policies~1]

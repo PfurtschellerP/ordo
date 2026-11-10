@@ -89,7 +89,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
     await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
     await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
-    await openView(dora, "Personal");
+    await openView(dora, "Führung");
     await expect(dora.locator(".roster__entry"), "the planner is its commander").toHaveCount(1);
     await grantRole(dora, "anna@localhost", "Sanitätsdienst");
     await grantRole(dora, "ben@localhost", "Einsatzleitung");
@@ -572,7 +572,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await qrPair(ben, phone, server, "ben@example.org");
     await openIncident(ben, INCIDENT);
     await phone.context().close();
-    await openView(ben, "Personal");
+    await openView(ben, "Führung");
     // [itest->dsn~person-suggestions~1]
     await expect(ben.locator("#roster-person"), "granting a role suggests the people the server knows").toHaveAttribute("list", "roster-person-people");
     await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
@@ -735,6 +735,47 @@ test("ORDO in the browser", async ({ browser }) => {
     await settle(ben);
     await shot(ben, "command-high-contrast");
     await ben.evaluate(() => delete document.documentElement.dataset.theme);
+  });
+
+  // [itest->dsn~command-structure~1]
+  await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
+    await openView(ben, "Führung");
+    await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
+    const create = async (kind: string, name: string, parent?: string) => {
+      await ben.locator("#position-kind").selectOption({ label: kind });
+      await ben.locator("#position-name").fill(name);
+      if (parent) await ben.locator("#position-parent").selectOption({ label: parent });
+      await ben.getByRole("button", { name: "Funktion anlegen" }).click();
+    };
+    await create("Einsatzleitung", "Stadtfest");
+    await create("Sanitätseinsatzleitung", "SanEL", "Einsatzleitung Stadtfest");
+    const sanel = ben.locator(".position", { hasText: "Sanitätseinsatzleitung SanEL" }).last();
+    await expect(ben.locator(".position-tree--root > .position > .position-tree .position__title"), "a tree, the medical command under the incident command").toHaveText("Sanitätseinsatzleitung SanEL");
+    const lead = async (who: string) => {
+      await ben.locator("#lead-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+      await ben.locator("#lead-person").fill(who);
+      await ben.getByRole("button", { name: "Leitung festlegen oder übergeben" }).click();
+    };
+    await lead("ben@localhost");
+    await lead("dora@localhost");
+    await expect(sanel.locator(".position__leader")).toHaveText("Leitung: dora@localhost");
+    await sanel.locator(".history-list summary").click();
+    await expect(sanel.locator(".history-list li").last(), "the handover is logged with both people").toContainText("Übergabe: ben@localhost → dora@localhost");
+    await ben.locator("#assign-uhs").selectOption({ label: "UHS Eingang" });
+    await ben.locator("#assign-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+    await ben.getByRole("button", { name: "UHS zuordnen" }).click();
+    await expect(sanel.locator(".position__uhs")).toHaveText("UHS: UHS Eingang");
+    await audit(ben, "Command structure");
+    await openView(ben, "Einsatzmittel");
+    await ben.getByLabel("Funktion von RTW 83/1").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+    await ben.locator("#give-task-button").click();
+    await ben.locator("#task-unit").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+    await ben.locator("#task-text").fill("Lage der UHS melden");
+    await ben.locator(".give-task button[type=submit]").click();
+    await expect(ben.locator(".task-card"), "a task to a position").toContainText("Sanitätseinsatzleitung SanEL – Lage der UHS melden");
+    await ben.locator(".task-card").getByRole("button", { name: /^Erledigt/ }).click();
+    await openView(ben, "Führung");
+    await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {

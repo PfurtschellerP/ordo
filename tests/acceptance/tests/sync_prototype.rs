@@ -1323,3 +1323,76 @@ fn tasks_reach_every_device_with_status_and_follow_up() {
         .collect();
     assert_eq!(open, ["t2", "t1"], "the due follow-up first");
 }
+
+// [itest->dsn~command-structure~1]
+/// The command creates the medical branch, hands over its lead and assigns a unit; every
+/// device computes the same tree.
+#[test]
+fn the_command_structure_reaches_every_device_the_same() {
+    use ordo_command::{self as command, Assigned, CommandStructure, LeaderSet, PositionCreated};
+    let mut world = World::new();
+    world.sync();
+    let record = |world: &mut World, event_type: &str, payload: Vec<u8>| {
+        let (incident, now) = (world.incident.clone(), world.now);
+        world
+            .replica("ben")
+            .record(
+                &incident,
+                command::COMPARTMENT,
+                command::MODULE,
+                event_type,
+                1,
+                &payload,
+                now,
+            )
+            .unwrap();
+        world.tick(1_000);
+    };
+    for (id, kind, parent) in [
+        ("el", "incident-command", None),
+        ("sanel", "medical-command", Some("el")),
+    ] {
+        let p = PositionCreated {
+            position: id.into(),
+            kind: kind.into(),
+            name: kind.into(),
+            parent: parent.map(Into::into),
+            service: None,
+            organisation: None,
+        };
+        record(&mut world, command::POSITION_CREATED, p.encode().unwrap());
+    }
+    for who in ["LNA Dr. M.", "LNA Dr. K."] {
+        let l = LeaderSet {
+            position: "sanel".into(),
+            leader: who.into(),
+        };
+        record(&mut world, command::LEADER_SET, l.encode().unwrap());
+    }
+    let a = Assigned {
+        unit: Some("RTW 1".into()),
+        uhs: None,
+        position: Some("sanel".into()),
+    };
+    record(&mut world, command::ASSIGNED, a.encode().unwrap());
+    world.sync();
+
+    let incident = world.incident.clone();
+    let seen = |world: &mut World, user: &str| {
+        CommandStructure::from_events(
+            &world
+                .replica(user)
+                .events(&incident, command::COMPARTMENT)
+                .unwrap(),
+        )
+    };
+    let clara = seen(&mut world, "clara");
+    assert_eq!(clara, seen(&mut world, "anna"));
+    let sanel = &clara.positions["sanel"];
+    assert_eq!(
+        (sanel.leader(), sanel.leaders.len()),
+        (Some("LNA Dr. K."), 2),
+        "the handover is kept"
+    );
+    assert_eq!(sanel.units, ["RTW 1"]);
+}

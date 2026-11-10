@@ -158,7 +158,11 @@ service; UHS details (milestone `m30`,
 UHS-1): location, capacity and assigned staff per unit, also in the overview; tasks (milestone `m31`,
 TASK-1…4): the command gives units tasks (free text or a template of the profile), moves
 them on, and follows up; open tasks are at the top of every command view, due follow-ups
-first, and on each unit's card.
+first, and on each unit's card; command structure (milestone `m32`,
+CMD-1…4, ADR-0031): positions as incident data with kinds from the profile (FwDV 100 and
+the medical response), leaders and logged handovers, units and UHS under positions, the
+tree in the view *Führung* with the roster, span of control pointed out, tasks to
+positions.
 
 *Incident and command (Einsatzleitung)*
 
@@ -241,7 +245,9 @@ Then:
 4. Master data in an admin view instead of a file (ORG-1).
 5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-6. Command structure as data, medical branch first (ADR-0031).
+6. Command structure, next steps (ADR-0031): positions give roles and so access (a
+   treatment-area lead reads its UHS), one tree per organisation linked by joint command,
+   drag and drop on tablets, sectors on the map.
 
 Later, after the features above:
 

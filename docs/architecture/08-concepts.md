@@ -1076,22 +1076,24 @@ embeds it; loading effective profiles from the server comes later.
 
 ```
 profiles/de/
-├── profile.toml               # manifest
-├── unit-types.toml
-├── status-codes.toml
-├── command-structure.toml
-├── incident-keywords.csv
-├── task-templates.toml
-├── med/
-│   ├── triage-categories.toml
-│   ├── discharge-outcomes.toml
-│   ├── epcr-forms.json        # ePCR forms: FHIR Questionnaire (DIVI MIND sections)
-│   └── hospital-types.toml
-├── terminology/
-│   ├── de.ftl                 # UI wording (Fluent)
-│   └── en.ftl
-└── symbols/                   # tactical symbols (SVG)
+├── profile.toml               # manifest with sources
+├── units/
+│   ├── status-codes.toml      # FMS status codes, which count as available
+│   └── catalogue.toml         # services, crew qualifications
+├── tasks/
+│   └── templates.toml         # task templates
+├── command/
+│   └── structure.toml         # position kinds (FwDV 100, medical response)
+└── med/
+    ├── epcr-forms.json        # ePCR forms: FHIR Questionnaire (DIVI MIND sections)
+    ├── transport-priority.toml
+    ├── transport-requests.toml
+    ├── hospitals.toml         # departments, capabilities, capacity categories
+    ├── orders.toml            # routes; where an order is documented
+    └── triage-algorithms.toml # references (ADR-0045)
 ```
+
+Planned: incident keywords, unit types with tactical symbols, UI wording (Fluent).
 
 ```toml
 # profiles/de/profile.toml
