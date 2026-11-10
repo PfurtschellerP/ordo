@@ -156,6 +156,8 @@ pub const UNIT_CALL_SIGN: &str = "Funkrufname";
 pub const UNIT_TYPE: &str = "Typ (z. B. RTW, KTW, Sanitätstrupp)";
 pub const UNIT_ORGANISATION: &str = "Organisation";
 pub const UNIT_SUBMIT: &str = "Einsatzmittel hinzufügen";
+pub const UNIT_SERVICE: &str = "Dienst";
+pub const UNIT_MISSING: &str = "Bitte Funkrufname und Typ angeben.";
 pub const COL_STATUS: &str = "Status";
 pub const COL_SET_STATUS: &str = "Status setzen";
 pub const NO_STATUS: &str = "–";
@@ -748,4 +750,82 @@ pub fn triage_stage(stage: ordo_med_patients::triage::Stage) -> &'static str {
 /// "nach PRIOR"
 pub fn triage_with(name: &str) -> String {
     format!("nach {name}")
+}
+
+// Units (UNIT-1…6).
+pub const STRENGTH_TITLE: &str = "Kräfte vor Ort";
+pub const STRENGTH: &str = "Stärke";
+pub const STRENGTH_LEGEND: &str = "Stärke (Führer / Unterführer / Mannschaft)";
+pub const STRENGTH_NUMBERS: &str =
+    "Bitte die Stärke als drei ganze Zahlen angeben oder leer lassen.";
+pub const LEADERS: &str = "Führer";
+pub const SUB_LEADERS: &str = "Unterführer";
+pub const CREW_COUNT: &str = "Mannschaft";
+pub const BY_ORGANISATION: &str = "Nach Organisation";
+pub const BY_SERVICE: &str = "Nach Dienst";
+pub const NO_SERVICE: &str = "ohne Dienst";
+pub const NO_ORGANISATION: &str = "ohne Organisation";
+pub const CREW: &str = "Besatzung";
+pub const CREW_NONE: &str = "Keine Besatzung erfasst.";
+pub const CREW_MEMBER: &str = "Name";
+pub const CREW_QUALIFICATIONS: &str = "Qualifikationen";
+pub const CREW_ADD: &str = "Zur Besatzung hinzufügen";
+pub const CREW_REMOVE: &str = "Entfernen";
+pub const RELEASE: &str = "Aus dem Einsatz entlassen";
+pub const BACK_IN: &str = "Wieder im Einsatz";
+
+/// "0/1/8/9" read out: "Stärke: 0 Führer, 1 Unterführer, 8 Mannschaft, 9 gesamt".
+pub fn strength_label(leaders: u32, sub_leaders: u32, crew: u32, total: u32) -> String {
+    format!(
+        "{STRENGTH}: {leaders} {LEADERS}, {sub_leaders} {SUB_LEADERS}, {crew} {CREW_COUNT}, {total} gesamt"
+    )
+}
+
+pub fn units_count(n: u32) -> String {
+    if n == 1 {
+        "1 Einsatzmittel".to_owned()
+    } else {
+        format!("{n} Einsatzmittel")
+    }
+}
+
+pub fn unreported(n: u32) -> String {
+    format!("ohne Stärkemeldung: {n}")
+}
+
+/// "3 – Einsatz übernommen, seit 10:12"
+pub fn status_since(status: &str, since: &str) -> String {
+    format!("{status}, seit {since}")
+}
+
+pub fn crew_label(unit: &str, n: usize) -> String {
+    format!("{CREW} von {unit} ({n})")
+}
+
+pub fn crew_remove_label(name: &str) -> String {
+    format!("{name} aus der Besatzung entfernen")
+}
+
+pub fn crew_set(unit: &str) -> String {
+    format!("Besatzung von {unit} gespeichert")
+}
+
+pub fn release_label(unit: &str) -> String {
+    format!("{unit} aus dem Einsatz entlassen")
+}
+
+pub fn unit_released(unit: &str) -> String {
+    format!("{unit} aus dem Einsatz entlassen")
+}
+
+pub fn back_in_label(unit: &str) -> String {
+    format!("{unit} wieder im Einsatz")
+}
+
+pub fn released_list(n: usize) -> String {
+    format!("Entlassene Einsatzmittel ({n})")
+}
+
+pub fn released_at(at: &str) -> String {
+    format!("Entlassen um {at}")
 }

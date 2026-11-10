@@ -23,7 +23,7 @@ use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
-use crate::ui::{Action, Actions, IncidentPeople, PeopleList, RadioChips};
+use crate::ui::{Action, Actions, IncidentPeople, RadioChips, Suggestions};
 use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
@@ -1613,7 +1613,7 @@ fn FieldInput(
                     prop:value=text_value
                     on:input=set_text
                 />
-                <PeopleList id=list people />
+                <Suggestions id=list values=people />
             }
             .into_any()
         }

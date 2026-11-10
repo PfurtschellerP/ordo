@@ -9,7 +9,6 @@ use ordo_contracts::TriageCategory::{
     self, Deceased, Expectant, Immediate, Minor, Uninjured, Urgent,
 };
 use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
-use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
 use crate::ui::{Disclosure, DisclosureButton, Icon, SettingSelect};
@@ -834,7 +833,7 @@ fn Workspace(
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
                     (Some("command.situation"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
-                    (Some("command.situation"), Some("units")) => view! { <ResourcesWorkspace core revision /> }.into_any(),
+                    (Some("command.situation"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
                     (Some("command.situation"), Some("roster")) => view! { <incidents::RosterView core revision /> }.into_any(),
                     (Some("command.situation"), _) => view! { <CommandWorkspace core revision /> }.into_any(),
                     (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
@@ -1141,130 +1140,6 @@ fn CommandWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 .into_any()
             }}
-        </section>
-    }
-}
-
-/// Units (vehicles, teams, other resources) with status (UNIT-1…3).
-#[component]
-fn ResourcesWorkspace(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    // [impl->dsn~views-by-role~1]
-    // Adding units and setting their status: incident command only (`edit_units`).
-    let can_edit = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
-    let call_sign = RwSignal::new(String::new());
-    let unit_type = RwSignal::new(String::new());
-    let organisation = RwSignal::new(String::new());
-    let error = RwSignal::new(None::<String>);
-    let submit = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
-        let (u, t, o) = (call_sign.get(), unit_type.get(), organisation.get());
-        if u.trim().is_empty() || t.trim().is_empty() {
-            return;
-        }
-        match core::add_unit(core, revision, u.trim(), t.trim(), o.trim()) {
-            Ok(()) => {
-                call_sign.set(String::new());
-                error.set(None);
-            }
-            Err(e) => error.set(Some(e)),
-        }
-    };
-    let register = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            let events = c.events(units::COMPARTMENT);
-            UnitRegister::from_events(&events)
-        })
-    });
-    view! {
-        <section aria-labelledby="units-title" class="card">
-            <h2 id="units-title">{text::UNITS_TITLE}</h2>
-            {move || {
-                register
-                    .get()
-                    .lost_updates
-                    .into_iter()
-                    .map(|l| view! { <p class="notice notice--warning">{text::lost_update(&l.unit, &l.overwritten, &l.kept)}</p> })
-                    .collect_view()
-            }}
-            {move || {
-                let units = register.get().units;
-                let editable = can_edit.get();
-                if units.is_empty() {
-                    return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
-                }
-                view! {
-                    <ul class="unit-list" data-keys="list">
-                        {units
-                            .into_values()
-                            .map(|u| {
-                                let unit = u.unit.clone();
-                                let current = u.status.as_ref().map(|s| s.status.clone()).unwrap_or_default();
-                                let shown = if current.is_empty() { text::NO_STATUS.to_owned() } else { text::status_label(&current) };
-                                let details = [u.unit_type.as_str(), u.organisation.as_str()]
-                                    .into_iter()
-                                    .filter(|t| !t.is_empty())
-                                    .collect::<Vec<_>>()
-                                    .join(" · ");
-                                view! {
-                                    <li class="unit-card" data-unit=u.unit.clone()>
-                                        <h3 class="unit-card__name">{u.unit.clone()}</h3>
-                                        <p class="unit-card__details">{details}</p>
-                                        <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
-                                        {editable.then(|| view! {
-                                        <select
-                                            aria-label=text::set_status_label(&unit)
-                                            on:change=move |ev| {
-                                                let value = event_target_value(&ev);
-                                                if !value.is_empty() {
-                                                    let _ = core::set_status(core, revision, &unit, &value);
-                                                }
-                                            }
-                                        >
-                                            <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
-                                            {crate::units::STATUS
-                                                .codes
-                                                .iter()
-                                                .map(|s| {
-                                                    let code = s.code.clone();
-                                                    view! { <option value=code.clone() selected=code == current>{text::status_label(&code)}</option> }
-                                                })
-                                                .collect_view()}
-                                        </select>
-                                        })}
-                                    </li>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                }
-                .into_any()
-            }}
-            <Show when=move || can_edit.get()>
-            <form on:submit=submit class="form form--inline">
-                <div class="field">
-                    <label for="unit-call-sign">{text::UNIT_CALL_SIGN}</label>
-                    <input id="unit-call-sign" type="text" required bind:value=call_sign />
-                </div>
-                <div class="field">
-                    <label for="unit-type">{text::UNIT_TYPE}</label>
-                    <input id="unit-type" type="text" required bind:value=unit_type />
-                </div>
-                <div class="field">
-                    <label for="unit-organisation">{text::UNIT_ORGANISATION}</label>
-                    <input id="unit-organisation" type="text" bind:value=organisation />
-                </div>
-                <button type="submit" class="button">{text::UNIT_SUBMIT}</button>
-            </form>
-            </Show>
-            <p role="alert" class="error">{move || error.get()}</p>
         </section>
     }
 }

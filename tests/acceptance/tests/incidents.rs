@@ -168,6 +168,33 @@ fn roles_are_granted_per_incident_and_access_follows() {
     let out = world.hub.handle(901, ClientMessage::ListPeople, now);
     assert!(matches!(&out[0].message, ServerMessage::People(p) if p.is_empty()));
 
+    // [itest->dsn~unit-register~2]
+    // Vehicles of the master data: for planners (and those who edit units), protocol 1.1.
+    let out = world.hub.handle(901, ClientMessage::ListVehicles, now);
+    assert!(
+        matches!(&out[0].message, ServerMessage::Vehicles(v) if v.is_empty()),
+        "not for a medic"
+    );
+    let hello = world.hello("dora", 902);
+    world.hub.handle(902, hello, now);
+    let out = world.hub.handle(902, ClientMessage::ListVehicles, now);
+    assert!(
+        matches!(&out[0].message, ServerMessage::Vehicles(v) if v[0].unit_type == "RTW"),
+        "for a planner"
+    );
+    let mut old = world.hello("dora", 903);
+    if let ClientMessage::Hello(h) = &mut old {
+        h.version = Some(ordo_sync::version::Version::new(1, 0));
+    }
+    world.hub.handle(903, old, now);
+    assert!(
+        world
+            .hub
+            .handle(903, ClientMessage::ListVehicles, now)
+            .is_empty(),
+        "a 1.0 session gets nothing newer"
+    );
+
     // Ben withdraws Anna's role: her device loses the clinical data.
     grant(&mut world, "ben", "anna", "medic", false);
     world.sync();

@@ -12,7 +12,7 @@ use ordo_med_patients::orders::OrderCatalogue;
 use ordo_med_patients::record::FormCatalogue;
 use ordo_med_patients::transport::TransportCatalogue;
 use ordo_med_patients::triage::TriageCatalogue;
-use ordo_units::StatusCatalogue;
+use ordo_units::{StatusCatalogue, UnitCatalogue};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -77,6 +77,11 @@ fn main() {
         c.check().map_err(|e| e.to_string())
     });
     embed(&med, "triage-algorithms.toml", TriageCatalogue::check);
+    embed(
+        &profile.join("units"),
+        "catalogue.toml",
+        UnitCatalogue::check,
+    );
     embed(
         &profile.join("units"),
         "status-codes.toml",

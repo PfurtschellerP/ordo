@@ -1,4 +1,4 @@
-; ORDO sync protocol — draft 1, version 1.0
+; ORDO sync protocol — draft 1, version 1.1
 ;
 ; Messages between devices and the server, CBOR-encoded (RFC 8949). Enums use the
 ; externally tagged form { "name": content }. Event structures: event.cddl.
@@ -12,6 +12,7 @@ client-message = { "hello": hello }
                / { "revokeDevice": device-id } ; own device, any with manage_devices
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
+               / "listVehicles"               ; vehicles of the installation (1.1)
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
@@ -24,6 +25,15 @@ hello = {
   ;   "ORDO hello v1" 0x00 || challenge nonce (32) || device-id (16) || UTF-8 user-id
   "proof": bstr .size 64,
   ? "version": version,          ; protocol version spoken; none means "1.0" (§11)
+}
+
+; A vehicle of the installation's master data (UNIT-1).
+vehicle = {
+  "unit": tstr,                    ; call sign
+  "type": tstr,                    ; e.g. "RTW"
+  "organisation": tstr,
+  ? "service": tstr,               ; service ID from the profile
+  ? "strength": [uint, uint, uint], ; leaders, sub-leaders, crew
 }
 
 ; "major.minor", e.g. "1.4" (ADR-0052)
@@ -47,6 +57,8 @@ server-message = { "challenge": challenge }
                / { "incidents": [* incident-summary] } ; answer to listIncidents
                / { "people": [* user-id] }    ; answer to listPeople; empty unless the
                                               ; user may grant roles somewhere
+               / { "vehicles": [* vehicle] }  ; answer to listVehicles (1.1); empty unless
+                                              ; the user may edit units somewhere
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
                / { "blobTicket": blob-ticket } ; answer to blobTicket
 

@@ -1,0 +1,59 @@
+# Units (UNIT-2, UNIT-5): the services a unit belongs to and the qualifications of crew
+# members. Labels are German user labels; IDs are stable. A state profile may replace this
+# file (layering, architecture 8.8.3).
+
+[[service]]
+id = "fire"
+label = "Feuerwehr"
+
+[[service]]
+id = "rescue"
+label = "Rettungsdienst"
+
+[[service]]
+id = "medical"
+label = "Sanitätsdienst"
+
+[[service]]
+id = "civil-protection"
+label = "Katastrophenschutz"
+
+[[service]]
+id = "thw"
+label = "THW"
+
+[[service]]
+id = "police"
+label = "Polizei"
+
+[[qualification]]
+id = "emergency-physician"
+label = "Notärztin/Notarzt"
+
+[[qualification]]
+id = "paramedic"
+label = "Notfallsanitäter/in"
+
+[[qualification]]
+id = "emt"
+label = "Rettungssanitäter/in"
+
+[[qualification]]
+id = "first-responder"
+label = "Sanitäter/in"
+
+[[qualification]]
+id = "crew-leader"
+label = "Gruppenführer/in"
+
+[[qualification]]
+id = "platoon-leader"
+label = "Zugführer/in"
+
+[[qualification]]
+id = "driver-operator"
+label = "Maschinist/in"
+
+[[qualification]]
+id = "breathing-apparatus"
+label = "Atemschutzgeräteträger/in"

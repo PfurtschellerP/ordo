@@ -2758,6 +2758,7 @@ dependencies = [
  "ordo-core",
  "ordo-sync",
  "serde",
+ "toml",
 ]
 
 [[package]]

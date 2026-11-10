@@ -599,10 +599,20 @@
   .triage-aid__panel[hidden] { display: none; }
   .triage-aid__panel { padding: var(--ordo-space-3); background: var(--ordo-color-surface-sunken); border-radius: var(--ordo-radius-medium); }
   .triage-aid__list { margin: 0; padding-inline-start: var(--ordo-space-5); display: grid; gap: var(--ordo-space-2); }
-  .discharged-list { margin-block-start: var(--ordo-space-4); }
-  .discharged-list > .patient-list { margin-block-start: var(--ordo-space-2); }
+  .discharged-list, .released-list { margin-block-start: var(--ordo-space-4); }
+  .discharged-list > .patient-list, .released-list > .unit-list { margin-block-start: var(--ordo-space-2); }
+  /* Units (UNIT-1…6): strength in tactical notation, the total underlined. */
+  .strength__total { text-decoration: underline; font-weight: var(--ordo-font-weight-bold); }
+  .strength-on-scene { display: grid; gap: var(--ordo-space-2); margin-block: var(--ordo-space-3); }
+  .strength-on-scene h3, .strength-on-scene h4 { margin: 0; }
+  .strength-on-scene p, .strength-on-scene ul { margin: 0; }
+  .strength-on-scene__groups { display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+  .strength-on-scene ul, .crew-list { padding-inline-start: var(--ordo-space-5); }
+  .unit-card__crew-panel[hidden] { display: none; }
+  .unit-card--released { border-style: dashed; }
+  .add-unit { margin-block-start: var(--ordo-space-4); }
   .record__discharged { margin: 0; }
-  .corrected summary, .history-list summary, .discharged-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+  .corrected summary, .history-list summary, .discharged-list summary, .released-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }

@@ -24,6 +24,8 @@ pub enum ClientMessage {
     ListIncidents,
     /// Asks for the people the server knows, to suggest them when granting a role.
     ListPeople,
+    /// Asks for the installation's vehicles (master data, UNIT-1); protocol 1.1.
+    ListVehicles,
     /// Asks for the profile pictures of these people (ADR-0047).
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
@@ -118,6 +120,24 @@ pub struct IncidentSummary {
     pub manage: bool,
 }
 
+/// A vehicle of the installation's master data (UNIT-1), offered when adding a unit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Vehicle {
+    /// Call sign.
+    pub unit: String,
+    /// Type, e.g. "RTW".
+    #[serde(rename = "type")]
+    pub unit_type: String,
+    /// Organisation.
+    pub organisation: String,
+    /// Service ID from the profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    /// Default crew strength: leaders, sub-leaders, crew.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strength: Option<[u32; 3]>,
+}
+
 /// A paired device, as listed for its person or an admin (SEC-4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceInfo {
@@ -196,6 +216,9 @@ pub enum ServerMessage {
     /// The people the server knows (answer to `listPeople`): empty for those who may not
     /// grant roles anywhere.
     People(Vec<UserId>),
+    /// The installation's vehicles (answer to `listVehicles`, protocol 1.1): empty for
+    /// those who may not edit units anywhere.
+    Vehicles(Vec<Vehicle>),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// Answer to `blobTicket`.

@@ -74,6 +74,8 @@ pub struct Core {
     pub incidents: Option<Vec<IncidentSummary>>,
     /// The people the server knows, as last listed (for granting roles).
     pub people: Vec<UserId>,
+    /// The installation's vehicles, as last listed (for adding units).
+    pub vehicles: Vec<ordo_sync::message::Vehicle>,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -150,6 +152,7 @@ impl Core {
             incident,
             incidents: None,
             people: Vec::new(),
+            vehicles: Vec::new(),
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -201,6 +204,7 @@ impl Core {
             }
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
+            (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
             _ => 1,
         };
         self.replica
@@ -324,6 +328,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::People(list) = &message {
                 c.people = list.clone();
+            }
+            if let ServerMessage::Vehicles(list) = &message {
+                c.vehicles = list.clone();
             }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
@@ -697,17 +704,24 @@ pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), S
 }
 
 /// Adds a unit (vehicle, team, other resource) to the incident (UNIT-1).
-pub fn add_unit(
-    core: Handle,
-    revision: RwSignal<u64>,
-    unit: &str,
-    unit_type: &str,
-    organisation: &str,
-) -> Result<(), String> {
-    let payload = UnitAdded {
+pub fn add_unit(core: Handle, revision: RwSignal<u64>, unit: UnitAdded) -> Result<(), String> {
+    let payload = unit.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        units::COMPARTMENT,
+        units::MODULE,
+        units::ADDED,
+        &payload,
+        text::unit_added(&unit.unit),
+    )
+}
+
+// [impl->dsn~unit-register~2]
+/// Releases a unit from the incident (UNIT-6); it stays in the history.
+pub fn release_unit(core: Handle, revision: RwSignal<u64>, unit: &str) -> Result<(), String> {
+    let payload = units::Released {
         unit: unit.to_owned(),
-        unit_type: unit_type.to_owned(),
-        organisation: organisation.to_owned(),
     }
     .encode()
     .map_err(|e| e.to_string())?;
@@ -716,10 +730,53 @@ pub fn add_unit(
         revision,
         units::COMPARTMENT,
         units::MODULE,
-        units::ADDED,
+        units::RELEASED,
         &payload,
-        text::unit_added(unit),
+        text::unit_released(unit),
     )
+}
+
+/// Sets the whole crew of a unit (UNIT-5).
+pub fn set_crew(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: &str,
+    members: Vec<units::CrewMember>,
+) -> Result<(), String> {
+    let payload = units::CrewSet {
+        unit: unit.to_owned(),
+        members,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        units::COMPARTMENT,
+        units::MODULE,
+        units::CREW_SET,
+        &payload,
+        text::crew_set(unit),
+    )
+}
+
+/// Asks the server for the installation's vehicles (UNIT-1; answered to those who edit
+/// units).
+pub fn list_vehicles(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::ListVehicles));
+}
+
+/// A text as part of an element ID: letters and digits, the rest as `-`.
+pub fn slug(text: &str) -> String {
+    text.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect()
 }
 
 /// Sets the status of a unit, recording which status it replaces (lost-update detection).

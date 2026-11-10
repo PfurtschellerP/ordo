@@ -384,9 +384,9 @@ impl TransportBoard {
     }
 
     // [impl->dsn~transport-board~1]
-    /// The units free for a transport: of a transport type of the profile (by label or
-    /// ID, ignoring case), in a status the profile marks as available, and on no open
-    /// transport.
+    /// The units free for a transport: present (not released), of a transport type of the
+    /// profile (by label or ID, ignoring case), in a status the profile marks as available,
+    /// and on no open transport.
     pub fn available_units<'a>(
         &self,
         units: &'a UnitRegister,
@@ -400,8 +400,7 @@ impl TransportBoard {
             .filter_map(|t| t.unit.as_deref())
             .collect();
         units
-            .units
-            .values()
+            .present()
             .filter(|u| {
                 catalogue.types.iter().any(|t| {
                     t.label.eq_ignore_ascii_case(&u.unit_type)
@@ -663,11 +662,23 @@ mod tests {
                     unit: name.into(),
                     unit_type: unit_type.into(),
                     organisation: "DRK".into(),
+                    service: None,
+                    strength: None,
                     status: status.map(|s| ordo_units::UnitStatus {
                         status: s.into(),
                         since: at,
-                        by,
+                        by: by.clone(),
                     }),
+                    crew: Vec::new(),
+                    presence: if name.starts_with("RTW 7") {
+                        vec![ordo_units::PresenceEntry {
+                            change: ordo_units::Presence::Released,
+                            at,
+                            by,
+                        }]
+                    } else {
+                        Vec::new()
+                    },
                 },
             )
         };
@@ -679,6 +690,7 @@ mod tests {
                 unit("KTW 4", "KTW", Some("6")), // not available
                 unit("HLF 5", "HLF", Some("2")), // no transport type
                 unit("RTW 6", "RTW", None),      // no status yet
+                unit("RTW 7", "RTW", Some("2")), // released
             ]),
             lost_updates: Vec::new(),
         };

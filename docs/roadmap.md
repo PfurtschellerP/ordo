@@ -150,7 +150,11 @@ recorded with every triage, the category stays the person's choice; post-quantum
 (milestone `m27`, ADR-0042): the Compose bundle's TLS endpoint offers the hybrid key
 exchange X25519MLKEM768 first, checked in CI; ADR-0042 lists every algorithm and how each
 is replaced; bills of materials (milestone `m28`, ADR-0043): CycloneDX for the server and the
-web app on every build, checked in CI.
+web app on every build, checked in CI; units complete (milestone `m29`,
+UNIT-1…6): units from the installation's vehicles (`ORDO_VEHICLES_FILE`, sync protocol
+1.1) or ad hoc, with service and strength in tactical notation, status since when, crew
+with qualifications, release and return, and the strength on scene per organisation and
+service.
 
 *Incident and command (Einsatzleitung)*
 
@@ -230,8 +234,8 @@ Then:
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-4. Complete resources and UHS (UNIT-1…6, UHS-1): units from master data, crew strength,
-   status codes from the DE profile, releasing units, UHS staff and location.
+4. UHS location and assigned staff (UHS-1); master data in an admin view instead of a
+   file (ORG-1).
 5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
 6. Command structure as data, medical branch first (ADR-0031).

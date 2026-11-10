@@ -655,15 +655,26 @@ test("ORDO in the browser", async ({ browser }) => {
 
   await test.step("resources: add a unit and set its status, also from the keyboard", async () => {
     await openView(ben, "Einsatzmittel");
+    // [itest->dsn~unit-register~2]
+    await expect(ben.locator("#unit-call-signs option[value='RTW 83/1']"), "the installation's vehicles are offered").toHaveCount(1);
     await ben.locator("#unit-call-sign").fill("RTW 83/1");
-    await ben.locator("#unit-type").fill("RTW");
-    await ben.locator("#unit-organisation").fill("DRK Musterstadt");
+    await expect(ben.locator("#unit-type"), "a known call sign fills in the rest").toHaveValue("RTW");
+    await expect(ben.locator("#unit-organisation")).toHaveValue("DRK Musterstadt");
+    await expect(ben.locator("#unit-service")).toHaveValue("rescue");
+    await expect(ben.locator("#unit-crew")).toHaveValue("1");
     await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const status_ = ben.getByLabel("Status von RTW 83/1 setzen");
     await status_.selectOption({ label: "3 – Einsatz übernommen" });
     const card = ben.locator(".unit-card[data-unit='RTW 83/1']");
     await expect(card, "a unit is added and its status is set").toContainText("Status: 3 – Einsatz übernommen");
     await expect(card).toContainText("RTW · DRK Musterstadt");
+    await expect(card, "with service and strength").toContainText("Rettungsdienst · Stärke 0/1/1/2");
+    await expect(ben.locator(".strength-on-scene__total"), "strength on scene").toHaveText("1 Einsatzmittel · Stärke 0/1/1/2");
+    await ben.getByRole("button", { name: "Besatzung von RTW 83/1 (0)" }).click();
+    await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
+    await card.getByLabel("Notfallsanitäter/in").check();
+    await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("anna@localhost · Notfallsanitäter/in");
     await expect.poll(() => status(ben), { message: "unit and status are sent" }).toContain("Alles gesendet");
     await openPalette(ben);
     await ben.keyboard.type("rtw");
@@ -680,6 +691,13 @@ test("ORDO in the browser", async ({ browser }) => {
       "views without access are shown disabled with the reason",
     ).toHaveCount(1);
     await closePalette(ben);
+    // Released units leave the strength and stay in the history; they can come back.
+    await ben.getByRole("button", { name: "RTW 83/1 aus dem Einsatz entlassen" }).click();
+    await expect(ben.locator(".strength-on-scene__total")).toHaveText("0 Einsatzmittel · Stärke 0/0/0/0");
+    await ben.locator(".released-list summary").click();
+    await expect(ben.locator(".released-list summary")).toHaveText("Entlassene Einsatzmittel (1)");
+    await ben.getByRole("button", { name: "RTW 83/1 wieder im Einsatz" }).click();
+    await expect(card, "back in the incident, with its status").toContainText("4 – Am Einsatzort");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));

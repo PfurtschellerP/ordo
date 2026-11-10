@@ -90,6 +90,8 @@ pub struct HubConfig {
     pub protected: Vec<CompartmentId>,
     /// How far an event's clock may be ahead of the server's.
     pub max_clock_ahead_ms: u64,
+    /// The installation's vehicles (master data, UNIT-1).
+    pub vehicles: Vec<crate::message::Vehicle>,
 }
 
 struct RegisteredDevice {
@@ -332,6 +334,26 @@ impl<P: AccessPolicy> Hub<P> {
         list
     }
 
+    /// The installation's vehicles, for planners and those who may edit units in some
+    /// incident; others get none.
+    fn vehicles(&self, user: &UserId) -> Vec<crate::message::Vehicle> {
+        let edits = self.policy.can_manage_incidents(user)
+            || self.registry.iter().any(|(id, _)| {
+                let roles = self.registry.roles(user, id);
+                !roles.is_empty()
+                    && self
+                        .policy
+                        .incident_permissions(user, id, &roles)
+                        .iter()
+                        .any(|p| p == "edit_units")
+            });
+        if edits {
+            self.config.vehicles.clone()
+        } else {
+            Vec::new()
+        }
+    }
+
     // [impl->dsn~person-suggestions~1]
     /// The people the server knows (a paired device or a role in any incident), sorted;
     /// only for those who may grant roles somewhere (planners, an incident's command).
@@ -518,6 +540,21 @@ impl<P: AccessPolicy> Hub<P> {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),
             }],
+            // [impl->dsn~unit-register~2]
+            // Protocol 1.1; an older session never asks, and gets nothing newer.
+            ClientMessage::ListVehicles => {
+                if self
+                    .session_version(session)
+                    .is_some_and(|v| v >= crate::version::SYNC_VEHICLES)
+                {
+                    vec![Outgoing {
+                        session,
+                        message: ServerMessage::Vehicles(self.vehicles(&user)),
+                    }]
+                } else {
+                    Vec::new()
+                }
+            }
             ClientMessage::ListPeople => vec![Outgoing {
                 session,
                 message: ServerMessage::People(self.people(&user)),

@@ -83,7 +83,7 @@ Needs: dsn
 
 Add units to an incident from master data or ad hoc (neighbouring organisation, other service)
 
-Tags: must, shared
+Tags: must, shared, m29
 
 Needs: dsn
 
@@ -92,7 +92,7 @@ Needs: dsn
 
 Each unit has a call sign (*Funkrufname*), type (e.g. HLF, RTW, KTW, NEF), organisation, service and crew strength in tactical notation (e.g. 1/8/**9**)
 
-Tags: must, shared
+Tags: must, shared, m29
 
 Needs: dsn
 
@@ -101,7 +101,7 @@ Needs: dsn
 
 Unit status with timestamps; status codes configurable (e.g. FMS/TMS status 1–9)
 
-Tags: must, shared
+Tags: must, shared, m29
 
 Needs: dsn
 
@@ -110,7 +110,7 @@ Needs: dsn
 
 Show total strength on scene (units, persons, by organisation and service)
 
-Tags: must, shared
+Tags: must, shared, m29
 
 Needs: dsn
 
@@ -119,7 +119,7 @@ Needs: dsn
 
 Record crew members of a unit, including qualifications
 
-Tags: should, shared
+Tags: should, shared, m29
 
 Needs: dsn
 
@@ -128,7 +128,7 @@ Needs: dsn
 
 Release a unit from the incident; it stays in the history
 
-Tags: must, shared
+Tags: must, shared, m29
 
 Needs: dsn
 

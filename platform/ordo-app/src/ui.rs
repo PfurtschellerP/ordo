@@ -267,16 +267,16 @@ pub fn SettingSelect(
 }
 
 // [impl->dsn~person-suggestions~1]
-/// Suggestions of people for a text input (native `datalist`, id `{id}`): the input names
-/// it with `list`, and any other name can still be typed.
+/// Suggestions for a text input (native `datalist`, id `{id}`): people, call signs; the
+/// input names it with `list`, and anything else can still be typed.
 #[component]
-pub fn PeopleList(
+pub fn Suggestions(
     #[prop(into)] id: String,
-    #[prop(into)] people: Signal<Vec<String>>,
+    #[prop(into)] values: Signal<Vec<String>>,
 ) -> impl IntoView {
     view! {
         <datalist id=id>
-            {move || people.get().into_iter().map(|p| view! { <option value=p></option> }).collect_view()}
+            {move || values.get().into_iter().map(|p| view! { <option value=p></option> }).collect_view()}
         </datalist>
     }
 }

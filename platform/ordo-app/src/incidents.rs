@@ -253,7 +253,7 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         <label for="roster-person">{text::ROSTER_PERSON}</label>
                         <input id="roster-person" type="text" required autocomplete="off" spellcheck="false"
                             list="roster-person-people" bind:value=person />
-                        <crate::ui::PeopleList id="roster-person-people" people=people />
+                        <crate::ui::Suggestions id="roster-person-people" values=people />
                     </div>
                     <div class="field">
                         <label for="roster-role">{text::ROSTER_ROLE}</label>

@@ -117,6 +117,12 @@ A device receiving `rolesChanged` reconnects; for every stream listed as `denied
 new welcome it MUST delete that stream's events and key. `listIncidents` returns the
 incidents in which the user has a role, or all of them for `manage_incidents`.
 
+`listVehicles` (version 1.1) asks for the installation's vehicles (master data: call sign,
+type, organisation, service, default strength), offered when adding units. The server
+answers `vehicles`, with the list only for a user with `manage_incidents` or whose roles
+permit `edit_units` in some incident, and an empty list for everyone else. A session
+agreed on 1.0 gets no answer.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with
@@ -181,4 +187,5 @@ clients raises `major`.
 | Version | Sync protocol | HTTP API |
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
+| 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
 

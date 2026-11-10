@@ -714,6 +714,8 @@ fn several_uhs_and_units_in_one_incident() {
             unit: unit.into(),
             unit_type: unit_type.into(),
             organisation: "DRK Musterstadt".into(),
+            service: None,
+            strength: None,
         }
         .encode()
         .unwrap();
@@ -1173,4 +1175,92 @@ fn discharge_and_readmission_reach_every_device_and_the_counts() {
             .is_present()
     );
     assert_eq!(counts_of(&mut world, "ben"), [(1, 0, 1)]);
+}
+
+/// Records a unit event on `user`'s device, one second after the last.
+fn unit_event(world: &mut World, user: &str, event_type: &str, payload: &[u8]) {
+    let (incident, now) = (world.incident.clone(), world.now);
+    let schema = if event_type == units::ADDED {
+        units::ADDED_SCHEMA
+    } else {
+        1
+    };
+    world
+        .replica(user)
+        .record(
+            &incident,
+            units::COMPARTMENT,
+            units::MODULE,
+            event_type,
+            schema,
+            payload,
+            now,
+        )
+        .unwrap();
+    world.tick(1_000);
+}
+
+// [itest->dsn~unit-register~2]
+/// Units with service and strength, a crew and a release reach every device the same way,
+/// and the strength on scene counts only the units present.
+#[test]
+fn units_with_strength_crew_and_release_reach_every_device() {
+    let mut world = World::new();
+    world.sync();
+    for (unit, org, service, strength) in [
+        ("RTW 1", "DRK", "rescue", [0, 1, 1]),
+        ("HLF 1", "FF Musterstadt", "fire", [0, 1, 8]),
+    ] {
+        let a = units::UnitAdded {
+            unit: unit.into(),
+            unit_type: "RTW".into(),
+            organisation: org.into(),
+            service: Some(service.into()),
+            strength: Some(units::Strength::from(strength)),
+        }
+        .encode()
+        .unwrap();
+        unit_event(&mut world, "ben", units::ADDED, &a);
+    }
+    let crew = units::CrewSet {
+        unit: "RTW 1".into(),
+        members: vec![units::CrewMember {
+            name: "anna@ordo.example.org".into(),
+            qualifications: vec!["paramedic".into()],
+        }],
+    }
+    .encode()
+    .unwrap();
+    unit_event(&mut world, "ben", units::CREW_SET, &crew);
+    let release = units::Released {
+        unit: "HLF 1".into(),
+    }
+    .encode()
+    .unwrap();
+    unit_event(&mut world, "ben", units::RELEASED, &release);
+    world.sync();
+
+    let incident = world.incident.clone();
+    let seen = |world: &mut World, user: &str| {
+        units::UnitRegister::from_events(
+            &world
+                .replica(user)
+                .events(&incident, units::COMPARTMENT)
+                .unwrap(),
+        )
+    };
+    let anna = seen(&mut world, "anna");
+    assert_eq!(
+        anna,
+        seen(&mut world, "clara"),
+        "every device computes the same register"
+    );
+    assert!(!anna.units["HLF 1"].is_present());
+    assert_eq!(anna.units["RTW 1"].crew.len(), 1);
+    let s = anna.strength_on_scene();
+    assert_eq!(
+        (s.units, s.total.total()),
+        (1, 2),
+        "the released fire engine is not counted"
+    );
 }

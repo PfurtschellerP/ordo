@@ -19,6 +19,9 @@ pub struct Config {
     pub master_key: DataKey,
     /// Users and devices (`ORDO_SEED_FILE`, optional).
     pub seed: Seed,
+    /// The installation's vehicles (`ORDO_VEHICLES_FILE`, optional, TOML with
+    /// `[[vehicle]]` entries), offered when adding units (UNIT-1).
+    pub vehicles: Vec<ordo_sync::message::Vehicle>,
     /// Compartments whose payloads must be sealed (`ORDO_PROTECTED`, default
     /// `med.clinical`, comma-separated).
     pub protected: Vec<CompartmentId>,
@@ -217,6 +220,22 @@ impl Config {
                 .map_err(|e| ConfigError::invalid("ORDO_SEED_FILE", e.message().to_owned()))?,
             None => Seed::default(),
         };
+        // [impl->dsn~unit-register~2]
+        let vehicles = match get("ORDO_VEHICLES_FILE") {
+            Some(file) => {
+                #[derive(serde::Deserialize)]
+                struct Vehicles {
+                    #[serde(default)]
+                    vehicle: Vec<ordo_sync::message::Vehicle>,
+                }
+                toml::from_str::<Vehicles>(&read(&file)?)
+                    .map_err(|e| {
+                        ConfigError::invalid("ORDO_VEHICLES_FILE", e.message().to_owned())
+                    })?
+                    .vehicle
+            }
+            None => Vec::new(),
+        };
         let protected = get("ORDO_PROTECTED")
             .unwrap_or_else(|| "med.clinical".into())
             .split(',')
@@ -296,6 +315,7 @@ impl Config {
             data_dir,
             master_key,
             seed,
+            vehicles,
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),

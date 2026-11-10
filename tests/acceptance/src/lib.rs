@@ -86,6 +86,13 @@ impl World {
                 server: server.clone(),
                 protected: vec!["med.clinical".parse().unwrap()],
                 max_clock_ahead_ms: 60_000,
+                vehicles: vec![ordo_sync::message::Vehicle {
+                    unit: "Rotkreuz Musterstadt 83/1".into(),
+                    unit_type: "RTW".into(),
+                    organisation: "DRK Musterstadt".into(),
+                    service: Some("rescue".into()),
+                    strength: Some([0, 1, 1]),
+                }],
             },
             policy,
             EventSigner::new(

@@ -453,6 +453,7 @@ impl Replica {
             ServerMessage::Devices(_)
             | ServerMessage::Incidents(_)
             | ServerMessage::People(_)
+            | ServerMessage::Vehicles(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::BlobTicket(_) => Ok(()),
             ServerMessage::Rejected(rejected) => {

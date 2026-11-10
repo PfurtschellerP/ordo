@@ -20,6 +20,7 @@ Environment for `serve`:
   ORDO_LISTEN            Listen address (default 0.0.0.0:8080)
   ORDO_DATA_DIR          Data directory (default /data)
   ORDO_SEED_FILE         Users and devices (TOML, optional)
+  ORDO_VEHICLES_FILE     Vehicles of the installation, offered when adding units (TOML, optional)
   ORDO_PROTECTED         Protected compartments (default med.clinical)
   ORDO_APP_DIR           Built web app, served at / (optional)
   ORDO_POLICY_DIR        Own roles and permissions as Cedar policies, *.cedar (optional)

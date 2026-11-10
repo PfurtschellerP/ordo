@@ -240,21 +240,41 @@ Needs: impl, itest
 Tags: must, m1
 
 #### Unit register
-`dsn~unit-register~1`
+`dsn~unit-register~2`
 
-Units (vehicles, teams, other resources) join an incident with `units.added` (call sign,
-type, organisation) in the `incident` compartment; their status follows the
-lost-update-aware status board. Every device computes the same register. Still missing
-for UNIT-1…6: units from master data, crew strength, status codes from the profile,
-releasing units — the item is therefore not yet part of a milestone.
+Units (vehicles, teams, other resources) are events of the module `units` in the shared
+`incident` compartment; every device computes the same register from them.
+
+* **Join** (`units.added`, schema version 2): call sign, type, organisation, service and
+  crew strength (Führer, Unterführer, Mannschaft; the total is computed, shown in
+  tactical notation as 0/1/8/9). Services come from the profile (`units/catalogue.toml`).
+  Version 1 payloads decode without service and strength.
+* **From master data:** the installation's vehicles (call sign, type, organisation,
+  service, default strength) are a server file (`ORDO_VEHICLES_FILE`) until an admin view
+  exists (ORG-1). Devices ask with `listVehicles` (sync protocol 1.1); the server answers
+  planners and those who may edit units, others get an empty list. The add form suggests
+  the call signs and fills in the rest; units can still be added ad hoc.
+* **Status:** status codes from the profile; the lost-update-aware board keeps when and
+  by whom each status was set, and the card shows since when.
+* **Crew** (`units.crewSet`, the whole list): names (suggesting the incident's people) and
+  qualifications from the profile; the latest list counts.
+* **Release** (`units.released`): the unit leaves the incident and is no longer counted;
+  it stays in the history. Adding it again brings it back, with its attributes as given.
+* **Strength on scene:** the units present, and their strength in total, per organisation
+  and per service.
 
 Covers:
 
 * [req~unit-1~1](../requirements/02-shared.md#unit-1--add-units)
+* [req~unit-2~1](../requirements/02-shared.md#unit-2--unit-attributes)
+* [req~unit-3~1](../requirements/02-shared.md#unit-3--unit-status)
+* [req~unit-4~1](../requirements/02-shared.md#unit-4--strength-on-scene)
+* [req~unit-5~1](../requirements/02-shared.md#unit-5--crew-members)
+* [req~unit-6~1](../requirements/02-shared.md#unit-6--release-units)
 
-Needs: impl, itest
+Needs: impl, utest, itest
 
-Tags: must
+Tags: must, m29
 
 ### 5.5.2 Med module `med.patients`
 
