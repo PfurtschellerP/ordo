@@ -160,10 +160,11 @@ status codes moved from the app into the profile (`units/status-codes.toml`).
 
 - **MANV workspace:** pre-triage and triage, patient collection point, treatment area,
   transport organisation, overview for the medical command (LNA, OrgL).
-- **Transports, next steps:** planned transports (TRANS-5); a hospital list kept by the
-  organisation and imported (HL7 FHIR `Location`/`HealthcareService`) instead of entered
-  per incident; capacity from a capacity system such as IVENA eHealth (interface to be
-  clarified).
+- **Transports, next steps:** planned transports (TRANS-5). Later, not a priority
+  ([ADR-0050](adr/0050-hospital-capacity-sources.md), proposed): capacity from IVENA
+  eHealth once an organisation's agreement covers it; a hospital list kept by the
+  organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
+  incident.
 - **Orders, next steps:** substances from the medication catalogue (below); a done
   medication order prefilled into the record's medication form; an overview per UHS for
   the medical lead (LNA, OrgL); orders given by voice or radio recorded with the person

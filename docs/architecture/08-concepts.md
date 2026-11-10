@@ -543,7 +543,8 @@ records the current capacity as the number of patients the hospital takes now pe
 category; the profile names the categories (DE: SK I to SK III). The latest entry and the
 latest capacity count, by hybrid logical clock; the board shows who entered the capacity
 and when. Capacity is entered by hand from what the hospital reports; an interface to a
-capacity system (e.g. IVENA eHealth) can write the same event later. The fields follow
+capacity system (e.g. IVENA eHealth) can write the same event later
+([ADR-0050](../adr/0050-hospital-capacity-sources.md)). The fields follow
 HL7 FHIR `Location` and `HealthcareService`, so a list can later be imported from them.
 Medical staff read the list, but only the command writes it (Cedar).
 
