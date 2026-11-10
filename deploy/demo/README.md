@@ -20,7 +20,7 @@ Needs Docker or Podman (for Dex), Rust, and for the first start `trunk` and
 Roles are given per incident ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
 
 1. Log in as Dora, plan an incident ("Einsatz anlegen"); you lead it.
-2. Under *Einsatzleitung – Personal*, give roles to `anna@localhost` (Sanitätsdienst) and
+2. Under *Einsatzleitung – Führung*, give roles to `anna@localhost` (Sanitätsdienst) and
    `ben@localhost` (Einsatzleitung); "Einsatz beginnen" starts it.
 3. Log in as Anna or Ben in another browser profile or private window (every profile is
    one device) and open the incident from the list.
