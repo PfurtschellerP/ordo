@@ -40,3 +40,11 @@ updates:
     groups:
       e2e:
         patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /.clusterfuzzlite
+    schedule:
+      interval: weekly
+  - package-ecosystem: cargo
+    directory: /tests/fuzz
+    schedule:
+      interval: weekly

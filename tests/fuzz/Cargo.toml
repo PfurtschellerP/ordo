@@ -1,0 +1,64 @@
+# Fuzz targets of the decoders of everything from the network (SEC-17, ADR-0059). Its own
+# workspace: cargo-fuzz needs nightly Rust, the main workspace stays on stable.
+#
+#   cargo +nightly fuzz run --fuzz-dir . client_message
+#   cargo run --bin seeds -- corpus     # seed corpora from real values
+[package]
+name = "ordo-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ordo-command = { path = "../../modules/command" }
+ordo-contracts = { path = "../../platform/ordo-contracts" }
+ordo-core = { path = "../../platform/ordo-core" }
+ordo-map = { path = "../../modules/map" }
+ordo-med-patients = { path = "../../packages/med/patients" }
+ordo-sync = { path = "../../platform/ordo-sync" }
+ordo-tasks = { path = "../../modules/tasks" }
+ordo-units = { path = "../../modules/units" }
+serde = "1"
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "client_message"
+path = "fuzz_targets/client_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "server_message"
+path = "fuzz_targets/server_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "signed_event"
+path = "fuzz_targets/signed_event.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "payloads"
+path = "fuzz_targets/payloads.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "seeds"
+path = "src/seeds.rs"
+test = false
+doc = false
+bench = false

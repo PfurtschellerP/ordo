@@ -35,3 +35,8 @@ __pycache__/
 *.pyc
 deploy/demo/.data/
 platform/ordo-store/target/
+
+# Fuzzing (ADR-0059): build output, corpora and findings stay local.
+tests/fuzz/target/
+tests/fuzz/corpus/
+tests/fuzz/artifacts/

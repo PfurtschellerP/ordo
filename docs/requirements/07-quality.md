@@ -292,6 +292,15 @@ Tags: should, quality
 
 Needs: dsn
 
+#### SEC-17 — Robust against malformed input
+`req~sec-17~1`
+
+When the server or a device receives malformed or hostile data (events, protocol messages, payloads, attachments' metadata), ORDO shall refuse it without crashing, hanging or exhausting memory; the decoders of all data from the network shall be fuzzed continuously in CI.
+
+Tags: must, quality, m42
+
+Needs: dsn
+
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 

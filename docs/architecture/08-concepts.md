@@ -352,6 +352,33 @@ Needs: itest
 
 Tags: must, m28
 
+#### Fuzzing
+`dsn~fuzzing~1`
+
+`tests/fuzz` is a cargo-fuzz workspace (nightly Rust, excluded from the main workspace)
+with one target per kind of untrusted input:
+
+* `client_message`: what the server receives from devices.
+* `server_message`: what devices receive from the server.
+* `signed_event`: signed events and their bodies.
+* `payloads`: the payload of every event type and connector, as derivers and write guards
+  decode them.
+
+Each target decodes the input; whatever decodes must encode again to bytes that decode to
+the same value. libFuzzer with AddressSanitizer reports panics, hangs and memory
+exhaustion. A seed program writes valid messages, events and payloads as starting corpora.
+ClusterFuzzLite (`.clusterfuzzlite/`, workflow *Fuzzing*) builds the targets in OSS-Fuzz's
+Rust image and runs them for 5 minutes on every change and 30 minutes every day, keeping
+the corpus between runs ([ADR-0059](../adr/0059-fuzzing-with-cargo-fuzz-and-clusterfuzzlite.md)).
+
+Covers:
+
+* [req~sec-17~1](../requirements/07-quality.md#sec-17--robust-against-malformed-input)
+
+Needs: itest
+
+Tags: must, m42
+
 #### Container image
 `dsn~container-image~1`
 

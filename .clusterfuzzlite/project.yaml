@@ -1,0 +1,2 @@
+# ClusterFuzzLite (ADR-0059): fuzzing of the decoders of everything from the network.
+language: rust

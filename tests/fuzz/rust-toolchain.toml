@@ -1,0 +1,3 @@
+# cargo-fuzz needs nightly Rust (sanitizers); only this workspace uses it (ADR-0059).
+[toolchain]
+channel = "nightly"

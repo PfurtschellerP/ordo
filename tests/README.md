@@ -11,6 +11,11 @@ span several crates or the running system live here.
 | Acceptance tests across crates | [`acceptance/`](acceptance/): server and devices on a simulated network | `cargo test -p ordo-acceptance` |
 | Acceptance scenarios (Gherkin) | [`acceptance/features/`](acceptance/features/) | become executable with the MVP |
 | End-to-end tests in the browser | [`e2e/`](e2e/): real `ordo serve`, web app, Firefox, Chromium and WebKit | see below |
+| Fuzzing of all network input | [`fuzz/`](fuzz/): cargo-fuzz targets, nightly Rust, run by ClusterFuzzLite in CI (ADR-0059) | `cargo +nightly fuzz run --fuzz-dir tests/fuzz client_message` |
+
+Note on `tests/fuzz`: its `rust-toolchain.toml` asks for nightly Rust, so any `cargo` or
+`rustup` command run *inside* that directory installs the nightly toolchain. Run the
+targets from the repository root as shown, or in a container like CI does.
 
 ## End-to-end tests
 
