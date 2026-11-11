@@ -745,6 +745,26 @@ Needs: itest
 
 Tags: must, m48
 
+#### Decoded events on the device
+`dsn~decoded-events~1`
+
+The app's views compute what they show from the incident's events, again on every change.
+The replica therefore decodes each event's body and decrypts its payload once, and keeps
+the result per stream: `Replica::events_shared` returns the same shared list while the
+stream and the device's unconfirmed events in it are unchanged, and after a change only
+the new events are decoded. A stream that was replaced (e.g. after access was lost) is
+decoded anew. In the large incident of the field-near test, each change had decoded and
+decrypted all 10,000 events once per view.
+
+Covers:
+
+* [req~perf-2~1](../requirements/07-quality.md#perf-2--fast-propagation)
+* [req~perf-3~1](../requirements/07-quality.md#perf-3--large-incidents)
+
+Needs: impl, itest
+
+Tags: must, m48
+
 #### Device storage encryption
 `dsn~device-storage-encryption~1`
 

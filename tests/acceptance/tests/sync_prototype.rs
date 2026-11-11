@@ -1552,3 +1552,49 @@ fn only_final_rejections_take_an_event_out_of_the_outbox() {
     world.sync();
     assert_eq!(world.replica("ben").outbox_len(), 0, "the kept one arrives");
 }
+
+// [itest->dsn~decoded-events~1]
+#[test]
+fn events_are_decoded_once_and_shared_until_the_stream_changes() {
+    let mut world = World::new();
+    world.sync();
+    register(&mut world, "anna", "DE-0001", Immediate);
+    world.sync();
+    let incident = world.incident.clone();
+    let first = world
+        .replica("clara")
+        .events_shared(&incident, patients::COMPARTMENT)
+        .unwrap();
+    let again = world
+        .replica("clara")
+        .events_shared(&incident, patients::COMPARTMENT)
+        .unwrap();
+    assert!(
+        std::sync::Arc::ptr_eq(&first, &again),
+        "unchanged: the same list"
+    );
+    // Her own unconfirmed event, then the confirmed one: each time a new list.
+    register(&mut world, "clara", "DE-0002", Urgent);
+    let pending = world
+        .replica("clara")
+        .events_shared(&incident, patients::COMPARTMENT)
+        .unwrap();
+    assert_eq!(pending.len(), 2);
+    assert_eq!(pending[1].seq, None, "still in the outbox");
+    world.sync();
+    let confirmed = world
+        .replica("clara")
+        .events_shared(&incident, patients::COMPARTMENT)
+        .unwrap();
+    assert_eq!(confirmed.len(), 2);
+    assert!(confirmed.iter().all(|e| e.seq.is_some()), "now ordered");
+    assert_eq!(
+        world
+            .replica("clara")
+            .events(&incident, patients::COMPARTMENT)
+            .unwrap(),
+        confirmed.to_vec(),
+        "events() gives the same as a copy"
+    );
+    assert_eq!(register_of(&mut world, "clara").patients().count(), 2);
+}

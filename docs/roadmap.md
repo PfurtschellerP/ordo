@@ -248,9 +248,12 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    UHS; icons instead of the group words in the search; organisation chosen from a list
    when adding a unit, and the service "Zivilschutz" in the DE profile; the situation map
    opens on the incident's area; the current location by GPS.
-2. **Propagation in a large incident:** a change takes about 2 s to reach the other
-   tablet in the large incident (PERF-3 field test, PERF-2 asks for 2 s); incremental
-   projections on the device.
+2. **Propagation in a large incident** is done: the replica decodes and decrypts each
+   event once and shares the list with the views (dsn~decoded-events~1). In the large
+   incident a change now reaches the other tablet in 160–350 ms (before 1.5–2.1 s), a
+   fresh tablet shows all 500 patients in 0.7 s (before 2.4 s). Next: hold each stream's
+   decoded events once instead of twice (WebAssembly memory rose from 50 to 60–73 MB),
+   then projections updated per event instead of recomputed.
 3. **Menu structure** (needs an ADR on the workspace pattern): every workspace opens with
    an overview (a summary per page, direct links, quick actions). *Einsatzleitung*
    grouped by phase: overview; preparation (incident data and start, map region, map

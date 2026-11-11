@@ -1,6 +1,7 @@
 //! The device side: local copy of the streams the user may read, plus the outbox.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use ordo_core::event::ENVELOPE_VERSION;
 use ordo_core::{
@@ -109,6 +110,21 @@ impl LocalStream {
     }
 }
 
+/// What a stream's answer was made of: its ordered events (count, last ID) and the
+/// device's unconfirmed events in it (count, last ID).
+type Fingerprint = (usize, Option<EventId>, usize, Option<EventId>);
+
+// [impl->dsn~decoded-events~1]
+/// A stream's events as modules see them, decoded and decrypted once: views read them on
+/// every change, so in a large incident decoding all of them each time would be too slow.
+#[derive(Default)]
+struct Decoded {
+    /// The ordered events decoded so far, in order (a prefix of the stream).
+    ordered: Vec<AppliedEvent>,
+    /// The last answer and what it was made of.
+    shared: Option<(Fingerprint, Arc<[AppliedEvent]>)>,
+}
+
 /// A device's local copy. It works without a connection; [`Replica::hello`] and
 /// [`Replica::push`] produce the messages to send when connected.
 ///
@@ -142,6 +158,8 @@ pub struct Replica {
     permissions: Vec<String>,
     /// Views and functions per incident, from the last welcome (e.g. `view_situation`).
     incident_permissions: Vec<crate::message::IncidentPermissions>,
+    /// Decoded events per stream (see [`Decoded`]); behind a lock, as reading fills it.
+    decoded: Mutex<HashMap<StreamKey, Decoded>>,
 }
 
 impl Replica {
@@ -172,6 +190,7 @@ impl Replica {
             valid_until: None,
             permissions: Vec::new(),
             incident_permissions: Vec::new(),
+            decoded: Mutex::new(HashMap::new()),
         }
     }
 
@@ -627,43 +646,91 @@ impl Replica {
         incident: &IncidentId,
         compartment: &str,
     ) -> Result<Vec<AppliedEvent>, SyncError> {
+        self.events_shared(incident, compartment)
+            .map(|e| e.to_vec())
+    }
+
+    // [impl->dsn~decoded-events~1]
+    /// [`Replica::events`] without copying: the same list as long as the stream and the
+    /// outbox did not change. Each event is decoded and decrypted once.
+    pub fn events_shared(
+        &self,
+        incident: &IncidentId,
+        compartment: &str,
+    ) -> Result<Arc<[AppliedEvent]>, SyncError> {
         let compartment: CompartmentId = compartment
             .parse()
             .map_err(|e| SyncError::Invalid(format!("{e}")))?;
         let key = (incident.clone(), compartment);
-        let ordered = self
-            .streams
-            .get(&key)
-            .into_iter()
-            .flat_map(|s| s.events.iter().map(|e| (Some(e.seq), &e.event)));
-        let pending = self
+        let ordered: &[SequencedEvent] = self.streams.get(&key).map_or(&[], |s| &s.events);
+        let pending: Vec<&SignedEvent> = self
             .outbox
             .iter()
             .filter(|(k, _)| *k == key)
-            .map(|(_, e)| (None, e));
-        ordered
-            .chain(pending)
-            .map(|(seq, event)| {
-                let body = event.decode_body()?;
-                let payload = match &body.payload {
-                    Payload::Plain(bytes) => bytes.clone(),
-                    Payload::Sealed(sealed) => {
-                        let (_, data_key) =
-                            self.keys.get(&key).ok_or_else(|| SyncError::NoKey {
-                                incident: key.0.clone(),
-                                compartment: key.1.clone(),
-                            })?;
-                        let context = SealContext {
-                            event: body.id,
-                            incident: &key.0,
-                            compartment: &key.1,
-                        };
-                        seal::open(data_key, sealed, context)?
-                    }
+            .map(|(_, e)| e)
+            .collect();
+        let id = |e: &SignedEvent| e.decode_body().ok().map(|b| b.id);
+        let fingerprint = (
+            ordered.len(),
+            ordered.last().and_then(|e| id(&e.event)),
+            pending.len(),
+            pending.last().and_then(|e| id(e)),
+        );
+        let mut cache = self.decoded.lock().unwrap_or_else(|p| p.into_inner());
+        let decoded = cache.entry(key.clone()).or_default();
+        if let Some((seen, shared)) = &decoded.shared
+            && *seen == fingerprint
+        {
+            return Ok(shared.clone());
+        }
+        // Streams only grow; one that was replaced (e.g. access lost) is decoded anew.
+        let known = decoded.ordered.len();
+        let still = known <= ordered.len()
+            && decoded
+                .ordered
+                .last()
+                .is_none_or(|last| Some(last.body.id) == id(&ordered[known - 1].event));
+        if !still {
+            decoded.ordered.clear();
+        }
+        for e in &ordered[decoded.ordered.len()..] {
+            decoded
+                .ordered
+                .push(self.apply(&key, Some(e.seq), &e.event)?);
+        }
+        let mut all = decoded.ordered.clone();
+        for e in pending {
+            all.push(self.apply(&key, None, e)?);
+        }
+        let shared: Arc<[AppliedEvent]> = all.into();
+        decoded.shared = Some((fingerprint, shared.clone()));
+        Ok(shared)
+    }
+
+    /// One event as modules see it: body decoded, payload decrypted.
+    fn apply(
+        &self,
+        key: &StreamKey,
+        seq: Option<u64>,
+        event: &SignedEvent,
+    ) -> Result<AppliedEvent, SyncError> {
+        let body = event.decode_body()?;
+        let payload = match &body.payload {
+            Payload::Plain(bytes) => bytes.clone(),
+            Payload::Sealed(sealed) => {
+                let (_, data_key) = self.keys.get(key).ok_or_else(|| SyncError::NoKey {
+                    incident: key.0.clone(),
+                    compartment: key.1.clone(),
+                })?;
+                let context = SealContext {
+                    event: body.id,
+                    incident: &key.0,
+                    compartment: &key.1,
                 };
-                Ok(AppliedEvent { seq, body, payload })
-            })
-            .collect()
+                seal::open(data_key, sealed, context)?
+            }
+        };
+        Ok(AppliedEvent { seq, body, payload })
     }
 }
 

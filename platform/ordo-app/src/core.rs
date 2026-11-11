@@ -206,11 +206,13 @@ impl Core {
     }
 
     /// The events of `compartment` in the chosen incident (none without one).
-    pub fn events(&self, compartment: &str) -> Vec<AppliedEvent> {
+    // [impl->dsn~decoded-events~1]
+    /// The chosen incident's events of `compartment`, decoded once and shared (no copy).
+    pub fn events(&self, compartment: &str) -> std::sync::Arc<[AppliedEvent]> {
         self.incident
             .as_ref()
-            .and_then(|i| self.replica.events(i, compartment).ok())
-            .unwrap_or_default()
+            .and_then(|i| self.replica.events_shared(i, compartment).ok())
+            .unwrap_or_else(|| std::sync::Arc::from(Vec::new()))
     }
 
     /// The chosen incident's name, state and roster, from its events.
@@ -1809,6 +1811,7 @@ fn save_replica(replica: &Replica) -> Result<(), ()> {
     }
     let bytes = message::encode(&replica.snapshot()).map_err(|_| ())?;
     if store(REPLICA_KEY, &bytes) {
+        crate::storage::mark_saved();
         Ok(())
     } else {
         Err(())
