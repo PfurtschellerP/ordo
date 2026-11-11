@@ -241,6 +241,42 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   record for the handover (layout after the DIVI emergency protocol where no open
   standard exists), other printable views.
 
+Now — from the user test with two testers (2026-11-11), plan approved the same day:
+
+1. **Quick fixes:** log out (unpair) from the incident list too, not only inside an
+   incident; names of local accounts known before their first login (from Dex); rename a
+   UHS; icons instead of the group words in the search; organisation chosen from a list
+   when adding a unit, and the service "Zivilschutz" in the DE profile; the situation map
+   opens on the incident's area; the current location by GPS.
+2. **Propagation in a large incident:** a change takes about 2 s to reach the other
+   tablet in the large incident (PERF-3 field test, PERF-2 asks for 2 s); incremental
+   projections on the device.
+3. **Menu structure** (needs an ADR on the workspace pattern): every workspace opens with
+   an overview (a summary per page, direct links, quick actions). *Einsatzleitung*
+   grouped by phase: overview; preparation (incident data and start, map region, map
+   editing, units, people and roles); situation (map, command structure, orders on their
+   own page, transports, devices in the incident); incident log (moved here).
+   *Administration* replaces "Organisation": access (accounts, devices, organisation
+   roles renamed "Berechtigungen"), later master data. The incident command does not see
+   Administration; every device used in an incident can be blocked from the incident's
+   views, the full device list stays with Administration. **A map region per incident**
+   (one organisation runs several incidents in different places).
+4. **Upstream login** configured in ORDO (item 4 of the list below).
+5. **Situation map:** editing on its own page with a toolbar (replaces the centre
+   crosshair of ADR-0058; Terra Draw is the candidate), address search with an open
+   geocoder at planning time (online, like the map download), other map types (aerial
+   images per German state in the profiles, basemap.de), the UHS placed on the map
+   instead of a location field. ADRs for drawing, geocoding and map types.
+6. **UHS and units:** unit master data with templates (usual strength, no crew) in
+   Administration (ORG-1); a UHS is a unit, so it counts in the forces on scene (ADR);
+   UHS capacity per triage category and a plan of its places; strength after the 2024
+   DV 102 recommendation as an option (physicians, respirator wearers, unit and platoon
+   leaders apart; notation to be checked in the BBK document); the command structure as
+   a generated org chart.
+
+Blocked or later: registering helpers with the Meldekarte (QR format needed, see below),
+units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
+
 Then:
 
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
