@@ -1292,11 +1292,8 @@ pub fn add_photo(
 ) -> Result<(), String> {
     let mut key = [0u8; 32];
     let mut nonce = [0u8; 24];
-    entropy(&mut key);
-    entropy(&mut nonce);
-    if key == [0; 32] {
-        return Err("Keine Zufallszahlen verfügbar".into());
-    }
+    crate::vault::fill(&mut key)?;
+    crate::vault::fill(&mut nonce)?;
     let (reference, data) = ordo_crypto::attachment::seal(key, nonce, "image/jpeg", full);
     let photo = record::PhotoAttached {
         tag: tag.to_owned(),
@@ -1362,7 +1359,7 @@ fn record(
 /// A new ULID: the time now and random bits.
 pub(crate) fn new_ulid() -> Option<Ulid> {
     let mut random = [0u8; 16];
-    entropy(&mut random);
+    crate::vault::fill(&mut random).ok()?;
     Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()
 }
 
@@ -1564,7 +1561,7 @@ impl PendingDevice {
     /// A new device ID and key pair.
     pub fn create(incident: &str) -> Option<Self> {
         let mut seed = [0u8; 32];
-        entropy(&mut seed);
+        crate::vault::fill(&mut seed).ok()?;
         let device = new_ulid()?;
         Some(Self {
             device: device.to_string(),
@@ -1882,9 +1879,12 @@ pub fn now_clock() -> String {
 }
 
 /// Randomness from the browser (Web Crypto).
+/// Random numbers for the replica (event IDs, nonces of sealed events), which cannot
+/// fail: without secure random numbers the app stops rather than seal with a nonce that
+/// was not filled.
 fn entropy(buffer: &mut [u8]) {
-    if let Some(crypto) = web_sys::window().and_then(|w| w.crypto().ok()) {
-        let _ = crypto.get_random_values_with_u8_array(buffer);
+    if let Err(e) = crate::vault::fill(buffer) {
+        panic!("{e}");
     }
 }
 

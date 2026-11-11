@@ -54,7 +54,7 @@ pub fn open_item(key: &DataKey, label: &str, text: &str) -> Option<Vec<u8>> {
 /// Encrypts an item with the storage key; `None` before [`open`] succeeded.
 pub fn encrypt(label: &str, bytes: &[u8]) -> Option<String> {
     let mut nonce = [0u8; 24];
-    random(&mut nonce);
+    fill(&mut nonce).ok()?;
     STORAGE_KEY.with_borrow(|key| key.as_ref().map(|k| seal_item(k, nonce, label, bytes)))
 }
 
@@ -86,7 +86,7 @@ pub async fn open() -> Result<(), String> {
         // First start, or the key-encryption key was lost (browser data partly cleared):
         // a new storage key; items of the old one cannot be read any more.
         None => {
-            let key = new_storage_key();
+            let key = new_storage_key()?;
             web::save_storage_key(&subtle, &kek, &key).await?;
             key
         }
@@ -104,7 +104,11 @@ pub fn shred() {
     if let Some(storage) = web::local_storage() {
         let _ = storage.remove_item(STORAGE_KEY_ITEM);
     }
-    let key = new_storage_key();
+    // Without random numbers there is no new key, and so nothing is stored any more.
+    let Ok(key) = new_storage_key() else {
+        STORAGE_KEY.set(None);
+        return;
+    };
     let copy = key.clone();
     STORAGE_KEY.set(Some(key));
     leptos::task::spawn_local(async move {
@@ -115,16 +119,27 @@ pub fn shred() {
     });
 }
 
-fn new_storage_key() -> DataKey {
+fn new_storage_key() -> Result<DataKey, String> {
     let mut bytes = [0u8; 32];
-    random(&mut bytes);
-    DataKey::from_bytes(bytes)
+    fill(&mut bytes)?;
+    Ok(DataKey::from_bytes(bytes))
 }
 
-fn random(buffer: &mut [u8]) {
-    if let Some(crypto) = web_sys::window().and_then(|w| w.crypto().ok()) {
-        let _ = crypto.get_random_values_with_u8_array(buffer);
+/// The most `getRandomValues` fills in one call (WebCrypto).
+const RANDOM_CHUNK: usize = 65_536;
+
+/// Fills `buffer` with secure random numbers (WebCrypto's `getRandomValues`). Fails when
+/// the browser gives none: callers never use a key, nonce or ID that was not filled.
+pub fn fill(buffer: &mut [u8]) -> Result<(), String> {
+    let crypto = web_sys::window()
+        .and_then(|w| w.crypto().ok())
+        .ok_or("Keine Zufallszahlen verfügbar")?;
+    for chunk in buffer.chunks_mut(RANDOM_CHUNK) {
+        crypto
+            .get_random_values_with_u8_array(chunk)
+            .map_err(|_| "Keine Zufallszahlen verfügbar")?;
     }
+    Ok(())
 }
 
 /// Browser APIs: WebCrypto and IndexedDB.
@@ -237,7 +252,7 @@ mod web {
         key: &DataKey,
     ) -> Result<(), String> {
         let mut iv = [0u8; 12];
-        super::random(&mut iv);
+        super::fill(&mut iv)?;
         let promise = subtle
             .encrypt_with_object_and_u8_array(&gcm(&iv), kek, key.as_bytes())
             .map_err(error)?;
