@@ -24,7 +24,12 @@ async function runAxe(page: Page) {
     w.ordoE2eTooling = (w.ordoE2eTooling ?? 0) + 1;
   });
   try {
-    return await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+    let axe = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+    // WebKit: axe-core's stylesheet preloading copies the page's CSS into <style> elements
+    // of a helper document, which the policy blocks and WebKit reports at no fixed time.
+    // Only the orientation-lock rule needs it; Chromium still runs it.
+    if (page.context().browser()?.browserType().name() === "webkit") axe = axe.options({ preload: false });
+    return await axe.analyze();
   } finally {
     // Unmarked as a later task, after the violation events axe-core caused.
     await page.evaluate(
