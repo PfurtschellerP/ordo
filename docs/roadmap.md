@@ -254,10 +254,18 @@ Then:
    their own password (needs the link from an ORDO user to their Dex account; Dex can check the old password with `VerifyPassword`).
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
-4. Master data in an admin view instead of a file (ORG-1).
-5. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+4. Upstream login configured in ORDO: administrators connect the organisation's OpenID
+   Connect provider (Microsoft Entra ID, Keycloak, Authentik, Google, …) to Dex in the
+   app instead of editing `dex.yaml`, with a test login before it is saved. Builds on the
+   Dex API connection of ADR-0060: Dex's connector API (`CreateConnector`,
+   `UpdateConnector`, `DeleteConnector`, `ListConnectors`, enabled with
+   `additionalFeatures: [ConnectorsCRUD]`). Needs its own ADR: the ORDO server could then
+   redirect every login of the organisation, so the change needs a confirmation and is
+   logged; client secrets are written to Dex and never shown again.
+5. Master data in an admin view instead of a file (ORG-1).
+6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-6. Command structure, next steps (ADR-0031): positions give roles and so access (a
+7. Command structure, next steps (ADR-0031): positions give roles and so access (a
    treatment-area lead reads its UHS), one tree per organisation linked by joint command,
    drag and drop on tablets, sectors on the map.
 
