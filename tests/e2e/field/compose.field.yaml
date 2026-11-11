@@ -1,0 +1,69 @@
+# Field-near test (dsn~field-test~1): the Compose bundle of deploy/compose/minimal, as an
+# organisation installs it, plus two tablets on its network. Used by run.sh with
+#   docker compose -f deploy/compose/minimal/compose.yaml -f tests/e2e/field/compose.field.yaml
+# Everything generated lives in FIELD_WORK; nothing is written to the bundle's folder.
+name: ordo-field
+
+services:
+  ordo:
+    image: ${ORDO_FIELD_IMAGE:-ordo:local}
+    environment:
+      # The organisation's own certificate authority (README: field servers without
+      # internet): ORDO reaches the login at https://<domain>/dex through Caddy.
+      SSL_CERT_FILE: /field/ca.pem
+    volumes:
+      - ${FIELD_WORK}/tls/ca.pem:/field/ca.pem:ro
+      - ${FIELD_WORK}/dex-api:/dex-api:ro
+
+  dex:
+    volumes:
+      - ${FIELD_WORK}/dex.yaml:/etc/dex/config.yaml:ro
+      - ${FIELD_WORK}/dex-api:/etc/dex/api:ro
+
+  caddy:
+    # The tablets reach Caddy on the bundle's network; nothing on the host's ports.
+    ports: !reset []
+    volumes:
+      - ${FIELD_WORK}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${FIELD_WORK}/tls:/field:ro
+
+  # An Android tablet: Chromium, driven over the `control` network. It trusts the site's
+  # certificate by its key (run.sh passes the hash when connecting).
+  tablet-android:
+    image: mcr.microsoft.com/playwright:v1.65.0-noble
+    init: true
+    command: ["sh", "-c", "cd /tmp && npx -y playwright@1.65.0 run-server --port 3000 --host 0.0.0.0 --unsafe"]
+    ports: ["127.0.0.1:${FIELD_ANDROID_PORT:-3201}:3000"]
+    networks:
+      control:
+        gw_priority: 1
+      internal: {}
+
+  # An iPad: WebKit, which trusts the organisation's certificate authority like a managed
+  # device (installed into the system's store).
+  tablet-ipad:
+    image: mcr.microsoft.com/playwright:v1.65.0-noble
+    init: true
+    command:
+      - sh
+      - -c
+      - >-
+        cp /field/ca.pem /usr/local/share/ca-certificates/ordo-field.crt && update-ca-certificates >/dev/null &&
+        cd /tmp && npx -y playwright@1.65.0 run-server --port 3000 --host 0.0.0.0
+    volumes:
+      - ${FIELD_WORK}/tls/ca.pem:/field/ca.pem:ro
+    ports: ["127.0.0.1:${FIELD_IPAD_PORT:-3202}:3000"]
+    networks:
+      control:
+        gw_priority: 1
+      internal: {}
+
+secrets:
+  ordo_master_key:
+    file: ${FIELD_WORK}/master.key
+  oidc_client_secret:
+    file: ${FIELD_WORK}/oidc-client-secret
+
+networks:
+  # How the test drives the tablets; cutting a tablet's network leaves this one alone.
+  control: {}

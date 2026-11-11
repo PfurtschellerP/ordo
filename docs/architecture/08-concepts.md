@@ -104,6 +104,25 @@ Needs: impl, itest
 
 Tags: must, m1
 
+#### Connection liveness
+`dsn~connection-liveness~1`
+
+A network can vanish without closing the connection, e.g. when a tablet leaves the Wi-Fi:
+the WebSocket then looks open for minutes, and the device would show "connected" while
+nothing arrives. So the app watches the line itself. When it has heard nothing from the
+server for 10 s, it sends `ping`, which the server answers with `pong` (protocol 1.2).
+When it has heard nothing for 25 s, or a connection attempt hangs that long, it gives the
+connection up, shows "offline" and connects anew; late events of the abandoned connection
+are ignored. The outbox keeps every input meanwhile. Found by the field-near test.
+
+Covers:
+
+* [req~off-3~1](../requirements/07-quality.md#off-3--automatic-sync)
+
+Needs: impl, utest, itest
+
+Tags: must, m47
+
 ## 8.2 Data compartments
 
 A **compartment** is a separately protected part of an incident's data. Every event
@@ -659,6 +678,35 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: should, m46
+
+#### Field-near test
+`dsn~field-test~1`
+
+A test close to an operation runs what an organisation installs: the Compose bundle
+(Caddy, the ORDO image, Dex) with its TLS from the organisation's own certificate
+authority, as on a field server without internet. Two tablets join it, each a browser in
+its own container on the bundle's network: an Android tablet (Chromium) and an iPad
+(WebKit). The test (`tests/e2e/field/`) checks and measures:
+
+* **Propagation (PERF-2):** a patient registered on one tablet appears on the other within
+  2 s, five times in a row.
+* **Network cut:** a tablet loses its network (`docker network disconnect`); what it
+  documents meanwhile arrives on the other tablet after it reconnects.
+* **Server restart:** both tablets reconnect by themselves; nothing is lost.
+* **Resources (PERF-5):** the app's download as served (compressed), the WebAssembly
+  memory of both tablets and the JavaScript heap of the Android one, and the memory of the
+  server's containers, each against a budget in `budgets.json`.
+
+It writes the numbers as a report. CI runs it weekly and on demand (`field.yml`).
+
+Covers:
+
+* [req~perf-2~1](../requirements/07-quality.md#perf-2--fast-propagation)
+* [req~perf-5~1](../requirements/07-quality.md#perf-5--resource-efficiency)
+
+Needs: itest
+
+Tags: must, m47
 
 #### Device storage encryption
 `dsn~device-storage-encryption~1`

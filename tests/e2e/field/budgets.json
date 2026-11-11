@@ -1,0 +1,15 @@
+{
+  "_comment": "Budgets of the field-near test (PERF-5, dsn~field-test~1), set from the first measurement on 2026-11-11 with headroom. Bytes and milliseconds; raise only with a reason in the commit message.",
+  "appTransferBytes": 1572864,
+  "wasmTransferBytes": 1363149,
+  "wasmMemoryBytes": 16777216,
+  "jsHeapBytes": 16777216,
+  "serverMemoryBytes": {
+    "ordo": 33554432,
+    "dex": 50331648,
+    "caddy": 134217728
+  },
+  "propagationMs": 2000,
+  "offlineNoticedMs": 40000,
+  "reconnectMs": 30000
+}

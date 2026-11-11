@@ -213,7 +213,7 @@ Needs: dsn
 
 Changes appear on other connected devices within 2 s
 
-Tags: must, quality
+Tags: must, quality, m47
 
 Needs: dsn
 
@@ -240,7 +240,7 @@ Needs: dsn
 
 Resource-efficient by design: low memory and CPU use, small downloads, minimal battery drain
 
-Tags: must, quality
+Tags: must, quality, m47
 
 Needs: dsn
 

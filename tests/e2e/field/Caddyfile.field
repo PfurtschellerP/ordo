@@ -1,0 +1,14 @@
+# The bundle's Caddyfile (deploy/compose/minimal/Caddyfile) with the organisation's own
+# certificate instead of Let's Encrypt, as on a field server without internet.
+{$ORDO_DOMAIN} {
+	tls /field/site.pem /field/site-key.pem {
+		curves x25519mlkem768 x25519 secp256r1 secp384r1
+	}
+	encode zstd gzip
+	handle /dex* {
+		reverse_proxy dex:5556
+	}
+	handle {
+		reverse_proxy ordo:8080
+	}
+}

@@ -65,6 +65,24 @@ The scenario checks that no page breaks the Content Security Policy in Chromium 
 Firefox. WebKit reports the `<style>` elements axe-core adds seconds later and without a
 source, so there only the policy header is checked.
 
+## Field-near test
+
+`e2e/field/` runs what an organisation installs: the Compose bundle (Caddy, the ORDO
+image, Dex), with TLS from an own certificate authority as on a field server without
+internet, and two tablets as browsers in containers on its network: an Android tablet
+(Chromium) and an iPad (WebKit). It checks that changes reach the other tablet within 2 s
+(PERF-2), that what a tablet documents without network arrives after it reconnects, and
+that a server restart loses nothing; it measures the app's download and the memory of
+tablets and server against `e2e/field/budgets.json` (PERF-5) and writes `report.md`.
+
+```sh
+docker build -f deploy/Containerfile -t ordo:local .
+(cd tests/e2e && npm ci)
+tests/e2e/field/run.sh               # FIELD_WORK keeps report and logs; KEEP=1 leaves it running
+```
+
+CI runs it weekly, on demand and when the bundle changes (`.github/workflows/field.yml`).
+
 ## Traceability
 
 Acceptance and end-to-end tests mark what they verify with `itest` coverage tags, unit

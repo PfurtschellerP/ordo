@@ -1,0 +1,54 @@
+name: Field test
+
+# The field-near test (dsn~field-test~1): the Compose bundle with an Android tablet and an
+# iPad, network cut and server restart, download and memory budgets. Weekly, on demand,
+# and when the bundle or the test changes.
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/**"
+      - "tests/e2e/field/**"
+      - ".github/workflows/field.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  field:
+    name: Two tablets and the Compose bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: docker build -f deploy/Containerfile --build-arg "ORDO_COMMIT=$GITHUB_SHA" -t ordo:field .
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install the test's dependencies
+        working-directory: tests/e2e
+        run: npm ci
+      - name: Run the field-near test
+        env:
+          ORDO_FIELD_IMAGE: ordo:field
+        run: FIELD_WORK="$RUNNER_TEMP/field" tests/e2e/field/run.sh
+      - name: Keep the report and the logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: field-test
+          path: |
+            ${{ runner.temp }}/field/report.md
+            ${{ runner.temp }}/field/compose.log
+          if-no-files-found: ignore
+          retention-days: 30
