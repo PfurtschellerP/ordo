@@ -327,6 +327,32 @@ impl<P: AccessPolicy> Hub<P> {
         self.policy.can_manage_map(user)
     }
 
+    /// Whether `user` may grant and withdraw organisation roles (ORG-9).
+    pub fn may_manage_roles(&self, user: &UserId) -> bool {
+        self.policy.can_manage_roles(user)
+    }
+
+    // [impl->dsn~organisation-roles~1]
+    /// The organisation roles of `users` changed: their sessions are cut with
+    /// `rolesChanged`, so their devices reconnect and receive what they may do now.
+    pub fn organisation_roles_changed(&mut self, users: &[UserId]) -> Vec<Outgoing> {
+        let cut: Vec<SessionId> = self
+            .sessions
+            .iter()
+            .filter(|(_, s)| users.contains(&s.user))
+            .map(|(id, _)| *id)
+            .collect();
+        cut.into_iter()
+            .map(|session| {
+                self.sessions.remove(&session);
+                Outgoing {
+                    session,
+                    message: ServerMessage::Refused(Rejection::RolesChanged),
+                }
+            })
+            .collect()
+    }
+
     /// The user of an authenticated session.
     pub fn session_user(&self, session: SessionId) -> Option<UserId> {
         self.sessions.get(&session).map(|s| s.user.clone())
@@ -556,13 +582,13 @@ impl<P: AccessPolicy> Hub<P> {
         match message {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
-            // Profile pictures are kept by the server's store, not by the hub.
-            // Profile pictures and attachments are kept by the server's stores, not by the
-            // hub (it checks access with `can_access`).
-            // Answered by the server outside the hub.
+            // Answered by the server outside the hub: profile pictures, names, attachments
+            // (access checked with `can_access`), organisation roles and the map region.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
             | ClientMessage::SetName(_)
+            | ClientMessage::GetOrganisationRoles
+            | ClientMessage::SetOrganisationRole(_)
             | ClientMessage::BlobTicket(_)
             | ClientMessage::GetMapRegion
             | ClientMessage::CutMapRegion(_) => Vec::new(),
@@ -675,6 +701,7 @@ impl<P: AccessPolicy> Hub<P> {
                     self.policy.can_manage_incidents(&hello.user),
                 ),
                 ("manage_map", self.policy.can_manage_map(&hello.user)),
+                ("manage_roles", self.policy.can_manage_roles(&hello.user)),
             ]
             .into_iter()
             .filter(|(_, allowed)| *allowed)

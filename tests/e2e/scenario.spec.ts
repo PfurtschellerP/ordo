@@ -1083,6 +1083,42 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".app-header__title"), "the device unlocks within its login").toBeVisible();
   });
 
+  // [itest->dsn~organisation-roles~1]
+  await test.step("an administrator grants an organisation role until a date and withdraws it", async () => {
+    const planning = ben.locator(".launcher__item", { hasText: "Kartengrundlage" });
+    const benMayPlan = async () => {
+      await ben.locator("#launcher-button").click();
+      const allowed = (await planning.getAttribute("aria-disabled")) === "false";
+      await ben.locator("#launcher-button").click();
+      return allowed;
+    };
+    expect(await benMayPlan(), "Ben does not plan yet").toBe(false);
+
+    await dora.locator("#launcher-button").click();
+    await dora.locator(".launcher__item", { hasText: "Rollen" }).click();
+    await expect.poll(() => title(dora)).toContain("Organisation – Rollen");
+    const doraAdmin = dora.locator(".role-list [data-user='dora@localhost'] [data-role='admin']");
+    await expect(doraAdmin, "the administrator from the configuration").toContainText("aus der Serverkonfiguration");
+    await expect(doraAdmin.getByRole("button"), "is not changed in ORDO").toHaveCount(0);
+
+    // A planner for the season: until the end of tomorrow.
+    const tomorrow = new Date(Date.now() + 24 * 3600_000);
+    const day = (n: number) => String(n).padStart(2, "0");
+    await dora.getByLabel("Person (Benutzerkennung)").fill("ben@localhost");
+    await dora.getByLabel("Rolle", { exact: true }).selectOption({ label: "Einsatzplanung" });
+    await dora.getByLabel("Gültig bis (optional)").fill(`${tomorrow.getFullYear()}-${day(tomorrow.getMonth() + 1)}-${day(tomorrow.getDate())}`);
+    await dora.getByRole("button", { name: "Vergeben" }).click();
+    const benPlanner = dora.locator(".role-list [data-user='ben@localhost'] [data-role='planner']");
+    await expect(benPlanner, "granted, with its end, shown by name").toHaveText(`Einsatzplanung · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}Entziehen`);
+    await expect(dora.locator(".role-list [data-user='ben@localhost'] .roster__person")).toHaveText("Ben Weber");
+    await audit(dora, "Organisation roles");
+    await expect.poll(benMayPlan, { message: "Ben's devices may plan at once" }).toBe(true);
+
+    await benPlanner.getByRole("button", { name: "Einsatzplanung entziehen: ben@localhost" }).click();
+    await expect(benPlanner, "withdrawn").toHaveCount(0);
+    await expect.poll(benMayPlan, { message: "and no longer" }).toBe(false);
+  });
+
   // [itest->dsn~device-revocation~1]
   await test.step("a lost device is revoked and deletes its data", async () => {
     // Ben sees only his own device.

@@ -129,6 +129,11 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     for admin in &config.admins {
         roles.add(admin, &["admin".to_owned()]);
     }
+    // [impl->dsn~organisation-roles~1]
+    // Granted in ORDO by administrators (ORG-9).
+    for (user, role, until) in store.load_organisation_roles().await? {
+        roles.grant(&user, &role, until);
+    }
     let mut extra = Vec::new();
     if let Some(dir) = &config.policy_dir {
         let mut files: Vec<_> = std::fs::read_dir(dir)?
@@ -225,6 +230,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         config.gravatar,
         blobs,
         map_region::MapJob::new(config.map_file.clone(), config.map_source.clone()),
+        roles,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());

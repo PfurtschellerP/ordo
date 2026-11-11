@@ -137,6 +137,15 @@ region at a time, and replace the region file only once the new one is complete;
 answers anyone else with the state `none`. A device asks again while the state is
 `running`. A session agreed on 1.0 or 1.1 gets no answer.
 
+`getOrganisationRoles` (version 1.2) asks for the organisation roles (`admin`, `planner`)
+of all people; `setOrganisationRole` grants one, optionally until a time, or withdraws it.
+Both are answered with `organisationRoles`, the full list, where roles from the server's
+configuration are marked `fixed`. The server MUST change roles only for a user with the
+organisation permission `manage_roles`, MUST NOT change fixed roles or let a user withdraw
+their own `admin` role, and answers anyone else with an empty list. When a person's roles
+change or a grant runs out, the server ends that person's connections with
+`refused: rolesChanged`. A session agreed on 1.0 or 1.1 gets no answer.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with

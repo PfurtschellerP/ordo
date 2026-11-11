@@ -72,3 +72,10 @@ action manage_map appliesTo {
   resource: [Organisation],
   context: OrganisationRequest,
 };
+
+// Grant and withdraw organisation roles (ORG-9).
+action manage_roles appliesTo {
+  principal: [User],
+  resource: [Organisation],
+  context: OrganisationRequest,
+};

@@ -54,32 +54,141 @@ pub enum PolicyError {
 /// The organisation roles of every user (administrators, planners; seed roles in
 /// development). Roles within an incident come from its roster (ADR-0046).
 #[derive(Clone, Default)]
-pub struct Roles(Arc<RwLock<HashMap<UserId, Vec<String>>>>);
+pub struct Roles(Arc<RwLock<HashMap<UserId, Vec<Grant>>>>);
 
+/// One organisation role of a person.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Grant {
+    role: String,
+    /// Counts until then (ms since the Unix epoch); none: no end.
+    until: Option<u64>,
+    /// From the configuration (not changed in ORDO).
+    fixed: bool,
+}
+
+impl Grant {
+    fn counts(&self, now_ms: u64) -> bool {
+        self.until.is_none_or(|until| now_ms < until)
+    }
+}
+
+// [impl->dsn~organisation-roles~1]
 impl Roles {
-    /// Roles from a list.
+    /// Roles from the configuration (fixed).
     pub fn new(roles: impl IntoIterator<Item = (UserId, Vec<String>)>) -> Self {
-        Self(Arc::new(RwLock::new(roles.into_iter().collect())))
+        let this = Self::default();
+        for (user, roles) in roles {
+            this.add(&user, &roles);
+        }
+        this
     }
 
-    /// Adds roles of `user` (keeps the existing ones, no duplicates).
+    /// Adds fixed roles of `user` from the configuration (no duplicates).
     pub fn add(&self, user: &UserId, roles: &[String]) {
         let mut map = self.0.write().expect("roles lock");
         let entry = map.entry(user.clone()).or_default();
         for role in roles {
-            if !entry.contains(role) {
-                entry.push(role.clone());
+            entry.retain(|g| &g.role != role || g.fixed);
+            if !entry.iter().any(|g| &g.role == role) {
+                entry.push(Grant {
+                    role: role.clone(),
+                    until: None,
+                    fixed: true,
+                });
             }
         }
     }
 
-    fn of(&self, user: &UserId) -> Vec<String> {
+    /// Grants `role` to `user`, until `until` if given (replaces an earlier grant of it).
+    /// Returns false for a role fixed by the configuration.
+    pub fn grant(&self, user: &UserId, role: &str, until: Option<u64>) -> bool {
+        let mut map = self.0.write().expect("roles lock");
+        let entry = map.entry(user.clone()).or_default();
+        if entry.iter().any(|g| g.role == role && g.fixed) {
+            return false;
+        }
+        entry.retain(|g| g.role != role);
+        entry.push(Grant {
+            role: role.to_owned(),
+            until,
+            fixed: false,
+        });
+        true
+    }
+
+    /// Withdraws a granted `role` of `user`. Returns false if there was none (or it is
+    /// fixed by the configuration).
+    pub fn withdraw(&self, user: &UserId, role: &str) -> bool {
+        let mut map = self.0.write().expect("roles lock");
+        let Some(entry) = map.get_mut(user) else {
+            return false;
+        };
+        let before = entry.len();
+        entry.retain(|g| g.role != role || g.fixed);
+        before != entry.len()
+    }
+
+    /// Whether `role` of `user` comes from the configuration.
+    pub fn is_fixed(&self, user: &UserId, role: &str) -> bool {
         self.0
             .read()
             .expect("roles lock")
             .get(user)
-            .cloned()
-            .unwrap_or_default()
+            .is_some_and(|grants| grants.iter().any(|g| g.role == role && g.fixed))
+    }
+
+    /// All roles, for the administrators' view, sorted by person and role.
+    pub fn list(&self) -> Vec<ordo_sync::message::OrganisationRole> {
+        let mut list: Vec<_> = self
+            .0
+            .read()
+            .expect("roles lock")
+            .iter()
+            .flat_map(|(user, grants)| {
+                grants.iter().map(|g| ordo_sync::message::OrganisationRole {
+                    user: user.clone(),
+                    role: g.role.clone(),
+                    valid_until: g.until,
+                    fixed: g.fixed,
+                })
+            })
+            .collect();
+        list.sort_by(|a, b| (&a.user, &a.role).cmp(&(&b.user, &b.role)));
+        list
+    }
+
+    /// The people with a grant that ran out after `from_ms` and up to `to_ms`.
+    pub fn lapsed(&self, from_ms: u64, to_ms: u64) -> Vec<UserId> {
+        self.0
+            .read()
+            .expect("roles lock")
+            .iter()
+            .filter(|(_, grants)| {
+                grants
+                    .iter()
+                    .any(|g| g.until.is_some_and(|u| from_ms < u && u <= to_ms))
+            })
+            .map(|(user, _)| user.clone())
+            .collect()
+    }
+
+    fn of(&self, user: &UserId) -> Vec<String> {
+        let now = crate::app::now_ms();
+        let mut roles: Vec<String> = self
+            .0
+            .read()
+            .expect("roles lock")
+            .get(user)
+            .map(|grants| {
+                grants
+                    .iter()
+                    .filter(|g| g.counts(now))
+                    .map(|g| g.role.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        roles.dedup();
+        roles
     }
 }
 
@@ -247,6 +356,11 @@ impl AccessPolicy for RolePolicy {
 
     fn can_manage_map(&self, user: &UserId) -> bool {
         self.allows_organisation(user, "manage_map")
+    }
+
+    // [impl->dsn~organisation-roles~1]
+    fn can_manage_roles(&self, user: &UserId) -> bool {
+        self.allows_organisation(user, "manage_roles")
     }
 
     // [impl->dsn~incident-roles~1]
@@ -597,5 +711,41 @@ mod tests {
                 "{role} documents"
             );
         }
+    }
+
+    // [utest->dsn~organisation-roles~1]
+    #[test]
+    fn granted_organisation_roles_count_until_their_end_and_fixed_ones_stay() {
+        let roles = Roles::new([(user("dora"), vec!["admin".to_owned()])]);
+        let now = crate::app::now_ms();
+        assert!(roles.grant(&user("ben"), "planner", Some(now + 60_000)));
+        assert_eq!(roles.of(&user("ben")), ["planner"]);
+        assert_eq!(
+            roles.lapsed(now, now + 60_000),
+            [user("ben")],
+            "runs out then"
+        );
+        assert!(
+            roles.lapsed(now + 60_000, now + 120_000).is_empty(),
+            "reported once"
+        );
+        assert!(roles.grant(&user("ben"), "planner", Some(now - 1)));
+        assert!(
+            roles.of(&user("ben")).is_empty(),
+            "a past end no longer counts"
+        );
+        assert!(
+            !roles.grant(&user("dora"), "admin", Some(now + 1)),
+            "fixed by the configuration"
+        );
+        assert!(!roles.withdraw(&user("dora"), "admin"));
+        assert_eq!(roles.of(&user("dora")), ["admin"]);
+        assert!(roles.withdraw(&user("ben"), "planner"));
+        let listed: Vec<_> = roles
+            .list()
+            .into_iter()
+            .map(|r| (r.user, r.role, r.fixed))
+            .collect();
+        assert_eq!(listed, [(user("dora"), "admin".to_owned(), true)]);
     }
 }

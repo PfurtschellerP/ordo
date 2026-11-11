@@ -19,6 +19,8 @@ client-message = { "hello": hello }
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
                / { "setName": tstr / null }   ; own display name, null clears it (1.2)
+               / "getOrganisationRoles"       ; with manage_roles (1.2)
+               / { "setOrganisationRole": organisation-role-change } ; with manage_roles (1.2)
 
 hello = {
   "user": user-id,
@@ -65,6 +67,9 @@ server-message = { "challenge": challenge }
                / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
                                               ; (1.2); state "none" without manage_map
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
+               / { "organisationRoles": [* organisation-role] } ; answer to
+                                              ; getOrganisationRoles and setOrganisationRole
+                                              ; (1.2); empty without manage_roles
                / { "blobTicket": blob-ticket } ; answer to blobTicket
 
 ; First message on every connection; the hello must sign the nonce.
@@ -92,6 +97,21 @@ device-info = {
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
   ? "name": tstr,                  ; as chosen at pairing, e.g. "Firefox auf Android" (1.2)
+}
+
+; Organisation roles (ORG-9): "admin", "planner".
+organisation-role = {
+  "user": user-id,
+  "role": tstr,
+  ? "valid_until": uint,           ; counts until then (ms since 1970); none: no end
+  ? "fixed": bool,                 ; from the server's configuration, not changeable
+}
+
+organisation-role-change = {
+  "user": user-id,
+  "role": "admin" / "planner",
+  "grant": bool,                   ; false withdraws
+  ? "valid_until": uint,           ; with grant: counts until then (ms since 1970)
 }
 
 ; Attachments: encrypted on the device, named by the BLAKE3 hash of the ciphertext.

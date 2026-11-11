@@ -278,6 +278,69 @@ impl Store {
         .flatten())
     }
 
+    // [impl->dsn~organisation-roles~1]
+    /// Stores a granted organisation role (replaces an earlier grant of it).
+    pub async fn grant_organisation_role(
+        &self,
+        user: &UserId,
+        role: &str,
+        valid_until: Option<u64>,
+        granted_by: &UserId,
+        now_ms: u64,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO organisation_roles (user_id, role, valid_until, granted_by, granted_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT (user_id, role) DO UPDATE SET valid_until = excluded.valid_until,
+               granted_by = excluded.granted_by, granted_at = excluded.granted_at",
+        )
+        .bind(user.as_str())
+        .bind(role)
+        .bind(valid_until.map(ms))
+        .bind(granted_by.as_str())
+        .bind(ms(now_ms))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Removes a granted organisation role.
+    pub async fn withdraw_organisation_role(
+        &self,
+        user: &UserId,
+        role: &str,
+    ) -> Result<(), StoreError> {
+        sqlx::query("DELETE FROM organisation_roles WHERE user_id = ? AND role = ?")
+            .bind(user.as_str())
+            .bind(role)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// The granted organisation roles: person, role, end.
+    pub async fn load_organisation_roles(
+        &self,
+    ) -> Result<Vec<(UserId, String, Option<u64>)>, StoreError> {
+        let rows = sqlx::query("SELECT user_id, role, valid_until FROM organisation_roles")
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|r| {
+                let user: String = r.get("user_id");
+                let user = user
+                    .parse()
+                    .map_err(|e| StoreError::Invalid(format!("user id: {e}")))?;
+                let until: Option<i64> = r.get("valid_until");
+                Ok((
+                    user,
+                    r.get("role"),
+                    until.map(|v| u64::try_from(v).unwrap_or_default()),
+                ))
+            })
+            .collect()
+    }
+
     /// The profile picture of `user`: uploaded in ORDO, else from the identity provider,
     /// else from Gravatar.
     pub async fn avatar(&self, user: &UserId) -> Result<Option<Vec<u8>>, StoreError> {
@@ -647,7 +710,7 @@ mod tests {
                 .fetch_all(&store.pool)
                 .await
                 .unwrap();
-            assert_eq!(applied, [1, 2, 3], "each migration, applied once");
+            assert_eq!(applied, [1, 2, 3, 4], "each migration, applied once");
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
                 .fetch_one(&store.pool)
                 .await
@@ -655,6 +718,32 @@ mod tests {
             assert_eq!(events, 1, "stored events stay");
             store.pool.close().await;
         }
+    }
+
+    // [utest->dsn~organisation-roles~1]
+    #[tokio::test]
+    async fn organisation_roles_are_stored_replaced_and_withdrawn() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let (ben, dora) = (user("ben"), user("dora"));
+        store
+            .grant_organisation_role(&ben, "planner", Some(5_000), &dora, 1_000)
+            .await
+            .unwrap();
+        store
+            .grant_organisation_role(&ben, "planner", None, &dora, 2_000)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.load_organisation_roles().await.unwrap(),
+            [(ben.clone(), "planner".to_owned(), None)],
+            "a new grant replaces the earlier one"
+        );
+        store
+            .withdraw_organisation_role(&ben, "planner")
+            .await
+            .unwrap();
+        assert!(store.load_organisation_roles().await.unwrap().is_empty());
     }
 
     // [utest->dsn~display-names~1]

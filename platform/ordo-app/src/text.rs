@@ -1264,3 +1264,43 @@ pub const DISPLAY_NAME_HINT: &str =
     "So sehen andere Sie in ORDO. Ohne eigenen Namen gilt der Name aus der Anmeldung.";
 pub const DISPLAY_NAME_SAVE: &str = "Namen speichern";
 pub const DISPLAY_NAME_RESET: &str = "Namen aus der Anmeldung verwenden";
+
+// Organisation roles (ORG-9)
+pub const ORG_ROLES: &str = "Rollen";
+pub const ORG_ROLES_TITLE: &str = "Rollen in der Organisation";
+pub const ORG_ROLES_INTRO: &str = "Wer die Organisation verwaltet oder Einsätze plant. Eine Rolle gilt auf allen Geräten der Person, sobald sie vergeben ist, und endet mit dem Entziehen oder am Ende des gewählten Tages. Rollen in einem Einsatz werden im Einsatz vergeben.";
+pub const ORG_ROLES_LOADING: &str = "Rollen werden geladen …";
+pub const ORG_ROLES_EMPTY: &str = "Noch keine Rollen vergeben.";
+pub const ORG_ROLES_OFFLINE: &str =
+    "Rollen lassen sich nur mit Verbindung zum Server sehen und ändern.";
+pub const ORG_ROLE_GRANT_TITLE: &str = "Rolle vergeben";
+pub const ORG_ROLE_PERSON: &str = "Person (Benutzerkennung)";
+pub const ORG_ROLE_ROLE: &str = "Rolle";
+pub const ORG_ROLE_UNTIL: &str = "Gültig bis (optional)";
+pub const ORG_ROLE_UNTIL_HINT: &str = "Ohne Datum gilt die Rolle, bis sie entzogen wird.";
+pub const ORG_ROLE_GRANT: &str = "Vergeben";
+pub const ORG_ROLE_WITHDRAW: &str = "Entziehen";
+pub const ORG_ROLE_INVALID: &str = "Bitte eine Benutzerkennung angeben, z. B. anna@ordo.example.";
+pub const ORG_ROLE_PAST: &str = "Das Datum liegt in der Vergangenheit.";
+pub const ORG_ROLE_FIXED: &str = "aus der Serverkonfiguration";
+pub const ORG_ROLE_OWN_ADMIN: &str = "die eigene Administration kann nicht entzogen werden";
+pub const ORG_ROLE_LAPSED: &str = "abgelaufen";
+
+/// The label of an organisation role.
+pub fn org_role(role: &str) -> &str {
+    match role {
+        "admin" => "Administration",
+        "planner" => "Einsatzplanung",
+        other => other,
+    }
+}
+
+/// Until when a role counts, e.g. "bis 30.11.2026".
+pub fn org_role_until(date: &str) -> String {
+    format!("bis {date}")
+}
+
+/// The accessible name of the withdraw button.
+pub fn org_role_withdraw_label(role: &str, person: &str) -> String {
+    format!("{} entziehen: {person}", org_role(role))
+}

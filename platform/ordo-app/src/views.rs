@@ -909,6 +909,7 @@ fn Workspace(
                         <CommandWorkspace core revision />
                     }.into_any(),
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
+                    (Some("org.roles"), _) => view! { <crate::roles::RolesView core revision /> }.into_any(),
                     (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
                     (Some("org.map"), _) => view! { <crate::map_region::MapRegionView core revision /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),

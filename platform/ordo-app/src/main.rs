@@ -15,6 +15,7 @@ mod overview;
 mod palette;
 mod patients;
 mod profile;
+mod roles;
 mod situation;
 mod storage;
 mod tasks;

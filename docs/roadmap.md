@@ -174,8 +174,8 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
 
 - **Incidents and roles, next steps** ([ADR-0046](adr/0046-roles-granted-per-incident.md)):
   templates for recurring deployments; roles from the profile instead of a fixed list;
-  an admin view for organisation roles (planners); suggest registered people when
-  granting roles.
+  suggest registered people when granting roles. (Organisation roles are granted in the
+  app since m45, ORG-9.)
 - **Sectors (Einsatzabschnitte):** incident command, sectors and sub-sectors with their
   leaders (Einsatzabschnittsleiter), staff functions and liaison officers, per FwDV 100 and
   the state profile; shown as an organisation chart with the official tactical symbols.
@@ -248,8 +248,9 @@ Then:
    the first release (signed image, provenance, bills of materials: the release workflow
    is ready, ADR-0043; images for amd64 and arm64 since 2026-11-11); later the device lock with
    WebAuthn PRF or PIN (SEC-13).
-2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
-   in the device list; an admin view for roles, "valid until" and Dex's local accounts.
+2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): Dex's local
+   accounts managed from ORDO (device names, display names and organisation roles with
+   "valid until" are done: ORG-8, ORG-7, ORG-9).
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
 4. Master data in an admin view instead of a file (ORG-1).

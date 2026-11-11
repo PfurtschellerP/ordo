@@ -11,6 +11,15 @@ permit (
 )
 when { context.roles.contains("admin") };
 
+// Admins grant and withdraw organisation roles, e.g. a planner for a season (ORG-9).
+@id("admin.manage-roles")
+permit (
+  principal,
+  action == Action::"manage_roles",
+  resource == Organisation::"organisation"
+)
+when { context.roles.contains("admin") };
+
 // Planners prepare incidents and their rosters (ADR-0046); administrators are planners
 // too, so a new installation can start.
 @id("admin.manage-incidents")

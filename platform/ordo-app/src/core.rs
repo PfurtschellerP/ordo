@@ -76,6 +76,8 @@ pub struct Core {
     pub vehicles: Vec<ordo_sync::message::Vehicle>,
     /// The server's map region, as last reported (MAP-8).
     pub map_region: Option<ordo_sync::message::MapRegion>,
+    /// The organisation roles, as last reported (ORG-9; administrators only).
+    pub organisation_roles: Option<Vec<ordo_sync::message::OrganisationRole>>,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -158,6 +160,7 @@ impl Core {
             people: Vec::new(),
             vehicles: Vec::new(),
             map_region: None,
+            organisation_roles: None,
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -342,6 +345,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::MapRegion(region) = &message {
                 c.map_region = Some(region.clone());
+            }
+            if let ServerMessage::OrganisationRoles(list) = &message {
+                c.organisation_roles = Some(list.clone());
             }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
@@ -916,6 +922,26 @@ pub fn list_vehicles(core: Handle) {
 /// Asks for the state of the server's map region (MAP-8).
 pub fn get_map_region(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::GetMapRegion));
+}
+
+/// Asks for the organisation roles (ORG-9).
+pub fn get_organisation_roles(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::GetOrganisationRoles));
+}
+
+/// Grants or withdraws an organisation role (ORG-9).
+pub fn set_organisation_role(core: Handle, change: ordo_sync::message::OrganisationRoleChange) {
+    core.with_value(|c| c.send(&ClientMessage::SetOrganisationRole(change)));
+}
+
+/// The start of the day after a local date as a `date` input gives it (`YYYY-MM-DD`): a
+/// role valid until that date counts through its end.
+pub fn end_of_day_ms(date: &str) -> Option<u64> {
+    let date = date.trim();
+    if date.len() != 10 {
+        return None;
+    }
+    local_time_ms(&format!("{date}T23:59:59.999")).map(|ms| ms + 1)
 }
 
 /// Asks the server to cut a new map region around a centre (MAP-8, ADR-0057).

@@ -36,6 +36,10 @@ pub enum ClientMessage {
     SetAvatar(AvatarImage),
     /// Sets (or, with `None`, clears) the user's own display name (ORG-7); protocol 1.2.
     SetName(Option<String>),
+    /// Asks for the organisation roles (ORG-9; permission `manage_roles`); protocol 1.2.
+    GetOrganisationRoles,
+    /// Grants or withdraws an organisation role (permission `manage_roles`); protocol 1.2.
+    SetOrganisationRole(OrganisationRoleChange),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
 }
@@ -203,6 +207,38 @@ pub struct Vehicle {
     pub strength: Option<[u32; 3]>,
 }
 
+/// The organisation roles administrators grant in ORDO (ORG-9).
+pub const ORGANISATION_ROLES: [&str; 2] = ["admin", "planner"];
+
+/// An organisation role of a person (ORG-9).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganisationRole {
+    /// The person.
+    pub user: UserId,
+    /// The role, e.g. `planner`.
+    pub role: String,
+    /// Until when it counts (ms since the Unix epoch); none: no end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<u64>,
+    /// From the server's configuration: shown, not changed in ORDO.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fixed: bool,
+}
+
+/// Grants (`grant`, optionally until `valid_until`) or withdraws an organisation role.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrganisationRoleChange {
+    /// The person.
+    pub user: UserId,
+    /// One of [`ORGANISATION_ROLES`].
+    pub role: String,
+    /// Grant (true) or withdraw (false).
+    pub grant: bool,
+    /// Until when the grant counts (ms since the Unix epoch); none: no end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<u64>,
+}
+
 /// A paired device, as listed for its person or an admin (SEC-4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceInfo {
@@ -291,6 +327,9 @@ pub enum ServerMessage {
     MapRegion(MapRegion),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
+    /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,
+    /// protocol 1.2): empty without permission `manage_roles`.
+    OrganisationRoles(Vec<OrganisationRole>),
     /// Answer to `blobTicket`.
     BlobTicket(BlobTicket),
 }

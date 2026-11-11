@@ -419,3 +419,12 @@ When a device is paired, ORDO shall give it a name, suggested from the browser a
 Tags: should, shared, m43
 
 Needs: dsn
+
+#### ORG-9 — Organisation roles
+`req~org-9~1`
+
+When an administrator grants a person an organisation role (administrator, planner), optionally until a date, ORDO shall give that person's devices what the role permits at once, and shall take it away when the administrator withdraws the role or the date has passed. Roles from the server's configuration shall be shown but not changed in ORDO.
+
+Tags: should, shared, m45
+
+Needs: dsn

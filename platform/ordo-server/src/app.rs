@@ -43,6 +43,10 @@ pub struct App {
     pub(crate) blobs: Blobs,
     /// The map region and its cutting (ADR-0057).
     pub(crate) map: Arc<crate::map_region::MapJob>,
+    /// Organisation roles (ORG-9), shared with the access policy.
+    roles: crate::authz::Roles,
+    /// Up to when lapsed role grants were looked for (ms).
+    roles_checked: AtomicU64,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     /// The people each connection asked about: it hears when their name or picture
     /// changes (ORG-7).
@@ -73,6 +77,7 @@ impl App {
         gravatar: bool,
         blobs: Blobs,
         map: crate::map_region::MapJob,
+        roles: crate::authz::Roles,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -85,6 +90,8 @@ impl App {
             gravatar,
             blobs,
             map: Arc::new(map),
+            roles,
+            roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
             asked: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
@@ -162,6 +169,30 @@ impl App {
         }
     }
 
+    // [impl->dsn~organisation-roles~1]
+    /// Cuts the connections of people whose organisation role ran out since the last
+    /// check: their devices reconnect with what they may do now.
+    pub(crate) async fn expire_roles(&self) {
+        let now = now_ms();
+        let since = self.roles_checked.swap(now, Ordering::Relaxed);
+        let lapsed = self.roles.lapsed(since, now);
+        if !lapsed.is_empty() {
+            tracing::info!(people = lapsed.len(), "organisation roles ran out");
+            let out = self.hub.lock().await.organisation_roles_changed(&lapsed);
+            self.send_refusals(out);
+        }
+    }
+
+    /// Sends refusals and forgets their connections (they close after sending).
+    fn send_refusals(&self, out: Vec<ordo_sync::Outgoing>) {
+        let mut sessions = self.sessions.lock().expect("session registry lock");
+        for out in out {
+            if let Some(sender) = sessions.remove(&out.session) {
+                let _ = sender.send(out.message);
+            }
+        }
+    }
+
     /// Regular work: cut expired connections every minute; re-verify logins in the
     /// background every 15 minutes (ADR-0040).
     pub(crate) async fn maintenance(self: Arc<Self>) {
@@ -171,7 +202,10 @@ impl App {
         tokio::pin!(stop);
         loop {
             tokio::select! {
-                _ = minute.tick() => self.expire_sessions().await,
+                _ = minute.tick() => {
+                    self.expire_sessions().await;
+                    self.expire_roles().await;
+                }
                 _ = quarter.tick() => login::reverify(&self).await,
                 () = &mut stop => return,
             }
@@ -262,6 +296,10 @@ impl App {
         }
         if let ClientMessage::BlobTicket(request) = message {
             return self.blob_ticket(session, request).await;
+        }
+        if let ClientMessage::GetOrganisationRoles | ClientMessage::SetOrganisationRole(_) = message
+        {
+            return self.organisation_roles(session, message).await;
         }
         if let ClientMessage::GetMapRegion | ClientMessage::CutMapRegion(_) = message {
             return self.map_region(session, message).await;
@@ -376,6 +414,71 @@ impl App {
             .get(&session)
         {
             let _ = sender.send(ServerMessage::MapRegion(state));
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~organisation-roles~1]
+    /// Answers `getOrganisationRoles` and `setOrganisationRole`: the list for
+    /// administrators (`manage_roles`), who may also change it; nothing for others.
+    async fn organisation_roles(
+        &self,
+        session: SessionId,
+        message: ClientMessage,
+    ) -> Result<(), StoreError> {
+        let (user, version, may) = {
+            let hub = self.hub.lock().await;
+            let Some(user) = hub.session_user(session) else {
+                return Ok(()); // not authenticated: nothing
+            };
+            let may = hub.may_manage_roles(&user);
+            (user, hub.session_version(session), may)
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_MAP_REGION) {
+            return Ok(());
+        }
+        let mut changed = None;
+        if may
+            && let ClientMessage::SetOrganisationRole(change) = message
+            && message::ORGANISATION_ROLES.contains(&change.role.as_str())
+            // Nobody withdraws their own administrator role: an installation keeps one.
+            && !(change.user == user && change.role == "admin")
+        {
+            let done = if change.grant {
+                let until = change.valid_until.filter(|&u| u > now_ms());
+                let granted = self.roles.grant(&change.user, &change.role, until);
+                if granted {
+                    self.store
+                        .grant_organisation_role(&change.user, &change.role, until, &user, now_ms())
+                        .await?;
+                }
+                granted
+            } else {
+                let withdrawn = self.roles.withdraw(&change.user, &change.role);
+                if withdrawn {
+                    self.store
+                        .withdraw_organisation_role(&change.user, &change.role)
+                        .await?;
+                }
+                withdrawn
+            };
+            if done {
+                tracing::info!(%user, person = %change.user, role = change.role, grant = change.grant, "organisation role changed");
+                changed = Some(change.user);
+            }
+        }
+        let list = if may { self.roles.list() } else { Vec::new() };
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::OrganisationRoles(list));
+        }
+        if let Some(person) = changed {
+            let out = self.hub.lock().await.organisation_roles_changed(&[person]);
+            self.send_refusals(out);
         }
         Ok(())
     }

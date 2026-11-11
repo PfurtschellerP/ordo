@@ -613,6 +613,29 @@ Needs: impl, utest, itest
 
 Tags: should, m43
 
+#### Organisation roles
+`dsn~organisation-roles~1`
+
+Organisation roles (`admin`, `planner`) give organisation-wide permissions through the
+Cedar policies (`admin.cedar`). Roles from the configuration (`ORDO_ADMINS`, the
+development seed) stay fixed. Administrators (action `manage_roles`) grant further ones in
+the organisation workspace (*Rollen*), each optionally valid until the end of a chosen day.
+The server stores grants in the table `organisation_roles` (migration 0004) and reads
+them at start. A role whose date has passed no longer counts. When a grant changes or
+lapses (checked every minute), the person's connections are cut with `rolesChanged`, as
+for roles in an incident: the devices reconnect and receive what they may do now. An
+administrator cannot withdraw their own administrator role, so no installation loses its
+last one by accident. Protocol: `getOrganisationRoles`, `setOrganisationRole`,
+`organisationRoles`.
+
+Covers:
+
+* [req~org-9~1](../requirements/02-shared.md#org-9--organisation-roles)
+
+Needs: impl, utest, itest
+
+Tags: should, m45
+
 #### Device storage encryption
 `dsn~device-storage-encryption~1`
 
