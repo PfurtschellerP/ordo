@@ -1110,6 +1110,75 @@ fn UhsDetailsPanel(
     }
 }
 
+// [impl->dsn~uhs-resources~1]
+/// The UHS among the resources (UHS-11): each with its staff, which the incident command
+/// assigns there; location and capacity in the same panel.
+#[component]
+pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let rows = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            let events = c.events(med::UHS_COMPARTMENT);
+            let details = med::uhs_details(&events);
+            med::uhs_list(&events)
+                .into_iter()
+                .map(|u| {
+                    let d = details.get(&u.id).cloned().unwrap_or_default();
+                    (u.id, u.name, u.capacity, d)
+                })
+                .collect::<Vec<_>>()
+        })
+    });
+    // Drafts of the panels, created under this view's owner (see `UhsDraft`).
+    let owner = Owner::current().expect("a view has an owner");
+    let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
+    let draft = move |id: &str, details: &med::UhsDetails, capacity: u32| {
+        let mut out = None;
+        drafts.update_value(|m| {
+            let d = *m.entry(id.to_owned()).or_insert_with(|| {
+                owner.with(|| UhsDraft {
+                    open: RwSignal::new(false),
+                    location: RwSignal::new(details.location.clone().unwrap_or_default()),
+                    capacity: RwSignal::new(capacity.to_string()),
+                    person: RwSignal::new(String::new()),
+                })
+            });
+            out = Some(d);
+        });
+        out.expect("inserted")
+    };
+    view! {
+        <section aria-labelledby="uhs-resources-title" class="card">
+            <h2 id="uhs-resources-title">{text::UHS_RESOURCES_TITLE}</h2>
+            {move || {
+                let rows = rows.get();
+                if rows.is_empty() {
+                    return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
+                }
+                view! {
+                    <ul class="unit-list">
+                        {rows
+                            .into_iter()
+                            .map(|(id, name, capacity, details)| {
+                                let staff = text::uhs_staff_count(details.staff.len());
+                                view! {
+                                    <li class="unit-card uhs-card" data-uhs=id.clone()>
+                                        <h3>{name.clone()}</h3>
+                                        <p class="uhs-card__staff">{staff}</p>
+                                        <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
+                                            draft=draft(&id, &details, capacity) />
+                                    </li>
+                                }
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+                .into_any()
+            }}
+        </section>
+    }
+}
+
 #[component]
 fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let name = RwSignal::new(String::new());

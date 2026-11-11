@@ -195,6 +195,15 @@ Tags: must, med, m37
 
 Needs: dsn
 
+#### UHS-11 — UHS among the resources
+`req~uhs-11~1`
+
+ORDO shall list every on-site care unit with its staff among the resources (*Einsatzmittel*), where the incident command assigns and removes staff, without access to clinical data.
+
+Tags: must, med, m39
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

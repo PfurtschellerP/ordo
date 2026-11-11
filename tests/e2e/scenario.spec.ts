@@ -782,6 +782,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".released-list summary")).toHaveText("Entlassene Einsatzmittel (1)");
     await ben.getByRole("button", { name: "RTW 83/1 wieder im Einsatz" }).click();
     await expect(card, "back in the incident, with its status").toContainText("4 – Am Einsatzort");
+    // [itest->dsn~uhs-resources~1]
+    // UHS-11: the UHS are resources too; the command assigns their staff.
+    const uhsCard = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
+    await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 1 Person");
+    await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await uhsCard.getByLabel("Name", { exact: true }).fill("petra@localhost");
+    await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
+    await expect.poll(() => status(ben), { message: "the staff list is sent" }).toContain("Alles gesendet");
+    await settle(ben);
+    await expect(uhsCard.locator(".uhs-card__staff"), "and accepted by the server for the command").toHaveText("Personal: 2 Personen");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));

@@ -35,7 +35,9 @@ counts, [ADR-0001](0001-local-first-event-sourcing.md)):
   accepts events about a patient it does not know yet, which happens offline, and events
   from people whose roles allow every UHS (permission `all_uhs`; DE default: physicians).
   A move is judged by the UHS the patient leaves.
-* Once a UHS has a staff list, only its staff and roles allowing every UHS may change it.
+* Once a UHS has a staff list, only its staff, roles allowing every UHS, and those who
+  manage the incident's resources (`edit_units`, the incident command) may change it. The
+  command assigns personnel but reads and writes no clinical data.
 * The app shows the person's working UHS at the top of the UHS module (UHS-9) and does not
   offer writing where the rule would refuse it, so a refusal stays the exception.
 * Judging by the event's clock, not by its arrival, keeps documentation made offline

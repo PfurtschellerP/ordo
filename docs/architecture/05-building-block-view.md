@@ -469,7 +469,8 @@ write guards after the role check; the Med guard keeps each UHS's staff lists an
 patient's UHS over time and judges an event by the list valid at its clock. It accepts
 events about patients it does not know yet, events of UHS without a list, and events of
 people whose roles allow every UHS (`all_uhs`; DE: physicians). A move is judged by the
-UHS the patient leaves; a staff list, once set, is changed by its staff. The app shows
+UHS the patient leaves; a staff list, once set, is changed by its staff and by those who
+manage the incident's resources (`edit_units`). The app shows
 UHS where the person may not write as read-only and does not offer them for
 registration, so the server's refusal stays the exception.
 
@@ -481,6 +482,24 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m37
+
+#### UHS among the resources
+`dsn~uhs-resources~1`
+
+The view *Einsatzmittel* of the incident command lists, after the units, every UHS as a card
+with its staff count and the same panel as in *UHS verwalten*: location, capacity and
+staff, the staff added from the incident's people. Assigning staff is `uhs.updated` with
+the whole list in the shared compartment. The command may change every UHS's staff list
+through its permission `edit_units` (see UHS staff), but it reads and writes no clinical
+data.
+
+Covers:
+
+* [req~uhs-11~1](../requirements/04-med.md#uhs-11--uhs-among-the-resources)
+
+Needs: impl, itest
+
+Tags: must, m39
 
 #### UHS registry
 `dsn~uhs-registry~1`

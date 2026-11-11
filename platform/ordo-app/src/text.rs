@@ -848,6 +848,15 @@ pub const UHS_DETAILS: &str = "Ort und Personal";
 pub const UHS_LOCATION: &str = "Ort";
 pub const UHS_STAFF: &str = "Personal";
 pub const UHS_STAFF_NONE: &str = "Kein Personal eingetragen.";
+pub const UHS_RESOURCES_TITLE: &str = "UHS und Personal";
+
+pub fn uhs_staff_count(n: usize) -> String {
+    match n {
+        0 => UHS_STAFF_NONE.to_owned(),
+        1 => "Personal: 1 Person".to_owned(),
+        n => format!("Personal: {n} Personen"),
+    }
+}
 pub const UHS_STAFF_ADD: &str = "Zum Personal hinzufügen";
 pub const UHS_SAVE: &str = "Speichern";
 pub const UHS_CAPACITY_NUMBER: &str = "Bitte die Kapazität als ganze Zahl angeben.";

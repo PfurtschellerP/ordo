@@ -14,6 +14,9 @@ use crate::{COMPARTMENT, MOVED, REGISTERED, UHS_COMPARTMENT, UHS_UPDATED, UhsUpd
 
 /// The permission of roles allowed at every UHS (Cedar action `all_uhs`).
 pub const ALL_UHS: &str = "all_uhs";
+/// The permission of those who manage the incident's resources; they also assign the
+/// staff of every UHS (UHS-11), without writing clinical data.
+pub const EDIT_UNITS: &str = "edit_units";
 
 /// What the guard needs from any clinical payload: the patient, the order, the UHS.
 #[derive(Deserialize)]
@@ -107,12 +110,14 @@ impl WriteGuard for UhsStaffGuard {
                 .uhs_of(e)
                 .is_none_or(|uhs| incident.may(&uhs, &user, e.body.hlc));
         }
-        // Shared data: once a UHS has a staff list, only its staff changes it.
+        // Shared data: once a UHS has a staff list, only its staff, and those who manage
+        // the incident's resources, change it.
         if e.body.event_type.as_str() == UHS_UPDATED
             && let Ok(update) = codec::from_cbor::<UhsUpdated>(&e.payload)
             && update.staff.is_some()
         {
-            return incident.may(&update.id, &user, e.body.hlc);
+            return permissions.iter().any(|p| p == EDIT_UNITS)
+                || incident.may(&update.id, &user, e.body.hlc);
         }
         true
     }
@@ -300,6 +305,13 @@ mod tests {
         assert!(
             !g.allows(&staff(3, "carl", "nord", &["carl"]), &[]),
             "no one adds themselves"
+        );
+        assert!(
+            g.allows(
+                &staff(3, "ben", "nord", &["anna", "carl"]),
+                &[EDIT_UNITS.into()]
+            ),
+            "the incident command assigns staff"
         );
         assert!(g.allows(&staff(3, "anna", "nord", &["anna", "carl"]), &[]));
         assert!(

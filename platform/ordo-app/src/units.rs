@@ -468,6 +468,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <AddUnitForm core revision />
             </Show>
         </section>
+        <crate::views::UhsResources core revision />
     }
 }
 
