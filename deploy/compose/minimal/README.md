@@ -16,6 +16,9 @@ cp dex.yaml.example dex.yaml      # accounts, or the connector to your organisat
 docker compose build
 docker compose run --rm --no-deps --entrypoint /usr/local/bin/ordo ordo generate-key > master.key
 sudo chown 65532:65532 master.key && sudo chmod 400 master.key   # the server runs as user 65532
+# The client secret from .env, as a file for ORDO (Dex reads it from .env).
+(. ./.env && printf %s "$ORDO_OIDC_CLIENT_SECRET" > oidc-client-secret)
+sudo chown 65532:65532 oidc-client-secret && sudo chmod 400 oidc-client-secret
 
 # Certificates for Dex's API, through which ORDO manages local accounts (ADR-0060).
 mkdir dex-api && sudo chown 65532:65532 dex-api

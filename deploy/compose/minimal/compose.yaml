@@ -84,8 +84,10 @@ services:
 secrets:
   ordo_master_key:
     file: ./master.key
+  # A file, not the environment: Compose creates secrets from the environment only for
+  # services that may write, and the ORDO container is read-only.
   oidc_client_secret:
-    environment: ORDO_OIDC_CLIENT_SECRET
+    file: ./oidc-client-secret
 
 volumes:
   ordo-data:

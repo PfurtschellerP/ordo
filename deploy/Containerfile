@@ -1,4 +1,4 @@
-# ORDO server image: static binary on a minimal base (no shell, non-root, ~20–30 MB).
+# ORDO server image: static binary and the web app on a minimal base (no shell, non-root).
 # Build from the repository root:
 #   docker build -f deploy/Containerfile -t ordo .
 # Base images are pinned by digest; Dependabot keeps them current.
@@ -15,16 +15,64 @@ RUN cargo build --release --locked -p ordo-server --bin ordo \
  && mkdir -p /out/data \
  && cp target/release/ordo /out/ordo
 
+# The web app: WebAssembly, the same on every architecture, with the licence notices of
+# the shipped crates (ADR-0055). The build tools are their released binaries, checked
+# against their published SHA-256; wasm-bindgen must match Cargo.lock.
+FROM docker.io/library/rust:1.99-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS app
+ARG TARGETARCH
+ARG ORDO_COMMIT=
+ARG TRUNK=0.22.1
+ARG WASM_BINDGEN=0.2.130
+ARG CARGO_ABOUT=0.9.3
+RUN apt-get update -qq \
+ && apt-get install -y -qq --no-install-recommends clang >/dev/null \
+ && rm -rf /var/lib/apt/lists/* \
+ && rustup target add wasm32-unknown-unknown
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      amd64) arch=x86_64; \
+        trunk_sha=a1fe5cd6b053f5a76f66b598d296022a7f06f56def6013cc16cd6897d53f5363; \
+        bindgen_sha=9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f; \
+        about_sha=3ad1e94ea1e63d69d1961f4fb15ccbbe9575d906111f96d2cb4dce6df48f71b4 ;; \
+      arm64) arch=aarch64; \
+        trunk_sha=8c84a939aaf48bbdac2d78195c932adb319e610fb2cbf791bae07b2660cf3e46; \
+        bindgen_sha=99ffc93ce80081b91632e2b539b782821a8f3439ab0fddc645287462b2f55d3d; \
+        about_sha=eb4d9ff6ebd2518152a8308729431a04b3836e71d2bd5ead7aea69f91a71162e ;; \
+      *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    fetch() { \
+      curl -fsSL --retry 5 "$1" -o /tmp/tool.tar.gz; \
+      echo "$2  /tmp/tool.tar.gz" | sha256sum -c - >/dev/null; \
+      tar xzf /tmp/tool.tar.gz -C /tmp; rm /tmp/tool.tar.gz; \
+    }; \
+    fetch "https://github.com/trunk-rs/trunk/releases/download/v$TRUNK/trunk-$arch-unknown-linux-musl.tar.gz" "$trunk_sha"; \
+    fetch "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$WASM_BINDGEN/wasm-bindgen-$WASM_BINDGEN-$arch-unknown-linux-musl.tar.gz" "$bindgen_sha"; \
+    fetch "https://github.com/EmbarkStudios/cargo-about/releases/download/$CARGO_ABOUT/cargo-about-$CARGO_ABOUT-$arch-unknown-linux-musl.tar.gz" "$about_sha"; \
+    find /tmp -maxdepth 2 -type f \( -name trunk -o -name wasm-bindgen -o -name cargo-about \) \
+      -exec install -m 755 {} /usr/local/bin/ \;
+ENV RUSTUP_TOOLCHAIN=${RUST_VERSION} \
+    CARGO_TERM_COLOR=never \
+    ORDO_NOTICES_REQUIRED=1 \
+    ORDO_COMMIT=${ORDO_COMMIT}
+WORKDIR /src
+COPY . .
+RUN grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | grep -q "version = \"$WASM_BINDGEN\"" \
+ || { echo "Cargo.lock wants another wasm-bindgen than $WASM_BINDGEN: update WASM_BINDGEN and its checksums" >&2; exit 1; }
+RUN cd platform/ordo-app && trunk build --release
+
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 LABEL org.opencontainers.image.title="ORDO server" \
       org.opencontainers.image.description="Open-source on-scene coordination for emergency services" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.source="https://github.com/PfurtschellerP/ordo"
 COPY --from=build /out/ordo /usr/local/bin/ordo
+# The web app, served at / (ORDO_APP_DIR).
+COPY --from=app /src/platform/ordo-app/dist /app
 COPY --from=build --chown=65532:65532 /out/data /data
 USER 65532:65532
 ENV ORDO_DATA_DIR=/data \
-    ORDO_LISTEN=0.0.0.0:8080
+    ORDO_LISTEN=0.0.0.0:8080 \
+    ORDO_APP_DIR=/app
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 CMD ["/usr/local/bin/ordo", "healthcheck"]

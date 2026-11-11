@@ -6,3 +6,11 @@ target/
 deploy/compose/**/seed.toml
 deploy/compose/**/dex.yaml
 deploy/compose/**/.env
+**/target/
+**/node_modules/
+platform/ordo-app/dist/
+platform/ordo-app/generated/
+tests/e2e/test-results/
+tests/e2e/screenshots/
+deploy/compose/**/oidc-client-secret
+deploy/compose/**/dex-api/

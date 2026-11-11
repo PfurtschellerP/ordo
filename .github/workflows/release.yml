@@ -62,6 +62,8 @@ jobs:
           context: .
           file: deploy/Containerfile
           platforms: linux/${{ matrix.arch }}
+          # The app's notices link to the source of exactly this build (LIC-1).
+          build-args: ORDO_COMMIT=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ steps.name.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           # Provenance and bill of materials are attested on the joined image, with Sigstore.

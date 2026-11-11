@@ -50,7 +50,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build image
-        run: docker build -f deploy/Containerfile -t ordo:ci .
+        run: docker build -f deploy/Containerfile --build-arg "ORDO_COMMIT=$GITHUB_SHA" -t ordo:ci .
       - name: Smoke test (start read-only, health, readiness, metrics, user)
         run: tests/container/smoke.sh ordo:ci | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Check the Compose bundle (configuration and Dex template)
@@ -130,6 +130,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Build image
-        run: docker build -f deploy/Containerfile -t ordo:ci .
+        run: docker build -f deploy/Containerfile --build-arg "ORDO_COMMIT=$GITHUB_SHA" -t ordo:ci .
       - name: Smoke test (start read-only, health, readiness, metrics, user)
         run: tests/container/smoke.sh ordo:ci | tee -a "$GITHUB_STEP_SUMMARY"

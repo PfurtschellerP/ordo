@@ -16,6 +16,8 @@ pkg/
 .env.*
 !.env.example
 deploy/compose/**/master.key
+deploy/compose/**/oidc-client-secret
+deploy/compose/**/dex-api/
 deploy/compose/**/*.key
 deploy/compose/**/seed.toml
 deploy/compose/**/dex.yaml

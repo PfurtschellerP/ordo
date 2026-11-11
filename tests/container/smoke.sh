@@ -1,6 +1,6 @@
 #!/bin/sh
 # Smoke test of a server image (OPS-5): it starts read-only as a non-root user, answers
-# health, readiness and metrics, and Docker reports it healthy. Run on every architecture
+# health, readiness and metrics, serves the web app, and Docker reports it healthy. Run on every architecture
 # the image is built for (amd64, arm64).
 #
 #   tests/container/smoke.sh IMAGE
@@ -24,6 +24,11 @@ for _ in $(seq 30); do curl -fsS http://localhost:8080/readyz >/dev/null && brea
 curl -fsS http://localhost:8080/readyz
 curl -fsS http://localhost:8080/healthz
 curl -fsS http://localhost:8080/metrics | grep -q '^ordo_sessions 0$'
+# The web app is in the image and served at / (with its WebAssembly).
+curl -fsS http://localhost:8080/ | grep -q '<title>ORDO</title>'
+wasm=$(curl -fsS http://localhost:8080/ | grep -o '/ordo-app-[0-9a-f]*_bg\.wasm' | head -1)
+test -n "$wasm"
+curl -fsS -o /dev/null "http://localhost:8080$wasm"
 test "$(docker inspect --format '{{.Config.User}}' "$image")" = "65532:65532"
 for _ in $(seq 30); do
   [ "$(docker inspect --format '{{.State.Health.Status}}' "$name")" = healthy ] && break
