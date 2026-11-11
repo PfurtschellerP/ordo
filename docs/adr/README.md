@@ -62,5 +62,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0055](0055-licence-notices.md) | Licence notices: `cargo-about` for the crates, a list for the other parts | accepted | 2026-11-10 |
 | [0056](0056-uhs-staff-write-guard.md) | A UHS's patients are written by its staff, checked by the server per event | accepted | 2026-11-11 |
 | [0057](0057-map-region-cut-on-the-server.md) | Map regions are cut on the server from the open world map | accepted | 2026-11-11 |
+| [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | accepted | 2026-11-11 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

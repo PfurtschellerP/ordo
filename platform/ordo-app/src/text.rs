@@ -1222,3 +1222,22 @@ pub fn map_region_ready(area: Option<(f64, f64, f64)>, bytes: f64, at: Option<St
 pub fn map_region_failed(error: &str) -> String {
     format!("Die Kartengrundlage konnte nicht erstellt werden: {error}")
 }
+
+// Drawing on the map (MAP-4)
+pub const DRAW_TITLE: &str = "Auf der Karte zeichnen";
+pub const DRAW_HINT: &str = "Karte so verschieben, dass das Fadenkreuz auf einem Eckpunkt liegt (auch mit den Pfeiltasten), dann den Eckpunkt setzen; so weiter bis zum letzten.";
+pub const DRAW_CATEGORY: &str = "Art";
+pub const DRAW_ADD_CORNER: &str = "Eckpunkt setzen";
+pub const DRAW_UNDO: &str = "Letzten Eckpunkt entfernen";
+pub const DRAW_CANCEL: &str = "Verwerfen";
+pub const DRAW_FINISH: &str = "Zeichnung speichern";
+pub const DRAW_TOO_FEW_AREA: &str = "Eine Fläche braucht mindestens drei Eckpunkte.";
+pub const DRAW_TOO_FEW_LINE: &str = "Eine Linie braucht mindestens zwei Punkte.";
+
+pub fn draw_corners(n: usize) -> String {
+    match n {
+        0 => "Noch kein Eckpunkt gesetzt.".to_owned(),
+        1 => "1 Eckpunkt gesetzt.".to_owned(),
+        n => format!("{n} Eckpunkte gesetzt."),
+    }
+}

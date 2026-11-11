@@ -376,6 +376,28 @@ Needs: impl, utest, itest
 
 Tags: must, m33
 
+#### Drawing on the map
+`dsn~map-drawing~1`
+
+The profile file `map/drawings.toml` lists what can be drawn (DE: incident area, sector,
+hazard zone, staging area, cordon, hose line): ID, label, area or line, and a line pattern
+(solid, dashed, dotted). The situation view's form *Auf der Karte zeichnen* takes a
+category, a name and the corners: each "Eckpunkt setzen" adds the map's centre, marked by a
+crosshair and moved by keyboard, touch or mouse. The map previews the shape. Undo removes
+the last corner; an area needs three, a line two. Saving writes `map.objectPlaced` with kind
+`drawing`, the category as reference and a GeoJSON polygon (closed ring) or line. The map
+draws each drawing's outline with its category's pattern, so categories differ without
+colour; the list names the category
+([ADR-0058](../adr/0058-drawing-at-the-map-centre.md)).
+
+Covers:
+
+* [req~map-4~1](../requirements/02-shared.md#map-4--drawing-on-the-map)
+
+Needs: impl, utest, itest
+
+Tags: must, m40
+
 #### Map region from the server
 `dsn~map-region~1`
 

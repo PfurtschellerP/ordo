@@ -1205,7 +1205,7 @@ fn record(
 }
 
 /// A new ULID: the time now and random bits.
-fn new_ulid() -> Option<Ulid> {
+pub(crate) fn new_ulid() -> Option<Ulid> {
     let mut random = [0u8; 16];
     entropy(&mut random);
     Ulid::from_parts(now_ms(), u128::from_be_bytes(random)).ok()

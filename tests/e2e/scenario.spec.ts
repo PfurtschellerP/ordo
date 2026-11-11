@@ -878,6 +878,26 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(objects.first().locator(".map-object__symbol"), "the incident location gets its symbol").toHaveAttribute("data-symbol", "incident");
     expect(Number(await ben.locator(".situation__map").getAttribute("data-symbols")), "the map has the symbols as images").toBeGreaterThan(20);
     expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map").not.toBe("51.16000, 10.45000");
+    // [itest->dsn~map-drawing~1]
+    // MAP-4: the incident area, drawn corner by corner at the crosshair, by keyboard.
+    await ben.locator("#draw-category").selectOption({ label: "Einsatzraum" });
+    await ben.locator("#draw-label").fill("Festgelände");
+    const corner = async (key: string) => {
+      await ben.locator(".situation__map canvas").focus();
+      for (let i = 0; i < 3; i++) await ben.keyboard.press(key);
+      await ben.getByRole("button", { name: "Eckpunkt setzen" }).click();
+    };
+    await corner("ArrowUp");
+    await corner("ArrowLeft");
+    await ben.getByRole("button", { name: "Zeichnung speichern" }).click();
+    await expect(ben.locator(".draw-form [role=alert]"), "an area needs three corners").toHaveText("Eine Fläche braucht mindestens drei Eckpunkte.");
+    await corner("ArrowDown");
+    await corner("ArrowDown");
+    await ben.getByRole("button", { name: "Letzten Eckpunkt entfernen" }).click();
+    await expect(ben.locator(".draw-form__count")).toHaveText("3 Eckpunkte gesetzt.");
+    await ben.getByRole("button", { name: "Zeichnung speichern" }).click();
+    await expect(objects.filter({ hasText: "Festgelände" }), "the area is on the map and in the list, by its kind").toContainText("Festgelände · Einsatzraum");
+    await expect(ben.locator(".draw-form__count"), "ready for the next").toHaveText("Noch kein Eckpunkt gesetzt.");
     await audit(ben, "Situation map");
     await shot(ben, "situation-map");
     await ben.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }).click();

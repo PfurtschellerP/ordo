@@ -640,6 +640,18 @@
   .situation { display: grid; gap: var(--ordo-space-3); margin-block-end: var(--ordo-space-4); }
   .situation h2, .situation h3, .situation p { margin: 0; }
   .situation__map { block-size: min(60vh, 32rem); inline-size: 100%; border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); overflow: hidden; background: var(--ordo-color-surface-sunken); }
+  /* The crosshair at the map's centre, where objects are placed and corners set: two
+     outlined strokes, visible on any map. */
+  .situation__frame { position: relative; }
+  .situation__crosshair {
+    position: absolute; inset-block-start: 50%; inset-inline-start: 50%; pointer-events: none;
+    inline-size: var(--ordo-size-icon); block-size: var(--ordo-size-icon); translate: -50% -50%;
+    background:
+      linear-gradient(var(--ordo-color-text-primary), var(--ordo-color-text-primary)) center / 2px 100% no-repeat,
+      linear-gradient(var(--ordo-color-text-primary), var(--ordo-color-text-primary)) center / 100% 2px no-repeat;
+    filter: drop-shadow(0 0 1px var(--ordo-color-surface-default)) drop-shadow(0 0 1px var(--ordo-color-surface-default));
+  }
+  .situation__map:not([data-map="ready"]) + .situation__crosshair { display: none; }
   .situation__map[data-map="unavailable"] { display: none; }
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
   .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }

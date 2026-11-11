@@ -1,0 +1,39 @@
+# What can be drawn on the situation map (MAP-4, ADR-0058): areas and lines, each with a
+# line pattern so the map tells them apart without colour. Labels per FwDV 100 / DV 102 use;
+# the BBK's area symbols (2024, 5.8) can follow as patterns or fills.
+
+[[category]]
+id = "incident-area"
+label = "Einsatzraum"
+shape = "area"
+line = "solid"
+
+[[category]]
+id = "sector"
+label = "Einsatzabschnitt"
+shape = "area"
+line = "dashed"
+
+[[category]]
+id = "danger-zone"
+label = "Gefahrenbereich"
+shape = "area"
+line = "dotted"
+
+[[category]]
+id = "staging-area"
+label = "Bereitstellungsraum"
+shape = "area"
+line = "dashed"
+
+[[category]]
+id = "cordon"
+label = "Absperrung"
+shape = "line"
+line = "dashed"
+
+[[category]]
+id = "hose-line"
+label = "Schlauchleitung"
+shape = "line"
+line = "solid"

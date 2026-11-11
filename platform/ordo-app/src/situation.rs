@@ -49,6 +49,12 @@ static SYMBOLS: LazyLock<SymbolCatalogue> = LazyLock::new(|| {
         .expect("symbols were checked at build time")
 });
 
+/// What can be drawn (`map/drawings.toml`, checked at build time; MAP-4).
+static DRAWINGS: LazyLock<ordo_map::DrawingCatalogue> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/drawings.json")))
+        .expect("drawing categories were checked at build time")
+});
+
 /// The symbols' SVG files by symbol ID, as JSON for the glue.
 const SYMBOL_IMAGES: &str = include_str!(concat!(env!("OUT_DIR"), "/symbol-images.json"));
 
@@ -111,6 +117,12 @@ fn geojson(map: &SituationMap, symbols: &BTreeMap<String, Symbol>) -> String {
                 serde_json::json!({ "label": o.placed.label, "kind": o.placed.kind });
             if let Some(symbol) = symbols.get(&o.placed.object) {
                 properties["symbol"] = serde_json::Value::from(symbol.id.clone());
+            }
+            // A drawing's line pattern, from its category (MAP-4).
+            if let Some(category) = o.placed.reference.as_deref().and_then(|r| DRAWINGS.get(r))
+                && o.placed.kind == ObjectKind::Drawing
+            {
+                properties["line"] = serde_json::to_value(category.line).unwrap_or_default();
             }
             serde_json::json!({
                 "type": "Feature",
@@ -234,6 +246,13 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             Some([c.get(0).as_f64()?, c.get(1).as_f64()?])
         })
     };
+    let set_draft = move |json: String| {
+        handle.with_value(|h| {
+            if let Some((module, map)) = h {
+                let _ = call(module, "setDraft", &[map.clone(), JsValue::from_str(&json)]);
+            }
+        });
+    };
     let show = move |at: [f64; 2]| {
         handle.with_value(|h| {
             if let Some((module, map)) = h {
@@ -259,11 +278,15 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     MapState::Unavailable => text::MAP_UNAVAILABLE,
                 }}
             </p>
-            <div class="situation__map" node_ref=node data-map=move || match state.get() {
-                MapState::Ready(_) => "ready",
-                MapState::Loading => "loading",
-                MapState::Unavailable => "unavailable",
-            }></div>
+            <div class="situation__frame">
+                <div class="situation__map" node_ref=node data-map=move || match state.get() {
+                    MapState::Ready(_) => "ready",
+                    MapState::Loading => "loading",
+                    MapState::Unavailable => "unavailable",
+                }></div>
+                // The map's centre, where objects are placed and corners set.
+                <div class="situation__crosshair" aria-hidden="true"></div>
+            </div>
             <h3 id="objects-title">{text::MAP_OBJECTS}</h3>
             {move || {
                 let list: Vec<_> = situation.with(|s| s.list().into_iter().cloned().collect());
@@ -308,7 +331,11 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 view! {
                                     <li class="map-object" data-object=o.placed.object.clone()>
                                         {symbol}
-                                        <strong>{o.placed.label.clone()}</strong> " · " {text::map_kind(o.placed.kind)}
+                                        <strong>{o.placed.label.clone()}</strong> " · "
+                                        {match (o.placed.kind, o.placed.reference.as_deref().and_then(|r| DRAWINGS.get(r))) {
+                                            (ObjectKind::Drawing, Some(c)) => c.label.clone(),
+                                            (kind, _) => text::map_kind(kind).to_owned(),
+                                        }}
                                         " · " <span class="map-object__at">{coordinates(&o.placed.geometry)}</span>
                                         <Actions actions />
                                     </li>
@@ -321,6 +348,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }}
             <Show when=move || editable.get()>
                 <PlaceForm core revision centre=Callback::new(move |()| centre()) />
+                <DrawForm core revision centre=Callback::new(move |()| centre()) draft=Callback::new(set_draft) />
             </Show>
             <OfflineRegion state handle />
         </section>
@@ -533,5 +561,143 @@ fn OfflineRegion(
             }}
             <p role="status">{move || message.get()}</p>
         </div>
+    }
+}
+
+// [impl->dsn~map-drawing~1]
+/// Drawing an area or a line (MAP-4, ADR-0058): corner by corner at the map's centre, which
+/// the keyboard, touch or a mouse moves; the map previews the shape as it grows.
+#[component]
+fn DrawForm(
+    core: Handle,
+    revision: RwSignal<u64>,
+    centre: Callback<(), Option<[f64; 2]>>,
+    draft: Callback<String>,
+) -> impl IntoView {
+    let category = RwSignal::new(
+        DRAWINGS
+            .categories
+            .first()
+            .map(|c| c.id.clone())
+            .unwrap_or_default(),
+    );
+    let label = RwSignal::new(String::new());
+    let corners = RwSignal::new(Vec::<[f64; 2]>::new());
+    let error = RwSignal::new(None::<&'static str>);
+    let shape =
+        move || category.with(|c| DRAWINGS.get(c).map_or(ordo_map::Shape::Area, |c| c.shape));
+    // The preview: the corners and the shape so far.
+    Effect::new(move || {
+        let points = corners.get();
+        let area = shape() == ordo_map::Shape::Area;
+        let mut features: Vec<serde_json::Value> = points
+            .iter()
+            .map(|p| serde_json::json!({ "type": "Feature", "properties": {}, "geometry": Geometry::Point(*p) }))
+            .collect();
+        if points.len() >= 2 {
+            let line = if area && points.len() >= 3 {
+                ordo_map::drawings::closed_ring(&points)
+            } else {
+                points.clone()
+            };
+            features.push(serde_json::json!({ "type": "Feature", "properties": {}, "geometry": Geometry::LineString(line) }));
+        }
+        draft.run(
+            serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string(),
+        );
+    });
+    let add = move |_| match centre.run(()) {
+        Some(at) => {
+            corners.update(|c| c.push(at));
+            error.set(None);
+        }
+        None => error.set(Some(text::MAP_UNAVAILABLE)),
+    };
+    let undo = move |_| {
+        corners.update(|c| {
+            c.pop();
+        })
+    };
+    let cancel = move |_| {
+        corners.set(Vec::new());
+        label.set(String::new());
+        error.set(None);
+    };
+    let finish = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let Some(chosen) = DRAWINGS.get(&category.get_untracked()).cloned() else {
+            return;
+        };
+        let points = corners.get_untracked();
+        if points.len() < chosen.shape.min_points() {
+            error.set(Some(match chosen.shape {
+                ordo_map::Shape::Area => text::DRAW_TOO_FEW_AREA,
+                ordo_map::Shape::Line => text::DRAW_TOO_FEW_LINE,
+            }));
+            return;
+        }
+        let Some(id) = core::new_ulid() else { return };
+        let name = label.get_untracked().trim().to_owned();
+        let placed = ObjectPlaced {
+            object: ObjectKind::Drawing.object_id(&id.to_string()),
+            kind: ObjectKind::Drawing,
+            reference: Some(chosen.id.clone()),
+            label: if name.is_empty() {
+                chosen.label.clone()
+            } else {
+                name
+            },
+            geometry: match chosen.shape {
+                ordo_map::Shape::Area => {
+                    Geometry::Polygon(vec![ordo_map::drawings::closed_ring(&points)])
+                }
+                ordo_map::Shape::Line => Geometry::LineString(points),
+            },
+        };
+        if placed.check().is_err() {
+            error.set(Some(text::MAP_PLACE_MISSING));
+            return;
+        }
+        if core::map_event(
+            core,
+            revision,
+            ordo_map::PLACED,
+            &placed.encode().unwrap_or_default(),
+        )
+        .is_ok()
+        {
+            corners.set(Vec::new());
+            label.set(String::new());
+            error.set(None);
+        }
+    };
+    view! {
+        <form class="form draw-form" novalidate on:submit=finish>
+            <h3>{text::DRAW_TITLE}</h3>
+            <p class="hint">{text::DRAW_HINT}</p>
+            <div class="form--inline">
+                <div class="field">
+                    <label for="draw-category">{text::DRAW_CATEGORY}</label>
+                    <select id="draw-category" on:change=move |ev| category.set(event_target_value(&ev))>
+                        {DRAWINGS.categories.iter().map(|c| {
+                            let id = c.id.clone();
+                            view! { <option value=c.id.clone() selected=move || category.get() == id>{c.label.clone()}</option> }
+                        }).collect_view()}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="draw-label">{text::MAP_PLACE_LABEL}</label>
+                    <input id="draw-label" type="text" autocomplete="off" bind:value=label />
+                </div>
+            </div>
+            <p class="draw-form__count" role="status">{move || text::draw_corners(corners.with(Vec::len))}</p>
+            <div class="row">
+                <button type="button" class="button" on:click=add>{text::DRAW_ADD_CORNER}</button>
+                <button type="button" class="button button--quiet" on:click=undo disabled=move || corners.with(Vec::is_empty)>{text::DRAW_UNDO}</button>
+                <button type="button" class="button button--quiet" on:click=cancel disabled=move || corners.with(Vec::is_empty)>{text::DRAW_CANCEL}</button>
+            </div>
+            <p role="alert" class="error">{move || error.get()}</p>
+            <div class="row"><button type="submit" class="button button--primary">{text::DRAW_FINISH}</button></div>
+        </form>
     }
 }

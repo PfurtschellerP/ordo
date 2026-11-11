@@ -12,6 +12,11 @@
 const REGION_URL = "/tiles/region.pmtiles";
 const OFFLINE_NAME = "ordo-region.pmtiles";
 const OBJECTS = "ordo-objects";
+// The shape being drawn (MAP-4), before it is saved.
+const DRAFT = "ordo-draft";
+// Line patterns of drawings (profile map/drawings.toml): categories differ by pattern and
+// label, not by colour alone.
+const DASHES = { solid: null, dashed: [3, 2], dotted: [0.5, 1.5] };
 // Germany, until the incident is placed.
 const START = { center: [10.45, 51.16], zoom: 5 };
 // Tactical symbols: CSS pixels high on the map, drawn at twice that for sharp screens.
@@ -118,7 +123,17 @@ export async function create(element, centre, label) {
   const halo = token("--ordo-color-surface-default");
   map.addSource(OBJECTS, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "ordo-areas", type: "fill", source: OBJECTS, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": accent, "fill-opacity": 0.2 } });
-  map.addLayer({ id: "ordo-lines", type: "line", source: OBJECTS, filter: ["!=", ["geometry-type"], "Point"], paint: { "line-color": accent, "line-width": 3 } });
+  for (const [style, dash] of Object.entries(DASHES)) {
+    const paint = { "line-color": accent, "line-width": 3, ...(dash ? { "line-dasharray": dash } : {}) };
+    map.addLayer({
+      id: `ordo-lines-${style}`,
+      type: "line",
+      source: OBJECTS,
+      filter: ["all", ["!=", ["geometry-type"], "Point"], ["==", ["coalesce", ["get", "line"], "solid"], style]],
+      layout: { "line-cap": style === "dotted" ? "round" : "butt" },
+      paint,
+    });
+  }
   const point = ["==", ["geometry-type"], "Point"];
   map.addLayer({ id: "ordo-points", type: "circle", source: OBJECTS, filter: ["all", point, ["!", ["has", "symbol"]]], paint: { "circle-radius": 8, "circle-color": accent, "circle-stroke-width": 2, "circle-stroke-color": halo } });
   // Symbols never hide each other: on scene, every unit counts.
@@ -142,7 +157,15 @@ export async function create(element, centre, label) {
     },
     paint: { "text-color": text, "text-halo-color": halo, "text-halo-width": 2 },
   });
+  map.addSource(DRAFT, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "ordo-draft-line", type: "line", source: DRAFT, filter: ["!=", ["geometry-type"], "Point"], paint: { "line-color": text, "line-width": 2, "line-dasharray": [2, 1] } });
+  map.addLayer({ id: "ordo-draft-corners", type: "circle", source: DRAFT, filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 5, "circle-color": halo, "circle-stroke-width": 2, "circle-stroke-color": text } });
   return { map, from: source.from };
+}
+
+/** Shows the shape being drawn (a GeoJSON FeatureCollection as text; empty to clear). */
+export function setDraft(handle, geojson) {
+  handle.map.getSource(DRAFT)?.setData(JSON.parse(geojson));
 }
 
 /** Gives the size an SVG's viewBox implies, at `SYMBOL_HEIGHT` CSS pixels high, so every

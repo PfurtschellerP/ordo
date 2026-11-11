@@ -8,7 +8,9 @@ use ordo_core::{Hlc, UserId};
 use ordo_sync::AppliedEvent;
 use serde::{Deserialize, Serialize};
 
+pub mod drawings;
 pub mod symbols;
+pub use drawings::{Category, DrawingCatalogue, LineStyle, Shape};
 pub use symbols::{Symbol, SymbolCatalogue};
 
 /// Module ID.

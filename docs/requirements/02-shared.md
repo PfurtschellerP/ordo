@@ -242,7 +242,7 @@ Needs: dsn
 
 Draw points, lines and areas (e.g. danger zone, hose line, cordon, staging area)
 
-Tags: must, shared
+Tags: must, shared, m40
 
 Needs: dsn
 

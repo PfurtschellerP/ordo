@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use ordo_command::StructureCatalogue;
-use ordo_map::SymbolCatalogue;
+use ordo_map::{DrawingCatalogue, SymbolCatalogue};
 use ordo_med_patients::TransportPriorityConfig;
 use ordo_med_patients::hospitals::HospitalCatalogue;
 use ordo_med_patients::orders::OrderCatalogue;
@@ -99,6 +99,11 @@ fn main() {
         &profile.join("units"),
         "status-codes.toml",
         StatusCatalogue::check,
+    );
+    embed(
+        &profile.join("map"),
+        "drawings.toml",
+        DrawingCatalogue::check,
     );
     symbols(&profile.join("symbols"));
 }
