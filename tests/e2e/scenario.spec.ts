@@ -46,7 +46,10 @@ let annaFrames: ReturnType<typeof recordFrames>;
 let patientPhoto: Buffer;
 let benFrames: ReturnType<typeof recordFrames>;
 
-const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
+// The caret stays: hiding it adds a <style> element to the page, which the app's policy
+// rightly blocks (and WebKit reports).
+const shot = (page: Page, name: string, fullPage = true) =>
+  page.screenshot({ path: path.join(shots, `${name}.png`), fullPage, caret: "initial" });
 
 /** Content Security Policy violations reported by any page of the scenario (SEC-18). */
 const cspViolations: string[] = [];
