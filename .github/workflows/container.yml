@@ -61,16 +61,24 @@ jobs:
           ORDO_ADMINS: dora
         run: |
           docker compose config -q
-          sed -e 's|replace with a bcrypt hash|$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W|' \
-              -e 's|replace with a random UUID|00000000-0000-4000-8000-000000000001|' \
-              dex.yaml.example > "$RUNNER_TEMP/dex.yaml"
+          cp dex.yaml.example "$RUNNER_TEMP/dex.yaml"
+          # Certificates for Dex's API as the README makes them (ADR-0060), with the image.
+          mkdir -p "$RUNNER_TEMP/dex-api" && chmod 777 "$RUNNER_TEMP/dex-api"
+          docker run --rm -v "$RUNNER_TEMP/dex-api:/certs" ordo:ci generate-dex-certs /certs dex localhost
+          sudo chmod 644 "$RUNNER_TEMP"/dex-api/*.pem
           image=$(sed -n 's/^ *image: \(ghcr.io\/dexidp\/dex:.*\)$/\1/p' compose.yaml)
-          docker run -d --name dex -p 5556:5556 -e ORDO_DOMAIN -e ORDO_OIDC_CLIENT_SECRET \
-            -v "$RUNNER_TEMP/dex.yaml:/etc/dex/config.yaml:ro" "$image" dex serve /etc/dex/config.yaml
+          docker run -d --name dex -p 5556:5556 -p 5557:5557 -e ORDO_DOMAIN -e ORDO_OIDC_CLIENT_SECRET \
+            -v "$RUNNER_TEMP/dex.yaml:/etc/dex/config.yaml:ro" -v "$RUNNER_TEMP/dex-api:/etc/dex/api:ro" \
+            "$image" dex serve /etc/dex/config.yaml
           for _ in $(seq 30); do
             curl -fsS http://localhost:5556/dex/.well-known/openid-configuration > "$RUNNER_TEMP/discovery.json" && break; sleep 1
           done
           jq -e '.issuer == "https://localhost/dex" and (.grant_types_supported | index("urn:ietf:params:oauth:grant-type:device_code"))' "$RUNNER_TEMP/discovery.json"
+          # The API speaks TLS with a certificate of the installation's CA (generate-dex-certs).
+          d="$RUNNER_TEMP/dex-api"
+          openssl s_client -connect localhost:5557 -CAfile "$d/ca.pem" -cert "$d/ordo.pem" -key "$d/ordo-key.pem" \
+            -verify_return_error -brief < /dev/null 2>&1 | tee "$RUNNER_TEMP/api.txt"
+          grep -q "Verification: OK" "$RUNNER_TEMP/api.txt"
       # The bundle's TLS endpoint agrees on the hybrid post-quantum key exchange (ADR-0042).
       - name: Check the hybrid post-quantum TLS key exchange
         working-directory: deploy/compose/minimal
