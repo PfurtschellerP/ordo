@@ -1345,6 +1345,52 @@ pub fn incident_from_url() -> Option<String> {
 
 const PENDING_KEY: &str = "ordo.pending";
 
+// [impl->dsn~device-names~1]
+/// A name for this device from its browser and system, e.g. "Firefox auf Android" (ORG-8).
+pub fn suggested_device_name() -> String {
+    let agent = web_sys::window()
+        .and_then(|w| w.navigator().user_agent().ok())
+        .unwrap_or_default();
+    device_name_from(&agent)
+}
+
+/// The browser and system named by a user agent, in German: "Firefox auf Android".
+fn device_name_from(agent: &str) -> String {
+    let has = |s: &str| agent.contains(s);
+    let browser = if has("Edg/") || has("EdgA/") || has("EdgiOS/") {
+        "Edge"
+    } else if has("Firefox/") || has("FxiOS/") {
+        "Firefox"
+    } else if has("Chrome/") || has("CriOS/") || has("Chromium/") {
+        "Chrome"
+    } else if has("Safari/") {
+        "Safari"
+    } else {
+        "Browser"
+    };
+    let system = if has("iPad") {
+        Some("iPad")
+    } else if has("iPhone") {
+        Some("iPhone")
+    } else if has("Android") {
+        Some("Android")
+    } else if has("CrOS") {
+        Some("ChromeOS")
+    } else if has("Windows") {
+        Some("Windows")
+    } else if has("Mac OS X") || has("Macintosh") {
+        Some("macOS")
+    } else if has("Linux") {
+        Some("Linux")
+    } else {
+        None
+    };
+    match system {
+        Some(system) => format!("{browser} auf {system}"),
+        None => browser.to_owned(),
+    }
+}
+
 /// A device key made on this device, waiting for the login that registers it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingDevice {
@@ -1706,4 +1752,33 @@ fn from_hex_vec(text: &str) -> Option<Vec<u8>> {
 
 fn from_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
     from_hex_vec(text)?.try_into().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    // [utest->dsn~device-names~1]
+    #[test]
+    fn a_device_is_named_after_its_browser_and_system() {
+        for (agent, name) in [
+            (
+                "Mozilla/5.0 (Android 15; Mobile; rv:144.0) Gecko/144.0 Firefox/144.0",
+                "Firefox auf Android",
+            ),
+            (
+                "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+                "Safari auf iPad",
+            ),
+            (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+                "Edge auf Windows",
+            ),
+            (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+                "Chrome auf Linux",
+            ),
+            ("", "Browser"),
+        ] {
+            assert_eq!(super::device_name_from(agent), name, "{agent}");
+        }
+    }
 }

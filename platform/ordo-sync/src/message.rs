@@ -211,6 +211,9 @@ pub struct DeviceInfo {
     /// End of its login (ms), if limited.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valid_until: Option<u64>,
+    /// Its name, as chosen at pairing (ORG-8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// Identifies the device, proves its key and asks for streams.
@@ -459,6 +462,7 @@ mod tests {
             user: "anna@ordo.example.org".parse().unwrap(),
             paired: Some(1),
             valid_until: None,
+            name: Some("Firefox auf Android".into()),
         }]);
         assert_eq!(
             decode::<ServerMessage>(&encode(&list).unwrap()).unwrap(),

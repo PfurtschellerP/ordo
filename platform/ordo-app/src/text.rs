@@ -76,6 +76,15 @@ pub fn device_name(short: &str) -> String {
     format!("Gerät …{short}")
 }
 
+/// "Firefox auf Android · …4F2A9C": the device's name and the end of its ID (ORG-8).
+pub fn named_device(name: &str, short: &str) -> String {
+    format!("{name} · …{short}")
+}
+
+pub const DEVICE_NAME_LABEL: &str = "Name dieses Geräts";
+pub const DEVICE_NAME_HINT: &str =
+    "So erscheint das Gerät in der Geräteliste, z. B. „Tablet UHS Nord“.";
+
 pub fn revoke_label(short: &str) -> String {
     format!("Sperren: Gerät …{short}")
 }

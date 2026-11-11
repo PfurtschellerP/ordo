@@ -572,6 +572,24 @@ Needs: impl, utest, itest
 
 Tags: must, m9
 
+#### Device names
+`dsn~device-names~1`
+
+The pairing page suggests a name for the device from the browser and operating system ("Firefox
+auf Android", "Safari auf iPad"); the person may change it. The name goes with the device key
+to `/auth/login` and `POST /auth/device` and is stored with the device (migration 0002).
+Logging in again without a name keeps the stored one. The server trims it to at most 60
+characters without control characters. `devices` carries it as `name`, so the device list
+shows "Firefox auf Android · 4F2A9C" instead of only the short ID.
+
+Covers:
+
+* [req~org-8~1](../requirements/02-shared.md#org-8--device-names)
+
+Needs: impl, utest, itest
+
+Tags: should, m43
+
 #### Device storage encryption
 `dsn~device-storage-encryption~1`
 

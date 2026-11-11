@@ -7,7 +7,7 @@
 import os from "node:os";
 import path from "node:path";
 import { Browser, expect, Page, test } from "@playwright/test";
-import { audit, settle } from "./support/audit";
+import { audit, axeRunning, settle } from "./support/audit";
 import {
   announced,
   createUhs,
@@ -55,11 +55,11 @@ async function newDevice(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1200, height: 1000 } });
   const page = await context.newPage();
   // Chromium: "Refused to …", Firefox: "Content-Security-Policy: …", WebKit: "Refused to …".
-  // Scripts the test injects have no URL (axe-core reads styles through <style>
-  // elements, which the policy rightly blocks): only the app's own code counts.
+  // Only the app's own code counts: not scripts the test injects (no URL), and not axe-core,
+  // which reads stylesheets through <style> elements the policy rightly blocks.
   page.on("console", (m) => {
     const csp = /Content.Security.Policy|Refused to (load|execute|apply|connect|compile|create|evaluate)/i;
-    if (csp.test(m.text()) && m.location().url !== "") {
+    if (csp.test(m.text()) && m.location().url !== "" && axeRunning.count === 0) {
       cspViolations.push(`${m.location().url}:${m.location().lineNumber} ${m.text().slice(0, 200)}`);
     }
   });
@@ -113,7 +113,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("link", { name: "Zurück" }).click();
     await expect(dora.getByRole("button", { name: "Anmelden" }), "back where the person came from").toBeVisible();
     // [itest->dsn~oidc-login~1]
-    await loginPair(dora, server, "dora@example.org");
+    await expect(dora.locator("#device-name"), "a device name is suggested from the browser").toHaveValue(/^\w+ auf \w+$/);
+    await loginPair(dora, server, "dora@example.org", "Laptop Einsatzplanung");
     await expect(dora.locator(".incident-card"), "no incident planned yet").toHaveCount(0);
     await audit(dora, "Incident list", [1200, 320]);
     await dora.locator("#plan-name").fill(INCIDENT);
@@ -1079,6 +1080,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(ben)).toContain("Organisation – Geräte");
     await expect(ben.locator(".device-card"), "a person sees their own devices").toHaveCount(1);
     await expect(ben.locator(".device-card h3")).toContainText("dieses Gerät");
+    // [itest->dsn~device-names~1]
+    await expect(ben.locator(".device-card h3"), "named after its browser and system").toHaveText(/^\w+ auf \w+ · …\w{6} \(dieses Gerät\)$/);
     await expect(ben.locator(".device-card dt", { hasText: "Person" }), "no person shown for own devices").toHaveCount(0);
 
     // Dora, an administrator, sees all devices.
@@ -1086,6 +1089,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
     await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
     await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
+    await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();

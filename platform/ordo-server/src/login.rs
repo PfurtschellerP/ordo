@@ -113,6 +113,7 @@ type Claims = IdTokenClaims<Groups, CoreGenderClaim>;
 struct PendingLogin {
     device: DeviceId,
     key: VerifyingKey,
+    name: Option<String>,
     verifier: PkceCodeVerifier,
     nonce: Nonce,
     started: Instant,
@@ -248,6 +249,21 @@ pub(crate) fn user_name(preferred: Option<&str>, email: Option<&str>) -> String 
     }
 }
 
+// [impl->dsn~device-names~1]
+/// A device's name as sent at pairing (ORG-8): whitespace collapsed, no control
+/// characters, at most 60 characters; `None` if nothing is left.
+fn device_name(raw: Option<&str>) -> Option<String> {
+    let name: String = raw?
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(60)
+        .collect();
+    (!name.is_empty()).then_some(name)
+}
+
 /// A device ID and public key from a request.
 fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
     let device = DeviceId(device.parse::<Ulid>().ok()?);
@@ -341,6 +357,7 @@ async fn finish(
     renewal: Option<&RefreshToken>,
     device: DeviceId,
     key: VerifyingKey,
+    name: Option<String>,
 ) -> Result<UserId, LoginError> {
     // Identity only: roles are granted per incident in ORDO (ADR-0046).
     let wanted = user_name(
@@ -378,7 +395,7 @@ async fn finish(
             )
             .await?;
     }
-    if !app.register_device(device, user.clone(), key).await? {
+    if !app.register_device(device, user.clone(), key, name).await? {
         return Err(LoginError::DeviceTaken);
     }
     tracing::info!(user = %user, device = %device.ulid(), "device paired by login");
@@ -500,6 +517,9 @@ pub(crate) async fn config(State(app): State<Arc<App>>) -> Json<serde_json::Valu
 pub(crate) struct LoginQuery {
     device: String,
     key: String,
+    /// The device's name (ORG-8), optional.
+    #[serde(default)]
+    name: Option<String>,
 }
 
 /// `GET /auth/login`: starts the login for the device that sends its public key.
@@ -532,6 +552,7 @@ pub(crate) async fn start(State(app): State<Arc<App>>, Query(q): Query<LoginQuer
             PendingLogin {
                 device,
                 key,
+                name: device_name(q.name.as_deref()),
                 verifier,
                 nonce,
                 started: Instant::now(),
@@ -630,6 +651,7 @@ pub(crate) async fn callback(
             tokens.refresh_token(),
             pending.device,
             pending.key,
+            pending.name,
         )
         .await
     }
@@ -648,6 +670,9 @@ pub(crate) async fn callback(
 pub(crate) struct DeviceRequest {
     device: String,
     key: String,
+    /// The device's name (ORG-8), optional.
+    #[serde(default)]
+    name: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -671,6 +696,7 @@ pub(crate) async fn device_start(
     let Some((device, key)) = parse_device(&request.device, &request.key) else {
         return (StatusCode::BAD_REQUEST, "invalid device or key").into_response();
     };
+    let name = device_name(request.name.as_deref());
     {
         let mut pairings = login.pairings.lock().expect("pairings");
         pairings.retain(|_, p| p.started.elapsed() < PENDING_TTL);
@@ -737,7 +763,7 @@ pub(crate) async fn device_start(
                 .claims(&client.id_token_verifier(), no_nonce)
                 .map_err(|e| LoginError::Token(e.to_string()))?
                 .clone();
-            finish(&waiting, &claims, tokens.refresh_token(), device, key).await
+            finish(&waiting, &claims, tokens.refresh_token(), device, key, name).await
         }
         .await;
         let status = match result {
@@ -805,6 +831,25 @@ pub(crate) async fn device_qr(State(app): State<Arc<App>>, Path(id): Path<String
 
 #[cfg(test)]
 mod tests {
+    // [utest->dsn~device-names~1]
+    #[test]
+    fn device_names_are_tidied_and_limited() {
+        assert_eq!(
+            super::device_name(Some("  Firefox   auf\tAndroid ")).as_deref(),
+            Some("Firefox auf Android")
+        );
+        assert_eq!(
+            super::device_name(Some("Tablet\u{0007} UHS")).as_deref(),
+            Some("Tablet UHS")
+        );
+        assert_eq!(
+            super::device_name(Some(&"x".repeat(100))).map(|n| n.chars().count()),
+            Some(60)
+        );
+        assert_eq!(super::device_name(Some("  ")), None);
+        assert_eq!(super::device_name(None), None);
+    }
+
     use super::*;
 
     #[test]

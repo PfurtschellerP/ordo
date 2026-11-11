@@ -177,8 +177,8 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             .map_err(|e| StoreError::Invalid(format!("device key: {e}")))?;
         hub.register_device_until(device, user, key, Some(valid_until.unwrap_or(0)));
     }
-    for (device, paired) in store.load_paired().await? {
-        hub.set_paired(&device, paired);
+    for (device, paired, name) in store.load_paired().await? {
+        hub.set_paired(&device, paired, name);
     }
     for device in store.load_revoked().await? {
         hub.restore_revoked(device);

@@ -128,7 +128,7 @@ fn DeviceCard(
     view! {
         <li class="device-card" data-device=ulid>
             <h3>
-                {text::device_name(&short)}
+                {info.name.clone().map_or_else(|| text::device_name(&short), |name| text::named_device(&name, &short))}
                 {own.then(|| format!(" ({})", text::THIS_DEVICE))}
             </h3>
             <dl class="facts">

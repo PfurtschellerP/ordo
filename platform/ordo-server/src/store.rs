@@ -322,23 +322,24 @@ impl Store {
             .collect()
     }
 
-    /// Stores a paired device whose login lasts until `valid_until` (ms). Pairing it again
-    /// replaces its key, but only for the same user: a device ID of another person cannot
-    /// be taken over (returns `false`).
+    /// Stores a paired device whose login lasts until `valid_until` (ms), with its name
+    /// (ORG-8; none keeps the stored one). Pairing it again replaces its key, but only for
+    /// the same user: a device ID of another person cannot be taken over (returns `false`).
     pub async fn save_device(
         &self,
         device: &DeviceId,
         user: &UserId,
         key: &[u8; 32],
+        name: Option<&str>,
         now_ms: u64,
         valid_until: u64,
     ) -> Result<bool, StoreError> {
         let saved = sqlx::query(
-            "INSERT INTO devices (device_id, user_id, public_key, paired_ms, valid_until)
-             VALUES (?, ?, ?, ?, ?)
+            "INSERT INTO devices (device_id, user_id, public_key, paired_ms, valid_until, name)
+             VALUES (?, ?, ?, ?, ?, ?)
              ON CONFLICT (device_id) DO UPDATE SET public_key = excluded.public_key,
                  paired_ms = excluded.paired_ms, valid_until = excluded.valid_until,
-                 revoked_ms = NULL
+                 name = COALESCE(excluded.name, devices.name), revoked_ms = NULL
              WHERE devices.user_id = excluded.user_id",
         )
         .bind(device.ulid().to_string())
@@ -346,6 +347,7 @@ impl Store {
         .bind(key.as_slice())
         .bind(ms(now_ms))
         .bind(ms(valid_until))
+        .bind(name)
         .execute(&self.pool)
         .await?;
         Ok(saved.rows_affected() == 1)
@@ -367,11 +369,12 @@ impl Store {
             .collect()
     }
 
-    /// When each device was paired (ms).
-    pub async fn load_paired(&self) -> Result<Vec<(DeviceId, u64)>, StoreError> {
-        let rows = sqlx::query("SELECT device_id, paired_ms FROM devices WHERE revoked_ms IS NULL")
-            .fetch_all(&self.pool)
-            .await?;
+    /// When each device was paired (ms), and its name (ORG-8).
+    pub async fn load_paired(&self) -> Result<Vec<(DeviceId, u64, Option<String>)>, StoreError> {
+        let rows =
+            sqlx::query("SELECT device_id, paired_ms, name FROM devices WHERE revoked_ms IS NULL")
+                .fetch_all(&self.pool)
+                .await?;
         rows.into_iter()
             .map(|row| {
                 let device: String = row.get("device_id");
@@ -383,6 +386,7 @@ impl Store {
                             .map_err(|e| StoreError::Invalid(e.to_string()))?,
                     ),
                     u64::try_from(paired).unwrap_or_default(),
+                    row.get("name"),
                 ))
             })
             .collect()
@@ -597,7 +601,7 @@ mod tests {
                 .fetch_all(&store.pool)
                 .await
                 .unwrap();
-            assert_eq!(applied, [1], "the baseline, applied once");
+            assert_eq!(applied, [1, 2], "each migration, applied once");
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
                 .fetch_one(&store.pool)
                 .await
@@ -614,26 +618,39 @@ mod tests {
         let device = DeviceId(Ulid::from_parts(1, 1).unwrap());
         assert!(
             store
-                .save_device(&device, &user("anna"), &[1; 32], 1, 100)
+                .save_device(
+                    &device,
+                    &user("anna"),
+                    &[1; 32],
+                    Some("Firefox auf Android"),
+                    1,
+                    100
+                )
                 .await
                 .unwrap()
         );
         assert!(
             store
-                .save_device(&device, &user("anna"), &[2; 32], 2, 200)
+                .save_device(&device, &user("anna"), &[2; 32], None, 2, 200)
                 .await
                 .unwrap(),
             "the same person may pair the device again with a new key"
         );
         assert!(
             !store
-                .save_device(&device, &user("mallory"), &[3; 32], 3, 300)
+                .save_device(&device, &user("mallory"), &[3; 32], Some("Mallory"), 3, 300)
                 .await
                 .unwrap(),
             "another person may not take the device ID over"
         );
         let devices = store.load_devices().await.unwrap();
         assert_eq!(devices, vec![(device, user("anna"), [2; 32], Some(200))]);
+        // [utest->dsn~device-names~1]
+        assert_eq!(
+            store.load_paired().await.unwrap(),
+            vec![(device, 2, Some("Firefox auf Android".to_owned()))],
+            "logging in again without a name keeps it"
+        );
         store.set_valid_until(&user("anna"), 5).await.unwrap();
         assert_eq!(store.load_devices().await.unwrap()[0].3, Some(5));
     }
@@ -647,7 +664,14 @@ mod tests {
         {
             let store = Store::open(&path).await.unwrap();
             store
-                .save_device(&device, &user("anna"), &[1; 32], 1, 100)
+                .save_device(
+                    &device,
+                    &user("anna"),
+                    &[1; 32],
+                    Some("Firefox auf Android"),
+                    1,
+                    100,
+                )
                 .await
                 .unwrap();
             let master = DataKey::from_bytes([7; 32]);

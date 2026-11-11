@@ -53,8 +53,10 @@ async function startPairing(page: Page, server: OrdoServer): Promise<void> {
 
 /** Pairs the device by logging in with the organisation's account (Dex); the app then
  *  lists the person's incidents (ADR-0046). */
-export async function loginPair(page: Page, server: OrdoServer, email: string): Promise<void> {
+export async function loginPair(page: Page, server: OrdoServer, email: string, deviceName?: string): Promise<void> {
   await startPairing(page, server);
+  // ORG-8: a name is suggested from the browser; a test may choose its own.
+  if (deviceName) await page.locator("#device-name").fill(deviceName);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await dexLogin(page, email);
   await expect(page.getByRole("heading", { name: "ORDO – Einsätze" })).toBeVisible();

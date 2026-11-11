@@ -101,6 +101,8 @@ struct RegisteredDevice {
     valid_until: Option<u64>,
     /// When it was paired (ms), if known.
     paired: Option<u64>,
+    /// Its name, as chosen at pairing (ORG-8).
+    name: Option<String>,
 }
 
 impl RegisteredDevice {
@@ -269,7 +271,10 @@ impl<P: AccessPolicy> Hub<P> {
         key: VerifyingKey,
         valid_until: Option<u64>,
     ) {
-        let paired = self.devices.get(&device).and_then(|d| d.paired);
+        let (paired, name) = self
+            .devices
+            .get(&device)
+            .map_or((None, None), |d| (d.paired, d.name.clone()));
         self.devices.insert(
             device,
             RegisteredDevice {
@@ -277,15 +282,19 @@ impl<P: AccessPolicy> Hub<P> {
                 key,
                 valid_until,
                 paired,
+                name,
             },
         );
         self.revoked.remove(&device);
     }
 
-    /// Records when a device was paired (for the device list).
-    pub fn set_paired(&mut self, device: &DeviceId, paired_ms: u64) {
+    /// Records when a device was paired and its name, if any (for the device list; ORG-8).
+    pub fn set_paired(&mut self, device: &DeviceId, paired_ms: u64, name: Option<String>) {
         if let Some(d) = self.devices.get_mut(device) {
             d.paired = Some(paired_ms);
+            if name.is_some() {
+                d.name = name;
+            }
         }
     }
 
@@ -403,6 +412,7 @@ impl<P: AccessPolicy> Hub<P> {
                 user: d.user.clone(),
                 paired: d.paired,
                 valid_until: d.valid_until,
+                name: d.name.clone(),
             })
             .collect();
         list.sort_by(|a, b| (&a.user, a.device).cmp(&(&b.user, b.device)));

@@ -189,6 +189,15 @@ fn PairingForm(
             }
         }
     });
+    // [impl->dsn~device-names~1]
+    // The device's name (ORG-8), suggested from the browser; logging in again keeps the
+    // stored name, so none is sent then.
+    let device_name = RwSignal::new(core::suggested_device_name());
+    let name_param = move || {
+        (!is_relogin)
+            .then(|| device_name.get_untracked().trim().to_owned())
+            .filter(|n| !n.is_empty())
+    };
     // The device to log in with: the existing one (log in again) or a new key pair.
     let device_for_login = move || match relogin.get_value() {
         Some(p) => Some(core::PendingDevice {
@@ -207,10 +216,17 @@ fn PairingForm(
             return;
         };
         device.save();
+        let name = name_param().map_or_else(String::new, |n| {
+            format!(
+                "&name={}",
+                percent_encoding::utf8_percent_encode(&n, percent_encoding::NON_ALPHANUMERIC)
+            )
+        });
         if let Some(window) = web_sys::window() {
-            let _ = window
-                .location()
-                .assign(&format!("/auth/login?device={}&key={key}", device.device));
+            let _ = window.location().assign(&format!(
+                "/auth/login?device={}&key={key}{name}",
+                device.device
+            ));
         }
     };
     let start_qr = move |_| {
@@ -222,7 +238,8 @@ fn PairingForm(
         };
         error.set(None);
         leptos::task::spawn_local(async move {
-            let body = serde_json::json!({ "device": device.device, "key": key });
+            let body =
+                serde_json::json!({ "device": device.device, "key": key, "name": name_param() });
             let started = match core::fetch_json("POST", "/auth/device", Some(&body)).await {
                 Ok(started) => started,
                 Err(e) => {
@@ -271,6 +288,13 @@ fn PairingForm(
                 None => ().into_any(),
                 Some(false) => view! { <p class="notice">{text::PAIR_NO_LOGIN}</p> }.into_any(),
                 Some(true) => view! {
+                    {(!is_relogin).then(|| view! {
+                        <div class="field">
+                            <label for="device-name">{text::DEVICE_NAME_LABEL}</label>
+                            <input id="device-name" type="text" autocomplete="off" maxlength="60" bind:value=device_name />
+                            <p class="hint">{text::DEVICE_NAME_HINT}</p>
+                        </div>
+                    })}
                     <div class="row">
                         <button id="login" type="button" class="button button--primary" on:click=login>{text::PAIR_LOGIN}</button>
                         <button id="pair-qr" type="button" class="button" on:click=start_qr>{text::PAIR_QR}</button>

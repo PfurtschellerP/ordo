@@ -410,3 +410,12 @@ known, ORDO shall show the user ID.
 Tags: should, shared
 
 Needs: dsn
+
+#### ORG-8 — Device names
+`req~org-8~1`
+
+When a device is paired, ORDO shall give it a name, suggested from the browser and operating system (e.g. "Firefox auf Android") and changeable by the person, and shall show that name in the device list, so that a lost or retired device is recognised before it is revoked.
+
+Tags: should, shared, m43
+
+Needs: dsn

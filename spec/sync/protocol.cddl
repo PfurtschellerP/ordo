@@ -90,6 +90,7 @@ device-info = {
   "user": user-id,
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
+  ? "name": tstr,                  ; as chosen at pairing, e.g. "Firefox auf Android" (1.2)
 }
 
 ; Attachments: encrypted on the device, named by the BLAKE3 hash of the ciphertext.

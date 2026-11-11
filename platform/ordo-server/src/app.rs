@@ -105,11 +105,19 @@ impl App {
         device: DeviceId,
         user: UserId,
         key: VerifyingKey,
+        name: Option<String>,
     ) -> Result<bool, StoreError> {
         let valid_until = self.valid_from_now();
         if !self
             .store
-            .save_device(&device, &user, key.as_bytes(), now_ms(), valid_until)
+            .save_device(
+                &device,
+                &user,
+                key.as_bytes(),
+                name.as_deref(),
+                now_ms(),
+                valid_until,
+            )
             .await?
         {
             return Ok(false);
@@ -117,7 +125,7 @@ impl App {
         {
             let mut hub = self.hub.lock().await;
             hub.register_device_until(device, user.clone(), key, Some(valid_until));
-            hub.set_paired(&device, now_ms());
+            hub.set_paired(&device, now_ms(), name);
         }
         self.set_valid_until(&user, valid_until).await?;
         Ok(true)
