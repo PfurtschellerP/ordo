@@ -562,6 +562,7 @@ impl<P: AccessPolicy> Hub<P> {
             // Answered by the server outside the hub.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
+            | ClientMessage::SetName(_)
             | ClientMessage::BlobTicket(_)
             | ClientMessage::GetMapRegion
             | ClientMessage::CutMapRegion(_) => Vec::new(),

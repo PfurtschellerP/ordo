@@ -177,7 +177,7 @@ pub fn PatientsView(
         revision.track();
         core::incident_people(core)
     });
-    provide_context(IncidentPeople(people.into()));
+    provide_context(IncidentPeople(people.into(), core));
     view! {
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
@@ -724,6 +724,8 @@ fn StaySection(
             <h3 id="section-stay" tabindex="-1">{text::STAY_TITLE}</h3>
             <ol class="history">
                 {move || {
+                    // Also when names arrive (ORG-7).
+                    revision.track();
                     patient.with(|p| {
                         p.iter()
                             .flat_map(|p| p.stay.iter())
@@ -735,7 +737,10 @@ fn StaySection(
                                     }
                                     Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
                                 };
-                                let when = text::by_at(e.by.as_str(), &core::clock(e.at.wall_ms));
+                                let when = text::by_at(
+                                    &crate::profile::display_name(core, &e.by),
+                                    &core::clock(e.at.wall_ms),
+                                );
                                 view! { <li>{what} " · " {when}</li> }
                             })
                             .collect_view()
@@ -1013,6 +1018,8 @@ fn TriageSection(
     let state = {
         let tag = tag.clone();
         move || {
+            // Also when names arrive (ORG-7).
+            revision.track();
             register.with(|r| {
                 r.patient(&tag).map(|p| {
                     (
@@ -1024,7 +1031,7 @@ fn TriageSection(
                                 (
                                     h.category,
                                     core::clock(h.at.wall_ms),
-                                    h.by.to_string(),
+                                    crate::profile::display_name(core, &h.by),
                                     h.algorithm.clone(),
                                 )
                             })
@@ -1297,7 +1304,7 @@ fn FormSection(
                                     .iter()
                                     .rev()
                                     .filter(|e| e.replaced_by.is_none())
-                                    .map(|e| view! { <EntryView form entry=e.clone() editing /> })
+                                    .map(|e| view! { <EntryView core form entry=e.clone() editing /> })
                                     .collect_view()}
                             </ol>
                             {(corrected > 0).then(|| view! {
@@ -1307,7 +1314,7 @@ fn FormSection(
                                         {entries
                                             .iter()
                                             .filter(|e| e.replaced_by.is_some())
-                                            .map(|e| view! { <EntryView form entry=e.clone() editing=RwSignal::new(None) /> })
+                                            .map(|e| view! { <EntryView core form entry=e.clone() editing=RwSignal::new(None) /> })
                                             .collect_view()}
                                     </ol>
                                 </details>
@@ -1416,6 +1423,7 @@ fn Facts(facts: Vec<(String, String)>) -> impl IntoView {
 
 #[component]
 fn EntryView(
+    core: Handle,
     form: &'static Form,
     entry: record::Entry,
     editing: RwSignal<Option<Mode>>,
@@ -1443,7 +1451,10 @@ fn EntryView(
     view! {
         <li class="entry" class:entry--corrected=corrected>
             <p class="entry__head">
-                <strong>{time.clone()}</strong> " · " {entry.by.to_string()}
+                <strong>{time.clone()}</strong> " · " {crate::profile::naming({
+                    let by = entry.by.clone();
+                    move || crate::profile::display_name(core, &by)
+                })}
                 {corrected.then(|| view! { " · " <em>{text::CORRECTED}</em> })}
             </p>
             <Facts facts />
@@ -1716,7 +1727,10 @@ fn FieldInput(
                     prop:value=text_value
                     on:input=set_text
                 />
-                <Suggestions id=list values=people />
+                {match use_context::<IncidentPeople>().map(|p| p.1) {
+                    Some(core) => view! { <Suggestions id=list.clone() values=people core /> }.into_any(),
+                    None => view! { <Suggestions id=list.clone() values=people /> }.into_any(),
+                }}
             }
             .into_any()
         }

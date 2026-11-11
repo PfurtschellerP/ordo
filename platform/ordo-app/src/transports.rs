@@ -95,11 +95,13 @@ fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl 
             <p class="transport-card__planned"><strong>{text::planned_for(&core::date_time(ms))}</strong></p>
         })}
         <p>{uhs.map(|u| format!("{u} · "))}{request_line(&t.request)}</p>
-        <History entries=t
-            .history
-            .iter()
-            .map(|s| (core::clock(s.at.wall_ms), text::transport_status(s.status).to_owned(), s.by.to_string()))
-            .collect() />
+        <History entries=crate::profile::naming({
+            let history = t.history.clone();
+            move || history
+                .iter()
+                .map(|s| (core::clock(s.at.wall_ms), text::transport_status(s.status).to_owned(), crate::profile::display_name(core, &s.by)))
+                .collect()
+        }) />
     }
 }
 
@@ -437,7 +439,7 @@ fn HospitalBoard(
 }
 
 /// The capacity of a hospital as one line, or that none was reported.
-fn capacity_line(hospital: &Hospital) -> String {
+fn capacity_line(core: Handle, hospital: &Hospital) -> String {
     match &hospital.capacity {
         Some(r) => {
             let parts: Vec<String> = HOSPITALS
@@ -448,7 +450,11 @@ fn capacity_line(hospital: &Hospital) -> String {
                     format!("{} {n}", text::label(*c))
                 })
                 .collect();
-            text::capacity_line(&parts, &core::clock(r.at.wall_ms), r.by.as_str())
+            text::capacity_line(
+                &parts,
+                &core::clock(r.at.wall_ms),
+                &crate::profile::display_name(core, &r.by),
+            )
         }
         None => text::CAPACITY_NONE.to_owned(),
     }
@@ -483,7 +489,10 @@ fn HospitalCard(
         <li class="hospital-card" data-hospital=id.clone()>
             <h3>{title}</h3>
             {(!offers.is_empty()).then(|| view! { <p>{offers.join(" · ")}</p> })}
-            <p class="hospital-card__capacity">{capacity_line(&hospital)}</p>
+            <p class="hospital-card__capacity">{crate::profile::naming({
+                let hospital = hospital.clone();
+                move || capacity_line(core, &hospital)
+            })}</p>
             <p class="hospital-card__sent"><strong>{text::sent(sent)}</strong></p>
             <CapacityForm core revision hospital=hospital.clone() />
             <Disclosure

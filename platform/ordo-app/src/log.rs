@@ -128,7 +128,7 @@ impl From<String> for Line {
 // [impl->dsn~incident-log~1]
 /// An event in words. An event type this app does not know, or cannot read, is shown
 /// with its module and type: the log leaves nothing out (LOG-1).
-fn describe(e: &AppliedEvent, c: &Context) -> Line {
+fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Line {
     use ordo_med_patients as med;
     use ordo_sync::incidents as inc;
     let unknown = || text::log_unknown(e.body.module.as_str(), e.body.event_type.as_str());
@@ -140,11 +140,11 @@ fn describe(e: &AppliedEvent, c: &Context) -> Line {
             }
             inc::ROLE_GRANTED => {
                 let p = decode::<inc::RoleChange>(e)?;
-                text::role_granted(p.user.as_str(), &p.role).into()
+                text::role_granted(&name(p.user.as_str()), &p.role).into()
             }
             inc::ROLE_WITHDRAWN => {
                 let p = decode::<inc::RoleChange>(e)?;
-                text::role_withdrawn(p.user.as_str(), &p.role).into()
+                text::role_withdrawn(&name(p.user.as_str()), &p.role).into()
             }
             ordo_units::ADDED => {
                 let p = decode::<ordo_units::UnitAdded>(e)?;
@@ -185,7 +185,7 @@ fn describe(e: &AppliedEvent, c: &Context) -> Line {
             }
             ordo_command::LEADER_SET => {
                 let p = decode::<ordo_command::LeaderSet>(e)?;
-                text::log_leader(c.position(&p.position), &p.leader).into()
+                text::log_leader(c.position(&p.position), &name(&p.leader)).into()
             }
             ordo_command::ASSIGNED => {
                 let p = decode::<ordo_command::Assigned>(e)?;
@@ -309,7 +309,9 @@ pub fn LogView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         let mut days: Vec<(String, Vec<(AppliedEvent, Line)>)> = Vec::new();
         for e in log {
             let day = core::date(e.body.hlc.wall_ms);
-            let line = describe(&e, &context);
+            let line = describe(&e, &context, &|text: &str| {
+                crate::profile::display_text(core, text)
+            });
             let line = Line {
                 corrects: line.corrects.filter(|id| context.times.contains_key(id)),
                 ..line
@@ -332,7 +334,7 @@ pub fn LogView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         corrects: line
                             .corrects
                             .and_then(|id| times.get(&id).map(|at| (id, *at))),
-                        by: e.body.author.user.to_string(),
+                        by: crate::profile::display_name(core, &e.body.author.user),
                         device: core::short_device(&e.body.author.device),
                         event_type: e.body.event_type.as_str().to_owned(),
                         sent: e.seq.is_some(),

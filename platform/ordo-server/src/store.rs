@@ -232,6 +232,52 @@ impl Store {
         Ok(())
     }
 
+    // [impl->dsn~display-names~1]
+    /// Stores the identity provider's name of `user` (ORG-7). Returns whether the shown
+    /// name changed (not while they chose their own).
+    pub async fn set_provider_name(&self, user: &UserId, name: &str) -> Result<bool, StoreError> {
+        let before = self.display_name(user).await?;
+        sqlx::query(
+            "INSERT INTO people (user_id, provider_name) VALUES (?, ?)
+             ON CONFLICT (user_id) DO UPDATE SET provider_name = excluded.provider_name",
+        )
+        .bind(user.as_str())
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
+        Ok(before.as_deref() != Some(name)
+            && self.display_name(user).await?.as_deref() == Some(name))
+    }
+
+    /// Sets the name `user` chose for themselves; `None` clears it, and the provider's
+    /// name shows again.
+    pub async fn set_chosen_name(
+        &self,
+        user: &UserId,
+        name: Option<&str>,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO people (user_id, chosen_name) VALUES (?, ?)
+             ON CONFLICT (user_id) DO UPDATE SET chosen_name = excluded.chosen_name",
+        )
+        .bind(user.as_str())
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// The display name of `user`, if known: the chosen one, else the provider's.
+    pub async fn display_name(&self, user: &UserId) -> Result<Option<String>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT COALESCE(chosen_name, provider_name) FROM people WHERE user_id = ?",
+        )
+        .bind(user.as_str())
+        .fetch_optional(&self.pool)
+        .await?
+        .flatten())
+    }
+
     /// The profile picture of `user`: uploaded in ORDO, else from the identity provider,
     /// else from Gravatar.
     pub async fn avatar(&self, user: &UserId) -> Result<Option<Vec<u8>>, StoreError> {
@@ -601,7 +647,7 @@ mod tests {
                 .fetch_all(&store.pool)
                 .await
                 .unwrap();
-            assert_eq!(applied, [1, 2], "each migration, applied once");
+            assert_eq!(applied, [1, 2, 3], "each migration, applied once");
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
                 .fetch_one(&store.pool)
                 .await
@@ -609,6 +655,47 @@ mod tests {
             assert_eq!(events, 1, "stored events stay");
             store.pool.close().await;
         }
+    }
+
+    // [utest->dsn~display-names~1]
+    #[tokio::test]
+    async fn a_chosen_display_name_wins_over_the_providers_while_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let anna = user("anna");
+        assert_eq!(store.display_name(&anna).await.unwrap(), None);
+        store
+            .set_provider_name(&anna, "Anna Schmidt")
+            .await
+            .unwrap();
+        assert_eq!(
+            store.display_name(&anna).await.unwrap().as_deref(),
+            Some("Anna Schmidt")
+        );
+        store.set_chosen_name(&anna, Some("Anna S.")).await.unwrap();
+        store
+            .set_provider_name(&anna, "Anna Schmidt")
+            .await
+            .unwrap();
+        assert_eq!(
+            store.display_name(&anna).await.unwrap().as_deref(),
+            Some("Anna S."),
+            "a later login keeps the chosen name"
+        );
+        store.set_chosen_name(&anna, None).await.unwrap();
+        assert_eq!(
+            store.display_name(&anna).await.unwrap().as_deref(),
+            Some("Anna Schmidt"),
+            "cleared: the provider's name shows again"
+        );
+        assert!(
+            !store
+                .set_provider_name(&anna, "Anna Schmidt")
+                .await
+                .unwrap(),
+            "the same name again is no change"
+        );
+        assert!(store.set_provider_name(&anna, "Anna Weber").await.unwrap());
     }
 
     #[tokio::test]

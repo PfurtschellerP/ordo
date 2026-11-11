@@ -13,18 +13,30 @@ import { expect, Page } from "@playwright/test";
 
 export const THEMES = ["day", "night", "high-contrast"] as const;
 
-/** While axe-core runs: it reads stylesheets through <style> elements of its own, which the
- *  app's Content Security Policy rightly blocks; the scenario ignores those reports. */
-export const axeRunning = { count: 0 };
+type Tooling = { ordoE2eTooling?: number };
 
+/** Runs axe-core, marked in the page: it reads stylesheets through <style> elements of its
+ *  own, which the app's Content Security Policy rightly blocks; the scenario ignores
+ *  violations while the mark is set. */
 async function runAxe(page: Page) {
-  axeRunning.count++;
+  await page.evaluate(() => {
+    const w = window as unknown as Tooling;
+    w.ordoE2eTooling = (w.ordoE2eTooling ?? 0) + 1;
+  });
   try {
     return await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   } finally {
-    // Console messages arrive a moment after the call returns.
-    await page.waitForTimeout(200);
-    axeRunning.count--;
+    // Unmarked as a later task, after the violation events axe-core caused.
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          setTimeout(() => {
+            const w = window as unknown as Tooling;
+            w.ordoE2eTooling = (w.ordoE2eTooling ?? 1) - 1;
+            done();
+          }, 50),
+        ),
+    );
   }
 }
 

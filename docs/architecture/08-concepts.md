@@ -572,6 +572,29 @@ Needs: impl, utest, itest
 
 Tags: must, m9
 
+#### Display names
+`dsn~display-names~1`
+
+People are shown by a display name. At every login the server stores the identity
+provider's `name` (OpenID Connect) with the person (table `people`, migration 0003). In the
+profile menu a person may set their own name, which wins while it is set, or clear it
+(`setName`); then the provider's name shows again. Names go to devices with the profile
+pictures: `avatars` carries an optional `name` per person, and the app asks for the people
+it shows, as for pictures. The server remembers who each connection asked about and sends
+it a changed name or picture at once, e.g. after a person's first login. The app redraws
+names when they arrive. The app shows the name wherever it
+names a person: the roster, the device list, histories, orders, the incident log, staff
+lists and the header. Where it knows no name, it shows the user ID. Suggestions for person
+fields show the name and keep the user ID as their value, so references stay exact.
+
+Covers:
+
+* [req~org-7~1](../requirements/02-shared.md#org-7--display-names)
+
+Needs: impl, utest, itest
+
+Tags: should, m44
+
 #### Device names
 `dsn~device-names~1`
 

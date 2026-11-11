@@ -85,6 +85,8 @@ pub struct Core {
     reconnect_now: bool,
     /// Profile pictures as `data:` URLs (`None`: the person has none), while the app runs.
     pub avatars: std::collections::HashMap<UserId, Option<String>>,
+    /// Display names as the server sent them with the pictures (ORG-7).
+    pub names: std::collections::HashMap<UserId, Option<String>>,
     /// Pictures asked for and not answered yet.
     avatars_asked: std::collections::HashSet<UserId>,
     /// The device's local copy.
@@ -160,6 +162,7 @@ impl Core {
             welcomes: 0,
             reconnect_now: false,
             avatars: std::collections::HashMap::new(),
+            names: std::collections::HashMap::new(),
             avatars_asked: std::collections::HashSet::new(),
             replica,
             connection: Connection::Offline,
@@ -321,6 +324,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             if let ServerMessage::Avatars(list) = &message {
                 for a in list {
                     c.avatars_asked.remove(&a.user);
+                    c.names.insert(a.user.clone(), a.name.clone());
                     c.avatars.insert(
                         a.user.clone(),
                         a.image.as_deref().map(crate::images::data_url),
@@ -359,6 +363,13 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                         c.welcomes += 1;
                         // Questions of a lost connection are asked again.
                         c.avatars_asked.clear();
+                        // So are the people already shown: the new connection then
+                        // hears when their name or picture changes (ORG-7).
+                        let known: Vec<UserId> = c.avatars.keys().cloned().collect();
+                        for chunk in known.chunks(200) {
+                            c.send(&ClientMessage::GetAvatars(chunk.to_vec()));
+                        }
+                        c.avatars_asked.extend(known);
                         c.finish_plan();
                     }
                 }
@@ -1229,6 +1240,11 @@ pub fn request_avatars(core: Handle, users: &[UserId]) {
             c.send(&ClientMessage::GetAvatars(missing));
         }
     });
+}
+
+/// Sets (`Some`) or clears (`None`) the user's own display name (ORG-7).
+pub fn set_name(core: Handle, name: Option<String>) {
+    core.with_value(|c| c.send(&ClientMessage::SetName(name)));
 }
 
 /// Sets (`Some`) or removes (`None`) the user's own profile picture.

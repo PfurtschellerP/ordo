@@ -59,10 +59,15 @@ fn TaskItem(
             text::follow_up_at(&at)
         }
     });
-    let by = text::task_given_by(
-        &core::clock(task.given_at().wall_ms),
-        task.history[0].by.as_str(),
-    );
+    let by = {
+        let (at, user) = (
+            core::clock(task.given_at().wall_ms),
+            task.history[0].by.clone(),
+        );
+        crate::profile::naming(move || {
+            text::task_given_by(&at, &crate::profile::display_name(core, &user))
+        })
+    };
     let actions = editable.then(|| {
         let id = task.given.task.clone();
         let mut list: Vec<Action> = task

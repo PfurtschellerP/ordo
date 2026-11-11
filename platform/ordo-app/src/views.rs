@@ -521,6 +521,7 @@ fn Device(
         Err(error) => return view! { <p role="alert" class="error">{error}</p> }.into_any(),
     };
     let revision = RwSignal::new(0u64);
+    provide_context(crate::profile::Revision(revision));
     core::connect(core, revision);
     on_cleanup(move || core::disconnect(core));
     // Check the end of the login every minute, also without connection.
@@ -782,13 +783,23 @@ fn Workspace(
                         move || view! {
                             <crate::profile::Avatar core revision user=me.clone() />
                             <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
-                            <span class="profile-menu__name">{me.localpart().to_owned()}</span>
+                            <span class="profile-menu__name">{move || {
+                                revision.track();
+                                crate::profile::display_name(core, &me)
+                            }}</span>
                         }.into_any()
                     })>
                     <h2 class="launcher__title">{text::PROFILE}</h2>
-                    <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{user.clone()}</strong></p>
+                    <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{{
+                        let user = user.clone();
+                        move || {
+                            revision.track();
+                            user.parse::<ordo_core::UserId>().map_or_else(|_| user.clone(), |id| crate::profile::display_name(core, &id))
+                        }
+                    }}</strong> " (" {user.clone()} ")"</p>
                     <p id="my-roles">{text::MY_ROLES} ": " {my_roles}</p>
                     <crate::profile::ProfilePicture core revision />
+                    <crate::profile::DisplayName core revision />
                     <SettingSelect id="theme" label=text::APPEARANCE options=&text::THEMES value=theme apply=apply_theme />
                     <SettingSelect id="hand" label=text::HAND options=&text::HANDS value=hand apply=apply_hand />
                     <button id="change-incident" type="button" class="button"
@@ -1087,7 +1098,11 @@ fn UhsDetailsPanel(
                     let _ = core::update_uhs(core, revision, &update);
                 }),
             }];
-            view! { <li><strong>{member.clone()}</strong> <crate::ui::Actions actions /></li> }
+            let name = {
+                let member = member.clone();
+                crate::profile::naming(move || crate::profile::display_text(core, &member))
+            };
+            view! { <li><strong>{name}</strong> <crate::ui::Actions actions /></li> }
         })
         .collect_view();
     view! {
@@ -1126,7 +1141,7 @@ fn UhsDetailsPanel(
                     <label for=format!("uhs-staff-{slug}")>{text::CREW_MEMBER}</label>
                     <input id=format!("uhs-staff-{slug}") type="text" autocomplete="off"
                         list=format!("uhs-staff-{slug}-people") bind:value=person />
-                    <crate::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people />
+                    <crate::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people core />
                 </div>
                 <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
             </form>
@@ -1321,7 +1336,10 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         </form>
                                         {details.location.clone().map(|l| view! { <span class="load-list__location">{text::UHS_LOCATION} ": " {l}</span> })}
                                         {(!details.staff.is_empty()).then(|| view! {
-                                            <span class="load-list__staff">{text::UHS_STAFF} ": " {details.staff.join(", ")}</span>
+                                            <span class="load-list__staff">{text::UHS_STAFF} ": " {crate::profile::naming({
+                                                let staff = details.staff.clone();
+                                                move || staff.iter().map(|s| crate::profile::display_text(core, s)).collect::<Vec<_>>().join(", ")
+                                            })}</span>
                                         })}
                                         {editor}
                                     </li>

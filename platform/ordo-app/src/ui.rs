@@ -125,15 +125,18 @@ pub type HistoryEntry = (String, String, String);
 
 /// The history of a record (status changes): collapsed, every entry with time and person.
 #[component]
-pub fn History(entries: Vec<HistoryEntry>) -> impl IntoView {
+pub fn History(#[prop(into)] entries: Signal<Vec<HistoryEntry>>) -> impl IntoView {
     view! {
         <details class="history-list">
             <summary>{crate::text::TRANSPORT_HISTORY}</summary>
             <ol>
-                {entries
-                    .into_iter()
-                    .map(|(at, what, by)| view! { <li>{at} " " {what} " · " {by}</li> })
-                    .collect_view()}
+                {move || {
+                    entries
+                        .get()
+                        .into_iter()
+                        .map(|(at, what, by)| view! { <li>{at} " " {what} " · " {by}</li> })
+                        .collect_view()
+                }}
             </ol>
         </details>
     }
@@ -275,17 +278,35 @@ pub fn SettingSelect(
 pub fn Suggestions(
     #[prop(into)] id: String,
     #[prop(into)] values: Signal<Vec<String>>,
+    /// For people: each option shows the person's display name, its value stays the user
+    /// ID (ORG-7).
+    #[prop(optional)]
+    core: Option<crate::core::Handle>,
 ) -> impl IntoView {
     view! {
         <datalist id=id>
-            {move || values.get().into_iter().map(|p| view! { <option value=p></option> }).collect_view()}
+            {move || {
+                let values = values.get();
+                if let Some(core) = core {
+                    let users: Vec<ordo_core::UserId> =
+                        values.iter().filter_map(|v| v.parse().ok()).collect();
+                    crate::core::request_avatars(core, &users);
+                }
+                values
+                    .into_iter()
+                    .map(|p| {
+                        let label = core.map(|c| crate::profile::display_text(c, &p)).filter(|l| *l != p);
+                        view! { <option value=p.clone()>{label}</option> }
+                    })
+                    .collect_view()
+            }}
         </datalist>
     }
 }
 
 /// The people of the incident, for person fields of forms (provided by the patient view).
 #[derive(Clone, Copy)]
-pub struct IncidentPeople(pub Signal<Vec<String>>);
+pub struct IncidentPeople(pub Signal<Vec<String>>, pub crate::core::Handle);
 
 // [impl->dsn~list-keys~1]
 /// Moves the focus to the next or previous item of a list marked `data-keys="list"`, with

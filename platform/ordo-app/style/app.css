@@ -483,6 +483,8 @@
     border-radius: var(--ordo-radius-medium);
   }
   .roster__person { font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; }
+  /* The user ID roles are granted to, next to the name (ORG-7). */
+  .roster__id { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); overflow-wrap: anywhere; }
 
   /* Profile pictures (ADR-0047): decorative, the name is always written next to them. */
   .avatar {

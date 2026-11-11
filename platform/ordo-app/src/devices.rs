@@ -94,12 +94,16 @@ fn DeviceCard(
     let question_id = format!("revoke-question-{ulid}");
     let asking = move || confirming.get() == Some(device);
     let when = |ms: Option<u64>| ms.map_or_else(|| text::UNKNOWN.to_owned(), core::date_time);
-    let mut facts = Vec::new();
+    let mut facts: Vec<(&str, Signal<String>)> = Vec::new();
     if show_person {
-        facts.push((text::DEVICE_PERSON, info.user.to_string()));
+        let user = info.user.clone();
+        facts.push((
+            text::DEVICE_PERSON,
+            crate::profile::naming(move || crate::profile::display_name(core, &user)),
+        ));
     }
-    facts.push((text::DEVICE_PAIRED, when(info.paired)));
-    facts.push((text::DEVICE_VALID_UNTIL, when(info.valid_until)));
+    facts.push((text::DEVICE_PAIRED, when(info.paired).into()));
+    facts.push((text::DEVICE_VALID_UNTIL, when(info.valid_until).into()));
 
     let ask = {
         let confirm_id = confirm_id.clone();

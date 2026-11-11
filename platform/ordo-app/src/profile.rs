@@ -22,6 +22,47 @@ pub fn initials(user: &UserId) -> String {
         .collect()
 }
 
+// [impl->dsn~display-names~1]
+/// A person's display name (ORG-7), else their user ID. An unknown name is asked for, as
+/// pictures are; the view shows it once it arrives.
+pub fn display_name(core: Handle, user: &UserId) -> String {
+    match core.with_value(|c| c.names.get(user).cloned()) {
+        Some(Some(name)) => name,
+        Some(None) => user.to_string(),
+        None => {
+            core::request_avatars(core, std::slice::from_ref(user));
+            user.to_string()
+        }
+    }
+}
+
+/// The app's revision, provided to the views: texts naming people follow it, as names
+/// may arrive after a text is first shown.
+#[derive(Clone, Copy)]
+pub struct Revision(pub RwSignal<u64>);
+
+/// A text that names people (with [`display_name`] or [`display_text`]), kept current.
+pub fn naming<T>(make: impl Fn() -> T + Send + Sync + 'static) -> Signal<T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    let revision = use_context::<Revision>();
+    Signal::derive(move || {
+        if let Some(Revision(r)) = revision {
+            r.track();
+        }
+        make()
+    })
+}
+
+/// For text that holds either a user ID or a name as written (staff lists, leaders): the
+/// display name if it is a user ID, else the text.
+pub fn display_text(core: Handle, text: &str) -> String {
+    text.trim()
+        .parse::<UserId>()
+        .map_or_else(|_| text.to_owned(), |user| display_name(core, &user))
+}
+
 /// A person's picture, or their initials. Decorative: the name is always written next
 /// to it.
 #[component]
@@ -100,5 +141,58 @@ mod tests {
         assert_eq!(initials(&user("anna.schmidt@ordo.example.org")), "AS");
         assert_eq!(initials(&user("ben@ordo.example.org")), "B");
         assert_eq!(initials(&user("dora-2@ordo.example.org")), "D2");
+    }
+}
+
+// [impl->dsn~display-names~1]
+/// The own display name (ORG-7): as the identity provider gave it, or chosen here.
+#[component]
+pub fn DisplayName(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let me = core.with_value(|c| c.replica.user().clone());
+    let current = {
+        let me = me.clone();
+        move || {
+            revision.track();
+            core.with_value(|c| c.names.get(&me).cloned().flatten())
+        }
+    };
+    let value = RwSignal::new(String::new());
+    // The field starts with the known name and follows it until the person types.
+    let typed = RwSignal::new(false);
+    Effect::new({
+        let current = current.clone();
+        move || {
+            if let Some(name) = current()
+                && !typed.get_untracked()
+            {
+                value.set(name);
+            }
+        }
+    });
+    let save = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let name = value.get_untracked().trim().to_owned();
+        core::set_name(core, (!name.is_empty()).then_some(name));
+        typed.set(false);
+    };
+    let clear = move |_| {
+        core::set_name(core, None);
+        value.set(String::new());
+        typed.set(false);
+    };
+    view! {
+        <form class="form display-name" novalidate on:submit=save>
+            <label for="display-name">{text::DISPLAY_NAME}</label>
+            <input id="display-name" type="text" autocomplete="name" maxlength="80" prop:value=move || value.get()
+                on:input=move |ev| {
+                    typed.set(true);
+                    value.set(event_target_value(&ev));
+                } />
+            <p class="hint">{text::DISPLAY_NAME_HINT}</p>
+            <div class="row">
+                <button type="submit" class="button button--small">{text::DISPLAY_NAME_SAVE}</button>
+                <button type="button" class="button button--small button--quiet" on:click=clear>{text::DISPLAY_NAME_RESET}</button>
+            </div>
+        </form>
     }
 }

@@ -18,6 +18,7 @@ client-message = { "hello": hello }
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
+               / { "setName": tstr / null }   ; own display name, null clears it (1.2)
 
 hello = {
   "user": user-id,
@@ -115,6 +116,7 @@ blob-ticket = {
 avatar = {
   "user": user-id,
   ? "image": bstr,
+  ? "name": tstr,                  ; display name (ORG-7, 1.2)
 }
 
 incident-summary = {

@@ -34,6 +34,8 @@ pub enum ClientMessage {
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
     SetAvatar(AvatarImage),
+    /// Sets (or, with `None`, clears) the user's own display name (ORG-7); protocol 1.2.
+    SetName(Option<String>),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
 }
@@ -146,6 +148,9 @@ pub struct Avatar {
     /// The image, if there is one.
     #[serde(with = "serde_bytes", default, skip_serializing_if = "Option::is_none")]
     pub image: Option<Vec<u8>>,
+    /// Their display name (ORG-7), if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// Whether `bytes` is a JPEG, PNG or WebP image of acceptable size.

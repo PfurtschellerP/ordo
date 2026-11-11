@@ -250,19 +250,27 @@ pub(crate) fn user_name(preferred: Option<&str>, email: Option<&str>) -> String 
 }
 
 // [impl->dsn~device-names~1]
-/// A device's name as sent at pairing (ORG-8): whitespace collapsed, no control
-/// characters, at most 60 characters; `None` if nothing is left.
+/// A device's name as sent at pairing (ORG-8): see [`tidy_name`], at most 60 characters.
 fn device_name(raw: Option<&str>) -> Option<String> {
+    tidy_name(raw, 60)
+}
+
+/// A name as people type or providers send it: whitespace collapsed, no control
+/// characters, at most `max` characters; `None` if nothing is left.
+pub(crate) fn tidy_name(raw: Option<&str>, max: usize) -> Option<String> {
     let name: String = raw?
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .chars()
         .filter(|c| !c.is_control())
-        .take(60)
+        .take(max)
         .collect();
     (!name.is_empty()).then_some(name)
 }
+
+/// Longest display name of a person (ORG-7).
+pub(crate) const MAX_PERSON_NAME: usize = 80;
 
 /// A device ID and public key from a request.
 fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
@@ -394,6 +402,15 @@ async fn finish(
                 &app.master,
             )
             .await?;
+    }
+    // [impl->dsn~display-names~1]
+    // The provider's name of the person, unless they chose their own (ORG-7).
+    if let Some(display) = tidy_name(
+        claims.name().and_then(|n| n.get(None)).map(|n| n.as_str()),
+        MAX_PERSON_NAME,
+    ) && app.store.set_provider_name(&user, &display).await?
+    {
+        app.person_changed(&user).await?;
     }
     if !app.register_device(device, user.clone(), key, name).await? {
         return Err(LoginError::DeviceTaken);

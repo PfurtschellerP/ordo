@@ -203,7 +203,7 @@ fn CrewEditor(
                 <div class="field">
                     <label for=field.clone()>{text::CREW_MEMBER}</label>
                     <input id=field.clone() type="text" autocomplete="off" list=format!("{field}-people") bind:value=person />
-                    <Suggestions id=format!("{field}-people") values=people />
+                    <Suggestions id=format!("{field}-people") values=people core />
                 </div>
                 <CheckChips legend=text::CREW_QUALIFICATIONS options=options.clone() value=qualifications />
                 <div class="row">

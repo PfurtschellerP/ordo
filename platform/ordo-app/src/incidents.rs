@@ -224,7 +224,12 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         {user.parse::<ordo_core::UserId>().ok().map(|id| view! {
                                             <crate::profile::Avatar core revision user=id />
                                         })}
-                                        <span class="roster__person">{user.clone()}</span>
+                                        // The name, and the user ID roles are granted to (ORG-7).
+                                        <span class="roster__person">{crate::profile::naming({
+                                            let user = user.clone();
+                                            move || crate::profile::display_text(core, &user)
+                                        })}</span>
+                                        <span class="roster__id">{user.clone()}</span>
                                         <ul class="roster__roles">
                                             {roles
                                                 .into_iter()
@@ -266,7 +271,7 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         <label for="roster-person">{text::ROSTER_PERSON}</label>
                         <input id="roster-person" type="text" required autocomplete="off" spellcheck="false"
                             list="roster-person-people" bind:value=person />
-                        <crate::ui::Suggestions id="roster-person-people" values=people />
+                        <crate::ui::Suggestions id="roster-person-people" values=people core />
                     </div>
                     <div class="field">
                         <label for="roster-role">{text::ROSTER_ROLE}</label>

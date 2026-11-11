@@ -51,20 +51,34 @@ fn position_item(
         return ().into_any();
     };
     let title = position_title(p);
-    let leader = p
-        .leader()
-        .map_or_else(|| text::NO_LEADER.to_owned(), text::leader);
-    let handovers: Vec<(String, String, String)> = p
-        .leaders
-        .iter()
-        .map(|h| {
-            (
-                core::clock(h.at.wall_ms),
-                text::handover(h.from.as_deref(), &h.to),
-                h.by.to_string(),
+    let leader = {
+        let leader = p.leader().map(str::to_owned);
+        crate::profile::naming(move || {
+            leader.as_deref().map_or_else(
+                || text::NO_LEADER.to_owned(),
+                |l| text::leader(&crate::profile::display_text(core, l)),
             )
         })
-        .collect();
+    };
+    let leaders = p.leaders.clone();
+    let handovers = crate::profile::naming(move || {
+        leaders
+            .iter()
+            .map(|h| {
+                (
+                    core::clock(h.at.wall_ms),
+                    text::handover(
+                        h.from
+                            .as_deref()
+                            .map(|f| crate::profile::display_text(core, f))
+                            .as_deref(),
+                        &crate::profile::display_text(core, &h.to),
+                    ),
+                    crate::profile::display_name(core, &h.by),
+                )
+            })
+            .collect::<Vec<_>>()
+    });
     let units = (!p.units.is_empty()).then(|| text::assigned_units(&p.units.join(", ")));
     let uhs: Vec<String> = p
         .uhs
@@ -106,7 +120,7 @@ fn position_item(
             {units.map(|u| view! { <p class="position__units">{u}</p> })}
             {uhs.map(|u| view! { <p class="position__uhs">{u}</p> })}
             {span.map(|s| view! { <p class="notice position__span">{s}</p> })}
-            {(!handovers.is_empty()).then(|| view! { <History entries=handovers /> })}
+            {(!p.leaders.is_empty()).then(|| view! { <History entries=handovers /> })}
             {close.map(|actions| view! { <Actions actions /> })}
             {(!children.is_empty()).then(|| view! { <ul class="position-tree">{children}</ul> })}
         </li>
@@ -294,7 +308,7 @@ fn CommandForms(
                 <div class="field">
                     <label for="lead-person">{text::LEADER}</label>
                     <input id="lead-person" type="text" autocomplete="off" list="lead-people" bind:value=leader />
-                    <Suggestions id="lead-people" values=people />
+                    <Suggestions id="lead-people" values=people core />
                 </div>
             </div>
             <div class="row"><button type="submit" class="button">{text::LEADER_SET}</button></div>

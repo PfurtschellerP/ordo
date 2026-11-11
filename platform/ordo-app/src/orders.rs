@@ -72,7 +72,12 @@ fn OrderItem(
 ) -> impl IntoView {
     let what = ordered_line(&order.given);
     let id = order.given.order.clone();
-    let by = text::order_by(&core::clock(order.at().wall_ms), order.by().as_str());
+    let by = {
+        let (at, user) = (core::clock(order.at().wall_ms), order.by().clone());
+        crate::profile::naming(move || {
+            text::order_by(&at, &crate::profile::display_name(core, &user))
+        })
+    };
     // [impl->dsn~order-documentation~2]
     // On the record, a done medication order can be taken into the documentation.
     let drafts = use_context::<crate::patients::Drafts>();
@@ -95,7 +100,7 @@ fn OrderItem(
                         let value = event_target_value(&ev);
                         performers.0.update_value(|p| { p.insert(key_in.clone(), value); });
                     } />
-                <Suggestions id=list values=people />
+                <Suggestions id=list values=people core />
             </div>
         }
     });
@@ -146,19 +151,24 @@ fn OrderItem(
             <p class="order-card__what"><strong>{what.clone()}</strong></p>
             <p class="order-card__status">{text::order_status(order.status)} " · " {by}</p>
             {done.as_ref().and_then(|s| s.performed_by.clone()).map(|p| view! {
-                <p class="order-card__performed">{text::order_performed_by(&p)}</p>
+                <p class="order-card__performed">{crate::profile::naming(move || text::order_performed_by(&crate::profile::display_text(core, &p)))}</p>
             })}
-            <History entries=order
-                .history
+            <History entries=crate::profile::naming({
+                let history = order.history.clone();
+                move || history
                 .iter()
                 .map(|s| {
                     let what = match &s.performed_by {
-                        Some(p) => text::order_status_performed(text::order_status(s.status), p),
+                        Some(p) => text::order_status_performed(
+                            text::order_status(s.status),
+                            &crate::profile::display_text(core, p),
+                        ),
                         None => text::order_status(s.status).to_owned(),
                     };
-                    (core::clock(s.at.wall_ms), what, s.by.to_string())
+                    (core::clock(s.at.wall_ms), what, crate::profile::display_name(core, &s.by))
                 })
-                .collect() />
+                .collect()
+            }) />
             {performer_field}
             <Actions actions=order
                 .status
@@ -337,7 +347,7 @@ pub fn OrdersView(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoV
         revision.track();
         core::incident_people(core)
     });
-    provide_context(IncidentPeople(people.into()));
+    provide_context(IncidentPeople(people.into(), core));
     let open = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {

@@ -7,7 +7,7 @@
 import os from "node:os";
 import path from "node:path";
 import { Browser, expect, Page, test } from "@playwright/test";
-import { audit, axeRunning, settle } from "./support/audit";
+import { audit, settle } from "./support/audit";
 import {
   announced,
   createUhs,
@@ -53,16 +53,19 @@ const cspViolations: string[] = [];
 
 async function newDevice(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1200, height: 1000 } });
-  const page = await context.newPage();
-  // Chromium: "Refused to …", Firefox: "Content-Security-Policy: …", WebKit: "Refused to …".
-  // Only the app's own code counts: not scripts the test injects (no URL), and not axe-core,
-  // which reads stylesheets through <style> elements the policy rightly blocks.
-  page.on("console", (m) => {
-    const csp = /Content.Security.Policy|Refused to (load|execute|apply|connect|compile|create|evaluate)/i;
-    if (csp.test(m.text()) && m.location().url !== "" && axeRunning.count === 0) {
-      cspViolations.push(`${m.location().url}:${m.location().lineNumber} ${m.text().slice(0, 200)}`);
-    }
+  // The page's own violation events, in every browser. Only the app's code counts, not
+  // axe-core: it reads stylesheets through <style> elements the policy rightly blocks, and
+  // marks its run in the page (see `runAxe`), so the decision does not depend on timing.
+  await context.exposeFunction("ordoE2eCsp", (line: string) => cspViolations.push(line));
+  await context.addInitScript(() => {
+    const w = window as unknown as { ordoE2eTooling?: number; ordoE2eCsp: (line: string) => void };
+    document.addEventListener("securitypolicyviolation", (e) => {
+      if (!w.ordoE2eTooling) {
+        w.ordoE2eCsp(`${e.documentURI} ${e.effectiveDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}`);
+      }
+    });
   });
+  const page = await context.newPage();
   return page;
 }
 
@@ -151,7 +154,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".incident-card"), "Anna sees the incident she has a role in").toHaveCount(1);
     await expect(anna.locator(".incident-card")).toContainText("Sanitätsdienst");
     await openIncident(anna, INCIDENT);
-    await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user").toHaveText("Angemeldet als anna@localhost");
+    // [itest->dsn~display-names~1]
+    await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user, shown by the provider's name").toHaveText("Angemeldet als Anna Schmidt (anna@localhost)");
     // [itest->dsn~device-storage-encryption~1]
     for (const item of ["ordo.pairing", "ordo.storage-key"]) {
       await expect.poll(() => storedItem(anna, item), { message: `${item} is stored` }).not.toBeNull();
@@ -174,8 +178,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(eingang.locator(".load-list__location"), "a UHS has a location").toHaveText("Ort: Eingang West, Zelt 2");
     await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
     await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
-    await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: anna@localhost");
-    await expect(eingang.locator(".crew-list")).toContainText("anna@localhost");
+    await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: Anna Schmidt");
+    await expect(eingang.locator(".crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
 
     await openView(anna, "Patienten");
     // [itest->dsn~triage-reference~1]
@@ -339,7 +343,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(anna, "Anordnungen");
     const order = anna.locator(".order-card");
     await expect(order, "the crew sees the open order with patient and UHS").toContainText("DE-0044 · UHS Eingang");
-    await expect(order).toContainText("petra@localhost");
+    await expect(order).toContainText("Dr. Petra Lang");
     await order.getByRole("button", { name: "Übernehmen: Paracetamol 1 g i.v." }).click();
     await expect(order.locator(".order-card__status")).toContainText("Übernommen");
     await audit(anna, "Orders");
@@ -355,7 +359,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("[aria-labelledby=section-orders] .order-card__performed"), "who carried it out").toHaveText("Durchgeführt von Paul Beispiel");
     const steps = anna.locator("[aria-labelledby=section-orders] .history-list li");
     await expect(steps, "with every step").toHaveCount(3);
-    await expect(steps.nth(2), "apart from who reported it").toHaveText(/^\d\d:\d\d Durchgeführt \(durch Paul Beispiel\) · anna@localhost$/);
+    await expect(steps.nth(2), "apart from who reported it").toHaveText(/^\d\d:\d\d Durchgeführt \(durch Paul Beispiel\) · Anna Schmidt$/);
     const doneAt = (await steps.nth(2).innerText()).slice(0, 5);
     // [itest->dsn~order-documentation~2]
     await anna.getByRole("button", { name: "In Dokumentation übernehmen: Paracetamol 1 g i.v." }).click();
@@ -673,7 +677,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#launcher-panel #theme")).toHaveCount(0);
     await ben.locator("#launcher-button").click();
     await ben.locator("#profile-button").click();
-    await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als ben@localhost");
+    await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als Ben Weber (ben@localhost)");
+    // ORG-7: a person may choose their own name; clearing it returns to the provider's.
+    await expect(ben.locator("#display-name")).toHaveValue("Ben Weber");
+    await ben.locator("#display-name").fill("Ben W.");
+    await ben.getByRole("button", { name: "Namen speichern" }).click();
+    await expect(ben.locator(".profile-menu__name"), "shown at once").toHaveText("Ben W.");
+    await ben.getByRole("button", { name: "Namen aus der Anmeldung verwenden" }).click();
+    await expect(ben.locator(".profile-menu__name"), "the provider's name again").toHaveText("Ben Weber");
     await expect(ben.locator("#profile-panel #theme")).toBeVisible();
     await expect(ben.locator("#my-roles"), "the roles show only in the profile menu").toHaveText("Rollen: Einsatzleitung");
     // [itest->dsn~compact-navigation~2]
@@ -836,9 +847,9 @@ test("ORDO in the browser", async ({ browser }) => {
     };
     await lead("ben@localhost");
     await lead("dora@localhost");
-    await expect(sanel.locator(".position__leader")).toHaveText("Leitung: dora@localhost");
+    await expect(sanel.locator(".position__leader")).toHaveText("Leitung: Dora Klein");
     await sanel.locator(".history-list summary").click();
-    await expect(sanel.locator(".history-list li").last(), "the handover is logged with both people").toContainText("Übergabe: ben@localhost → dora@localhost");
+    await expect(sanel.locator(".history-list li").last(), "the handover is logged with both people").toContainText("Übergabe: Ben Weber → Dora Klein");
     await ben.locator("#assign-uhs").selectOption({ label: "UHS Eingang" });
     await ben.locator("#assign-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
     await ben.getByRole("button", { name: "UHS zuordnen" }).click();
@@ -962,7 +973,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await hospital.getByLabel("SK I", { exact: true }).fill("2");
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
-    await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, ben@localhost\)$/);
+    await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
     await hospital.getByRole("button", { name: "Klinikum Mitte bearbeiten" }).click();
     await hospital.getByLabel("Stroke Unit").check();
     await hospital.getByRole("button", { name: "Klinik speichern" }).click();
@@ -994,7 +1005,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(ben)).toContain("Einsatz – Einsatztagebuch");
     const added = ben.locator(".log-entry", { hasText: "Einsatzmittel RTW 83/1 hinzugefügt" }).last();
     await expect(added, "LOG-1: each change with time, author and device").toContainText(/^\d\d:\d\d:\d\d/);
-    await expect(added.locator(".log-entry__by")).toHaveText(/^ben@localhost · Gerät \w{6}$/);
+    await expect(added.locator(".log-entry__by")).toHaveText(/^Ben Weber · Gerät \w{6}$/);
     await expect(ben.locator(".log-entry[data-type='units.statusChanged']").first(), "status changes are logged").toContainText("RTW 83/1: Status");
     await expect(ben.locator(".log-entry[data-type='transport.updated']").first(), "and transports").toBeVisible();
     await expect(ben.locator(".log-entry[data-type^='patients.'], .log-entry[data-type^='epcr.'], .log-entry[data-type^='orders.']"), "LOG-6: no clinical entries in the command's log").toHaveCount(0);
@@ -1091,7 +1102,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
-    const tablet = dora.locator(".device-card", { hasText: "ben@localhost" });
+    const tablet = dora.locator(".device-card", { hasText: "Ben Weber" });
     await tablet.getByRole("button", { name: /^Sperren/ }).click();
     await expect(dora.getByRole("button", { name: "Ja, sperren" }), "focus moves to the confirmation").toBeFocused();
     await audit(dora, "Revoke confirmation", [1200]);
@@ -1114,5 +1125,8 @@ test("ORDO in the browser", async ({ browser }) => {
     const policy = (await dora.request.get(server.url)).headers()["content-security-policy"];
     expect(policy, "scripts and styles only from ORDO").toMatch(/script-src 'self' 'wasm-unsafe-eval' 'sha256-[^']+'; style-src 'self';/);
     expect(cspViolations, "no page broke the policy").toEqual([]);
+    // And the check sees a violation: an inline style the policy blocks.
+    await dora.evaluate(() => document.head.append(Object.assign(document.createElement("style"), { textContent: "p{}" })));
+    await expect.poll(() => cspViolations.length, { message: "a blocked inline style is reported" }).toBe(1);
   });
 });

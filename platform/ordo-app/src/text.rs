@@ -1257,3 +1257,10 @@ pub fn stored_state_unusable(reason: &str) -> String {
         "Die Daten auf diesem Gerät können von dieser Version nicht gelesen werden ({reason}). Sie bleiben unverändert erhalten; bitte die App neu laden oder die Administration verständigen."
     )
 }
+
+// Display names (ORG-7)
+pub const DISPLAY_NAME: &str = "Anzeigename";
+pub const DISPLAY_NAME_HINT: &str =
+    "So sehen andere Sie in ORDO. Ohne eigenen Namen gilt der Name aus der Anmeldung.";
+pub const DISPLAY_NAME_SAVE: &str = "Namen speichern";
+pub const DISPLAY_NAME_RESET: &str = "Namen aus der Anmeldung verwenden";

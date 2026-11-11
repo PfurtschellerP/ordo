@@ -1,7 +1,7 @@
 //! HTTP and WebSocket handling.
 
 use ordo_sync::version::{HTTP, HTTP_HEADER, Version};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -44,6 +44,9 @@ pub struct App {
     /// The map region and its cutting (ADR-0057).
     pub(crate) map: Arc<crate::map_region::MapJob>,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
+    /// The people each connection asked about: it hears when their name or picture
+    /// changes (ORG-7).
+    asked: std::sync::Mutex<HashMap<SessionId, HashSet<UserId>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
     stop: watch::Sender<bool>,
@@ -83,6 +86,7 @@ impl App {
             blobs,
             map: Arc::new(map),
             sessions: std::sync::Mutex::new(HashMap::new()),
+            asked: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
             stop,
@@ -250,7 +254,10 @@ impl App {
     /// sequence order.
     async fn handle(&self, session: SessionId, message: ClientMessage) -> Result<(), StoreError> {
         // Profile pictures live in the store, not in the hub (ADR-0047).
-        if let ClientMessage::GetAvatars(_) | ClientMessage::SetAvatar(_) = &message {
+        if let ClientMessage::GetAvatars(_)
+        | ClientMessage::SetAvatar(_)
+        | ClientMessage::SetName(_) = &message
+        {
             return self.avatars(session, message).await;
         }
         if let ClientMessage::BlobTicket(request) = message {
@@ -378,24 +385,37 @@ impl App {
         let Some(user) = self.hub.lock().await.session_user(session) else {
             return Ok(()); // not authenticated: nothing
         };
-        let users = match message {
+        let (users, changed) = match message {
             ClientMessage::GetAvatars(mut users) => {
                 users.truncate(200);
-                users
+                let mut asked = self.asked.lock().expect("asked registry lock");
+                let seen = asked.entry(session).or_default();
+                if seen.len() < MAX_ASKED {
+                    seen.extend(users.iter().cloned());
+                }
+                (users, false)
             }
             ClientMessage::SetAvatar(set) => {
                 let image = set.image.filter(|i| ordo_sync::message::is_avatar_image(i));
                 self.store
                     .set_avatar(&user, AvatarSource::Ordo, image.as_deref(), now_ms())
                     .await?;
-                vec![user]
+                (vec![user], true)
+            }
+            // [impl->dsn~display-names~1]
+            ClientMessage::SetName(name) => {
+                let name = crate::login::tidy_name(name.as_deref(), crate::login::MAX_PERSON_NAME);
+                self.store.set_chosen_name(&user, name.as_deref()).await?;
+                (vec![user], true)
             }
             _ => return Ok(()),
         };
         let mut avatars = Vec::new();
         for user in users {
-            let image = self.store.avatar(&user).await?;
-            avatars.push(Avatar { user, image });
+            avatars.push(self.person(user).await?);
+        }
+        if changed && let Some(avatar) = avatars.first() {
+            self.tell_askers(avatar, Some(session));
         }
         if let Some(sender) = self
             .sessions
@@ -406,6 +426,38 @@ impl App {
             let _ = sender.send(ServerMessage::Avatars(avatars));
         }
         Ok(())
+    }
+
+    /// A person's picture and display name.
+    async fn person(&self, user: UserId) -> Result<Avatar, StoreError> {
+        let image = self.store.avatar(&user).await?;
+        let name = self.store.display_name(&user).await?;
+        Ok(Avatar { user, image, name })
+    }
+
+    // [impl->dsn~display-names~1]
+    /// After `user`'s name or picture changed elsewhere (a login): tells the connections
+    /// that asked about them.
+    pub(crate) async fn person_changed(&self, user: &UserId) -> Result<(), StoreError> {
+        let avatar = self.person(user.clone()).await?;
+        self.tell_askers(&avatar, None);
+        Ok(())
+    }
+
+    /// Sends the changed `avatar` to every connection that asked about the person, except
+    /// `except` (it gets its answer anyway).
+    fn tell_askers(&self, avatar: &Avatar, except: Option<SessionId>) {
+        let sessions = self.sessions.lock().expect("session registry lock");
+        let mut asked = self.asked.lock().expect("asked registry lock");
+        asked.retain(|session, _| sessions.contains_key(session));
+        for (session, users) in asked.iter() {
+            if Some(*session) != except
+                && users.contains(&avatar.user)
+                && let Some(sender) = sessions.get(session)
+            {
+                let _ = sender.send(ServerMessage::Avatars(vec![avatar.clone()]));
+            }
+        }
     }
 
     async fn session(self: Arc<Self>, socket: WebSocket) {
@@ -472,6 +524,7 @@ impl App {
             .lock()
             .expect("session registry lock")
             .remove(&id);
+        self.asked.lock().expect("asked registry lock").remove(&id);
         self.hub.lock().await.disconnect(id);
         self.metrics.sessions.fetch_sub(1, Ordering::Relaxed);
         let _ = writer.await;
@@ -564,6 +617,9 @@ async fn metrics(State(app): State<Arc<App>>) -> String {
 }
 
 /// Completes when `true` is sent (or the sender is gone).
+/// The most people one connection is told about when they change.
+const MAX_ASKED: usize = 2000;
+
 pub(crate) async fn stopped(mut receiver: watch::Receiver<bool>) {
     loop {
         if *receiver.borrow_and_update() {
