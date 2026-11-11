@@ -20,6 +20,14 @@ const MAP_FILES = [
   ),
 ];
 
+// The typefaces (fonts/fonts.css, vendor-fonts.sh): every one, so the app reads the same
+// offline, whatever text it shows first.
+const FONT_FILES = ["next", "mono"].flatMap((family) =>
+  ["400", "700"].flatMap((weight) =>
+    ["latin", "latin-ext"].map((subset) => `/fonts/atkinson-hyperlegible-${family}-${subset}-${weight}-normal.woff2`),
+  ),
+);
+
 // Fetches index.html and every same-origin file it references (Trunk's hashed
 // assets), and stores them. Files no longer referenced are removed.
 async function cacheShell() {
@@ -31,7 +39,7 @@ async function cacheShell() {
     .map((m) => new URL(m[1], self.location.origin))
     .filter((url) => url.origin === self.location.origin)
     .map((url) => url.pathname)
-    .concat(WORKER_FILES, MAP_FILES);
+    .concat(WORKER_FILES, MAP_FILES, FONT_FILES);
   await cache.put("/", response);
   await cache.addAll(assets);
   const keep = new Set(["/", ...assets]);

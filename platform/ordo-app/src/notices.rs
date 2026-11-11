@@ -38,7 +38,7 @@ pub struct Part {
 }
 
 // [impl->dsn~licence-notices~1]
-/// The non-Rust parts. Keep in step with `vendor-map.sh`, `design/assets/icons`,
+/// The non-Rust parts. Keep in step with `vendor-map.sh`, `vendor-fonts.sh`, `design/assets/icons`,
 /// `tools/symbols` and the storage worker's SQLite.
 pub const PARTS: &[Part] = &[
     Part {
@@ -61,6 +61,20 @@ pub const PARTS: &[Part] = &[
         copyright: "© Protomaps LLC, Kelso Cartography",
         licence: "BSD-3-Clause AND CC0-1.0",
         text: "/map/vendor/basemaps.LICENSE.md",
+    },
+    Part {
+        name: "Atkinson Hyperlegible Next 5.3.0",
+        used_for: text::NOTICES_USED_FONT,
+        copyright: "© The Atkinson Hyperlegible Next Project Authors",
+        licence: "OFL-1.1",
+        text: "/fonts/OFL-atkinson-hyperlegible-next.txt",
+    },
+    Part {
+        name: "Atkinson Hyperlegible Mono 5.3.0",
+        used_for: text::NOTICES_USED_FONT,
+        copyright: "© The Atkinson Hyperlegible Mono Project Authors",
+        licence: "OFL-1.1",
+        text: "/fonts/OFL-atkinson-hyperlegible-mono.txt",
     },
     Part {
         name: "Noto Sans",

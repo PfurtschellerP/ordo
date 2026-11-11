@@ -83,4 +83,4 @@ It is rejected if it changes a token that doesn't exist in the base theme, touch
 - Typeface: **Atkinson Hyperlegible Next** and **Mono** (SIL OFL 1.1)
 - Icons: **Lucide** (ISC)
 
-Icons are stored under `assets/icons/` with their licence files: Lucide 1.70.0 (only the icons the app uses, copied from the `lucide-static` package after checking its npm integrity hash). Fonts will follow.
+Icons are stored under `assets/icons/` with their licence files: Lucide 1.70.0 (only the icons the app uses, copied from the `lucide-static` package after checking its npm integrity hash). The typefaces are served with the app from `platform/ordo-app/fonts/`: regular and bold, Latin and Latin Extended, WOFF2, from the Fontsource packages 5.3.0 (`vendor-fonts.sh`, with their licences); the service worker keeps them for offline use.

@@ -1068,6 +1068,7 @@ pub const NOTICES_CRATES_MISSING: &str = "Die Lizenzhinweise der Rust-Bibliothek
 pub const NOTICES_LOADING: &str = "Lizenzhinweise werden geladen …";
 pub const NOTICES_USED_MAP: &str = "Lagekarte";
 pub const NOTICES_USED_MAP_FONT: &str = "Schrift der Kartenbeschriftung";
+pub const NOTICES_USED_FONT: &str = "Schrift der Bedienoberfläche";
 pub const NOTICES_USED_ICONS: &str = "Symbole der Bedienoberfläche";
 pub const NOTICES_USED_SYMBOLS: &str = "Taktische Zeichen (gezeichnet beim Erstellen von ORDO)";
 pub const NOTICES_USED_STORAGE: &str = "Datenspeicher auf dem Gerät";

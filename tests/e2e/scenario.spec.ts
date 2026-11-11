@@ -80,6 +80,11 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("a planner plans the incident and gives roles", async () => {
     await dora.goto(server.url);
     await expect(dora.getByRole("button", { name: "Anmelden" })).toBeVisible();
+    await expect
+      .poll(() => dora.evaluate(async () => (await document.fonts.ready, document.fonts.check('700 16px "Atkinson Hyperlegible Next"'))), {
+        message: "the app's own typeface is served with it, not left to the device",
+      })
+      .toBe(true);
     await audit(dora, "Pairing page");
     // [itest->dsn~licence-notices~1]
     // LIC-1: every screen links to the licences and the source code.
