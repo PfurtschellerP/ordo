@@ -428,3 +428,12 @@ When an administrator grants a person an organisation role (administrator, plann
 Tags: should, shared, m45
 
 Needs: dsn
+
+#### ORG-10 — Local accounts
+`req~org-10~1`
+
+When an administrator creates, resets or deletes a local login account (e-mail address, name, password) in ORDO, ORDO shall make the change in the installation's identity provider (Dex) without a restart; when an account is deleted, ORDO shall end that person's access on their devices. ORDO shall not store the passwords.
+
+Tags: should, shared, m46
+
+Needs: dsn

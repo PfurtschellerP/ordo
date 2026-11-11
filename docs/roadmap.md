@@ -248,9 +248,10 @@ Then:
    the first release (signed image, provenance, bills of materials: the release workflow
    is ready, ADR-0043; images for amd64 and arm64 since 2026-11-11); later the device lock with
    WebAuthn PRF or PIN (SEC-13).
-2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): Dex's local
-   accounts managed from ORDO (device names, display names and organisation roles with
-   "valid until" are done: ORG-8, ORG-7, ORG-9).
+2. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)) is done: device
+   names (ORG-8), display names (ORG-7), organisation roles with "valid until" (ORG-9)
+   and Dex's local accounts managed in ORDO (ORG-10, ADR-0060). Later: people change
+   their own password (needs the link from an ORDO user to their Dex account; Dex can check the old password with `VerifyPassword`).
 3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
    bundle size and memory.
 4. Master data in an admin view instead of a file (ORG-1).

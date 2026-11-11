@@ -45,6 +45,8 @@ pub struct App {
     pub(crate) map: Arc<crate::map_region::MapJob>,
     /// Organisation roles (ORG-9), shared with the access policy.
     roles: crate::authz::Roles,
+    /// Dex's API for local accounts (ORG-10), if configured.
+    dex_api: Option<crate::dex_api::DexApi>,
     /// Up to when lapsed role grants were looked for (ms).
     roles_checked: AtomicU64,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
@@ -78,6 +80,7 @@ impl App {
         blobs: Blobs,
         map: crate::map_region::MapJob,
         roles: crate::authz::Roles,
+        dex_api: Option<crate::dex_api::DexApi>,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -91,6 +94,7 @@ impl App {
             blobs,
             map: Arc::new(map),
             roles,
+            dex_api,
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
             asked: std::sync::Mutex::new(HashMap::new()),
@@ -286,7 +290,11 @@ impl App {
     /// Handles one message: the hub decides, the store persists, then messages are sent.
     /// Sending happens while the hub is locked, so every device receives deliveries in
     /// sequence order.
-    async fn handle(&self, session: SessionId, message: ClientMessage) -> Result<(), StoreError> {
+    async fn handle(
+        self: &Arc<Self>,
+        session: SessionId,
+        message: ClientMessage,
+    ) -> Result<(), StoreError> {
         // Profile pictures live in the store, not in the hub (ADR-0047).
         if let ClientMessage::GetAvatars(_)
         | ClientMessage::SetAvatar(_)
@@ -296,6 +304,9 @@ impl App {
         }
         if let ClientMessage::BlobTicket(request) = message {
             return self.blob_ticket(session, request).await;
+        }
+        if let ClientMessage::GetAccounts | ClientMessage::ChangeAccount(_) = message {
+            return self.accounts(session, message).await;
         }
         if let ClientMessage::GetOrganisationRoles | ClientMessage::SetOrganisationRole(_) = message
         {
@@ -481,6 +492,152 @@ impl App {
             self.send_refusals(out);
         }
         Ok(())
+    }
+
+    // [impl->dsn~local-accounts~1]
+    /// Answers `getAccounts` and `changeAccount`: the local accounts in Dex for
+    /// administrators (`manage_accounts`), who may also change them.
+    async fn accounts(
+        self: &Arc<Self>,
+        session: SessionId,
+        message: ClientMessage,
+    ) -> Result<(), StoreError> {
+        let (user, version, may) = {
+            let hub = self.hub.lock().await;
+            let Some(user) = hub.session_user(session) else {
+                return Ok(()); // not authenticated: nothing
+            };
+            let may = hub.may_manage_accounts(&user);
+            (user, hub.session_version(session), may)
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_MAP_REGION) {
+            return Ok(());
+        }
+        let answer = match (&self.dex_api, may) {
+            (Some(api), true) => {
+                let error = match message {
+                    ClientMessage::ChangeAccount(change) => {
+                        self.change_account(api, &user, change).await.err()
+                    }
+                    _ => None,
+                };
+                match api.list().await {
+                    Ok(list) => message::Accounts {
+                        managed: true,
+                        list: list
+                            .into_iter()
+                            .map(|p| message::Account {
+                                email: p.email,
+                                name: p.username,
+                            })
+                            .collect(),
+                        error,
+                    },
+                    Err(e) => {
+                        tracing::warn!(error = %e, "listing local accounts failed");
+                        message::Accounts {
+                            managed: true,
+                            list: Vec::new(),
+                            error: Some(message::AccountError::Unreachable),
+                        }
+                    }
+                }
+            }
+            _ => message::Accounts::default(),
+        };
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::Accounts(answer));
+        }
+        Ok(())
+    }
+
+    /// Makes one change to a local account in Dex.
+    async fn change_account(
+        self: &Arc<Self>,
+        api: &crate::dex_api::DexApi,
+        user: &UserId,
+        change: message::AccountChange,
+    ) -> Result<(), message::AccountError> {
+        use crate::dex_api::{DexApiError, Outcome};
+        use message::{AccountChange, AccountError};
+        let failed = |e: DexApiError| {
+            tracing::warn!(error = %e, "changing a local account failed");
+            match e {
+                DexApiError::Refused(_) => AccountError::Refused,
+                DexApiError::Unreachable(_) | DexApiError::Config(_) => AccountError::Unreachable,
+            }
+        };
+        let outcome = match change {
+            AccountChange::Create {
+                email,
+                name,
+                password,
+            } => {
+                let email = email.trim().to_lowercase();
+                let name = crate::login::tidy_name(Some(&name), crate::login::MAX_PERSON_NAME)
+                    .filter(|_| is_email(&email))
+                    .ok_or(AccountError::Invalid)?;
+                let hash = hash_password(password).await?;
+                let outcome = api.create(&email, &name, hash).await.map_err(failed)?;
+                tracing::info!(%user, account = email, "local account created");
+                outcome
+            }
+            AccountChange::SetPassword { email, password } => {
+                let hash = hash_password(password).await?;
+                let account = find_account(api, &email)
+                    .await
+                    .map_err(|e| e.map_or(AccountError::NotFound, failed))?;
+                let outcome = api.set_password(&account, hash).await.map_err(failed)?;
+                tracing::info!(%user, account = account.email, "local account's password set");
+                outcome
+            }
+            AccountChange::Delete { email } => {
+                let account = find_account(api, &email)
+                    .await
+                    .map_err(|e| e.map_or(AccountError::NotFound, failed))?;
+                let client_id = self.login.as_ref().map_or("ordo", |l| l.client_id());
+                let outcome = api.delete(&account, client_id).await.map_err(failed)?;
+                tracing::info!(%user, account = account.email, "local account deleted");
+                if outcome == Outcome::Done {
+                    self.end_login_of(&account.user_id).await;
+                }
+                outcome
+            }
+        };
+        match outcome {
+            Outcome::Done => Ok(()),
+            Outcome::Exists => Err(AccountError::Exists),
+            Outcome::NotFound => Err(AccountError::NotFound),
+        }
+    }
+
+    /// Ends the ORDO login of a deleted local account's person, if they ever logged in:
+    /// their devices lock at once (ADR-0040, ADR-0060).
+    async fn end_login_of(&self, dex_user_id: &str) {
+        let Some(login) = &self.login else { return };
+        let subject = crate::dex_api::local_subject(dex_user_id);
+        let ended = async {
+            if let Some(person) = self
+                .store
+                .user_of_identity(login.issuer(), &subject)
+                .await?
+            {
+                self.store
+                    .set_refresh(login.issuer(), &subject, None, &self.master)
+                    .await?;
+                self.set_valid_until(&person, now_ms()).await?;
+                tracing::info!(%person, "login ended: local account deleted");
+            }
+            Ok::<(), StoreError>(())
+        };
+        if let Err(error) = ended.await {
+            tracing::error!(%error, "ending the login of a deleted account failed");
+        }
     }
 
     /// Answers `getAvatars` and `setAvatar` of an authenticated connection.
@@ -720,6 +877,41 @@ async fn metrics(State(app): State<Arc<App>>) -> String {
 }
 
 /// Completes when `true` is sent (or the sender is gone).
+/// A plausible e-mail address: one `@` with text on both sides, no spaces.
+fn is_email(text: &str) -> bool {
+    text.len() <= 254
+        && !text.chars().any(char::is_whitespace)
+        && text.split_once('@').is_some_and(|(local, domain)| {
+            !local.is_empty() && domain.contains('.') && !domain.contains('@')
+        })
+}
+
+/// The bcrypt hash of a password for Dex, if it fits the limits (ORG-10).
+async fn hash_password(password: String) -> Result<Vec<u8>, message::AccountError> {
+    if !message::password_fits(&password) {
+        return Err(message::AccountError::PasswordLength);
+    }
+    // bcrypt takes a moment of CPU on purpose.
+    tokio::task::spawn_blocking(move || crate::dex_api::hash_password(&password))
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .ok_or(message::AccountError::Unreachable)
+}
+
+/// The account with `email` (`Err(None)`: no such account).
+async fn find_account(
+    api: &crate::dex_api::DexApi,
+    email: &str,
+) -> Result<crate::dex_api::Password, Option<crate::dex_api::DexApiError>> {
+    api.list()
+        .await
+        .map_err(Some)?
+        .into_iter()
+        .find(|p| p.email.eq_ignore_ascii_case(email.trim()))
+        .ok_or(None)
+}
+
 /// The most people one connection is told about when they change.
 const MAX_ASKED: usize = 2000;
 

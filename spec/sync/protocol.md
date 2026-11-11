@@ -146,6 +146,15 @@ their own `admin` role, and answers anyone else with an empty list. When a perso
 change or a grant runs out, the server ends that person's connections with
 `refused: rolesChanged`. A session agreed on 1.0 or 1.1 gets no answer.
 
+`getAccounts` (version 1.2) asks for the local login accounts of the installation's
+identity provider (Dex); `changeAccount` creates one with a first password, sets a new
+password or deletes one. Both are answered with `accounts`: `managed` false and no list for
+a user without the organisation permission `manage_accounts` or when the server has no
+connection to Dex's API, else the list and, after a change that was not made, the reason.
+The server MUST NOT store passwords. Deleting an account MUST end the person's logins
+([ADR-0060](../../docs/adr/0060-local-accounts-managed-in-ordo.md)). A session agreed on
+1.0 or 1.1 gets no answer.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with

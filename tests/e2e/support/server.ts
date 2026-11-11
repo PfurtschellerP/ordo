@@ -3,7 +3,7 @@ import { ChildProcess, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEX_URL } from "./dex";
+import { DEX_API, DEX_URL } from "./dex";
 
 export const ORDO = path.resolve(process.env.ORDO_BIN ?? path.join(__dirname, "../../../target/debug/ordo"));
 export const DIST = path.resolve(process.env.ORDO_APP_DIST ?? path.join(__dirname, "../../../platform/ordo-app/dist"));
@@ -67,6 +67,11 @@ export class OrdoServer {
         ORDO_OIDC_CLIENT_ID: "ordo",
         ORDO_OIDC_CLIENT_SECRET_FILE: path.join(this.work, "oidc-secret"),
         ORDO_PUBLIC_URL: `http://127.0.0.1:${this.port}`,
+        // Local accounts through Dex's API (ADR-0060).
+        ORDO_DEX_API: DEX_API.url,
+        ORDO_DEX_API_CA_FILE: path.join(DEX_API.certs, "ca.pem"),
+        ORDO_DEX_API_CERT_FILE: path.join(DEX_API.certs, "ordo.pem"),
+        ORDO_DEX_API_KEY_FILE: path.join(DEX_API.certs, "ordo-key.pem"),
       },
       stdio: ["ignore", log, log],
     });

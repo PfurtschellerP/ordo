@@ -8,6 +8,7 @@ mod app;
 pub mod authz;
 mod blobs;
 pub mod config;
+pub mod dex_api;
 mod login;
 mod map_region;
 pub mod store;
@@ -46,6 +47,9 @@ pub enum ServerError {
     /// Network error.
     #[error("network: {0}")]
     Io(#[from] std::io::Error),
+    /// The connection to Dex's API cannot be set up (address or certificates).
+    #[error(transparent)]
+    DexApi(#[from] dex_api::DexApiError),
     /// Storing failed while running; the server stopped so that it can be restarted.
     #[error("storing failed while running")]
     StorageFailed,
@@ -220,6 +224,14 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         }
         None => blobs::Blobs::local(&config.data_dir.join("blobs"), config.max_blob_bytes)?,
     };
+    // [impl->dsn~local-accounts~1]
+    let dex_api = match &config.dex_api {
+        Some(api) => {
+            tracing::info!(url = api.url, "local accounts managed through Dex's API");
+            Some(dex_api::DexApi::new(api)?)
+        }
+        None => None,
+    };
     let app = Arc::new(App::new(
         hub,
         store,
@@ -231,6 +243,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         blobs,
         map_region::MapJob::new(config.map_file.clone(), config.map_source.clone()),
         roles,
+        dex_api,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());

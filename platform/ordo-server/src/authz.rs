@@ -363,6 +363,11 @@ impl AccessPolicy for RolePolicy {
         self.allows_organisation(user, "manage_roles")
     }
 
+    // [impl->dsn~local-accounts~1]
+    fn can_manage_accounts(&self, user: &UserId) -> bool {
+        self.allows_organisation(user, "manage_accounts")
+    }
+
     // [impl->dsn~incident-roles~1]
     fn can_assign_roles(&self, user: &UserId, incident: &IncidentId, roles: &[String]) -> bool {
         let shared: CompartmentId = "incident".parse().expect("valid compartment");

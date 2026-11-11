@@ -538,6 +538,7 @@ impl Replica {
             | ServerMessage::MapRegion(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::OrganisationRoles(_)
+            | ServerMessage::Accounts(_)
             | ServerMessage::BlobTicket(_) => Ok(()),
             // [impl->dsn~outbox-and-resend~1]
             // Refused for what the event is: it leaves the outbox. Refused for the moment

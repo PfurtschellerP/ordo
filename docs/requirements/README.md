@@ -132,6 +132,7 @@ the build fails.
 | 43 — Device names | `m43` | Each device named at pairing (suggested from the browser), shown in the device list (ORG-8) |
 | 44 — Display names | `m44` | People shown by name (from the identity provider, changeable) instead of their user ID (ORG-7) |
 | 45 — Organisation roles | `m45` | Administrators grant and withdraw organisation roles, optionally until a date, in the app (ORG-9) |
+| 46 — Local accounts | `m46` | Administrators create, reset and delete Dex's local accounts in the app (ORG-10, ADR-0060) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -140,5 +141,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46 docs platform modules packages tests
 ```

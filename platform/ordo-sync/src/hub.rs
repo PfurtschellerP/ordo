@@ -332,6 +332,11 @@ impl<P: AccessPolicy> Hub<P> {
         self.policy.can_manage_roles(user)
     }
 
+    /// Whether `user` may manage the local login accounts (ORG-10).
+    pub fn may_manage_accounts(&self, user: &UserId) -> bool {
+        self.policy.can_manage_accounts(user)
+    }
+
     // [impl->dsn~organisation-roles~1]
     /// The organisation roles of `users` changed: their sessions are cut with
     /// `rolesChanged`, so their devices reconnect and receive what they may do now.
@@ -583,12 +588,14 @@ impl<P: AccessPolicy> Hub<P> {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
             // Answered by the server outside the hub: profile pictures, names, attachments
-            // (access checked with `can_access`), organisation roles and the map region.
+            // (access checked with `can_access`), organisation roles, local accounts and the map region.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
             | ClientMessage::SetName(_)
             | ClientMessage::GetOrganisationRoles
             | ClientMessage::SetOrganisationRole(_)
+            | ClientMessage::GetAccounts
+            | ClientMessage::ChangeAccount(_)
             | ClientMessage::BlobTicket(_)
             | ClientMessage::GetMapRegion
             | ClientMessage::CutMapRegion(_) => Vec::new(),
@@ -702,6 +709,10 @@ impl<P: AccessPolicy> Hub<P> {
                 ),
                 ("manage_map", self.policy.can_manage_map(&hello.user)),
                 ("manage_roles", self.policy.can_manage_roles(&hello.user)),
+                (
+                    "manage_accounts",
+                    self.policy.can_manage_accounts(&hello.user),
+                ),
             ]
             .into_iter()
             .filter(|(_, allowed)| *allowed)

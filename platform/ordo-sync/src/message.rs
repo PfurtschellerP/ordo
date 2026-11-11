@@ -40,6 +40,11 @@ pub enum ClientMessage {
     GetOrganisationRoles,
     /// Grants or withdraws an organisation role (permission `manage_roles`); protocol 1.2.
     SetOrganisationRole(OrganisationRoleChange),
+    /// Asks for the local login accounts (ORG-10; permission `manage_accounts`); 1.2.
+    GetAccounts,
+    /// Creates, resets or deletes a local login account (permission `manage_accounts`);
+    /// protocol 1.2.
+    ChangeAccount(AccountChange),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
 }
@@ -207,6 +212,85 @@ pub struct Vehicle {
     pub strength: Option<[u32; 3]>,
 }
 
+/// A local login account in the identity provider (ORG-10).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Account {
+    /// The login name.
+    pub email: String,
+    /// The person's name, shown in ORDO.
+    pub name: String,
+}
+
+/// A change to a local login account. Passwords travel only in these messages; the server
+/// hashes them and does not keep them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountChange {
+    /// A new account with its first password.
+    Create {
+        /// Login name.
+        email: String,
+        /// The person's name.
+        name: String,
+        /// First password.
+        password: String,
+    },
+    /// A new password for an account.
+    SetPassword {
+        /// Login name.
+        email: String,
+        /// New password.
+        password: String,
+    },
+    /// Deletes an account and ends the person's logins.
+    Delete {
+        /// Login name.
+        email: String,
+    },
+}
+
+/// Why a change to an account was not made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AccountError {
+    /// Not an e-mail address, or no name.
+    Invalid,
+    /// The password is shorter than 12 characters or longer than 72 bytes.
+    PasswordLength,
+    /// An account with this e-mail address exists.
+    Exists,
+    /// No such account.
+    NotFound,
+    /// The identity provider refused, e.g. for an account from its configuration.
+    Refused,
+    /// The identity provider is not reachable.
+    Unreachable,
+}
+
+/// The local login accounts (answer to `getAccounts` and `changeAccount`).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Accounts {
+    /// Whether this server manages local accounts (and the user may): false without
+    /// permission `manage_accounts` or without a connection to the identity provider's API.
+    pub managed: bool,
+    /// The accounts, sorted by e-mail address.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub list: Vec<Account>,
+    /// Why the last change was not made, if it was not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<AccountError>,
+}
+
+/// Shortest password for a local account, in characters (ORG-10).
+pub const MIN_PASSWORD_CHARS: usize = 12;
+/// Longest password for a local account, in bytes (bcrypt's limit).
+pub const MAX_PASSWORD_BYTES: usize = 72;
+
+/// Whether `password` fits the limits for local accounts.
+pub fn password_fits(password: &str) -> bool {
+    password.chars().count() >= MIN_PASSWORD_CHARS && password.len() <= MAX_PASSWORD_BYTES
+}
+
 /// The organisation roles administrators grant in ORDO (ORG-9).
 pub const ORGANISATION_ROLES: [&str; 2] = ["admin", "planner"];
 
@@ -330,6 +414,8 @@ pub enum ServerMessage {
     /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,
     /// protocol 1.2): empty without permission `manage_roles`.
     OrganisationRoles(Vec<OrganisationRole>),
+    /// The local login accounts (answer to `getAccounts` and `changeAccount`, 1.2).
+    Accounts(Accounts),
     /// Answer to `blobTicket`.
     BlobTicket(BlobTicket),
 }

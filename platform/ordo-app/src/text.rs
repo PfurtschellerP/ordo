@@ -1304,3 +1304,61 @@ pub fn org_role_until(date: &str) -> String {
 pub fn org_role_withdraw_label(role: &str, person: &str) -> String {
     format!("{} entziehen: {person}", org_role(role))
 }
+
+// Local accounts (ORG-10)
+pub const ACCOUNTS: &str = "Konten";
+pub const ACCOUNTS_TITLE: &str = "Anmeldekonten";
+pub const ACCOUNTS_INTRO: &str = "Konten für die Anmeldung an diesem Server, z. B. für Helferinnen und Helfer ohne Konto der Organisation. Passwörter speichert nur der Anmeldedienst; ORDO kennt sie nicht.";
+pub const ACCOUNTS_LOADING: &str = "Konten werden geladen …";
+pub const ACCOUNTS_EMPTY: &str = "Noch keine Konten.";
+pub const ACCOUNTS_OFFLINE: &str =
+    "Konten lassen sich nur mit Verbindung zum Server sehen und ändern.";
+pub const ACCOUNTS_NOT_MANAGED: &str = "Dieser Server verwaltet keine Anmeldekonten (kein Zugang zur Schnittstelle des Anmeldedienstes). Konten kommen dann aus der Konfiguration oder dem Konto-System der Organisation.";
+pub const ACCOUNT_CREATE_TITLE: &str = "Konto anlegen";
+pub const ACCOUNT_EMAIL: &str = "E-Mail-Adresse (Anmeldename)";
+pub const ACCOUNT_NAME: &str = "Name";
+pub const ACCOUNT_PASSWORD: &str = "Erstes Passwort";
+pub const ACCOUNT_NEW_PASSWORD: &str = "Neues Passwort";
+pub const ACCOUNT_PASSWORD_HINT: &str = "Mindestens 12 Zeichen. Der Person persönlich mitteilen.";
+pub const ACCOUNT_CREATE: &str = "Konto anlegen";
+pub const ACCOUNT_SET_PASSWORD: &str = "Passwort neu setzen";
+pub const ACCOUNT_SAVE_PASSWORD: &str = "Passwort speichern";
+pub const ACCOUNT_DELETE: &str = "Konto löschen";
+pub const ACCOUNT_DELETE_CONFIRM: &str = "Ja, Konto löschen";
+pub const ACCOUNT_DONE: &str = "Gespeichert.";
+pub const ACCOUNT_INVALID: &str = "Bitte eine E-Mail-Adresse und einen Namen angeben.";
+pub const ACCOUNT_PASSWORD_LENGTH: &str =
+    "Das Passwort muss mindestens 12 Zeichen haben (höchstens 72 Bytes).";
+pub const ACCOUNT_EXISTS: &str = "Ein Konto mit dieser E-Mail-Adresse gibt es schon.";
+pub const ACCOUNT_NOT_FOUND: &str = "Dieses Konto gibt es nicht mehr.";
+pub const ACCOUNT_REFUSED: &str = "Der Anmeldedienst hat die Änderung abgelehnt. Konten aus seiner Konfiguration lassen sich nur dort ändern.";
+pub const ACCOUNT_UNREACHABLE: &str =
+    "Der Anmeldedienst ist nicht erreichbar. Bitte später erneut versuchen.";
+
+/// Why a change to an account was not made.
+pub fn account_error(error: ordo_sync::message::AccountError) -> &'static str {
+    use ordo_sync::message::AccountError;
+    match error {
+        AccountError::Invalid => ACCOUNT_INVALID,
+        AccountError::PasswordLength => ACCOUNT_PASSWORD_LENGTH,
+        AccountError::Exists => ACCOUNT_EXISTS,
+        AccountError::NotFound => ACCOUNT_NOT_FOUND,
+        AccountError::Refused => ACCOUNT_REFUSED,
+        AccountError::Unreachable => ACCOUNT_UNREACHABLE,
+    }
+}
+
+/// The question before deleting an account.
+pub fn account_delete_question(name: &str, email: &str) -> String {
+    format!(
+        "Konto von {name} ({email}) löschen? Die Person kann sich nicht mehr anmelden, und ihre Geräte werden gesperrt."
+    )
+}
+
+/// The accessible names of an account's buttons.
+pub fn account_set_password_label(email: &str) -> String {
+    format!("Passwort neu setzen: {email}")
+}
+pub fn account_delete_label(email: &str) -> String {
+    format!("Konto löschen: {email}")
+}

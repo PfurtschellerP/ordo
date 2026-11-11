@@ -148,6 +148,22 @@ pub const WORKSPACES: &[Workspace] = &[
             icon: "map",
         }],
     },
+    // [impl->dsn~local-accounts~1]
+    // Only with the organisation permission `manage_accounts`.
+    Workspace {
+        id: "org.accounts",
+        package: text::TAB_ORGANISATION,
+        label: text::ACCOUNTS,
+        requires: &[],
+        permission: Some("manage_accounts"),
+        or_organisation: Some("manage_accounts"),
+        views: &[View {
+            id: "accounts",
+            label: text::ACCOUNTS,
+            name: "accounts login passwords users",
+            icon: "users",
+        }],
+    },
     // [impl->dsn~organisation-roles~1]
     // Only with the organisation permission `manage_roles`.
     Workspace {

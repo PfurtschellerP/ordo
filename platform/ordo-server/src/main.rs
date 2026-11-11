@@ -11,6 +11,10 @@ Usage:
   ordo serve                 Run the server (configuration from environment variables)
   ordo generate-key          Print a new master key (64 hex characters)
   ordo generate-device-key   Print a new device key pair (for the seed file and test clients)
+  ordo generate-dex-certs DIR [HOST…]
+                             Write certificates for Dex's API (ca.pem, dex.pem, dex-key.pem,
+                             ordo.pem, ordo-key.pem) to DIR; HOST names Dex (default dex,
+                             localhost, 127.0.0.1)
   ordo healthcheck           Exit 0 if the local server answers /healthz (for containers)
   ordo --version
 
@@ -45,6 +49,11 @@ Environment for `serve`:
   ORDO_S3_REGION         Region name (default garage)
   ORDO_S3_ACCESS_KEY_ID  Access key ID
   ORDO_S3_SECRET_ACCESS_KEY_FILE  File with the secret access key
+  ORDO_DEX_API           Dex's gRPC API for local accounts, e.g. https://dex:5557
+                         (optional, ADR-0060); then also:
+  ORDO_DEX_API_CA_FILE   CA of Dex's certificate (ca.pem of generate-dex-certs)
+  ORDO_DEX_API_CERT_FILE ORDO's client certificate (ordo.pem)
+  ORDO_DEX_API_KEY_FILE  ORDO's client key (ordo-key.pem)
   ORDO_LOG_FORMAT        json (default) or pretty; RUST_LOG sets the level (default info)";
 
 fn main() -> ExitCode {
@@ -72,6 +81,7 @@ fn main() -> ExitCode {
             println!("private_key = \"{}\"", to_hex(&key.to_bytes()));
             ExitCode::SUCCESS
         }
+        Some("generate-dex-certs") => generate_dex_certs(&args[1..]),
         Some("healthcheck") => healthcheck(),
         Some("--version" | "-V") => {
             println!("ordo {}", env!("CARGO_PKG_VERSION"));
@@ -174,4 +184,52 @@ fn random<const N: usize>() -> [u8; N] {
     let mut bytes = [0u8; N];
     getrandom::fill(&mut bytes).expect("the operating system provides randomness");
     bytes
+}
+
+/// Writes the certificates for Dex's API (ADR-0060) to a directory.
+fn generate_dex_certs(args: &[String]) -> ExitCode {
+    let Some(dir) = args.first() else {
+        eprintln!("{USAGE}");
+        return ExitCode::FAILURE;
+    };
+    let hosts: Vec<String> = if args.len() > 1 {
+        args[1..].to_vec()
+    } else {
+        ["dex", "localhost", "127.0.0.1"]
+            .map(str::to_owned)
+            .to_vec()
+    };
+    let certs = match ordo_server::dex_api::generate_certificates(&hosts) {
+        Ok(certs) => certs,
+        Err(error) => {
+            eprintln!("generating certificates failed: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let dir = std::path::Path::new(dir);
+    let files = [
+        ("ca.pem", &certs.ca),
+        ("dex.pem", &certs.dex_cert),
+        ("dex-key.pem", &certs.dex_key),
+        ("ordo.pem", &certs.ordo_cert),
+        ("ordo-key.pem", &certs.ordo_key),
+    ];
+    let written = std::fs::create_dir_all(dir).and_then(|()| {
+        files
+            .iter()
+            .try_for_each(|(name, text)| std::fs::write(dir.join(name), text))
+    });
+    match written {
+        Ok(()) => {
+            println!(
+                "Written to {}: ca.pem, dex.pem, dex-key.pem, ordo.pem, ordo-key.pem",
+                dir.display()
+            );
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("writing certificates failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }

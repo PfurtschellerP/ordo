@@ -20,6 +20,15 @@ permit (
 )
 when { context.roles.contains("admin") };
 
+// Admins manage the local login accounts, e.g. for helpers joining on scene (ORG-10).
+@id("admin.manage-accounts")
+permit (
+  principal,
+  action == Action::"manage_accounts",
+  resource == Organisation::"organisation"
+)
+when { context.roles.contains("admin") };
+
 // Planners prepare incidents and their rosters (ADR-0046); administrators are planners
 // too, so a new installation can start.
 @id("admin.manage-incidents")

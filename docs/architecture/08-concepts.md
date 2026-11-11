@@ -636,6 +636,30 @@ Needs: impl, utest, itest
 
 Tags: should, m45
 
+#### Local accounts
+`dsn~local-accounts~1`
+
+Administrators (organisation action `manage_accounts`) manage Dex's local accounts in the
+organisation workspace (*Konten*), see [ADR-0060](../adr/0060-local-accounts-managed-in-ordo.md).
+The app asks over the sync connection (`getAccounts`, `changeAccount`, answered with
+`accounts`); the server calls Dex's gRPC API (`ORDO_DEX_API`) with a TLS client
+certificate. Creating an account takes the e-mail address, the name and a first password;
+resetting takes a new password. The server checks the password's length (12 characters to
+72 bytes), hashes it with bcrypt and does not keep it. Deleting an account removes it in
+Dex and revokes its renewal tokens for ORDO. ORDO then finds the person by the login's
+subject (Dex's `sub`: account ID and connector `local`) and ends their login at once, so
+their devices lock. Accounts from `dex.yaml` are listed; Dex refuses to change them, and the app
+shows Dex's answer. Without `ORDO_DEX_API` the server answers that accounts are not
+managed here.
+
+Covers:
+
+* [req~org-10~1](../requirements/02-shared.md#org-10--local-accounts)
+
+Needs: impl, utest, itest
+
+Tags: should, m46
+
 #### Device storage encryption
 `dsn~device-storage-encryption~1`
 

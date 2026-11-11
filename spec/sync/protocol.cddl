@@ -21,6 +21,8 @@ client-message = { "hello": hello }
                / { "setName": tstr / null }   ; own display name, null clears it (1.2)
                / "getOrganisationRoles"       ; with manage_roles (1.2)
                / { "setOrganisationRole": organisation-role-change } ; with manage_roles (1.2)
+               / "getAccounts"                ; with manage_accounts (1.2)
+               / { "changeAccount": account-change } ; with manage_accounts (1.2)
 
 hello = {
   "user": user-id,
@@ -70,6 +72,7 @@ server-message = { "challenge": challenge }
                / { "organisationRoles": [* organisation-role] } ; answer to
                                               ; getOrganisationRoles and setOrganisationRole
                                               ; (1.2); empty without manage_roles
+               / { "accounts": accounts }     ; answer to getAccounts and changeAccount (1.2)
                / { "blobTicket": blob-ticket } ; answer to blobTicket
 
 ; First message on every connection; the hello must sign the nonce.
@@ -112,6 +115,20 @@ organisation-role-change = {
   "role": "admin" / "planner",
   "grant": bool,                   ; false withdraws
   ? "valid_until": uint,           ; with grant: counts until then (ms since 1970)
+}
+
+; Local login accounts in Dex (ORG-10). Passwords: 12 characters to 72 bytes; the server
+; hashes them with bcrypt for Dex and does not keep them.
+account = { "email": tstr, "name": tstr }
+
+account-change = { "create": { "email": tstr, "name": tstr, "password": tstr } }
+               / { "setPassword": { "email": tstr, "password": tstr } }
+               / { "delete": { "email": tstr } }
+
+accounts = {
+  "managed": bool,                 ; false without manage_accounts or without Dex's API
+  ? "list": [* account],
+  ? "error": "invalid" / "passwordLength" / "exists" / "notFound" / "refused" / "unreachable",
 }
 
 ; Attachments: encrypted on the device, named by the BLAKE3 hash of the ciphertext.

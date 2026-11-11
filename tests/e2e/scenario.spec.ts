@@ -1156,6 +1156,52 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.getByRole("button", { name: "Anmelden" }), "the tablet can be paired again").toBeVisible();
   });
 
+  // [itest->dsn~local-accounts~1]
+  await test.step("an administrator manages local login accounts in Dex", async () => {
+    await dora.locator("#launcher-button").click();
+    await dora.locator(".launcher__item", { hasText: "Konten" }).click();
+    await expect.poll(() => title(dora)).toContain("Organisation – Konten");
+    const accounts = dora.locator(".account-list");
+    await expect(accounts.locator("[data-account='anna@example.org'] .roster__person"), "Dex's accounts, by name").toHaveText("Anna Schmidt");
+
+    // A helper joins on scene: an account with a first password.
+    await dora.getByLabel("E-Mail-Adresse (Anmeldename)").fill("eva@example.org");
+    await dora.getByLabel("Name", { exact: true }).fill("Eva Becker");
+    await dora.getByLabel("Erstes Passwort").fill("kurz");
+    await dora.getByRole("button", { name: "Konto anlegen" }).click();
+    await expect(dora.locator("form [role=alert]").last(), "too short a password is not sent").toHaveText(/mindestens 12 Zeichen/);
+    await dora.getByLabel("Erstes Passwort").fill("Helferin-am-Stadtfest");
+    await dora.getByRole("button", { name: "Konto anlegen" }).click();
+    const eva = accounts.locator("[data-account='eva@example.org']");
+    await expect(eva.locator(".roster__person"), "created in Dex").toHaveText("Eva Becker");
+    await expect(dora.getByLabel("E-Mail-Adresse (Anmeldename)"), "the form is emptied").toHaveValue("");
+    await audit(dora, "Accounts");
+
+    // She logs in with it; ORDO names her from the e-mail address.
+    const evaDevice = await newDevice(browser);
+    await loginPair(evaDevice, server, "eva@example.org", undefined, "Helferin-am-Stadtfest");
+
+    // A new password, set by the administrator.
+    await eva.getByRole("button", { name: "Passwort neu setzen: eva@example.org" }).click();
+    await expect(dora.getByLabel("Neues Passwort"), "focus moves to the new password").toBeFocused();
+    await dora.getByLabel("Neues Passwort").fill("Neues-Passwort-fuer-Eva");
+    await dora.getByRole("button", { name: "Passwort speichern" }).click();
+    await expect(dora.locator(".card > [role=status]"), "saved").toHaveText("Gespeichert.");
+
+    // Accounts from Dex's configuration can only be changed there.
+    await accounts.locator("[data-account='anna@example.org']").getByRole("button", { name: "Konto löschen: anna@example.org" }).click();
+    await dora.getByRole("button", { name: "Ja, Konto löschen" }).click();
+    await expect(dora.locator(".card > [role=alert]"), "Dex refuses").toHaveText(/abgelehnt/);
+
+    // Deleting Eva's account ends her login on her device at once.
+    await eva.getByRole("button", { name: "Konto löschen: eva@example.org" }).click();
+    await expect(dora.getByRole("button", { name: "Ja, Konto löschen" }), "asked in place").toBeFocused();
+    await dora.getByRole("button", { name: "Ja, Konto löschen" }).click();
+    await expect(eva, "deleted in Dex").toHaveCount(0);
+    await expect(evaDevice.getByRole("heading", { name: /Anmeldung abgelaufen/ }), "her device locks").toBeVisible({ timeout: 30_000 });
+    await evaDevice.context().close();
+  });
+
   // [itest->dsn~content-security-policy~1]
   await test.step("the whole scenario ran under the strict Content Security Policy", async () => {
     const policy = (await dora.request.get(server.url)).headers()["content-security-policy"];

@@ -22,11 +22,18 @@ services:
       ORDO_ADMINS: ${ORDO_ADMINS:?set ORDO_ADMINS in .env}
       ORDO_GRAVATAR: ${ORDO_GRAVATAR:-on}
       ORDO_MAX_BLOB_MB: ${ORDO_MAX_BLOB_MB:-20}
+      # Local accounts, managed in ORDO through Dex's API (ADR-0060); certificates from
+      # `ordo generate-dex-certs`, see README.md.
+      ORDO_DEX_API: https://dex:5557
+      ORDO_DEX_API_CA_FILE: /dex-api/ca.pem
+      ORDO_DEX_API_CERT_FILE: /dex-api/ordo.pem
+      ORDO_DEX_API_KEY_FILE: /dex-api/ordo-key.pem
     secrets:
       - ordo_master_key
       - oidc_client_secret
     volumes:
       - ordo-data:/data
+      - ./dex-api:/dex-api:ro
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -45,6 +52,8 @@ services:
     volumes:
       - ./dex.yaml:/etc/dex/config.yaml:ro
       - dex-data:/var/dex
+      # The API for ORDO (port 5557, internal network only).
+      - ./dex-api:/etc/dex/api:ro
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     restart: unless-stopped

@@ -39,9 +39,9 @@ export function recordFrames(page: Page): { sent: Buffer[]; received: Buffer[] }
 }
 
 /** Logs in at Dex's login form. */
-async function dexLogin(page: Page, email: string): Promise<void> {
+async function dexLogin(page: Page, email: string, password = "password"): Promise<void> {
   await page.locator("#login").fill(email);
-  await page.locator("#password").fill("password");
+  await page.locator("#password").fill(password);
   await page.locator("#submit-login").click();
 }
 
@@ -53,12 +53,12 @@ async function startPairing(page: Page, server: OrdoServer): Promise<void> {
 
 /** Pairs the device by logging in with the organisation's account (Dex); the app then
  *  lists the person's incidents (ADR-0046). */
-export async function loginPair(page: Page, server: OrdoServer, email: string, deviceName?: string): Promise<void> {
+export async function loginPair(page: Page, server: OrdoServer, email: string, deviceName?: string, password?: string): Promise<void> {
   await startPairing(page, server);
   // ORG-8: a name is suggested from the browser; a test may choose its own.
   if (deviceName) await page.locator("#device-name").fill(deviceName);
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await dexLogin(page, email);
+  await dexLogin(page, email, password);
   await expect(page.getByRole("heading", { name: "ORDO – Einsätze" })).toBeVisible();
 }
 

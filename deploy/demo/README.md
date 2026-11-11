@@ -14,8 +14,12 @@ Needs Docker or Podman (for Dex), Rust, and for the first start `trunk` and
 
 | Account | In ORDO |
 |---|---|
-| `dora@example.org` | administrator (`ORDO_ADMINS=dora`): plans incidents, gives roles, sees all devices |
+| `dora@example.org` | administrator (`ORDO_ADMINS=dora`): plans incidents, gives roles, sees all devices, manages accounts (*Organisation – Konten*) and organisation roles (*Organisation – Rollen*) |
 | `anna@example.org`, `ben@example.org`, `eva@example.org` | whatever role the incident gives them |
+
+Accounts created under *Organisation – Konten* live only as long as the demo's Dex (memory
+storage): `demo.sh` starts it anew. The accounts above come from `dex.yaml` and cannot be
+changed in ORDO.
 
 Roles are given per incident ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
 

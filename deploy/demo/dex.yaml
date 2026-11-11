@@ -9,6 +9,13 @@ storage:
 web:
   http: 0.0.0.0:5556
 
+# The API for local accounts (ADR-0060); certificates made by demo.sh.
+grpc:
+  addr: 0.0.0.0:5557
+  tlsCert: /etc/dex/api/dex.pem
+  tlsKey: /etc/dex/api/dex-key.pem
+  tlsClientCA: /etc/dex/api/ca.pem
+
 oauth2:
   skipApprovalScreen: true
   grantTypes:

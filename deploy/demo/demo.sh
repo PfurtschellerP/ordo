@@ -63,14 +63,20 @@ printf ordo-test-secret > "$data/oidc-secret"
 sed -e "s#http://127.0.0.1:5556/dex#$issuer#" \
     -e "s#http://127.0.0.1:18090/auth/callback#$public/auth/callback#" \
     "$here/dex.yaml" > "$data/dex.yaml"
-"$docker" run -d --name ordo-demo-dex -p 5556:5556 \
-  -v "$data/dex.yaml:/etc/dex/config.yaml:ro,Z" ghcr.io/dexidp/dex:v2.46.1 dex serve /etc/dex/config.yaml >/dev/null
+# Dex's API for local accounts (ADR-0060): certificates once, readable by Dex's user.
+[ -f "$data/dex-api/ca.pem" ] || "$bin" generate-dex-certs "$data/dex-api" 127.0.0.1 localhost >/dev/null
+chmod 755 "$data/dex-api" && chmod 644 "$data/dex-api"/*.pem
+"$docker" run -d --name ordo-demo-dex -p 5556:5556 -p 127.0.0.1:5557:5557 \
+  -v "$data/dex.yaml:/etc/dex/config.yaml:ro,Z" -v "$data/dex-api:/etc/dex/api:ro,Z" \
+  ghcr.io/dexidp/dex:v2.46.1 dex serve /etc/dex/config.yaml >/dev/null
 until curl -sf "$issuer/.well-known/openid-configuration" >/dev/null; do sleep 0.5; done
 
 ORDO_ADMINS=dora ORDO_SERVER_NAME=localhost ORDO_LISTEN="$listen" ORDO_DATA_DIR="$data/data" \
 ORDO_MASTER_KEY_FILE="$data/master.key" ORDO_SEED_FILE="$data/seed.toml" ORDO_APP_DIR="$dist" \
 ORDO_OIDC_ISSUER="$issuer" ORDO_OIDC_CLIENT_ID=ordo \
 ORDO_OIDC_CLIENT_SECRET_FILE="$data/oidc-secret" ORDO_PUBLIC_URL="$public" \
+ORDO_DEX_API=https://127.0.0.1:5557 ORDO_DEX_API_CA_FILE="$data/dex-api/ca.pem" \
+ORDO_DEX_API_CERT_FILE="$data/dex-api/ordo.pem" ORDO_DEX_API_KEY_FILE="$data/dex-api/ordo-key.pem" \
   nohup "$bin" serve >> "$data/server.log" 2>&1 &
 echo $! > "$data/ordo.pid"
 until curl -sf "http://127.0.0.1:$port/readyz" >/dev/null; do sleep 0.3; done

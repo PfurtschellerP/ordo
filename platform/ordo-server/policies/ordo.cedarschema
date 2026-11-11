@@ -79,3 +79,10 @@ action manage_roles appliesTo {
   resource: [Organisation],
   context: OrganisationRequest,
 };
+
+// Create, reset and delete local login accounts in Dex (ORG-10, ADR-0060).
+action manage_accounts appliesTo {
+  principal: [User],
+  resource: [Organisation],
+  context: OrganisationRequest,
+};

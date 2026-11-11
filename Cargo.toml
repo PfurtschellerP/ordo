@@ -64,6 +64,13 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-
 # The S3 client of object_store (reqwest 0.13): rustls with ring as crypto provider, no aws-lc.
 reqwest-s3 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+# Dex's gRPC API for local accounts (ADR-0060): tonic over rustls with ring, messages as
+# hand-written prost structs (no protoc); bcrypt hashes for Dex; rcgen for the API's certificates.
+tonic = { version = "0.14", default-features = false, features = ["channel", "codegen", "tls-ring"] }
+tonic-prost = "0.14"
+prost = { version = "0.14", default-features = false, features = ["derive", "std"] }
+bcrypt = "0.19"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"

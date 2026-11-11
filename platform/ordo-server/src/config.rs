@@ -56,6 +56,9 @@ pub struct Config {
     /// S3-compatible store for attachments (`ORDO_S3_BUCKET` and the other `ORDO_S3_*`
     /// variables, optional; ADR-0033). Without it, a local directory is used.
     pub s3: Option<S3Config>,
+    /// Dex's gRPC API for local accounts (`ORDO_DEX_API` and its certificate files,
+    /// optional; ADR-0060). Without it, accounts are not managed in ORDO.
+    pub dex_api: Option<crate::dex_api::DexApiConfig>,
 }
 
 /// An S3-compatible object store, e.g. Garage (ADR-0033).
@@ -315,7 +318,22 @@ impl Config {
             || data_dir.join("map").join("region.pmtiles"),
             PathBuf::from,
         );
+        let dex_api = match get("ORDO_DEX_API").filter(|u| !u.trim().is_empty()) {
+            None => None,
+            Some(url) => {
+                let file = |name: &'static str| -> Result<String, ConfigError> {
+                    read(&get(name).ok_or(ConfigError::Missing(name))?)
+                };
+                Some(crate::dex_api::DexApiConfig {
+                    url: url.trim().to_owned(),
+                    ca: file("ORDO_DEX_API_CA_FILE")?,
+                    cert: file("ORDO_DEX_API_CERT_FILE")?,
+                    key: file("ORDO_DEX_API_KEY_FILE")?,
+                })
+            }
+        };
         Ok(Self {
+            dex_api,
             s3,
             max_blob_bytes: max_blob_mb * 1024 * 1024,
             gravatar,

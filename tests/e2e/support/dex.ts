@@ -7,18 +7,32 @@ import os from "node:os";
 import path from "node:path";
 
 const PORT = process.env.ORDO_E2E_DEX_PORT ?? "5556";
+/** Dex's gRPC API for local accounts (ADR-0060): the next port. */
+const API_PORT = String(Number(PORT) + 1);
 /** The first ORDO test server's port; Dex sends logins back there. */
 export const ORDO_PORT = Number(process.env.ORDO_E2E_PORT ?? 18090);
 export const DEX_URL = `http://127.0.0.1:${PORT}/dex`;
 const IMAGE = "ghcr.io/dexidp/dex:v2.46.1";
 const NAME = "ordo-e2e-dex";
 
+/** Dex's API for ORDO: address and the directory with the certificates of
+ *  `ordo generate-dex-certs` (made by `startDex`; with ORDO_E2E_DEX=external, from
+ *  ORDO_E2E_DEX_CERTS). */
+export const DEX_API = {
+  url: `https://127.0.0.1:${API_PORT}`,
+  certs: process.env.ORDO_E2E_DEX_CERTS ?? fs.mkdtempSync(path.join(os.tmpdir(), "ordo-dex-certs-")),
+};
+
 /** support/dex.yaml, moved to other ports if they are asked for. */
 function config(): string {
   const file = path.join(__dirname, "dex.yaml");
   if (PORT === "5556" && ORDO_PORT === 18090) return file;
   const moved = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ordo-dex-")), "dex.yaml");
-  const text = fs.readFileSync(file, "utf8").replaceAll(":5556", `:${PORT}`).replaceAll(":18090/", `:${ORDO_PORT}/`);
+  const text = fs
+    .readFileSync(file, "utf8")
+    .replaceAll(":5557", `:${API_PORT}`)
+    .replaceAll(":5556", `:${PORT}`)
+    .replaceAll(":18090/", `:${ORDO_PORT}/`);
   fs.writeFileSync(moved, text);
   return moved;
 }
@@ -31,8 +45,14 @@ export async function startDex(): Promise<() => void> {
     } catch {
       // not running
     }
-    execFileSync("docker", ["run", "-d", "--name", NAME, "-p", `${PORT}:${PORT}`,
-      "-v", `${config()}:/etc/dex/config.yaml:ro,Z`, IMAGE, "dex", "serve", "/etc/dex/config.yaml"]);
+    // The certificates of Dex's API, made as an operator would (ADR-0060).
+    const ordo = path.resolve(process.env.ORDO_BIN ?? path.join(__dirname, "../../../target/debug/ordo"));
+    execFileSync(ordo, ["generate-dex-certs", DEX_API.certs, "127.0.0.1", "localhost"]);
+    // Dex runs as its own user in the container; a temporary directory is private.
+    fs.chmodSync(DEX_API.certs, 0o755);
+    execFileSync("docker", ["run", "-d", "--name", NAME, "-p", `${PORT}:${PORT}`, "-p", `${API_PORT}:${API_PORT}`,
+      "-v", `${config()}:/etc/dex/config.yaml:ro,Z`, "-v", `${DEX_API.certs}:/etc/dex/certs:ro,Z`,
+      IMAGE, "dex", "serve", "/etc/dex/config.yaml"]);
   }
   const end = Date.now() + 60_000;
   while (Date.now() < end) {

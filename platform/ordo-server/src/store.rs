@@ -537,6 +537,25 @@ impl Store {
         Ok(())
     }
 
+    /// The ORDO user of a login at the identity provider, if they ever logged in.
+    pub async fn user_of_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<Option<UserId>, StoreError> {
+        let user: Option<String> =
+            sqlx::query_scalar("SELECT user_id FROM identities WHERE issuer = ? AND subject = ?")
+                .bind(issuer)
+                .bind(subject)
+                .fetch_optional(&self.pool)
+                .await?;
+        user.map(|u| {
+            u.parse()
+                .map_err(|e| StoreError::Invalid(format!("user id: {e}")))
+        })
+        .transpose()
+    }
+
     /// Everyone with a renewal token: (issuer, subject, user, token).
     pub async fn load_refresh(
         &self,

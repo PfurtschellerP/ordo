@@ -11,6 +11,14 @@ storage:
 web:
   http: 0.0.0.0:5556
 
+# The API through which ORDO manages local accounts (ADR-0060). Only on the internal
+# network, and only for clients with a certificate of this installation's CA.
+grpc:
+  addr: 0.0.0.0:5557
+  tlsCert: /etc/dex/api/dex.pem
+  tlsKey: /etc/dex/api/dex-key.pem
+  tlsClientCA: /etc/dex/api/ca.pem
+
 oauth2:
   skipApprovalScreen: true
   grantTypes:
@@ -26,20 +34,21 @@ staticClients:
       - "https://{{ getenv "ORDO_DOMAIN" }}/auth/callback"
       - "/dex/device/callback"
 
-# Very small organisations: local accounts. Groups become ORDO roles (ADR-0035).
+# Local accounts: administrators create, reset and delete them in ORDO (Organisation –
+# Konten, ADR-0060). Roles are given in ORDO, not by groups (ADR-0046).
+enablePasswordDB: true
+# Accounts can also be written here; ORDO lists them but cannot change them.
 #   Password hash:  docker run --rm httpd:2-alpine htpasswd -nbBC 10 "" 'the password' | tr -d ':\n'
 #   User ID:        any random UUID, e.g. from  uuidgen
-enablePasswordDB: true
-staticPasswords:
-  - email: "anna@ordo.example.org"
-    hash: "replace with a bcrypt hash"
-    username: "anna"
-    preferredUsername: "anna"
-    userID: "replace with a random UUID"
-    groups: ["medic"]
+# staticPasswords:
+#   - email: "anna@ordo.example.org"
+#     hash: "replace with a bcrypt hash"
+#     username: "Anna Schmidt"
+#     preferredUsername: "anna"
+#     userID: "replace with a random UUID"
 
 # Everyone else: connect your organisation's OpenID Connect provider instead of (or
-# besides) local accounts. It must deliver the groups that become ORDO roles.
+# besides) local accounts.
 # connectors:
 #   - type: oidc
 #     id: organisation

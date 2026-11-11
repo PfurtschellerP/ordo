@@ -78,6 +78,10 @@ pub struct Core {
     pub map_region: Option<ordo_sync::message::MapRegion>,
     /// The organisation roles, as last reported (ORG-9; administrators only).
     pub organisation_roles: Option<Vec<ordo_sync::message::OrganisationRole>>,
+    /// The local login accounts, as last reported (ORG-10; administrators only).
+    pub accounts: Option<ordo_sync::message::Accounts>,
+    /// Answers about accounts so far (to tell a new answer from the last one).
+    pub account_answers: u64,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -161,6 +165,8 @@ impl Core {
             vehicles: Vec::new(),
             map_region: None,
             organisation_roles: None,
+            accounts: None,
+            account_answers: 0,
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -348,6 +354,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::OrganisationRoles(list) = &message {
                 c.organisation_roles = Some(list.clone());
+            }
+            if let ServerMessage::Accounts(accounts) = &message {
+                c.accounts = Some(accounts.clone());
+                c.account_answers += 1;
             }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
@@ -927,6 +937,16 @@ pub fn get_map_region(core: Handle) {
 /// Asks for the organisation roles (ORG-9).
 pub fn get_organisation_roles(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::GetOrganisationRoles));
+}
+
+/// Asks for the local login accounts (ORG-10).
+pub fn get_accounts(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::GetAccounts));
+}
+
+/// Creates, resets or deletes a local login account (ORG-10).
+pub fn change_account(core: Handle, change: ordo_sync::message::AccountChange) {
+    core.with_value(|c| c.send(&ClientMessage::ChangeAccount(change)));
 }
 
 /// Grants or withdraws an organisation role (ORG-9).

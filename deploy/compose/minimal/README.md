@@ -17,6 +17,12 @@ docker compose build
 docker compose run --rm --no-deps --entrypoint /usr/local/bin/ordo ordo generate-key > master.key
 sudo chown 65532:65532 master.key && sudo chmod 400 master.key   # the server runs as user 65532
 
+# Certificates for Dex's API, through which ORDO manages local accounts (ADR-0060).
+mkdir dex-api && sudo chown 65532:65532 dex-api
+docker compose run --rm --no-deps -v "$PWD/dex-api:/certs" ordo generate-dex-certs /certs dex
+sudo chown 1001:1001 dex-api/dex-key.pem && sudo chmod 400 dex-api/dex-key.pem   # Dex runs as user 1001
+sudo chmod 400 dex-api/ordo-key.pem
+
 docker compose up -d
 docker compose ps                 # ordo should become "healthy"
 ```
@@ -59,7 +65,11 @@ ORDO stores no passwords and talks only to the bundled Dex
 [ADR-0039](../../../docs/adr/0039-dex-in-every-installation.md)). Two ways to fill in
 `dex.yaml`:
 
-- **Very small organisations: local accounts** (`staticPasswords`).
+- **Very small organisations: local accounts.** Administrators create, reset and delete
+  them in ORDO (*Organisation – Konten*); ORDO passes the change to Dex through its API
+  and keeps no passwords ([ADR-0060](../../../docs/adr/0060-local-accounts-managed-in-ordo.md)).
+  Accounts written in `dex.yaml` (`staticPasswords`) still work but can only be changed
+  there. Field servers keep local accounts for people who join on scene.
 - **Everyone else: your organisation's OpenID Connect provider** (Microsoft Entra ID,
   Keycloak, Authentik, Google, …) as a Dex connector; see the commented example in
   `dex.yaml.example`. Register Dex there with the redirect URI `https://<domain>/dex/callback`.

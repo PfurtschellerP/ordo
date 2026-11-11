@@ -157,6 +157,16 @@ pub(crate) enum LoginError {
 }
 
 impl Login {
+    /// ORDO's client ID at the identity provider.
+    pub(crate) fn client_id(&self) -> &str {
+        &self.config.client_id
+    }
+
+    /// The identity provider's issuer, as stored with each login.
+    pub(crate) fn issuer(&self) -> &str {
+        &self.config.issuer
+    }
+
     pub(crate) fn new(config: OidcConfig) -> Result<Self, LoginError> {
         let http = reqwest::ClientBuilder::new()
             // Following redirects would open the server to request forgery.

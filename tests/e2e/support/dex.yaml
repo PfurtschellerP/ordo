@@ -9,6 +9,14 @@ storage:
 web:
   http: 0.0.0.0:5556
 
+# The API for local accounts (ADR-0060): TLS, only clients with a certificate of the
+# installation's CA (ordo generate-dex-certs).
+grpc:
+  addr: 0.0.0.0:5557
+  tlsCert: /etc/dex/certs/dex.pem
+  tlsKey: /etc/dex/certs/dex-key.pem
+  tlsClientCA: /etc/dex/certs/ca.pem
+
 oauth2:
   skipApprovalScreen: true
   grantTypes:

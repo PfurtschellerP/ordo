@@ -886,7 +886,7 @@ fn revoked_devices_are_cut_off_and_refused() {
     let hello = world.hello("dora", 60);
     let out = world.hub.handle(60, hello, now);
     assert!(
-        matches!(&out[0].message, ServerMessage::Welcome(w) if w.permissions == ["manage_devices", "manage_roles"])
+        matches!(&out[0].message, ServerMessage::Welcome(w) if w.permissions == ["manage_devices", "manage_roles", "manage_accounts"])
     );
     assert_eq!(
         devices(&world.hub.handle(60, ClientMessage::ListDevices, now)).len(),
