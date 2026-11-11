@@ -252,8 +252,12 @@ Then:
    names (ORG-8), display names (ORG-7), organisation roles with "valid until" (ORG-9)
    and Dex's local accounts managed in ORDO (ORG-10, ADR-0060). Later: people change
    their own password (needs the link from an ORDO user to their Dex account; Dex can check the old password with `VerifyPassword`).
-3. Field-near test: two tablets and a server via Docker Compose, network on/off; measure
-   bundle size and memory.
+3. Field-near test is done (m47, `tests/e2e/field/`, weekly in CI): the Compose bundle
+   with an Android tablet and an iPad, network cut and server restart, budgets for download
+   and memory. It found that the image lacked the web app, that the bundle did not start
+   with current Compose, and that a vanished network went unnoticed (now: ping and
+   reconnect). Next: a large incident (PERF-3) in the same setup, and the test on real
+   tablets.
 4. Upstream login configured in ORDO: administrators connect the organisation's OpenID
    Connect provider (Microsoft Entra ID, Keycloak, Authentik, Google, …) to Dex in the
    app instead of editing `dex.yaml`, with a test login before it is saved. Builds on the
