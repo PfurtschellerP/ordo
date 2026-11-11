@@ -23,6 +23,7 @@ client-message = { "hello": hello }
                / { "setOrganisationRole": organisation-role-change } ; with manage_roles (1.2)
                / "getAccounts"                ; with manage_accounts (1.2)
                / { "changeAccount": account-change } ; with manage_accounts (1.2)
+               / "ping"                       ; is the line alive? (1.2)
 
 hello = {
   "user": user-id,
@@ -74,6 +75,7 @@ server-message = { "challenge": challenge }
                                               ; (1.2); empty without manage_roles
                / { "accounts": accounts }     ; answer to getAccounts and changeAccount (1.2)
                / { "blobTicket": blob-ticket } ; answer to blobTicket
+               / "pong"                       ; answer to ping (1.2)
 
 ; First message on every connection; the hello must sign the nonce.
 challenge = {

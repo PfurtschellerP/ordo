@@ -587,6 +587,20 @@ impl<P: AccessPolicy> Hub<P> {
         match message {
             ClientMessage::Hello(_) => unreachable!("handled above"),
             ClientMessage::Push(events) => self.push(session, events, now_ms),
+            // [impl->dsn~connection-liveness~1]
+            ClientMessage::Ping => {
+                if self
+                    .session_version(session)
+                    .is_some_and(|v| v >= crate::version::SYNC_LIVENESS)
+                {
+                    vec![Outgoing {
+                        session,
+                        message: ServerMessage::Pong,
+                    }]
+                } else {
+                    Vec::new()
+                }
+            }
             // Answered by the server outside the hub: profile pictures, names, attachments
             // (access checked with `can_access`), organisation roles, local accounts and the map region.
             ClientMessage::GetAvatars(_)

@@ -35,6 +35,12 @@ use crate::{text, vault};
 const PAIRING_KEY: &str = "ordo.pairing";
 const REPLICA_KEY: &str = "ordo.replica";
 const RECONNECT_MS: i32 = 3_000;
+/// Silence after which the app asks the server whether the line is alive (`ping`).
+const PING_AFTER_MS: u64 = 10_000;
+/// Silence (or a hanging connection attempt) after which the app gives the connection up.
+const DEAD_AFTER_MS: u64 = 25_000;
+/// How often the app checks the line.
+const WATCH_EVERY_MS: i32 = 5_000;
 
 /// What a device needs to know about itself (prototype pairing).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,6 +123,14 @@ pub struct Core {
     /// The view was closed: do not reconnect.
     stopped: bool,
     socket: Option<WebSocket>,
+    /// Counts connection attempts: events of an abandoned connection are ignored.
+    generation: u64,
+    /// When the server was last heard from, or the current attempt started (ms).
+    heard_ms: u64,
+    /// Whether the server answers `ping` (protocol 1.2 agreed).
+    liveness: bool,
+    /// Whether the line is watched (one timer for the app's lifetime).
+    watching: bool,
 }
 
 /// Handle to the app state, shared by all views.
@@ -184,6 +198,10 @@ impl Core {
             revoking: None,
             stopped: false,
             socket: None,
+            generation: 0,
+            heard_ms: 0,
+            liveness: false,
+            watching: false,
         })
     }
 
@@ -304,19 +322,40 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         return;
     }
     let Some(url) = sync_url() else { return };
+    watch_line(core, revision);
     let Ok(socket) = WebSocket::new(&url) else {
         schedule_reconnect(core, revision);
         return;
+    };
+    let generation = core
+        .try_update_value(|c| {
+            c.generation += 1;
+            c.heard_ms = now_ms();
+            c.liveness = false;
+            c.generation
+        })
+        .unwrap_or(0);
+    // Events of a connection given up (see `watch_line`) change nothing.
+    let current = move || {
+        core.try_with_value(|c| c.generation == generation)
+            .unwrap_or(false)
     };
     socket.set_binary_type(BinaryType::Arraybuffer);
 
     // The server opens with a challenge; the hello answering it proves the device key
     // (ADR-0038), see `on_message`.
     let on_open = Closure::<dyn FnMut()>::new(move || {
+        if !current() {
+            return;
+        }
         core.update_value(|c| c.connection = Connection::Online);
         revision.update(|r| *r += 1);
     });
     let on_message = Closure::<dyn FnMut(MessageEvent)>::new(move |event: MessageEvent| {
+        if !current() {
+            return;
+        }
+        core.update_value(|c| c.heard_ms = now_ms());
         let Ok(buffer) = event.data().dyn_into::<js_sys::ArrayBuffer>() else {
             return;
         };
@@ -367,6 +406,12 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     c.announcement = text::device_revoked(&short_device(&device));
                 }
                 c.devices = Some(list.clone());
+            }
+            // A server on protocol 1.2 answers `ping`: the line can be watched.
+            if let ServerMessage::Welcome(w) = &message {
+                c.liveness = w
+                    .version
+                    .is_some_and(|v| v >= ordo_sync::version::SYNC_LIVENESS);
             }
             // Deliveries confirm sent events: the next batch of the outbox may follow.
             let delivery = matches!(message, ServerMessage::Deliver(_));
@@ -433,6 +478,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         revision.update(|r| *r += 1);
     });
     let on_close = Closure::<dyn FnMut(CloseEvent)>::new(move |_| {
+        if !current() {
+            return;
+        }
         core.update_value(|c| {
             c.connection = Connection::Offline;
             c.socket = None;
@@ -484,6 +532,54 @@ pub fn revoke_device(core: Handle, device: DeviceId) {
 pub fn short_device(device: &DeviceId) -> String {
     let id = device.ulid().to_string();
     id[id.len() - 6..].to_owned()
+}
+
+// [impl->dsn~connection-liveness~1]
+/// Watches the line every few seconds: after a quiet spell it pings the server; after a
+/// long one, or a connection attempt that hangs, it gives the connection up and connects
+/// anew. A vanished network (a tablet out of the Wi-Fi) often leaves the WebSocket open.
+fn watch_line(core: Handle, revision: RwSignal<u64>) {
+    let start = core
+        .try_update_value(|c| !std::mem::replace(&mut c.watching, true))
+        .unwrap_or(false);
+    if !start {
+        return;
+    }
+    let check = Closure::<dyn FnMut()>::new(move || {
+        let Some(dead) = core.try_update_value(|c| {
+            if c.stopped || c.revoked || c.socket.is_none() {
+                return false;
+            }
+            let quiet = now_ms().saturating_sub(c.heard_ms);
+            let waiting = c.connection == Connection::Connecting;
+            if quiet > DEAD_AFTER_MS && (waiting || c.liveness) {
+                // Give it up: its late events are ignored, a new attempt follows.
+                c.generation += 1;
+                if let Some(socket) = c.socket.take() {
+                    let _ = socket.close();
+                }
+                c.connection = Connection::Offline;
+                return true;
+            }
+            if quiet > PING_AFTER_MS && c.liveness && c.connection == Connection::Online {
+                c.send(&ClientMessage::Ping);
+            }
+            false
+        }) else {
+            return;
+        };
+        if dead {
+            revision.update(|r| *r += 1);
+            schedule_reconnect(core, revision);
+        }
+    });
+    if let Some(window) = web_sys::window() {
+        let _ = window.set_interval_with_callback_and_timeout_and_arguments_0(
+            check.as_ref().unchecked_ref(),
+            WATCH_EVERY_MS,
+        );
+    }
+    check.forget();
 }
 
 fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {

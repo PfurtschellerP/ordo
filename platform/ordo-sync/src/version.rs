@@ -99,6 +99,9 @@ pub const SYNC_VEHICLES: Version = Version::new(1, 1);
 /// Sync protocol 1.2: `getMapRegion`, `cutMapRegion` and `mapRegion` (MAP-8).
 pub const SYNC_MAP_REGION: Version = Version::new(1, 2);
 
+/// Sync protocol 1.2: `ping` and `pong`, to notice a vanished network.
+pub const SYNC_LIVENESS: Version = Version::new(1, 2);
+
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].
 pub const HTTP: VersionRange = VersionRange {

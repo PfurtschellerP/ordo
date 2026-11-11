@@ -64,3 +64,22 @@ fn the_oldest_version_and_no_version_work_and_others_are_refused() {
         ServerMessage::Refused(Rejection::UnsupportedVersion)
     ));
 }
+
+// [utest->dsn~connection-liveness~1]
+#[test]
+fn a_ping_is_answered_from_version_1_2_on() {
+    let mut world = World::new();
+    world.sync();
+    let now = world.now;
+    let welcome = connect(&mut world, "anna", 810, |_| {});
+    assert!(matches!(welcome, ServerMessage::Welcome(_)));
+    let out = world.hub.handle(810, ClientMessage::Ping, now);
+    assert!(matches!(&out[..], [o] if o.session == 810 && o.message == ServerMessage::Pong));
+
+    // A device on 1.1 does not know the answer: it gets none.
+    let older = connect(&mut world, "ben", 811, |v| {
+        *v = Some(version::SYNC_VEHICLES)
+    });
+    assert!(matches!(older, ServerMessage::Welcome(_)));
+    assert!(world.hub.handle(811, ClientMessage::Ping, now).is_empty());
+}

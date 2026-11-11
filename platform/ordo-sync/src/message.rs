@@ -47,6 +47,8 @@ pub enum ClientMessage {
     ChangeAccount(AccountChange),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
+    /// Asks the server to answer `pong`: the line is alive (protocol 1.2).
+    Ping,
 }
 
 /// Where to cut a map region (MAP-8): a centre and a radius. Degrees × 10⁷, as PMTiles
@@ -418,6 +420,8 @@ pub enum ServerMessage {
     Accounts(Accounts),
     /// Answer to `blobTicket`.
     BlobTicket(BlobTicket),
+    /// Answer to `ping` (protocol 1.2).
+    Pong,
 }
 
 /// Which streams the device gets, and the keys it needs.

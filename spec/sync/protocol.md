@@ -146,6 +146,11 @@ their own `admin` role, and answers anyone else with an empty list. When a perso
 change or a grant runs out, the server ends that person's connections with
 `refused: rolesChanged`. A session agreed on 1.0 or 1.1 gets no answer.
 
+`ping` (version 1.2) asks the server to answer `pong` at once, on any connection after
+the challenge. A device uses it to notice a network that vanished without closing the
+connection: having heard nothing for a while, it pings, and without an answer it gives the
+connection up and connects anew. A session agreed on 1.0 or 1.1 gets no answer.
+
 `getAccounts` (version 1.2) asks for the local login accounts of the installation's
 identity provider (Dex); `changeAccount` creates one with a first password, sets a new
 password or deletes one. Both are answered with `accounts`: `managed` false and no list for
