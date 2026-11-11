@@ -454,6 +454,7 @@ impl Replica {
             | ServerMessage::Incidents(_)
             | ServerMessage::People(_)
             | ServerMessage::Vehicles(_)
+            | ServerMessage::MapRegion(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::BlobTicket(_) => Ok(()),
             ServerMessage::Rejected(rejected) => {

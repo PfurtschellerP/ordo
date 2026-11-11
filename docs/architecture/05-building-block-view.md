@@ -376,6 +376,30 @@ Needs: impl, utest, itest
 
 Tags: must, m33
 
+#### Map region from the server
+`dsn~map-region~1`
+
+An administrator (organisation permission `manage_map`) opens *Organisation –
+Kartengrundlage*, enters a centre (the open incident's location, if it has one) and a
+radius of 1–50 km. The app sends `cutMapRegion` over the sync connection (protocol 1.2) and
+asks for `mapRegion` until the state is `ready` or `failed`, showing the progress. The
+server cuts the region with pmtiles-rs from the world map `ORDO_MAP_SOURCE` (a URL, read with
+range requests, or a file; default the Protomaps build of the day before). It takes every
+tile from the source's lowest to highest zoom that touches the square around the circle,
+fetching 16 at a time with the directories cached. It writes them in tile order to a new
+file, which then replaces `ORDO_MAP_FILE` (default in the data directory). The centre,
+radius and time are kept next to it, so a restarted server still reports the region.
+Others asking learn nothing (state `none`).
+[ADR-0057](../adr/0057-map-region-cut-on-the-server.md).
+
+Covers:
+
+* [req~map-8~1](../requirements/02-shared.md#map-8--map-region-from-the-server)
+
+Needs: impl, utest, itest
+
+Tags: must, m38
+
 #### Tactical symbols
 `dsn~tactical-symbols~1`
 

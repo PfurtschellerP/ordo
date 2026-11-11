@@ -28,8 +28,12 @@ pub struct Config {
     /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
     pub app_dir: Option<PathBuf>,
     /// Map region for the situation map, a PMTiles file served at `/tiles/region.pmtiles`
-    /// (`ORDO_MAP_FILE`, optional, ADR-0006).
-    pub map_file: Option<PathBuf>,
+    /// (`ORDO_MAP_FILE`, default `map/region.pmtiles` in the data directory, ADR-0006); an
+    /// administrator cuts it from `map_source` (ADR-0057).
+    pub map_file: PathBuf,
+    /// The world map regions are cut from: a PMTiles URL or file (`ORDO_MAP_SOURCE`,
+    /// default the Protomaps build of the day before).
+    pub map_source: Option<String>,
     /// Directory with the organisation's own Cedar policies, `*.cedar`
     /// (`ORDO_POLICY_DIR`, optional, ADR-0035).
     pub policy_dir: Option<PathBuf>,
@@ -307,6 +311,10 @@ impl Config {
                 .to_owned(),
             }),
         };
+        let map_file = get("ORDO_MAP_FILE").map_or_else(
+            || data_dir.join("map").join("region.pmtiles"),
+            PathBuf::from,
+        );
         Ok(Self {
             s3,
             max_blob_bytes: max_blob_mb * 1024 * 1024,
@@ -321,7 +329,8 @@ impl Config {
             vehicles,
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
-            map_file: get("ORDO_MAP_FILE").map(PathBuf::from),
+            map_file,
+            map_source: get("ORDO_MAP_SOURCE").filter(|s| !s.trim().is_empty()),
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
             oidc: match get("ORDO_OIDC_ISSUER").filter(|issuer| !issuer.trim().is_empty()) {
                 None => None,

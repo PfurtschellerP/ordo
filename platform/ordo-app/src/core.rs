@@ -76,6 +76,8 @@ pub struct Core {
     pub people: Vec<UserId>,
     /// The installation's vehicles, as last listed (for adding units).
     pub vehicles: Vec<ordo_sync::message::Vehicle>,
+    /// The server's map region, as last reported (MAP-8).
+    pub map_region: Option<ordo_sync::message::MapRegion>,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -153,6 +155,7 @@ impl Core {
             incidents: None,
             people: Vec::new(),
             vehicles: Vec::new(),
+            map_region: None,
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -332,6 +335,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::Vehicles(list) = &message {
                 c.vehicles = list.clone();
+            }
+            if let ServerMessage::MapRegion(region) = &message {
+                c.map_region = Some(region.clone());
             }
             if let ServerMessage::Devices(list) = &message {
                 if let Some(device) = c.revoking
@@ -892,6 +898,16 @@ pub fn set_crew(
 /// units).
 pub fn list_vehicles(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::ListVehicles));
+}
+
+/// Asks for the state of the server's map region (MAP-8).
+pub fn get_map_region(core: Handle) {
+    core.with_value(|c| c.send(&ClientMessage::GetMapRegion));
+}
+
+/// Asks the server to cut a new map region around a centre (MAP-8, ADR-0057).
+pub fn cut_map_region(core: Handle, area: ordo_sync::message::MapRegionRequest) {
+    core.with_value(|c| c.send(&ClientMessage::CutMapRegion(area)));
 }
 
 /// A text as part of an element ID: letters and digits, the rest as `-`.

@@ -30,11 +30,12 @@ fn incident() -> IncidentId {
 }
 
 /// (user, key seed, roles)
-const PEOPLE: [(&str, u8, &[&str]); 4] = [
+const PEOPLE: [(&str, u8, &[&str]); 5] = [
     ("anna", 1, &["medic"]),
     ("clara", 2, &["medic"]),
     ("ben", 3, &["commander"]),
     ("petra", 4, &["physician"]),
+    ("dora", 5, &["planner"]),
 ];
 
 fn device_id(seed: u8) -> DeviceId {
@@ -68,7 +69,12 @@ fn write_setup(dir: &Path, master: [u8; 32]) {
 
 // [itest->dsn~environment-configuration~1]
 async fn start_server(dir: &Path) -> Result<Running, ServerError> {
-    let vars: HashMap<&str, String> = HashMap::from([
+    start_server_with(dir, &[]).await
+}
+
+/// Starts the server with further settings (`name`, `value`), replacing the defaults.
+async fn start_server_with(dir: &Path, extra: &[(&str, String)]) -> Result<Running, ServerError> {
+    let mut vars: HashMap<&str, String> = HashMap::from([
         ("ORDO_SERVER_NAME", SERVER.to_owned()),
         ("ORDO_LISTEN", "127.0.0.1:0".to_owned()),
         ("ORDO_DATA_DIR", dir.join("data").display().to_string()),
@@ -85,6 +91,7 @@ async fn start_server(dir: &Path) -> Result<Running, ServerError> {
             dir.join("region.pmtiles").display().to_string(),
         ),
     ]);
+    vars.extend(extra.iter().cloned());
     start(Config::from_lookup(|name| vars.get(name).cloned())?).await
 }
 
@@ -183,6 +190,24 @@ impl Client {
             if let Message::Binary(bytes) = frame {
                 let message: ServerMessage = message::decode(&bytes).unwrap();
                 self.replica.receive(message, now()).unwrap();
+            }
+        }
+    }
+
+    /// Sends a map region message and waits for the answer.
+    async fn map_region(&mut self, request: ClientMessage) -> message::MapRegion {
+        self.send(request).await;
+        loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), self.socket.next())
+                .await
+                .expect("timed out waiting for the map region")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                match message::decode::<ServerMessage>(&bytes).unwrap() {
+                    ServerMessage::MapRegion(region) => return region,
+                    other => self.replica.receive(other, now()).unwrap(),
+                }
             }
         }
     }
@@ -574,6 +599,110 @@ async fn only_a_uhs_staff_registers_its_patients_once_it_has_a_staff_list() {
     petra.push_and_settle().await;
     assert!(anna.replica.rejected().is_empty() && petra.replica.rejected().is_empty());
 
+    running.stop().await.unwrap();
+}
+
+// [itest->dsn~map-region~1]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_planner_cuts_the_map_region_from_the_world_map_over_http() {
+    use message::{MapRegionRequest, MapRegionState};
+    // The "world map", served with range requests like the Protomaps build.
+    let world = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/e2e/support/world.pmtiles");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let source = format!("http://{}/world.pmtiles", listener.local_addr().unwrap());
+    let files = axum::Router::new().route_service(
+        "/world.pmtiles",
+        tower_http::services::ServeFile::new(world),
+    );
+    tokio::spawn(async move { axum::serve(listener, files).await.unwrap() });
+
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [8; 32]);
+    let region = dir.path().join("data/map/region.pmtiles");
+    let running = start_server_with(
+        dir.path(),
+        &[
+            ("ORDO_MAP_SOURCE", source),
+            ("ORDO_MAP_FILE", region.display().to_string()),
+        ],
+    )
+    .await
+    .unwrap();
+    let addr = running.addr;
+    let augsburg = MapRegionRequest {
+        lat_e7: 483_700_000,
+        lon_e7: 109_000_000,
+        radius_m: 10_000,
+    };
+
+    // A medic may not cut; she learns nothing.
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    let answer = anna.map_region(ClientMessage::CutMapRegion(augsburg)).await;
+    assert_eq!(answer, message::MapRegion::default());
+
+    // A planner cuts it; the server answers with the progress until it is ready.
+    let mut dora = Client::connect(addr, replica("dora")).await;
+    let before = dora.map_region(ClientMessage::GetMapRegion).await;
+    assert_eq!(before.state, MapRegionState::None, "no region yet");
+    let started = dora.map_region(ClientMessage::CutMapRegion(augsburg)).await;
+    assert!(matches!(
+        started.state,
+        MapRegionState::Running | MapRegionState::Ready
+    ));
+    let mut state = started;
+    for _ in 0..100 {
+        if state.state != MapRegionState::Running {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        state = dora.map_region(ClientMessage::GetMapRegion).await;
+    }
+    assert_eq!(state.state, MapRegionState::Ready, "{state:?}");
+    assert_eq!(state.area, Some(augsburg));
+    assert!(state.bytes.unwrap_or(0) > 0);
+
+    // The region is a PMTiles archive with the tiles around Augsburg, zoom 0 to 3.
+    let reader = pmtiles::AsyncPmTilesReader::new_with_path(&region)
+        .await
+        .unwrap();
+    assert_eq!(reader.get_header().max_zoom, 3);
+    let centre = pmtiles::TileCoord::new(3, 4, 2).unwrap();
+    assert!(
+        reader.get_tile(centre).await.unwrap().is_some(),
+        "Augsburg's tile at zoom 3"
+    );
+    let far = pmtiles::TileCoord::new(3, 0, 7).unwrap();
+    assert!(
+        reader.get_tile(far).await.unwrap().is_none(),
+        "nothing far away"
+    );
+
+    // Devices read it from the usual place.
+    let http = reqwest::Client::new();
+    let part = http
+        .get(format!("http://{addr}/tiles/region.pmtiles"))
+        .header("Range", "bytes=0-6")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(part.status(), 206);
+    assert_eq!(part.text().await.unwrap(), "PMTiles");
+
+    // After a restart, the server still knows the region.
+    drop((anna, dora));
+    running.stop().await.unwrap();
+    let running = start_server_with(
+        dir.path(),
+        &[("ORDO_MAP_FILE", region.display().to_string())],
+    )
+    .await
+    .unwrap();
+    let mut dora = Client::connect(running.addr, replica("dora")).await;
+    let after = dora.map_region(ClientMessage::GetMapRegion).await;
+    assert_eq!(
+        (after.state, after.area),
+        (MapRegionState::Ready, Some(augsburg))
+    );
     running.stop().await.unwrap();
 }
 

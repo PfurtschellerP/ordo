@@ -132,6 +132,22 @@ pub const WORKSPACES: &[Workspace] = &[
             icon: "notebook-text",
         }],
     },
+    // [impl->dsn~map-region~1]
+    // Only with the organisation permission `manage_map`: no incident role grants it.
+    Workspace {
+        id: "org.map",
+        package: text::TAB_ORGANISATION,
+        label: text::MAP_REGION_TITLE,
+        requires: &[],
+        permission: Some("manage_map"),
+        or_organisation: Some("manage_map"),
+        views: &[View {
+            id: "region",
+            label: text::MAP_REGION_TITLE,
+            name: "map region download offline",
+            icon: "map",
+        }],
+    },
     Workspace {
         id: "org.devices",
         package: text::TAB_ORGANISATION,

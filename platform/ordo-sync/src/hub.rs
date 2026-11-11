@@ -313,7 +313,12 @@ impl<P: AccessPolicy> Hub<P> {
         }
     }
 
-    /// The user of an authenticated connection.
+    /// Whether `user` may cut the map region the server offers (MAP-8).
+    pub fn may_manage_map(&self, user: &UserId) -> bool {
+        self.policy.can_manage_map(user)
+    }
+
+    /// The user of an authenticated session.
     pub fn session_user(&self, session: SessionId) -> Option<UserId> {
         self.sessions.get(&session).map(|s| s.user.clone())
     }
@@ -544,9 +549,12 @@ impl<P: AccessPolicy> Hub<P> {
             // Profile pictures are kept by the server's store, not by the hub.
             // Profile pictures and attachments are kept by the server's stores, not by the
             // hub (it checks access with `can_access`).
+            // Answered by the server outside the hub.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
-            | ClientMessage::BlobTicket(_) => Vec::new(),
+            | ClientMessage::BlobTicket(_)
+            | ClientMessage::GetMapRegion
+            | ClientMessage::CutMapRegion(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),
@@ -655,6 +663,7 @@ impl<P: AccessPolicy> Hub<P> {
                     "manage_incidents",
                     self.policy.can_manage_incidents(&hello.user),
                 ),
+                ("manage_map", self.policy.can_manage_map(&hello.user)),
             ]
             .into_iter()
             .filter(|(_, allowed)| *allowed)

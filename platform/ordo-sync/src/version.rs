@@ -90,11 +90,14 @@ impl VersionRange {
 /// The versions of the sync protocol this implementation speaks (spec/sync/protocol.md §11).
 pub const SYNC: VersionRange = VersionRange {
     min: Version::new(1, 0),
-    max: Version::new(1, 1),
+    max: Version::new(1, 2),
 };
 
 /// Sync protocol 1.1: `listVehicles` and `vehicles` (UNIT-1).
 pub const SYNC_VEHICLES: Version = Version::new(1, 1);
+
+/// Sync protocol 1.2: `getMapRegion`, `cutMapRegion` and `mapRegion` (MAP-8).
+pub const SYNC_MAP_REGION: Version = Version::new(1, 2);
 
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].

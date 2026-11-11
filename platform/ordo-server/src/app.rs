@@ -41,6 +41,8 @@ pub struct App {
     pub(crate) gravatar: bool,
     /// Attachments (ADR-0033).
     pub(crate) blobs: Blobs,
+    /// The map region and its cutting (ADR-0057).
+    pub(crate) map: Arc<crate::map_region::MapJob>,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     next_session: AtomicU64,
     shutdown: watch::Receiver<bool>,
@@ -67,6 +69,7 @@ impl App {
         access_timeout: std::time::Duration,
         gravatar: bool,
         blobs: Blobs,
+        map: crate::map_region::MapJob,
         stop: watch::Sender<bool>,
     ) -> Self {
         Self {
@@ -78,6 +81,7 @@ impl App {
             access_timeout,
             gravatar,
             blobs,
+            map: Arc::new(map),
             sessions: std::sync::Mutex::new(HashMap::new()),
             next_session: AtomicU64::new(1),
             shutdown: stop.subscribe(),
@@ -170,7 +174,7 @@ impl App {
     pub(crate) fn router(
         self: Arc<Self>,
         app_dir: Option<&std::path::Path>,
-        map_file: Option<&std::path::Path>,
+        map_file: &std::path::Path,
     ) -> Router {
         use axum::http::{HeaderName, HeaderValue};
         use tower_http::services::{ServeDir, ServeFile};
@@ -201,11 +205,9 @@ impl App {
             .merge(versioned)
             .with_state(self);
         // [impl->dsn~situation-map~1]
-        // The map region (ADR-0006), with range requests; map data, not personal data.
-        let api = match map_file {
-            Some(file) => api.route_service("/tiles/region.pmtiles", ServeFile::new(file)),
-            None => api,
-        };
+        // The map region (ADR-0006, ADR-0057), with range requests; map data, not personal
+        // data. Not found until one is cut or put there.
+        let api = api.route_service("/tiles/region.pmtiles", ServeFile::new(map_file));
         let router = match app_dir {
             Some(dir) => {
                 // Unknown paths fall back to index.html, so the app handles its own routes.
@@ -243,6 +245,9 @@ impl App {
         }
         if let ClientMessage::BlobTicket(request) = message {
             return self.blob_ticket(session, request).await;
+        }
+        if let ClientMessage::GetMapRegion | ClientMessage::CutMapRegion(_) = message {
+            return self.map_region(session, message).await;
         }
         let mut hub = self.hub.lock().await;
         let outgoing = hub.handle(session, message, now_ms());
@@ -316,6 +321,44 @@ impl App {
                 upload: request.upload,
                 ticket,
             }));
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~map-region~1]
+    /// Answers `getMapRegion` and `cutMapRegion` (protocol 1.2): the state, and a new cut,
+    /// for users with `manage_map`; everyone else learns nothing (state `none`).
+    async fn map_region(
+        &self,
+        session: SessionId,
+        message: ClientMessage,
+    ) -> Result<(), StoreError> {
+        let (user, version, may) = {
+            let hub = self.hub.lock().await;
+            let Some(user) = hub.session_user(session) else {
+                return Ok(()); // not authenticated: nothing
+            };
+            let may = hub.may_manage_map(&user);
+            (user, hub.session_version(session), may)
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_MAP_REGION) {
+            return Ok(());
+        }
+        let state = match (may, message) {
+            (false, _) => ordo_sync::message::MapRegion::default(),
+            (true, ClientMessage::CutMapRegion(area)) => {
+                tracing::info!(%user, lat_e7 = area.lat_e7, lon_e7 = area.lon_e7, radius_m = area.radius_m, "cutting a map region");
+                self.map.start(area, now_ms())
+            }
+            (true, _) => self.map.state(),
+        };
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::MapRegion(state));
         }
         Ok(())
     }

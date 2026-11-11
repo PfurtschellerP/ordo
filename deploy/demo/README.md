@@ -25,6 +25,12 @@ Roles are given per incident ([ADR-0046](../../docs/adr/0046-roles-granted-per-i
 3. Log in as Anna or Ben in another browser profile or private window (every profile is
    one device) and open the incident from the list.
 
+For the situation map, log in as Dora and open *Menü – Kartengrundlage*. Enter a centre
+(e.g. `48,37` and `10,90`) and a radius, then "Kartengrundlage erstellen". The demo server
+downloads that region from the Protomaps world map, so the computer needs internet access;
+a radius of 20 km can take a few minutes. Every device then sees the map under
+*Lage*, and can keep it offline there.
+
 Pair a shared tablet by QR code: "Mit QR-Code koppeln", then open the shown address in
 another window and log in there.
 

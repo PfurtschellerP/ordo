@@ -1173,3 +1173,43 @@ pub const ALL_UHS: &str = "Alle UHS";
 pub fn read_only_uhs(name: &str) -> String {
     format!("{name} (nur lesen)")
 }
+
+// Map region from the server (MAP-8)
+pub const MAP_REGION_TITLE: &str = "Kartengrundlage";
+pub const MAP_REGION_HINT: &str = "Die Kartengrundlage, die alle Geräte für die Lagekarte nutzen: ein Umkreis aus der freien Weltkarte (OpenStreetMap über Protomaps). Geräte, die eine Offline-Karte gespeichert haben, speichern sie danach neu.";
+pub const MAP_REGION_NONE: &str = "Noch keine Kartengrundlage auf dem Server.";
+pub const MAP_REGION_NEW: &str = "Neue Kartengrundlage";
+pub const MAP_REGION_LAT: &str = "Breitengrad (Mitte)";
+pub const MAP_REGION_LON: &str = "Längengrad (Mitte)";
+pub const MAP_REGION_RADIUS: &str = "Umkreis (km, 1 bis 50)";
+pub const MAP_REGION_FROM_INCIDENT: &str = "Die Mitte ist der Einsatzort des geöffneten Einsatzes.";
+pub const MAP_REGION_COORDINATES: &str = "Mitte als Dezimalgrad, z. B. 48,37 und 10,90.";
+pub const MAP_REGION_CUT: &str = "Kartengrundlage erstellen";
+pub const MAP_REGION_PROGRESS: &str = "Fortschritt";
+pub const MAP_REGION_INVALID: &str = "Bitte Breitengrad (−85 bis 85), Längengrad (−180 bis 180) und einen Umkreis von 1 bis 50 km angeben.";
+
+pub fn map_region_running(done: u64, total: u64) -> String {
+    if total == 0 {
+        "Kartengrundlage wird vorbereitet …".to_owned()
+    } else {
+        format!("Kartengrundlage wird erstellt: {done} von {total} Kacheln …")
+    }
+}
+
+pub fn map_region_ready(area: Option<(f64, f64, f64)>, bytes: f64, at: Option<String>) -> String {
+    let what = area.map_or_else(String::new, |(lat, lon, km)| {
+        format!(
+            " Umkreis {} km um {lat:.5}, {lon:.5}.",
+            format!("{km}").replace('.', ",")
+        )
+    });
+    let when = at.map_or_else(String::new, |at| format!(" Erstellt {at}."));
+    format!(
+        "Kartengrundlage bereit ({} MB).{what}{when}",
+        megabytes(bytes)
+    )
+}
+
+pub fn map_region_failed(error: &str) -> String {
+    format!("Die Kartengrundlage konnte nicht erstellt werden: {error}")
+}

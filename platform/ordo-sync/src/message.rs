@@ -26,12 +26,72 @@ pub enum ClientMessage {
     ListPeople,
     /// Asks for the installation's vehicles (master data, UNIT-1); protocol 1.1.
     ListVehicles,
+    /// Asks for the state of the map region (MAP-8); protocol 1.2.
+    GetMapRegion,
+    /// Asks the server to cut a new map region (permission `manage_map`); protocol 1.2.
+    CutMapRegion(MapRegionRequest),
     /// Asks for the profile pictures of these people (ADR-0047).
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
     SetAvatar(AvatarImage),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
+}
+
+/// Where to cut a map region (MAP-8): a centre and a radius. Degrees × 10⁷, as PMTiles
+/// stores them, so the message stays exact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapRegionRequest {
+    /// Latitude of the centre, degrees × 10⁷.
+    #[serde(rename = "latE7")]
+    pub lat_e7: i32,
+    /// Longitude of the centre, degrees × 10⁷.
+    #[serde(rename = "lonE7")]
+    pub lon_e7: i32,
+    /// Radius in metres (1,000 to 50,000).
+    pub radius_m: u32,
+}
+
+/// How far the server's map region is (MAP-8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MapRegionState {
+    /// No region (or the user may not see its state).
+    #[default]
+    None,
+    /// Being cut.
+    Running,
+    /// Ready at `/tiles/region.pmtiles`.
+    Ready,
+    /// The last cut failed; an earlier region stays.
+    Failed,
+}
+
+/// The map region and the cutting of a new one (answer to `getMapRegion`, `cutMapRegion`).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapRegion {
+    /// State.
+    pub state: MapRegionState,
+    /// Tiles fetched (running).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub done: Option<u64>,
+    /// Tiles to fetch (running).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total: Option<u64>,
+    /// Size of the region file (ready).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bytes: Option<u64>,
+    /// Centre and radius of the region being cut or ready.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<MapRegionRequest>,
+    /// When it was cut, ms since the Unix epoch (ready).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<u64>,
+    /// Why the last cut failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// A request for an attachment ticket. Attachments are encrypted on the device and named
@@ -219,6 +279,8 @@ pub enum ServerMessage {
     /// The installation's vehicles (answer to `listVehicles`, protocol 1.1): empty for
     /// those who may not edit units anywhere.
     Vehicles(Vec<Vehicle>),
+    /// The map region (answer to `getMapRegion` and `cutMapRegion`, protocol 1.2).
+    MapRegion(MapRegion),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// Answer to `blobTicket`.

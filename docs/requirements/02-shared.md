@@ -273,6 +273,15 @@ Tags: could, shared
 
 Needs: dsn
 
+#### MAP-8 — Map region from the server
+`req~map-8~1`
+
+When an administrator chooses a centre and a radius, ORDO shall cut that region from an open world map on the server, show the progress, and offer the region to every device, for offline use as well.
+
+Tags: must, shared, m38
+
+Needs: dsn
+
 ### 4.6 Shared: incident log (*Einsatztagebuch*)
 
 #### LOG-1 — Automatic log

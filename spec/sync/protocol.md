@@ -123,6 +123,14 @@ answers `vehicles`, with the list only for a user with `manage_incidents` or who
 permit `edit_units` in some incident, and an empty list for everyone else. A session
 agreed on 1.0 gets no answer.
 
+`getMapRegion` (version 1.2) asks for the state of the map region the server offers at
+`/tiles/region.pmtiles`; `cutMapRegion` asks the server to cut a new one around a centre
+with a radius of 1 to 50 km from its world map. Both are answered with `mapRegion`. The
+server MUST cut only for a user with the organisation permission `manage_map`, at most one
+region at a time, and replace the region file only once the new one is complete; it
+answers anyone else with the state `none`. A device asks again while the state is
+`running`. A session agreed on 1.0 or 1.1 gets no answer.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with
@@ -188,4 +196,5 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
+| 1.2 | `getMapRegion`, `cutMapRegion` and `mapRegion` (§7) | unchanged |
 

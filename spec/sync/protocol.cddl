@@ -1,4 +1,4 @@
-; ORDO sync protocol — draft 1, version 1.1
+; ORDO sync protocol — draft 1, version 1.2
 ;
 ; Messages between devices and the server, CBOR-encoded (RFC 8949). Enums use the
 ; externally tagged form { "name": content }. Event structures: event.cddl.
@@ -13,6 +13,8 @@ client-message = { "hello": hello }
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
                / "listVehicles"               ; vehicles of the installation (1.1)
+               / "getMapRegion"               ; state of the map region (1.2)
+               / { "cutMapRegion": map-region-request } ; with manage_map (1.2)
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
@@ -59,6 +61,8 @@ server-message = { "challenge": challenge }
                                               ; user may grant roles somewhere
                / { "vehicles": [* vehicle] }  ; answer to listVehicles (1.1); empty unless
                                               ; the user may edit units somewhere
+               / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
+                                              ; (1.2); state "none" without manage_map
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
                / { "blobTicket": blob-ticket } ; answer to blobTicket
 
@@ -150,3 +154,20 @@ rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
           / "wrongAuthor" / "badSignature"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId" / "unsupportedVersion"
+
+; The map region the server offers its devices (MAP-8): cut from a world map around a centre.
+map-region-request = {
+  "latE7": int,                    ; centre, WGS 84, degrees × 10^7 (as in PMTiles)
+  "lonE7": int,
+  "radiusM": uint,                 ; metres, 1000 to 50000
+}
+
+map-region = {
+  "state": "none" / "running" / "ready" / "failed",
+  ? "done": uint,                  ; tiles fetched (running)
+  ? "total": uint,                 ; tiles to fetch (running)
+  ? "bytes": uint,                 ; size of the region file (ready)
+  ? "area": map-region-request,    ; the region's centre and radius (running, ready)
+  ? "at": uint,                    ; when it was cut, ms since the Unix epoch (ready)
+  ? "error": tstr,                 ; why it failed (failed)
+}

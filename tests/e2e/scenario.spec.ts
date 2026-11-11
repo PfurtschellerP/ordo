@@ -107,6 +107,20 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
     await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
     await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
+    // [itest->dsn~map-region~1]
+    // MAP-8: the administrator cuts the map region for every device on the server.
+    await dora.locator("#launcher-button").click();
+    await dora.locator(".launcher__item", { hasText: "Kartengrundlage" }).click();
+    const region = dora.locator(".map-region__state");
+    await expect(region).toHaveText("Noch keine Kartengrundlage auf dem Server.");
+    await dora.locator("#region-lat").fill("48,37");
+    await dora.locator("#region-lon").fill("10,9");
+    await dora.locator("#region-radius").fill("10");
+    await dora.getByRole("button", { name: "Kartengrundlage erstellen" }).click();
+    await expect(region, "the server cuts it and reports when it is ready").toHaveText(/^Kartengrundlage bereit \(\d+,\d MB\)\. Umkreis 10 km um 48\.37000, 10\.90000\./, { timeout: 30_000 });
+    await audit(dora, "Map region");
+    await dora.locator("#launcher-button").click();
+    await dora.locator(".launcher__item", { hasText: "Lage" }).first().click();
     await openView(dora, "Führung");
     await expect(dora.locator(".roster__entry"), "the planner is its commander").toHaveCount(1);
     await grantRole(dora, "anna@localhost", "Sanitätsdienst");

@@ -21,6 +21,15 @@ permit (
 )
 when { context.roles.contains("planner") || context.roles.contains("admin") };
 
+// Planners and administrators prepare the map region for the installation (MAP-8).
+@id("admin.manage-map")
+permit (
+  principal,
+  action == Action::"manage_map",
+  resource == Organisation::"organisation"
+)
+when { context.roles.contains("planner") || context.roles.contains("admin") };
+
 // Planners see and edit the shared data of every incident (name, roster, units), never
 // clinical data, and use the incident command's views to prepare it.
 @id("admin.planner-views")
