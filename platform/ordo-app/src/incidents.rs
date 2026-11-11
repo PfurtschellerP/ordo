@@ -10,6 +10,8 @@ use crate::views::{after_render, focus};
 
 /// Permission to plan incidents and grant roles in all of them.
 const MANAGE_INCIDENTS: &str = "manage_incidents";
+/// Permission to prepare the map region (ADR-0057, ADR-0062).
+const MANAGE_MAP: &str = "manage_map";
 
 // [impl->dsn~incident-roles~1]
 /// The incidents the user may open, and — for planners — planning a new one.
@@ -142,9 +144,87 @@ pub fn IncidentPicker(
     }
 }
 
+/// Whether the user leads the chosen incident or plans incidents: they grant roles and
+/// change its state.
+pub fn may_manage(core: Handle) -> bool {
+    core.with_value(|c| {
+        let me = c.replica.user().clone();
+        c.replica.has_permission(MANAGE_INCIDENTS)
+            || c.incident_info().is_some_and(|i| {
+                i.roster
+                    .get(&me)
+                    .is_some_and(|r| r.contains(core::COMMANDER))
+            })
+    })
+}
+
+// [impl->dsn~workspaces-by-phase~1]
+/// The incident itself (*Vorbereitung – Einsatz*): name and state, which its command
+/// starts and closes, and the map region of its area.
+#[component]
+pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let info = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.incident_info())
+    });
+    let manage = Memo::new(move |_| {
+        revision.track();
+        may_manage(core)
+    });
+    // [impl->dsn~map-region~1]
+    let map_region = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.replica.has_permission(MANAGE_MAP)
+                || c.incident
+                    .as_ref()
+                    .is_some_and(|i| c.replica.may(i, MANAGE_MAP))
+        })
+    });
+    let error = RwSignal::new(None::<String>);
+    let set_state = move |state: IncidentState| {
+        if let Err(e) = core::set_incident_state(core, revision, state) {
+            error.set(Some(e));
+        }
+    };
+    view! {
+        <section aria-labelledby="incident-title" class="card">
+            <h2 id="incident-title">{text::INCIDENT_PAGE_TITLE}</h2>
+            {move || info.get().map(|i| view! {
+                <p>
+                    <strong>{i.name.clone()}</strong> " · " {text::INCIDENT_STATE} ": "
+                    <span id="incident-state">{text::state_label(i.state)}</span>
+                </p>
+            })}
+            <p class="hint">{text::INCIDENT_PREPARE}</p>
+            <Show when=move || manage.get()>
+                <div class="row">
+                    {move || info.get().map(|i| match i.state {
+                        IncidentState::Planned => view! {
+                            <button type="button" class="button button--primary" on:click=move |_| set_state(IncidentState::Active)>
+                                {text::START_INCIDENT}
+                            </button>
+                        }.into_any(),
+                        IncidentState::Active => view! {
+                            <button type="button" class="button" on:click=move |_| set_state(IncidentState::Closed)>
+                                {text::CLOSE_INCIDENT}
+                            </button>
+                        }.into_any(),
+                        IncidentState::Closed => ().into_any(),
+                    })}
+                </div>
+            </Show>
+            <p role="alert" class="error">{move || error.get()}</p>
+        </section>
+        <Show when=move || map_region.get()>
+            <crate::map_region::MapRegionView core revision />
+        </Show>
+    }
+}
+
 // [impl->dsn~incident-roles~1]
 /// The roster of the chosen incident; its command (or a planner) grants and withdraws
-/// roles and changes the state.
+/// roles.
 #[component]
 pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let info = Memo::new(move |_| {
@@ -153,15 +233,7 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let manage = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| {
-            let me = c.replica.user().clone();
-            c.replica.has_permission(MANAGE_INCIDENTS)
-                || c.incident_info().is_some_and(|i| {
-                    i.roster
-                        .get(&me)
-                        .is_some_and(|r| r.contains(core::COMMANDER))
-                })
-        })
+        may_manage(core)
     });
     // [impl->dsn~person-suggestions~1]
     // Those who grant roles get the people the server knows as suggestions.
@@ -187,37 +259,9 @@ pub fn RosterView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             Err(e) => error.set(Some(e)),
         }
     };
-    let set_state = move |state: IncidentState| {
-        if let Err(e) = core::set_incident_state(core, revision, state) {
-            error.set(Some(e));
-        }
-    };
     view! {
         <section aria-labelledby="roster-title" class="card">
             <h2 id="roster-title">{text::ROSTER_TITLE}</h2>
-            {move || info.get().map(|i| view! {
-                <p>
-                    <strong>{i.name.clone()}</strong> " · " {text::INCIDENT_STATE} ": "
-                    <span id="incident-state">{text::state_label(i.state)}</span>
-                </p>
-            })}
-            <Show when=move || manage.get()>
-                <div class="row">
-                    {move || info.get().map(|i| match i.state {
-                        IncidentState::Planned => view! {
-                            <button type="button" class="button" on:click=move |_| set_state(IncidentState::Active)>
-                                {text::START_INCIDENT}
-                            </button>
-                        }.into_any(),
-                        IncidentState::Active => view! {
-                            <button type="button" class="button" on:click=move |_| set_state(IncidentState::Closed)>
-                                {text::CLOSE_INCIDENT}
-                            </button>
-                        }.into_any(),
-                        IncidentState::Closed => ().into_any(),
-                    })}
-                </div>
-            </Show>
             {move || {
                 // One entry per person, with all their roles.
                 let roster: Vec<(String, Vec<String>)> = info

@@ -19,7 +19,13 @@ const MANAGE_DEVICES: &str = "manage_devices";
 // [impl->dsn~device-revocation~1]
 /// The device list: own devices, or all with `manage_devices`.
 #[component]
-pub fn DevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+pub fn DevicesView(
+    core: Handle,
+    revision: RwSignal<u64>,
+    /// Only the person's own devices (*Meine Geräte*), also for administrators.
+    #[prop(default = false)]
+    mine_only: bool,
+) -> impl IntoView {
     let ready = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| c.replica.is_ready())
@@ -37,17 +43,22 @@ pub fn DevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let all = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| c.replica.has_permission(MANAGE_DEVICES))
+        !mine_only && core.with_value(|c| c.replica.has_permission(MANAGE_DEVICES))
     });
+    let me = core.with_value(|c| c.replica.user().clone());
     let devices = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| c.devices.clone())
+        core.with_value(|c| c.devices.clone()).map(|list| {
+            list.into_iter()
+                .filter(|d| !mine_only || d.user == me)
+                .collect::<Vec<_>>()
+        })
     });
     let own = core.with_value(|c| c.replica.device());
     let confirming = RwSignal::new(None::<DeviceId>);
     view! {
         <section aria-labelledby="devices-title" class="card">
-            <h2 id="devices-title" tabindex="-1">{text::DEVICES}</h2>
+            <h2 id="devices-title" tabindex="-1">{if mine_only { text::MY_DEVICES } else { text::DEVICES }}</h2>
             <p>{move || if all.get() { text::DEVICES_INTRO_ALL } else { text::DEVICES_INTRO_OWN }}</p>
             {move || {
                 if !ready.get() {

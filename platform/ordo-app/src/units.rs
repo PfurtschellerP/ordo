@@ -265,7 +265,7 @@ fn UnitCard(
                 {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength /> })}
             </p>
             <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
-            // [impl->dsn~tasks~1]
+            // [impl->dsn~tasks~2]
             {(!tasks.is_empty()).then(|| view! {
                 <p class="unit-card__tasks">{text::TASKS_OF_UNIT} ": " {tasks.join(" · ")}</p>
             })}

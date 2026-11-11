@@ -279,7 +279,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~1`
+`dsn~tasks~2`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment. `tasks.given`
 gives a task a new ID (ULID): to a unit (call sign; sectors follow with the command
@@ -290,9 +290,10 @@ time; the latest update by hybrid logical clock counts, every update stays in it
 with who and when. A follow-up is due once its time has passed and the task is open.
 
 Only the incident command gives and updates tasks (Cedar: medical roles may not write the
-module). Because the command workspace has its four views, the open tasks are a panel at
-the top of every command view (TASK-3): due follow-ups first, then by age, each with its
-unit and next steps; the panel also gives new tasks. Each unit card lists its open tasks.
+module). The page *Disposition* (*Einsatzleitung – Führung*) lists the open tasks, due follow-ups
+first, then by age, each with its unit and next steps, and gives new tasks. Every other
+view of the incident command shows them in short at the top (TASK-3): how many are open,
+which are due, linked to the page. Each unit card lists its open tasks.
 "Due" is shown in words and with an icon, not by colour alone.
 
 Covers:
@@ -651,7 +652,7 @@ palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Flu
 #### Local persistence
 `dsn~local-persistence~1`
 
-The app saves the replica state (ordered events, outbox, data keys) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8). The stored state names its format (`REPLICA_FORMAT`), which is read before anything else. A state written by a newer version, or one that cannot be read, stops the start with a message and is left untouched: the device never starts empty over stored data. An older format is upgraded when it is read.
+The app saves the replica state (ordered events, outbox, data keys, and the permissions of the last welcome, so a reload without a connection shows the same views) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8). The stored state names its format (`REPLICA_FORMAT`), which is read before anything else. A state written by a newer version, or one that cannot be read, stops the start with a message and is left untouched: the device never starts empty over stored data. An older format is upgraded when it is read.
 
 Covers:
 

@@ -49,6 +49,10 @@ one static binary. It extends ADR-0006 and does not replace it.
 
 ## More Information
 
+Amended by [ADR-0062](0062-map-region-per-incident.md): a region per incident, cut by
+its incident command, read with a ticket.
+
+
 [pmtiles-rs](https://github.com/stadiamaps/pmtiles-rs),
 [Protomaps basemap downloads](https://docs.protomaps.com/basemaps/downloads),
 [spec/sync/protocol.md](../../spec/sync/protocol.md).

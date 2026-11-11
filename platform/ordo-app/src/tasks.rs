@@ -121,9 +121,43 @@ fn TaskItem(
     }
 }
 
-// [impl->dsn~tasks~1]
-/// The open tasks (TASK-3), at the top of every command view: due follow-ups first; the
-/// command gives new tasks here (TASK-1).
+// [impl->dsn~tasks~2]
+/// The open tasks in short, at the top of every view of the incident command (TASK-3): how
+/// many, which are due, and a link to the page *Disposition*.
+#[component]
+pub fn TasksStrip(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let open = Memo::new(move |_| {
+        revision.track();
+        let now = core::now_ms();
+        let list = task_list(core);
+        let open = list.open(now);
+        let due: Vec<String> = open
+            .iter()
+            .filter(|t| t.is_due(now))
+            .map(|t| t.given.text.clone())
+            .collect();
+        (open.len(), due)
+    });
+    view! {
+        <section class="tasks-strip" aria-labelledby="tasks-strip-title">
+            <h2 id="tasks-strip-title" class="tasks-strip__title">
+                <a href=crate::nav::Route::view("command.lead", "dispatch").to_path()
+                    on:click=crate::views::follow_route(crate::nav::Route::view("command.lead", "dispatch"))>
+                    {move || open.with(|(n, due)| text::tasks_strip(*n, due.len()))}
+                </a>
+            </h2>
+            {move || open.with(|(_, due)| (!due.is_empty()).then(|| view! {
+                <ul class="tasks-strip__due">
+                    {due.iter().map(|t| view! { <li><crate::ui::Icon name="clipboard-list" /> {text::DUE} ": " {t.clone()}</li> }).collect_view()}
+                </ul>
+            }))}
+        </section>
+    }
+}
+
+// [impl->dsn~tasks~2]
+/// The page *Disposition*: all open tasks, due follow-ups first; the command gives new tasks
+/// here (TASK-1).
 #[component]
 pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let editable = Memo::new(move |_| {

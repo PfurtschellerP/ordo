@@ -36,7 +36,7 @@ fn is_final(reason: crate::message::Rejection) -> bool {
 
 /// The format of [`ReplicaState`] this version writes. Raise it when the stored form
 /// changes, and handle older formats in [`ReplicaState::decode`].
-pub const REPLICA_FORMAT: u32 = 1;
+pub const REPLICA_FORMAT: u32 = 2;
 
 /// Everything a device stores locally, for saving and loading (e.g. browser storage).
 ///
@@ -64,6 +64,13 @@ pub struct ReplicaState {
     /// End of the device's login (ADR-0040).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valid_until: Option<u64>,
+    /// Permissions beyond compartments from the last welcome (format 2), so the app shows
+    /// the same views after a reload without a connection.
+    #[serde(default)]
+    pub permissions: Vec<String>,
+    /// Views and functions per incident from the last welcome (format 2).
+    #[serde(default)]
+    pub incident_permissions: Vec<crate::message::IncidentPermissions>,
 }
 
 /// Why a stored [`ReplicaState`] cannot be used.
@@ -93,7 +100,8 @@ impl ReplicaState {
         if format > REPLICA_FORMAT {
             return Err(StoredStateError::Newer(format));
         }
-        // Format 0 (before the first release) has the same form as format 1.
+        // Formats 0 and 1 (before the first release) lack only the permissions of format 2,
+        // which the next welcome brings.
         crate::message::decode(bytes).map_err(|e| StoredStateError::Unreadable(e.to_string()))
     }
 }
@@ -238,6 +246,8 @@ impl Replica {
             streams: Vec::new(),
             outbox: self.outbox.clone(),
             valid_until: self.valid_until,
+            permissions: self.permissions.clone(),
+            incident_permissions: self.incident_permissions.clone(),
         }
     }
 
@@ -288,6 +298,8 @@ impl Replica {
             replica.outbox.push((key, event));
         }
         replica.valid_until = state.valid_until;
+        replica.permissions = state.permissions;
+        replica.incident_permissions = state.incident_permissions;
         Ok(replica)
     }
 
@@ -749,6 +761,8 @@ mod stored_state_tests {
             streams: Vec::new(),
             outbox: Vec::new(),
             valid_until: Some(42),
+            permissions: vec!["manage_devices".into()],
+            incident_permissions: Vec::new(),
         }
     }
 
@@ -760,6 +774,11 @@ mod stored_state_tests {
         assert_eq!(
             (decoded.format, decoded.valid_until),
             (REPLICA_FORMAT, Some(42))
+        );
+        assert_eq!(
+            decoded.permissions,
+            ["manage_devices"],
+            "the last welcome's permissions, for a reload without a connection"
         );
 
         // Before the first release the field was missing: format 0, same form.

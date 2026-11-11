@@ -22,6 +22,10 @@ pub struct View {
     pub name: &'static str,
     /// Icon (Lucide name), shown with the label in the rail and the bottom bar.
     pub icon: &'static str,
+    /// A permission this view needs beyond its workspace's, given by the roles in this
+    /// incident or by an organisation role (e.g. `manage_accounts`); without it, the view
+    /// is not offered.
+    pub permission: Option<&'static str>,
 }
 
 /// A workspace: the environment of one role.
@@ -37,13 +41,32 @@ pub struct Workspace {
     /// A permission the user's roles must give in this incident (e.g. `view_situation`),
     /// decided by the server's policies.
     pub permission: Option<&'static str>,
-    /// An organisation permission that opens the workspace as well (e.g. `manage_devices`).
-    pub or_organisation: Option<&'static str>,
+    /// Organisation permissions, any of which opens the workspace (e.g. `manage_devices`).
+    /// A workspace with these and no incident permission is for administration only.
+    pub or_organisation: &'static [&'static str],
     /// Views, in navigation order. The first is the start view.
     pub views: &'static [View],
+    /// Not in the launcher: opened from elsewhere (e.g. the person's menu).
+    pub hidden: bool,
 }
 
-/// All workspaces of the packages in use, in launcher order.
+const fn view(
+    id: &'static str,
+    label: &'static str,
+    name: &'static str,
+    icon: &'static str,
+) -> View {
+    View {
+        id,
+        label,
+        name,
+        icon,
+        permission: None,
+    }
+}
+
+// [impl->dsn~workspaces-by-phase~1]
+/// All workspaces of the packages in use, in launcher order (ADR-0061).
 pub const WORKSPACES: &[Workspace] = &[
     Workspace {
         id: "med.uhs",
@@ -51,148 +74,142 @@ pub const WORKSPACES: &[Workspace] = &[
         label: "UHS",
         requires: &["incident", "med.clinical"],
         permission: None,
-        or_organisation: None,
+        or_organisation: &[],
         views: &[
-            View {
-                id: "patients",
-                label: "Patienten",
-                name: "patients",
-                icon: "users",
-            },
-            View {
-                id: "orders",
-                label: text::ORDERS,
-                name: "orders",
-                icon: "clipboard-list",
-            },
-            View {
-                id: "uhs",
-                label: "UHS verwalten",
-                name: "manage uhs",
-                icon: "tent",
-            },
-            View {
-                id: "overview",
-                label: text::OVERVIEW,
-                name: "overview",
-                icon: "chart-column",
-            },
+            view("patients", "Patienten", "patients", "users"),
+            view("orders", text::ORDERS, "orders", "clipboard-list"),
+            view("uhs", "UHS verwalten", "manage uhs", "tent"),
+            view("overview", text::OVERVIEW, "overview", "chart-column"),
         ],
+        hidden: false,
     },
+    // The incident command (ADR-0061): leading the running incident …
     Workspace {
-        id: "command.situation",
+        id: "command.lead",
         package: text::TAB_COMMAND,
-        label: "Lage",
+        label: text::WS_LEAD,
         requires: &["incident"],
-        // The incident command's view; UHS crews do not see it.
+        // The incident command's views; UHS crews do not see them.
         permission: Some("view_situation"),
-        or_organisation: None,
+        or_organisation: &[],
         views: &[
-            View {
-                id: "counts",
-                label: "Lage",
-                name: "situation map patient counts",
-                icon: "map",
-            },
-            View {
-                id: "transports",
-                label: text::TRANSPORTS,
-                name: "transports",
-                icon: "ambulance",
-            },
-            View {
-                id: "units",
-                label: text::TAB_RESOURCES,
-                name: "units",
-                icon: "truck",
-            },
-            View {
-                id: "roster",
-                label: text::ROSTER,
-                name: "roster",
-                icon: "id-card",
-            },
+            view(
+                "overview",
+                text::OVERVIEW,
+                "overview summary",
+                "layout-grid",
+            ),
+            view("map", text::MAP_TITLE, "situation map", "map"),
+            view(
+                "dispatch",
+                text::DISPATCH,
+                "dispatch tasks orders",
+                "clipboard-list",
+            ),
+            view("transports", text::TRANSPORTS, "transports", "ambulance"),
         ],
+        hidden: false,
     },
-    // The incident command sees its own devices; with `manage_devices` (administrators),
-    // all devices. UHS crews unpair their device in the menu.
+    // … and what is set up before and adjusted during it.
+    Workspace {
+        id: "command.prepare",
+        package: text::TAB_COMMAND,
+        label: text::WS_PREPARE,
+        requires: &["incident"],
+        permission: Some("view_situation"),
+        or_organisation: &[],
+        views: &[
+            view(
+                "incident",
+                text::INCIDENT_PAGE,
+                "incident start close map region",
+                "flag",
+            ),
+            view("units", text::TAB_RESOURCES, "units", "truck"),
+            view(
+                "people",
+                text::PEOPLE,
+                "people helpers roles roster",
+                "id-card",
+            ),
+            view(
+                "structure",
+                text::STRUCTURE_TITLE,
+                "command structure",
+                "network",
+            ),
+        ],
+        hidden: false,
+    },
     // [impl->dsn~incident-log~1]
     // Everyone in the incident; each device shows only what its user may read (LOG-6).
     Workspace {
         id: "incident.log",
-        package: text::TAB_INCIDENT,
+        package: text::TAB_COMMAND,
         label: text::LOG_TITLE,
         requires: &["incident"],
         permission: None,
-        or_organisation: None,
-        views: &[View {
-            id: "log",
-            label: text::LOG_TITLE,
-            name: "incident log diary",
-            icon: "notebook-text",
-        }],
+        or_organisation: &[],
+        views: &[view(
+            "log",
+            text::LOG_TITLE,
+            "incident log diary",
+            "notebook-text",
+        )],
+        hidden: false,
     },
-    // [impl->dsn~map-region~1]
-    // Only with the organisation permission `manage_map`: no incident role grants it.
+    // Administration beyond one incident: only organisation roles open it, never a role in
+    // an incident; each view needs its own permission.
     Workspace {
-        id: "org.map",
-        package: text::TAB_ORGANISATION,
-        label: text::MAP_REGION_TITLE,
+        id: "admin.access",
+        package: text::TAB_ADMIN,
+        label: text::WS_ACCESS,
         requires: &[],
-        permission: Some("manage_map"),
-        or_organisation: Some("manage_map"),
-        views: &[View {
-            id: "region",
-            label: text::MAP_REGION_TITLE,
-            name: "map region download offline",
-            icon: "map",
-        }],
+        permission: None,
+        or_organisation: &["manage_accounts", "manage_roles", "manage_devices"],
+        views: &[
+            // [impl->dsn~local-accounts~1]
+            View {
+                permission: Some("manage_accounts"),
+                ..view(
+                    "accounts",
+                    text::ACCOUNTS,
+                    "accounts login passwords users",
+                    "users",
+                )
+            },
+            // [impl->dsn~organisation-roles~1]
+            View {
+                permission: Some("manage_roles"),
+                ..view(
+                    "permissions",
+                    text::ORG_ROLES,
+                    "permissions roles administrators planners organisation",
+                    "key-round",
+                )
+            },
+            View {
+                permission: Some("manage_devices"),
+                ..view("devices", text::DEVICES, "devices", "tablet-smartphone")
+            },
+        ],
+        hidden: false,
     },
-    // [impl->dsn~local-accounts~1]
-    // Only with the organisation permission `manage_accounts`.
+    // The person's own devices, for everyone (SEC-4): opened from the person's menu.
     Workspace {
-        id: "org.accounts",
-        package: text::TAB_ORGANISATION,
-        label: text::ACCOUNTS,
+        id: "person.devices",
+        package: text::TAB_PERSON,
+        label: text::MY_DEVICES,
         requires: &[],
-        permission: Some("manage_accounts"),
-        or_organisation: Some("manage_accounts"),
-        views: &[View {
-            id: "accounts",
-            label: text::ACCOUNTS,
-            name: "accounts login passwords users",
-            icon: "users",
-        }],
-    },
-    // [impl->dsn~organisation-roles~1]
-    // Only with the organisation permission `manage_roles`.
-    Workspace {
-        id: "org.roles",
-        package: text::TAB_ORGANISATION,
-        label: text::ORG_ROLES,
-        requires: &[],
-        permission: Some("manage_roles"),
-        or_organisation: Some("manage_roles"),
-        views: &[View {
-            id: "roles",
-            label: text::ORG_ROLES,
-            name: "roles administrators planners organisation",
-            icon: "id-card",
-        }],
-    },
-    Workspace {
-        id: "org.devices",
-        package: text::TAB_ORGANISATION,
-        label: text::DEVICES,
-        requires: &[],
-        permission: Some("view_situation"),
-        or_organisation: Some("manage_devices"),
-        views: &[View {
-            id: "devices",
-            label: text::DEVICES,
-            name: "devices",
-            icon: "tablet-smartphone",
-        }],
+        permission: None,
+        or_organisation: &[],
+        views: &[view(
+            "devices",
+            text::MY_DEVICES,
+            "my devices",
+            "tablet-smartphone",
+        )],
+        hidden: true,
     },
 ];
 
@@ -204,7 +221,7 @@ pub fn workspace(id: &str) -> Option<&'static Workspace> {
 /// Packages in launcher order, each with its workspaces.
 pub fn packages() -> Vec<(&'static str, Vec<&'static Workspace>)> {
     let mut packages: Vec<(&'static str, Vec<&'static Workspace>)> = Vec::new();
-    for w in WORKSPACES {
+    for w in WORKSPACES.iter().filter(|w| !w.hidden) {
         match packages.iter_mut().find(|(p, _)| *p == w.package) {
             Some((_, list)) => list.push(w),
             None => packages.push((w.package, vec![w])),
@@ -317,7 +334,7 @@ mod tests {
         let route = Route::record("med.uhs", "patients", "DE 0042/ä");
         assert_eq!(route.to_path(), "/med.uhs/patients/DE%200042%2F%C3%A4");
         assert_eq!(Route::from_path(&route.to_path()), Some(route));
-        let view = Route::view("command.situation", "units");
+        let view = Route::view("command.prepare", "units");
         assert_eq!(Route::from_path(&view.to_path()), Some(view));
     }
 
@@ -335,6 +352,6 @@ mod tests {
         for w in WORKSPACES {
             assert!(!w.views.is_empty(), "{}", w.id);
         }
-        assert_eq!(packages().len(), 4);
+        assert_eq!(packages().len(), 3);
     }
 }

@@ -163,7 +163,7 @@ pub struct TaskList {
 }
 
 impl TaskList {
-    // [impl->dsn~tasks~1]
+    // [impl->dsn~tasks~2]
     /// Computes the list. The result doesn't depend on the order of `events`: a task given
     /// twice keeps its first version, updates apply in clock order and never go back,
     /// updates for unknown tasks are ignored.
@@ -228,7 +228,7 @@ impl TaskList {
         Self { tasks }
     }
 
-    // [impl->dsn~tasks~1]
+    // [impl->dsn~tasks~2]
     /// The open tasks (TASK-3): due follow-ups first (earliest due first), then the oldest.
     pub fn open(&self, now_ms: u64) -> Vec<&Task> {
         let mut open: Vec<&Task> = self.tasks.values().filter(|t| t.status.is_open()).collect();
@@ -352,7 +352,7 @@ mod tests {
         event(n, "ben", UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~1]
+    // [utest->dsn~tasks~2]
     #[test]
     fn tasks_move_forward_with_history_and_never_back() {
         let mut events = vec![
@@ -374,7 +374,7 @@ mod tests {
         assert!(list.open(0).is_empty());
     }
 
-    // [utest->dsn~tasks~1]
+    // [utest->dsn~tasks~2]
     #[test]
     fn due_follow_ups_come_first_and_a_new_time_postpones_them() {
         let events = vec![

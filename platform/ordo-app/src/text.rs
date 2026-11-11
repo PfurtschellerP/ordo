@@ -52,8 +52,16 @@ pub fn pending(n: usize) -> String {
 
 pub const TAB_MED: &str = "Sanität";
 pub const TAB_COMMAND: &str = "Einsatzleitung";
-pub const TAB_ORGANISATION: &str = "Organisation";
-pub const TAB_INCIDENT: &str = "Einsatz";
+pub const TAB_ADMIN: &str = "Administration";
+pub const TAB_PERSON: &str = "Person";
+pub const MY_DEVICES: &str = "Meine Geräte";
+/// Workspaces of the incident command, by phase (ADR-0061).
+pub const WS_LEAD: &str = "Führung";
+pub const WS_PREPARE: &str = "Vorbereitung";
+pub const DISPATCH: &str = "Disposition";
+pub const PEOPLE: &str = "Personal";
+pub const WS_ACCESS: &str = "Zugriff";
+pub const INCIDENT_PAGE: &str = "Einsatz";
 
 pub const DEVICES: &str = "Geräte";
 pub const DEVICES_INTRO_OWN: &str = "Die eigenen gekoppelten Geräte. Ein verlorenes oder gestohlenes Gerät hier sperren: Es wird sofort getrennt und löscht seine Daten, sobald es sich wieder verbindet.";
@@ -378,14 +386,74 @@ pub const PLAN_TITLE: &str = "Einsatz planen";
 pub const PLAN_NAME: &str = "Name des Einsatzes";
 pub const PLAN_SUBMIT: &str = "Einsatz anlegen";
 pub const CHANGE_INCIDENT: &str = "Einsatz wechseln";
-pub const ROSTER: &str = "Führung";
-pub const ROSTER_TITLE: &str = "Personal und Rollen";
+pub const ROSTER_TITLE: &str = "Rollen im Einsatz";
 pub const ROSTER_EMPTY: &str = "Noch niemand hat eine Rolle in diesem Einsatz.";
 pub const ROSTER_PERSON: &str = "Person (name@server)";
 pub const ROSTER_ROLE: &str = "Rolle";
 pub const GRANT: &str = "Rolle vergeben";
 pub const WITHDRAW: &str = "Entziehen";
 pub const INCIDENT_STATE: &str = "Status";
+pub const INCIDENT_PAGE_TITLE: &str = "Einsatz";
+pub const INCIDENT_PREPARE: &str = "Vorbereiten: Kartengrundlage, Einsatzmittel und Personal mit Rollen. Beginnen Sie den Einsatz, wenn er läuft.";
+pub const SUMMARY_LOG: &str = "Alles, was im Einsatz geschieht, mit Zeit und Person.";
+
+/// Link of an overview card.
+pub fn summary_open(page: &str) -> String {
+    format!("Zu {page}")
+}
+pub fn summary_incident(name: &str, state: Option<&str>) -> String {
+    match state {
+        Some(state) => format!("{name} · {state}"),
+        None => name.to_owned(),
+    }
+}
+pub fn summary_map(objects: usize) -> String {
+    match objects {
+        0 => "Noch nichts auf der Karte.".to_owned(),
+        1 => "1 Objekt auf der Karte.".to_owned(),
+        n => format!("{n} Objekte auf der Karte."),
+    }
+}
+pub fn summary_patients(patients: u32, uhs: usize) -> String {
+    format!("{patients} Patienten in {uhs} UHS.")
+}
+/// The open tasks in short (the strip above the command's views).
+pub fn tasks_strip(open: usize, due: usize) -> String {
+    match (open, due) {
+        (0, _) => "Aufträge: keine offenen".to_owned(),
+        (n, 0) => format!("Aufträge: {n} offen"),
+        (n, d) => format!("Aufträge: {n} offen, davon {d} fällig"),
+    }
+}
+pub fn summary_tasks(open: usize, due: usize) -> String {
+    match (open, due) {
+        (0, _) => "Keine offenen Aufträge.".to_owned(),
+        (n, 0) => format!("{n} offen."),
+        (n, d) => format!("{n} offen, davon {d} fällig."),
+    }
+}
+pub fn summary_transports(n: usize) -> String {
+    match n {
+        0 => "Keine offenen Transporte.".to_owned(),
+        n => format!("{n} offen."),
+    }
+}
+pub fn summary_units(units: u32, persons: u32) -> String {
+    format!("{units} Einsatzmittel, {persons} Einsatzkräfte vor Ort.")
+}
+pub fn summary_people(n: usize) -> String {
+    match n {
+        1 => "1 Person mit Rolle.".to_owned(),
+        n => format!("{n} Personen mit Rollen."),
+    }
+}
+pub fn summary_positions(n: usize) -> String {
+    match n {
+        0 => "Noch keine Funktionen.".to_owned(),
+        1 => "1 Funktion besetzt oder offen.".to_owned(),
+        n => format!("{n} Funktionen."),
+    }
+}
 pub const START_INCIDENT: &str = "Einsatz beginnen";
 pub const CLOSE_INCIDENT: &str = "Einsatz abschließen";
 
@@ -1281,9 +1349,9 @@ pub const DISPLAY_NAME_SAVE: &str = "Namen speichern";
 pub const DISPLAY_NAME_RESET: &str = "Namen aus der Anmeldung verwenden";
 
 // Organisation roles (ORG-9)
-pub const ORG_ROLES: &str = "Rollen";
-pub const ORG_ROLES_TITLE: &str = "Rollen in der Organisation";
-pub const ORG_ROLES_INTRO: &str = "Wer die Organisation verwaltet oder Einsätze plant. Eine Rolle gilt auf allen Geräten der Person, sobald sie vergeben ist, und endet mit dem Entziehen oder am Ende des gewählten Tages. Rollen in einem Einsatz werden im Einsatz vergeben.";
+pub const ORG_ROLES: &str = "Berechtigungen";
+pub const ORG_ROLES_TITLE: &str = "Berechtigungen in der Organisation";
+pub const ORG_ROLES_INTRO: &str = "Wer die Organisation verwaltet oder Einsätze plant. Eine Berechtigung gilt auf allen Geräten der Person, sobald sie vergeben ist, und endet mit dem Entziehen oder am Ende des gewählten Tages. Rollen in einem Einsatz vergibt die Einsatzleitung unter „Vorbereitung – Personal und Rollen“.";
 pub const ORG_ROLES_LOADING: &str = "Rollen werden geladen …";
 pub const ORG_ROLES_EMPTY: &str = "Noch keine Rollen vergeben.";
 pub const ORG_ROLES_OFFLINE: &str =

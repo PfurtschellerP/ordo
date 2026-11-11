@@ -88,6 +88,14 @@ export async function grantRole(page: Page, user: string, role: string): Promise
   await expect(page.locator(".roster__entry", { hasText: user }).filter({ hasText: role })).toBeVisible();
 }
 
+/** Opens a workspace from the menu (launcher), e.g. "Vorbereitung" (ADR-0061). */
+export async function openWorkspace(page: Page, label: string): Promise<void> {
+  await page.locator("#launcher-button").click();
+  await page.locator("#launcher-panel").getByRole("button", { name: label, exact: true }).click();
+  // Wait until the switch has happened, so a following view is chosen within it.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(new RegExp(`– ${label}$`));
+}
+
 export async function openView(page: Page, label: string): Promise<void> {
   await page.getByRole("navigation", { name: "Ansichten" }).getByRole("link", { name: label, exact: true }).click();
 }

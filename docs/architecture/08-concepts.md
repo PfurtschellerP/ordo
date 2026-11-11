@@ -1165,10 +1165,10 @@ Tags: must, m17
 
 What a person sees follows their roles in the incident, decided by Cedar on the server:
 the welcome lists, per incident, the app's views and functions the roles allow
-(`view_situation`, `edit_units`). The situation view (counts and load of every UHS, units,
-roster) and the device list need `view_situation` (the device list also opens with the
-organisation permission `manage_devices`); adding units and setting their status needs
-`edit_units`. The server enforces it for every event: the Cedar request carries the event's
+(`view_situation`, `edit_units`). The incident command's workspaces (counts and load of
+every UHS, units, roster, see dsn~workspaces-by-phase~1) need `view_situation`; the list of
+all devices needs the organisation permission `manage_devices`; adding units and setting
+their status needs `edit_units`. The server enforces it for every event: the Cedar request carries the event's
 module, so the default policies let medics write the shared compartment except `units`.
 Default roles: `commander` sees the whole incident without clinical details; `medic` works
 in the UHS views only. Organisations widen or narrow this in their own policies.
@@ -1180,6 +1180,34 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m11
+
+#### Workspaces by phase
+`dsn~workspaces-by-phase~1`
+
+The incident command's pages are grouped by phase in the package *Einsatzleitung*
+([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md)): *Führung*, the
+running incident (overview, situation map, dispatch with the orders, transports),
+*Vorbereitung*, what is set up before and adjusted during it (the incident with its
+location, map region, start and close; units; people with their roles; the command
+structure), and the incident log, which everyone in the incident opens. The overview, the
+first view of *Führung*, has one card per page with a short summary (e.g. units and persons on scene, open
+and due orders), a link to the page and quick actions (start the incident). Every
+main function is so at most two taps from it (UX-1).
+
+*Administration* is apart from the incident: its workspace *Zugriff* (accounts,
+permissions, all devices) opens only with organisation permissions, never with a role in
+an incident, and each of its views needs its own permission. A view's own permission
+(e.g. `manage_map` for the map region) comes from the roles in the incident or an
+organisation role; views without it are not offered in the rail or the palette.
+
+Covers:
+
+* [req~org-6~1](../requirements/02-shared.md#org-6--incidents-planned-ahead-roles-per-incident)
+* [req~ux-1~1](../requirements/07-quality.md#ux-1--three-taps)
+
+Needs: impl, itest
+
+Tags: must, m49
 
 ## 8.6 Design system and accessibility
 

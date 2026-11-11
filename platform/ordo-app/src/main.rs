@@ -19,6 +19,7 @@ mod profile;
 mod roles;
 mod situation;
 mod storage;
+mod summary;
 mod tasks;
 mod text;
 mod transports;

@@ -11,7 +11,7 @@
 
 Main functions reachable in ≤ 3 taps from the workspace overview
 
-Tags: must, quality
+Tags: must, quality, m49
 
 Needs: dsn
 

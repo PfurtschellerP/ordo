@@ -2,7 +2,7 @@
 // and an iPad (WebKit), each a browser in its own container on the bundle's network. Run
 // by field/run.sh, which starts everything and sets FIELD_WORK.
 import { expect, test } from "@playwright/test";
-import { createUhs, grantRole, loginPair, openIncident, openView, register, status } from "../support/app";
+import { createUhs, grantRole, loginPair, openIncident, openView, openWorkspace, register, status } from "../support/app";
 import { arrival, budgets, connect, container, device, docker, jsHeap, mb, note, serverMemory, SITE, wasmMemory, WORK } from "./common";
 
 const INCIDENT = "Feldtest";
@@ -23,9 +23,11 @@ test("two tablets and the Compose bundle, as in the field", async () => {
   await loginPair(dora, SITE, "dora@example.org", "Laptop Einsatzplanung");
   await dora.locator("#plan-name").fill(INCIDENT);
   await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
-  await openView(dora, "Führung");
+  await openWorkspace(dora, "Vorbereitung");
+  await openView(dora, "Personal");
   await grantRole(dora, "anna@ordo.internal", "Sanitätsdienst");
   await grantRole(dora, "ben@ordo.internal", "Sanitätsdienst");
+  await openView(dora, "Einsatz");
   await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
   await expect(dora.locator("#incident-state")).toHaveText("Laufend");
   await dora.context().close();

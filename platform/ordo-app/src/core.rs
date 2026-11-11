@@ -899,7 +899,7 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~1]
+// [impl->dsn~tasks~2]
 /// Gives a task (TASK-1): a new ID, then the event in the shared incident compartment.
 pub fn give_task(
     core: Handle,

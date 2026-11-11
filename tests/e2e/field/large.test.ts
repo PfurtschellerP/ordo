@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import readline from "node:readline";
 import { expect, Page, test } from "@playwright/test";
-import { grantRole, loginPair, openIncident, openView, register } from "../support/app";
+import { grantRole, loginPair, openIncident, openView, openWorkspace, register } from "../support/app";
 import { arrival, budgets, connect, device, jsHeap, mb, note, serverMemory, SITE, wasmMemory, WORK } from "./common";
 
 const INCIDENT = "Großeinsatz";
@@ -70,11 +70,13 @@ test("a large incident: 500 patients and 10,000 log entries on two tablets", asy
   await loginPair(dora, SITE, "dora@example.org", "Laptop Großeinsatz");
   await dora.locator("#plan-name").fill(INCIDENT);
   await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
-  await openView(dora, "Führung");
+  await openWorkspace(dora, "Vorbereitung");
+  await openView(dora, "Personal");
   await grantRole(dora, "lea@ordo.internal", "Einsatzleitung");
   await grantRole(dora, "lea@ordo.internal", "Arzt/Ärztin");
   await grantRole(dora, "anna@ordo.internal", "Sanitätsdienst");
   await grantRole(dora, "ben@ordo.internal", "Sanitätsdienst");
+  await openView(dora, "Einsatz");
   await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
   await expect(dora.locator("#incident-state")).toHaveText("Laufend");
   await dora.context().close();
@@ -95,8 +97,7 @@ test("a large incident: 500 patients and 10,000 log entries on two tablets", asy
 
   // The incident log of the Android tablet.
   const logStart = Date.now();
-  await ben.locator("#launcher-button").click();
-  await ben.locator(".launcher__item", { hasText: "Einsatztagebuch" }).click();
+  await openWorkspace(ben, "Einsatztagebuch");
   await expect.poll(() => ben.locator(".log-entry").count(), { timeout: 120_000, intervals: [250] }).toBeGreaterThanOrEqual(EVENTS);
   const logMs = Date.now() - logStart;
   const entries = await ben.locator(".log-entry").count();

@@ -254,11 +254,11 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    fresh tablet shows all 500 patients in 0.7 s (before 2.4 s). Next: hold each stream's
    decoded events once instead of twice (WebAssembly memory rose from 50 to 60–73 MB),
    then projections updated per event instead of recomputed.
-3. **Menu structure** (needs an ADR on the workspace pattern): every workspace opens with
-   an overview (a summary per page, direct links, quick actions). *Einsatzleitung*
-   grouped by phase: overview; preparation (incident data and start, map region, map
-   editing, units, people and roles); situation (map, command structure, orders on their
-   own page, transports, devices in the incident); incident log (moved here).
+3. **Menu structure** ([ADR-0061](adr/0061-workspaces-by-phase-and-administration-apart.md)):
+   *Einsatzleitung – Führung* for the running incident (overview with a card per page and
+   quick actions, situation map, dispatch with the orders, transports), *Vorbereitung*
+   for what is set up before and adjusted during it (incident with location, map region
+   and start; units; people; command structure), and the incident log, open to everyone.
    *Administration* replaces "Organisation": access (accounts, devices, organisation
    roles renamed "Berechtigungen"), later master data. The incident command does not see
    Administration; every device used in an incident can be blocked from the incident's
@@ -276,6 +276,29 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    DV 102 recommendation as an option (physicians, respirator wearers, unit and platoon
    leaders apart; notation to be checked in the BBK document); the command structure as
    a generated org chart.
+
+From a practitioner's test of the same version (2026-11-11), before the map editor:
+
+7. **Orders only by those who give them:** the medication entry's "ordered by" is a free
+   field, so anyone documenting can name any physician; it shall come from a real order,
+   or from a spoken order confirmed later by its giver (ADR-0053).
+8. **Patient record (profile):** a working, suspected or confirmed diagnosis (passed on
+   with the transport only to those who carry the patient), "other" with free text for
+   breathing and skin, choices for the pupils (isocoric/anisocoric, size, reaction to
+   light, consensual reaction).
+9. **Helper register** (*Vorbereitung – Personal*): name, address, phone, date of birth,
+   qualifications, start and end of duty; crews only from registered helpers; helpers
+   linked to ORDO accounts; the Meldekarte scanned. Personal data in their own
+   compartment with a deletion period (ADR).
+10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
+    and patient cases (place, short description, no clinical data) and assigns them to a
+    unit, which turns them into a patient (ADR).
+11. **Map:** every tactical symbol of the profile placeable, chosen from a menu grouped by
+    topic. **UHS:** request a physician or paramedic, who then gets access to the UHS.
+    **Vehicles:** a workspace for crews to see, confirm and carry out their transports and
+    tasks and to set their own status.
+12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
+    agreement are available (ADR-0050, regional profile).
 
 Blocked or later: registering helpers with the Meldekarte (QR format needed, see below),
 units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).

@@ -634,6 +634,16 @@
   .task-card--due { border-width: var(--ordo-size-border-thick); }
   .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
   .tasks-panel__form[hidden] { display: none; }
+  /* Open tasks in short above the command's views (TASK-3); the page Aufträge has them all. */
+  .tasks-strip { margin-block-end: var(--ordo-space-4); padding: var(--ordo-space-2) var(--ordo-space-3); border-inline-start: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); background: var(--ordo-color-surface-default); }
+  .tasks-strip__title { margin: 0; font-size: var(--ordo-font-size-3); }
+  .tasks-strip__due { margin: var(--ordo-space-1) 0 0; padding: 0; list-style: none; color: var(--ordo-color-feedback-warning-text); font-weight: var(--ordo-font-weight-bold); }
+  .tasks-strip__due li { display: flex; gap: var(--ordo-space-2); align-items: center; }
+  /* The incident command's overview (ADR-0061): one card per page. */
+  .summary__cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
+  .summary__card { display: grid; gap: var(--ordo-space-2); align-content: start; }
+  .summary__card h2 { margin: 0; font-size: var(--ordo-font-size-4); }
+  .summary__text { margin: 0; }
   /* Command structure (CMD-3): nested lists as a tree, a line showing each level. */
   .position-tree { list-style: none; margin: 0; padding-inline-start: var(--ordo-space-3); display: grid; gap: var(--ordo-space-2); }
   .position-tree--root { padding-inline-start: 0; }

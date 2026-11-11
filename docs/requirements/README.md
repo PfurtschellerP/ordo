@@ -135,6 +135,7 @@ the build fails.
 | 46 — Local accounts | `m46` | Administrators create, reset and delete Dex's local accounts in the app (ORG-10, ADR-0060) |
 | 47 — Field-near test | `m47` | The Compose bundle with two tablets (Android, iPad): propagation within 2 s, network cut, server restart, download and memory budgets (PERF-2, PERF-5) |
 | 48 — Large incident | `m48` | The field-near test with an incident of 100 units, 50 sectors, 500 patients and 10,000 log entries, written by a load device: joining, incident log, propagation and memory on two tablets (PERF-3) |
+| 49 — Workspaces by phase | `m49` | The incident command's pages grouped by phase with an overview first; administration apart from the incident (ADR-0061, UX-1) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -143,5 +144,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49 docs platform modules packages tests
 ```

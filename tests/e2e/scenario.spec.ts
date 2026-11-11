@@ -20,6 +20,7 @@ import {
   openIncident,
   openRecord,
   openView,
+  openWorkspace,
   qrPair,
   pathOf,
   patientRows,
@@ -124,11 +125,20 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator("#plan-name").fill(INCIDENT);
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
     await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
+    // [itest->dsn~workspaces-by-phase~1]
+    await expect(dora.locator(".summary__card"), "the command opens on its overview, a card per page").toHaveCount(9);
+    await expect(dora.locator(".summary__card", { hasText: "Einsatzmittel" }), "each with a summary").toContainText("0 Einsatzmittel, 0 Einsatzkräfte vor Ort.");
+    await audit(dora, "Command overview");
+    await shot(dora, "command-overview");
+    await openWorkspace(dora, "Zugriff");
+    await expect(dora.locator(".views__item"), "administration: accounts, permissions, devices").toHaveText(["Konten", "Berechtigungen", "Geräte"]);
+    await shot(dora, "administration", false);
     await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
     // [itest->dsn~map-region~1]
     // MAP-8: the administrator cuts the map region for every device on the server.
-    await dora.locator("#launcher-button").click();
-    await dora.locator(".launcher__item", { hasText: "Kartengrundlage" }).click();
+    await openWorkspace(dora, "Vorbereitung");
+    // The map region is prepared with the incident, on its page.
+    await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
     await expect(region).toHaveText("Noch keine Kartengrundlage auf dem Server.");
     await dora.locator("#region-lat").fill("48,37");
@@ -137,18 +147,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("button", { name: "Kartengrundlage erstellen" }).click();
     await expect(region, "the server cuts it and reports when it is ready").toHaveText(/^Kartengrundlage bereit \(\d+,\d MB\)\. Umkreis 10 km um 48\.37000, 10\.90000\./, { timeout: 30_000 });
     await audit(dora, "Map region");
-    await dora.locator("#launcher-button").click();
-    await dora.locator(".launcher__item", { hasText: "Lage" }).first().click();
-    await openView(dora, "Führung");
+    await openView(dora, "Personal");
     await expect(dora.locator(".roster__entry"), "the planner is its commander").toHaveCount(1);
     await grantRole(dora, "anna@localhost", "Sanitätsdienst");
     await grantRole(dora, "ben@localhost", "Einsatzleitung");
     await grantRole(dora, "petra@localhost", "Arzt/Ärztin");
     // [itest->dsn~display-names~2]
     await expect(dora.locator(".roster__entry", { hasText: "petra@localhost" }).locator(".roster__person"), "named from her local account before her first login").toHaveText("Dr. Petra Lang");
+    await audit(dora, "Roster", [1200, 320]);
+    await openView(dora, "Einsatz");
     await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
     await expect(dora.locator("#incident-state")).toHaveText("Laufend");
-    await audit(dora, "Roster", [1200, 320]);
     await shot(dora, "roster");
   });
 
@@ -560,8 +569,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(anna, "Patienten");
     await anna.locator("#launcher-button").click();
     // [itest->dsn~views-by-role~1]
-    await expect(anna.locator("#reason-command-situation"), "UHS crews do not see the situation view").toHaveText("Kein Zugriff in diesem Einsatz");
-    await expect(anna.locator("#reason-org-devices"), "nor the device list").toHaveText("Kein Zugriff in diesem Einsatz");
+    await expect(anna.locator("#reason-command-lead"), "UHS crews do not see the situation view").toHaveText("Kein Zugriff in diesem Einsatz");
+    await expect(anna.locator("#reason-command-prepare"), "nor its preparation").toHaveText("Kein Zugriff in diesem Einsatz");
+    await expect(anna.locator("#reason-admin-access"), "nor the administration").toHaveText("Kein Zugriff in diesem Einsatz");
+    await expect(anna.locator("#launcher-panel").getByRole("button", { name: "Einsatztagebuch", exact: true }), "the incident log is for everyone").not.toHaveAttribute("aria-disabled", "true");
     await audit(anna, "Launcher (medic)");
     await anna.locator("#launcher-button").click();
     await shot(anna, "med-day");
@@ -658,15 +669,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await qrPair(ben, phone, server, "ben@example.org");
     await openIncident(ben, INCIDENT);
     await phone.context().close();
-    await openView(ben, "Führung");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Personal");
     // [itest->dsn~person-suggestions~1]
     await expect(ben.locator("#roster-person"), "granting a role suggests the people the server knows").toHaveAttribute("list", "roster-person-people");
     await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
-    await openView(ben, "Lage");
+    await openWorkspace(ben, "Führung");
     // [itest->dsn~workspace-navigation~3]
-    await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Lage");
+    await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Führung");
     await ben.locator("#launcher-button").click();
     const uhs = ben.locator(".launcher__item", { hasText: "UHS" });
     await expect(uhs, "the UHS workspace stays in the menu, disabled").toHaveAttribute("aria-disabled", "true");
@@ -722,6 +734,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-panel")).toBeHidden();
     await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
 
+    // The overview counts the patients; the situation map shows them per UHS.
+    await expect(ben.locator(".summary__card", { hasText: "Patienten je UHS" })).toContainText("4 Patienten in 2 UHS.");
+    await openView(ben, "Lagekarte");
     // DE-0043 was re-triaged to SK III from the palette.
     const cards = () =>
       ben.locator(".count-card").evaluateAll((list) =>
@@ -758,6 +773,7 @@ test("ORDO in the browser", async ({ browser }) => {
   });
 
   await test.step("resources: add a unit and set its status, also from the keyboard", async () => {
+    await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     // [itest->dsn~unit-register~2]
     await expect(ben.locator("#unit-call-signs option[value='RTW 83/1']"), "the installation's vehicles are offered").toHaveCount(1);
@@ -780,8 +796,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("anna@localhost · Notfallsanitäter/in");
 
-    // [itest->dsn~tasks~1]
-    await expect(ben.locator("#tasks-title"), "open tasks at the top of every command view").toHaveText("Offene Aufträge (0)");
+    // [itest->dsn~tasks~2]
+    const strip = ben.locator(".tasks-strip");
+    await expect(strip, "open tasks in short at the top of every command view").toHaveText("Aufträge: keine offenen");
+    await strip.getByRole("link").click();
+    await expect(ben.locator("#tasks-title"), "the page of all tasks").toHaveText("Offene Aufträge (0)");
     await ben.locator("#give-task-button").click();
     await ben.locator("#task-unit").selectOption("RTW 83/1");
     await ben.locator("#task-template").selectOption({ label: "Lagemeldung" });
@@ -791,7 +810,12 @@ test("ORDO in the browser", async ({ browser }) => {
     const task = ben.locator(".task-card");
     await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
     await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
     await expect(card.locator(".unit-card__tasks"), "the unit shows its task").toHaveText("Aufträge: Lagemeldung abgeben");
+    await expect(strip, "every command view shows open and due tasks").toContainText("Aufträge: 1 offen, davon 1 fällig");
+    await expect(strip.locator(".tasks-strip__due"), "the due task by name").toContainText("Fällig: Lagemeldung abgeben");
+    await strip.getByRole("link").click();
     await task.getByRole("button", { name: "In Arbeit: RTW 83/1 – Lagemeldung abgeben" }).click();
     await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
     await task.getByRole("button", { name: /^In 10 Minuten nachfragen/ }).click();
@@ -800,6 +824,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await task.getByRole("button", { name: "Erledigt: RTW 83/1 – Lagemeldung abgeben" }).click();
     await expect(ben.locator("#tasks-title"), "done tasks leave the list").toHaveText("Offene Aufträge (0)");
     await expect.poll(() => status(ben), { message: "unit and status are sent" }).toContain("Alles gesendet");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
     await openPalette(ben);
     await ben.keyboard.type("rtw");
     await expect.poll(() => selectedOption(ben), { message: "the palette finds a unit by call sign" }).toBe("RTW 83/1");
@@ -843,7 +869,8 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~command-structure~1]
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
-    await openView(ben, "Führung");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Führungsstruktur");
     await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
     const create = async (kind: string, name: string, parent?: string) => {
       await ben.locator("#position-kind").selectOption({ label: kind });
@@ -870,21 +897,26 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "UHS zuordnen" }).click();
     await expect(sanel.locator(".position__uhs")).toHaveText("UHS: UHS Eingang");
     await audit(ben, "Command structure");
+    await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     await ben.getByLabel("Funktion von RTW 83/1").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Disposition");
     await ben.locator("#give-task-button").click();
     await ben.locator("#task-unit").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
     await ben.locator("#task-text").fill("Lage der UHS melden");
     await ben.locator(".give-task button[type=submit]").click();
     await expect(ben.locator(".task-card"), "a task to a position").toContainText("Sanitätseinsatzleitung SanEL – Lage der UHS melden");
     await ben.locator(".task-card").getByRole("button", { name: /^Erledigt/ }).click();
-    await openView(ben, "Führung");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Führungsstruktur");
     await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
   // [itest->dsn~situation-map~1]
   await test.step("situation map: place the incident and a unit, keep the map region offline", async () => {
-    await openView(ben, "Lage");
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Lagekarte");
     const state = ben.locator(".situation__state");
     await expect(state, "the map loads").not.toHaveText("Karte wird geladen …", { timeout: 30_000 });
     const map = await ben.locator(".situation__map").getAttribute("data-map");
@@ -972,8 +1004,10 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-board~1]
     const free = ben.locator("[aria-labelledby=free-units-title]");
     await expect(free, "RTW 83/1 is on scene, not free").toContainText("Keine freien Transportmittel.");
+    await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "2 – Einsatzbereit auf Wache" });
+    await openWorkspace(ben, "Führung");
     await openView(ben, "Transporte");
     await expect(free.locator("li"), "a transport unit in an available status is free").toHaveText("RTW 83/1 · RTW · 2 – Einsatzbereit auf Wache");
 
@@ -1020,9 +1054,8 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~incident-log~1]
   await test.step("the incident log: every change, corrections linked, only what each may read", async () => {
-    await ben.locator("#launcher-button").click();
-    await ben.locator(".launcher__item", { hasText: "Einsatztagebuch" }).click();
-    await expect.poll(() => title(ben)).toContain("Einsatz – Einsatztagebuch");
+    await openWorkspace(ben, "Einsatztagebuch");
+    await expect.poll(() => title(ben)).toContain("Einsatzleitung – Einsatztagebuch");
     const added = ben.locator(".log-entry", { hasText: "Einsatzmittel RTW 83/1 hinzugefügt" }).last();
     await expect(added, "LOG-1: each change with time, author and device").toContainText(/^\d\d:\d\d:\d\d/);
     await expect(added.locator(".log-entry__by")).toHaveText(/^Ben Weber · Gerät \w{6}$/);
@@ -1035,8 +1068,8 @@ test("ORDO in the browser", async ({ browser }) => {
     const medic = await newDevice(browser);
     await loginPair(medic, server, "anna@example.org");
     await openIncident(medic, INCIDENT);
-    await medic.locator("#launcher-button").click();
-    await medic.locator(".launcher__item", { hasText: "Einsatztagebuch" }).click();
+    // The medic opens it as well: everyone in the incident does (LOG-6).
+    await openWorkspace(medic, "Einsatztagebuch");
     await expect(medic.locator(".log-entry", { hasText: "Patient DE-0042 registriert" }), "the medic's log has the clinical entries").toHaveCount(1);
     const correction = medic.locator(".log-entry__corrects").first();
     await expect(correction, "LOG-3: a correction is a new entry that links to the old one").toHaveText(/^\(korrigiert den Eintrag von \d\d:\d\d:\d\d\)$/);
@@ -1044,9 +1077,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(corrected, "which stays in the log").toContainText(/Vitalwerte für Patient DE-\d{4}/);
     await medic.context().close();
 
-    await ben.locator("#launcher-button").click();
-    await ben.locator(".launcher__item", { hasText: "Lage" }).first().click();
-    await expect.poll(() => title(ben)).toContain("Einsatzleitung");
+    await openWorkspace(ben, "Führung");
+    await expect.poll(() => title(ben)).toContain("Einsatzleitung – Führung");
   });
 
   // [itest->dsn~uhs-discharge~1]
@@ -1075,11 +1107,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(medic, "Patients with discharged");
     await medic.context().close();
 
-    await openView(ben, "Lage");
+    await openView(ben, "Lagekarte");
     await expect
       .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient" })
       .toBe("Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 1");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
+    await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
@@ -1101,22 +1134,20 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.clock.setSystemTime(Date.now());
     await ben.clock.fastForward("01:05");
     await expect(ben.locator(".app-header__title"), "the device unlocks within its login").toBeVisible();
+    // [itest->dsn~local-persistence~1]
+    expect(await ben.evaluate(() => location.pathname), "the reload kept the page: the device knows its permissions").toBe("/command.prepare/units");
   });
 
   // [itest->dsn~organisation-roles~1]
   await test.step("an administrator grants an organisation role until a date and withdraws it", async () => {
-    const planning = ben.locator(".launcher__item", { hasText: "Kartengrundlage" });
-    const benMayPlan = async () => {
-      await ben.locator("#launcher-button").click();
-      const allowed = (await planning.getAttribute("aria-disabled")) === "false";
-      await ben.locator("#launcher-button").click();
-      return allowed;
-    };
+    // Planners prepare the map region: the incident's page offers it only with the role.
+    await openView(ben, "Einsatz");
+    const benMayPlan = async () => (await ben.locator("#map-region-title").count()) === 1;
     expect(await benMayPlan(), "Ben does not plan yet").toBe(false);
 
-    await dora.locator("#launcher-button").click();
-    await dora.locator(".launcher__item", { hasText: "Rollen" }).click();
-    await expect.poll(() => title(dora)).toContain("Organisation – Rollen");
+    await openWorkspace(dora, "Zugriff");
+    await openView(dora, "Berechtigungen");
+    await expect.poll(() => title(dora)).toContain("Administration – Zugriff");
     const doraAdmin = dora.locator(".role-list [data-user='dora@localhost'] [data-role='admin']");
     await expect(doraAdmin, "the administrator from the configuration").toContainText("aus der Serverkonfiguration");
     await expect(doraAdmin.getByRole("button"), "is not changed in ORDO").toHaveCount(0);
@@ -1141,10 +1172,10 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~device-revocation~1]
   await test.step("a lost device is revoked and deletes its data", async () => {
-    // Ben sees only his own device.
-    await ben.locator("#launcher-button").click();
-    await ben.locator(".launcher__item", { hasText: "Geräte" }).click();
-    await expect.poll(() => title(ben)).toContain("Organisation – Geräte");
+    // Ben sees only his own device, from his person's menu (SEC-4).
+    await ben.locator("#profile-button").click();
+    await ben.getByRole("link", { name: "Meine Geräte" }).click();
+    await expect(ben.locator("#devices-title")).toHaveText("Meine Geräte");
     await expect(ben.locator(".device-card"), "a person sees their own devices").toHaveCount(1);
     await expect(ben.locator(".device-card h3")).toContainText("dieses Gerät");
     // [itest->dsn~device-names~1]
@@ -1152,9 +1183,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".device-card dt", { hasText: "Person" }), "no person shown for own devices").toHaveCount(0);
 
     // Dora, an administrator, sees all devices.
-    await dora.locator("#launcher-button").click();
-    await dora.locator(".launcher__item", { hasText: "Geräte" }).click();
-    await expect.poll(() => title(dora)).toContain("Organisation – Geräte");
+    await openWorkspace(dora, "Zugriff");
+    await openView(dora, "Geräte");
+    await expect(dora.locator("#devices-title")).toHaveText("Geräte");
     await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
@@ -1178,9 +1209,8 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~local-accounts~1]
   await test.step("an administrator manages local login accounts in Dex", async () => {
-    await dora.locator("#launcher-button").click();
-    await dora.locator(".launcher__item", { hasText: "Konten" }).click();
-    await expect.poll(() => title(dora)).toContain("Organisation – Konten");
+    await openWorkspace(dora, "Zugriff");
+    await openView(dora, "Konten");
     const accounts = dora.locator(".account-list");
     await expect(accounts.locator("[data-account='anna@example.org'] .roster__person"), "Dex's accounts, by name").toHaveText("Anna Schmidt");
 

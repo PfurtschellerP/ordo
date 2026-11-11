@@ -386,18 +386,37 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
         });
         // [impl->dsn~views-by-role~1]
         // Views follow the roles in this incident (decided by the server's policies).
-        let permitted = workspace
-            .permission
-            .is_none_or(|p| c.incident.as_ref().is_some_and(|i| c.replica.may(i, p)))
+        let by_incident = match workspace.permission {
+            Some(p) => c.incident.as_ref().is_some_and(|i| c.replica.may(i, p)),
+            // Administration: only organisation roles open it (ADR-0061).
+            None => workspace.or_organisation.is_empty(),
+        };
+        let permitted = by_incident
             || workspace
                 .or_organisation
-                .is_some_and(|p| c.replica.has_permission(p));
+                .iter()
+                .any(|p| c.replica.has_permission(p));
         if readable && permitted {
             Ok(())
         } else {
             Err(text::REASON_NO_ACCESS)
         }
     })
+}
+
+/// Whether the user may open view `v` of a workspace they have access to: a view's own
+/// permission comes from the roles in this incident or an organisation role (ADR-0061).
+pub(crate) fn view_allowed(core: Handle, v: &nav::View) -> bool {
+    v.permission.is_none_or(|p| {
+        core.with_value(|c| {
+            c.replica.has_permission(p) || c.incident.as_ref().is_some_and(|i| c.replica.may(i, p))
+        })
+    })
+}
+
+/// The views of `w` the user may open, in order.
+pub(crate) fn allowed_views(core: Handle, w: &'static nav::Workspace) -> Vec<&'static nav::View> {
+    w.views.iter().filter(|v| view_allowed(core, v)).collect()
 }
 
 const NAV_KEY: &str = "ordo.nav";
@@ -494,6 +513,32 @@ impl Nav {
                 },
             )
         });
+    }
+}
+
+/// Follows an internal link through [`Nav`]: `leptos_router` writes the address of a plain
+/// link only once its `<Routes>` have rendered, which ORDO does not use, so the address bar
+/// (and with it reload and the back button) would stay behind. Clicks with a modifier
+/// (new tab or window) are left to the browser.
+pub(crate) fn follow(
+    nav: Nav,
+    route: nav::Route,
+) -> impl Fn(leptos::ev::MouseEvent) + Clone + 'static {
+    move |ev: leptos::ev::MouseEvent| {
+        if ev.button() == 0 && !(ev.ctrl_key() || ev.meta_key() || ev.shift_key() || ev.alt_key()) {
+            ev.prevent_default();
+            nav.go(route.clone());
+        }
+    }
+}
+
+/// [`follow`] with the workspace's [`Nav`] from the context (views inside the workspace).
+pub(crate) fn follow_route(route: nav::Route) -> impl Fn(leptos::ev::MouseEvent) + Clone + 'static {
+    let nav = use_context::<Nav>();
+    move |ev: leptos::ev::MouseEvent| {
+        if let Some(nav) = nav {
+            follow(nav, route.clone())(ev);
+        }
     }
 }
 
@@ -598,16 +643,17 @@ fn Workspace(
     on_change_incident: impl Fn() + Clone + 'static,
 ) -> impl IntoView {
     let nav = Nav::new();
+    provide_context(nav);
     provide_context(patients::Drafts::default());
     provide_context(crate::orders::Performers::default());
     let open = RwSignal::new(false);
     let palette = RwSignal::new(false);
     let pathname = use_location().pathname;
     let route = Memo::new(move |_| nav::Route::from_path(&pathname.get()));
-    let saved = core::preference(NAV_KEY).and_then(|s| {
+    let saved = StoredValue::new(core::preference(NAV_KEY).and_then(|s| {
         let (w, v) = s.split_once('/')?;
         Some(nav::Route::view(w, v))
-    });
+    }));
 
     // The shown workspace: the one in the URL if accessible, else the last used one, else
     // the first accessible one.
@@ -616,7 +662,7 @@ fn Workspace(
         let usable = |id: &str| nav::workspace(id).filter(|w| access(core, w).is_ok());
         route
             .with(|r| r.as_ref().and_then(|r| usable(&r.workspace)))
-            .or_else(|| saved.as_ref().and_then(|r| usable(&r.workspace)))
+            .or_else(|| saved.with_value(|s| s.as_ref().and_then(|r| usable(&r.workspace))))
             // Automatically only a workspace of the incident, never the device list: it is
             // reachable before the incident is, and would stay chosen.
             .or_else(|| {
@@ -627,13 +673,28 @@ fn Workspace(
             .map(|w| w.id)
     });
     let current_view = Memo::new(move |_| {
+        revision.track();
         let workspace = nav::workspace(current.get()?)?;
-        let id = route.with(|r| r.as_ref().map(|r| r.view.clone()));
-        workspace
-            .views
+        // The view in the URL, else the last used one of this workspace (e.g. after the
+        // device was locked and the URL is the login's).
+        let id = route
+            .with(|r| {
+                r.as_ref()
+                    .filter(|r| r.workspace == workspace.id)
+                    .map(|r| r.view.clone())
+            })
+            .or_else(|| {
+                saved.with_value(|s| {
+                    s.as_ref()
+                        .filter(|r| r.workspace == workspace.id)
+                        .map(|r| r.view.clone())
+                })
+            });
+        let views = allowed_views(core, workspace);
+        views
             .iter()
             .find(|v| Some(v.id) == id.as_deref())
-            .or_else(|| workspace.views.first())
+            .or_else(|| views.first())
             .map(|v| v.id)
     });
     let record = Memo::new(move |_| route.with(|r| r.as_ref().and_then(|r| r.record.clone())));
@@ -652,7 +713,10 @@ fn Workspace(
     });
     let choose = move |w: &'static nav::Workspace| {
         open.set(false);
-        nav.go(nav::Route::view(w.id, w.views[0].id));
+        let first = allowed_views(core, w)
+            .first()
+            .map_or(w.views[0].id, |v| v.id);
+        nav.go(nav::Route::view(w.id, first));
         focus("main");
     };
     let incident = core.with_value(|c| {
@@ -802,6 +866,8 @@ fn Workspace(
                     <crate::profile::DisplayName core revision />
                     <SettingSelect id="theme" label=text::APPEARANCE options=&text::THEMES value=theme apply=apply_theme />
                     <SettingSelect id="hand" label=text::HAND options=&text::HANDS value=hand apply=apply_hand />
+                    <a id="my-devices" class="button" href=nav::Route::view("person.devices", "devices").to_path()
+                        on:click=follow(nav, nav::Route::view("person.devices", "devices"))>{text::MY_DEVICES}</a>
                     <button id="change-incident" type="button" class="button"
                         on:click=move |_| on_change_incident.with_value(|f| f())>{text::CHANGE_INCIDENT}</button>
                     <button type="button" class="button" on:click=unpair>{text::UNPAIR}</button>
@@ -863,18 +929,21 @@ fn Workspace(
                 </div>
                 <nav class="views" aria-label=text::VIEWS>
                     {move || {
+                        // Views follow permissions, which change with the roles.
+                        revision.track();
                         current
                             .get()
                             .and_then(nav::workspace)
                             .map(|w| {
-                                w.views
-                                    .iter()
+                                allowed_views(core, w)
+                                    .into_iter()
                                     .map(|v| {
                                         let selected = move || current_view.get() == Some(v.id);
                                         view! {
                                             <a
                                                 class="views__item"
                                                 href=nav::Route::view(w.id, v.id).to_path()
+                                                on:click=follow(nav, nav::Route::view(w.id, v.id))
                                                 aria-current=move || selected().then_some("page")
                                             >
                                                 <Icon name=v.icon />
@@ -889,10 +958,14 @@ fn Workspace(
               </div>
             </div>
             <main id="main" class="page" tabindex="-1">
-                // [impl->dsn~tasks~1]
-                // Open tasks at the top of every command view (TASK-3).
-                <Show when=move || current.get() == Some("command.situation")>
-                    <crate::tasks::OpenTasks core revision />
+                // [impl->dsn~tasks~2]
+                // The open tasks, in short, at the top of every view of the incident command
+                // (TASK-3); the whole list is the page *Aufträge*.
+                <Show when=move || {
+                    current.get().is_some_and(|w| w.starts_with("command."))
+                        && current_view.get() != Some("dispatch")
+                }>
+                    <crate::tasks::TasksStrip core revision />
                 </Show>
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
@@ -901,18 +974,23 @@ fn Workspace(
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
-                    (Some("command.situation"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
-                    (Some("command.situation"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
-                    (Some("command.situation"), Some("roster")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
-                    (Some("command.situation"), _) => view! {
+                    // [impl->dsn~workspaces-by-phase~1]
+                    (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
                     }.into_any(),
+                    (Some("command.lead"), Some("dispatch")) => view! { <crate::tasks::OpenTasks core revision /> }.into_any(),
+                    (Some("command.lead"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
+                    (Some("command.lead"), _) => view! { <crate::summary::CommandOverview core revision /> }.into_any(),
+                    (Some("command.prepare"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
+                    (Some("command.prepare"), Some("people")) => view! { <crate::incidents::RosterView core revision /> }.into_any(),
+                    (Some("command.prepare"), Some("structure")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
+                    (Some("command.prepare"), _) => view! { <crate::incidents::IncidentPage core revision /> }.into_any(),
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
-                    (Some("org.accounts"), _) => view! { <crate::accounts::AccountsView core revision /> }.into_any(),
-                    (Some("org.roles"), _) => view! { <crate::roles::RolesView core revision /> }.into_any(),
-                    (Some("org.devices"), _) => view! { <devices::DevicesView core revision /> }.into_any(),
-                    (Some("org.map"), _) => view! { <crate::map_region::MapRegionView core revision /> }.into_any(),
+                    (Some("admin.access"), Some("permissions")) => view! { <crate::roles::RolesView core revision /> }.into_any(),
+                    (Some("admin.access"), Some("devices")) => view! { <devices::DevicesView core revision /> }.into_any(),
+                    (Some("admin.access"), _) => view! { <crate::accounts::AccountsView core revision /> }.into_any(),
+                    (Some("person.devices"), _) => view! { <devices::DevicesView core revision mine_only=true /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
             </main>

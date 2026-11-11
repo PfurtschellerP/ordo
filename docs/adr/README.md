@@ -65,5 +65,7 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | accepted | 2026-11-11 |
 | [0059](0059-fuzzing-with-cargo-fuzz-and-clusterfuzzlite.md) | Fuzzing with cargo-fuzz, run continuously by ClusterFuzzLite | accepted | 2026-11-11 |
 | [0060](0060-local-accounts-managed-in-ordo.md) | Local accounts are managed in ORDO, through Dex's API | accepted | 2026-11-11 |
+| [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted | 2026-11-11 |
+| [0062](0062-map-region-per-incident.md) | A map region per incident | accepted | 2026-11-11 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -193,15 +193,19 @@ impl Item {
 fn items(core: Handle, page: &Page) -> Vec<Item> {
     let med_access =
         nav::workspace("med.uhs").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
-    let command_access = nav::workspace("command.situation")
-        .map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
+    let command_access =
+        nav::workspace("command.prepare").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
     let events = |compartment: &str| core.with_value(|c| c.events(compartment));
     match page {
         Page::Root => {
             let mut list = Vec::new();
             for w in nav::WORKSPACES {
                 let reason = access(core, w).err();
-                for v in w.views {
+                for v in w
+                    .views
+                    .iter()
+                    .filter(|v| crate::views::view_allowed(core, v))
+                {
                     let go = Action::Go(Route::view(w.id, v.id));
                     list.push(Item {
                         detail: format!("{} – {}", w.package, w.label),
@@ -229,7 +233,7 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                 (
                     text::ACTION_ADD_UNIT,
                     "add unit",
-                    Route::view("command.situation", "units"),
+                    Route::view("command.prepare", "units"),
                     "unit-call-sign",
                     command_access,
                 ),

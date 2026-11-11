@@ -173,7 +173,6 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <CommandForms core revision tree uhs_names />
             </Show>
         </section>
-        <crate::incidents::RosterView core revision />
     }
 }
 
