@@ -23,76 +23,16 @@ pub enum StoreError {
     /// Database error.
     #[error("database: {0}")]
     Database(#[from] sqlx::Error),
+    /// The schema could not be brought up to date (e.g. a released migration was changed).
+    #[error("database schema: {0}")]
+    Migration(#[from] sqlx::migrate::MigrateError),
     /// Stored data is invalid or cannot be decrypted (wrong master key?).
     #[error("stored data is invalid: {0}")]
     Invalid(String),
 }
 
-const SCHEMA: &[&str] = &[
-    "CREATE TABLE IF NOT EXISTS events (
-        incident TEXT NOT NULL,
-        compartment TEXT NOT NULL,
-        seq INTEGER NOT NULL,
-        event BLOB NOT NULL,
-        PRIMARY KEY (incident, compartment, seq)
-    ) STRICT",
-    "CREATE TABLE IF NOT EXISTS data_keys (
-        incident TEXT NOT NULL,
-        compartment TEXT NOT NULL,
-        key_id TEXT NOT NULL,
-        wrapped BLOB NOT NULL,
-        PRIMARY KEY (incident, compartment)
-    ) STRICT",
-    "CREATE TABLE IF NOT EXISTS settings (
-        name TEXT PRIMARY KEY,
-        value BLOB NOT NULL
-    ) STRICT",
-    // People who logged in with OpenID Connect (ADR-0038): the identity provider's
-    // subject maps to a stable ORDO user ID; roles come from the provider's groups.
-    "CREATE TABLE IF NOT EXISTS identities (
-        issuer TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        user_id TEXT NOT NULL UNIQUE,
-        roles TEXT NOT NULL,
-        PRIMARY KEY (issuer, subject)
-    ) STRICT",
-    // Paired devices and their public keys.
-    "CREATE TABLE IF NOT EXISTS devices (
-        device_id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        public_key BLOB NOT NULL,
-        paired_ms INTEGER NOT NULL
-    ) STRICT",
-    // Attachments (ADR-0033): the stream each one belongs to; the encrypted bytes are in
-    // the object store, named by their BLAKE3 hash.
-    "CREATE TABLE IF NOT EXISTS blobs (
-        hash TEXT NOT NULL,
-        incident TEXT NOT NULL,
-        compartment TEXT NOT NULL,
-        size INTEGER NOT NULL,
-        stored_ms INTEGER NOT NULL,
-        PRIMARY KEY (hash, incident, compartment)
-    ) STRICT",
-    // Profile pictures per source: `ordo` (uploaded), `provider` (identity provider's
-    // `picture`), `gravatar` (ADR-0047).
-    "CREATE TABLE IF NOT EXISTS avatars (
-        user_id TEXT NOT NULL,
-        source TEXT NOT NULL,
-        image BLOB NOT NULL,
-        updated_ms INTEGER NOT NULL,
-        PRIMARY KEY (user_id, source)
-    ) STRICT",
-];
-
-/// Columns added after the first release of a table; adding them again fails harmlessly.
-const ADDED_COLUMNS: &[&str] = &[
-    // End of a device's login (ms), ADR-0040.
-    "ALTER TABLE devices ADD COLUMN valid_until INTEGER",
-    // The identity provider's renewal token, wrapped with the master key (ADR-0040).
-    "ALTER TABLE identities ADD COLUMN refresh BLOB",
-    // When a device was revoked (SEC-4); revoked devices are refused for good.
-    "ALTER TABLE devices ADD COLUMN revoked_ms INTEGER",
-];
+/// The schema migrations (`migrations/`), embedded at build time and applied in order.
+static MIGRATIONS: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
 /// The server's database.
 #[derive(Clone)]
@@ -113,16 +53,7 @@ impl Store {
             .max_connections(4)
             .connect_with(options)
             .await?;
-        for statement in SCHEMA {
-            sqlx::query(*statement).execute(&pool).await?;
-        }
-        for statement in ADDED_COLUMNS {
-            if let Err(error) = sqlx::query(*statement).execute(&pool).await
-                && !error.to_string().contains("duplicate column")
-            {
-                return Err(error.into());
-            }
-        }
+        MIGRATIONS.run(&pool).await?;
         Ok(Self { pool })
     }
 
@@ -634,6 +565,46 @@ mod tests {
 
     fn user(name: &str) -> UserId {
         format!("{name}@ordo.example.org").parse().unwrap()
+    }
+
+    #[tokio::test]
+    async fn the_schema_is_migrated_once_also_for_databases_from_before_the_first_release() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ordo.db");
+        // A database as the server made it before migrations: tables, then added columns.
+        {
+            let options = SqliteConnectOptions::new()
+                .filename(&path)
+                .create_if_missing(true);
+            let pool = SqlitePoolOptions::new()
+                .connect_with(options)
+                .await
+                .unwrap();
+            for statement in [
+                "CREATE TABLE events (incident TEXT NOT NULL, compartment TEXT NOT NULL, seq INTEGER NOT NULL, event BLOB NOT NULL, PRIMARY KEY (incident, compartment, seq)) STRICT",
+                "CREATE TABLE devices (device_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, public_key BLOB NOT NULL, paired_ms INTEGER NOT NULL) STRICT",
+                "ALTER TABLE devices ADD COLUMN valid_until INTEGER",
+                "ALTER TABLE devices ADD COLUMN revoked_ms INTEGER",
+                "INSERT INTO events VALUES ('i', 'incident', 1, x'00')",
+            ] {
+                sqlx::query(statement).execute(&pool).await.unwrap();
+            }
+            pool.close().await;
+        }
+        for _ in 0..2 {
+            let store = Store::open(&path).await.unwrap();
+            let applied: Vec<i64> = sqlx::query_scalar("SELECT version FROM _sqlx_migrations")
+                .fetch_all(&store.pool)
+                .await
+                .unwrap();
+            assert_eq!(applied, [1], "the baseline, applied once");
+            let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
+                .fetch_one(&store.pool)
+                .await
+                .unwrap();
+            assert_eq!(events, 1, "stored events stay");
+            store.pool.close().await;
+        }
     }
 
     #[tokio::test]

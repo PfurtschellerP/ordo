@@ -80,6 +80,11 @@ Tags: must, m2
 #### Store before send
 `dsn~store-before-send~1`
 
+The database schema is versioned: numbered SQL migrations in
+`platform/ordo-server/migrations`, embedded in the binary and applied by sqlx at start, each
+once, with a checksum. A server refuses to start if a released migration was changed. A
+PostgreSQL mode will bring its own migrations.
+
 For every message the server lets the hub decide, stores all resulting changes (new events, new keys) in one SQLite transaction, and only then sends the resulting messages — while the hub is still locked, so every device receives deliveries in sequence order. If storing fails, nothing is sent and the server stops so that it is restarted; devices still have the events in their outbox and send them again.
 
 Covers:
