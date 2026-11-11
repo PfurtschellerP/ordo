@@ -20,4 +20,4 @@ pub use applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, WriteGuard
 pub use error::SyncError;
 pub use hub::{Change, Hub, HubConfig, Outgoing, RestoreError, SessionId};
 pub use policy::{AccessPolicy, StaticPolicy};
-pub use replica::{Replica, ReplicaState};
+pub use replica::{PUSH_BYTES, REPLICA_FORMAT, Replica, ReplicaState, StoredStateError};

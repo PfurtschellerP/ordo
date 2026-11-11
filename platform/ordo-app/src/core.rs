@@ -31,8 +31,6 @@ use wasm_bindgen::closure::Closure;
 use web_sys::{BinaryType, CloseEvent, MessageEvent, WebSocket};
 
 use crate::{text, vault};
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64;
 
 const PAIRING_KEY: &str = "ordo.pairing";
 const REPLICA_KEY: &str = "ordo.replica";
@@ -140,10 +138,12 @@ impl Core {
                 KeyId::new(&format!("device-{}", device.ulid()), &server).expect("valid key name"),
             )
         };
-        let saved = load_replica();
+        // Stored data that cannot be used stops here, before anything is saved: the
+        // device never starts empty over it.
+        let saved = load_replica().map_err(|e| text::stored_state_unusable(&e.to_string()))?;
         let mut replica = match saved {
             Some(state) => Replica::restore(user.clone(), device, signer(), entropy, state)
-                .unwrap_or_else(|_| Replica::new(user.clone(), device, signer(), entropy)),
+                .map_err(|e| text::stored_state_unusable(&e.to_string()))?,
             None => Replica::new(user, device, signer(), entropy),
         };
         if let Some(incident) = &incident {
@@ -275,7 +275,7 @@ impl Core {
         }
     }
 
-    fn push(&self) {
+    fn push(&mut self) {
         if let Some(push) = self.replica.push() {
             self.send(&push);
         }
@@ -348,6 +348,8 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 }
                 c.devices = Some(list.clone());
             }
+            // Deliveries confirm sent events: the next batch of the outbox may follow.
+            let delivery = matches!(message, ServerMessage::Deliver(_));
             match c.replica.receive(message, now_ms()) {
                 Ok(()) => {
                     c.error = None;
@@ -390,7 +392,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 c.send(&hello);
                 c.push();
             }
-            if welcome {
+            if welcome || delivery {
                 c.push();
             }
             c.storage_failed = save_replica(&c.replica).is_err();
@@ -1510,14 +1512,8 @@ fn load(name: &str) -> Option<Vec<u8>> {
     plain
 }
 
-/// Saved pairing data. Older versions stored it as plain JSON: it is encrypted now.
+/// Saved pairing data (encrypted).
 pub fn load_pairing() -> Option<Pairing> {
-    let text = storage()?.get_item(PAIRING_KEY).ok()??;
-    if !vault::is_encrypted(&text) {
-        let pairing: Pairing = serde_json::from_str(&text).ok()?;
-        save_pairing(&pairing);
-        return Some(pairing);
-    }
     serde_json::from_slice(&load(PAIRING_KEY)?).ok()
 }
 
@@ -1575,46 +1571,31 @@ fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Prefix of the Base64 storage format (older versions stored hex without prefix).
-const BASE64_PREFIX: &str = "b64:";
-
 // [impl->dsn~local-persistence~1]
-fn load_replica() -> Option<ReplicaState> {
-    // Device storage in the worker (ADR-0034); data of older versions moves there from
-    // `localStorage` with the first write.
+/// The saved replica: from the worker's storage (ADR-0034), else from `localStorage`, where
+/// browsers without OPFS in workers keep it. A replica kept in `localStorage` before the
+/// browser could use the worker moves there with the first write.
+fn load_replica() -> Result<Option<ReplicaState>, ordo_sync::StoredStateError> {
     if crate::storage::active() {
-        if let Some(state) = crate::storage::take_loaded() {
-            return Some(state);
+        if let Some(state) = crate::storage::take_loaded()? {
+            return Ok(Some(state));
         }
-        let legacy = load_legacy_replica();
-        if legacy.is_some() {
+        let local = load_local_replica()?;
+        if local.is_some() {
             crate::storage::after_first_write(|| {
                 if let Some(s) = storage() {
                     let _ = s.remove_item(REPLICA_KEY);
                 }
             });
         }
-        return legacy;
+        return Ok(local);
     }
-    load_legacy_replica()
+    load_local_replica()
 }
 
-/// The replica as older versions stored it in `localStorage` (and browsers without OPFS
-/// in workers still do).
-fn load_legacy_replica() -> Option<ReplicaState> {
-    let text = storage()?.get_item(REPLICA_KEY).ok()??;
-    let bytes = if vault::is_encrypted(&text) {
-        load(REPLICA_KEY)?
-    } else {
-        // Older versions: plain Base64 or hex; encrypted from now on.
-        let bytes = match text.strip_prefix(BASE64_PREFIX) {
-            Some(b64) => BASE64.decode(b64).ok()?,
-            None => from_hex_vec(&text)?,
-        };
-        store(REPLICA_KEY, &bytes);
-        bytes
-    };
-    message::decode(&bytes).ok()
+/// The replica as kept in `localStorage` (encrypted), if any.
+fn load_local_replica() -> Result<Option<ReplicaState>, ordo_sync::StoredStateError> {
+    load(REPLICA_KEY).map_or(Ok(None), |bytes| ReplicaState::decode(&bytes).map(Some))
 }
 
 // [impl->dsn~local-persistence~1]

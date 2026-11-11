@@ -46,7 +46,13 @@ message per frame.
      afterwards, also offline, until the person logs in again. The server MUST refuse
      (`refused: loginExpired`) a hello of a device whose login has ended, and MUST end open
      connections of such devices with the same refusal.
-5. The device then sends its whole outbox (`push`).
+5. The device then sends its outbox (`push`), oldest event first, in pushes of at most
+   4 MiB of events each (at least one event); it sends the next push when the server has
+   ordered the events of the last. The server MAY close a connection whose message is
+   larger than 16 MiB. An event the server rejects for the moment (`notConnected`,
+   `loginExpired`, `clockAhead`, and the other reasons not about the event itself) stays
+   in the outbox for the next connection; one rejected for what it is (`malformed`,
+   `wrongAuthor`, `badSignature`, `forbidden`, `wrongSealing`, `duplicateId`) leaves it.
 
 ## 3. Pushing events
 

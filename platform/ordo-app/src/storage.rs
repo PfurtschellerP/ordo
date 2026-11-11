@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 use js_sys::{Array, Function, Promise, Uint8Array};
 use ordo_core::SequencedEvent;
 use ordo_sync::message;
-use ordo_sync::{Replica, ReplicaState, StreamKey};
+use ordo_sync::{Replica, ReplicaState, StoredStateError, StreamKey};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -30,7 +30,7 @@ thread_local! {
     static NEXT: Cell<u32> = const { Cell::new(1) };
     /// Last stored sequence number per stream.
     static SAVED: RefCell<HashMap<StreamKey, u64>> = RefCell::new(HashMap::new());
-    static LOADED: RefCell<Option<ReplicaState>> = const { RefCell::new(None) };
+    static LOADED: RefCell<Result<Option<ReplicaState>, StoredStateError>> = const { RefCell::new(Ok(None)) };
     /// The worker refused a write (storage full or blocked).
     static FAILED: Cell<bool> = const { Cell::new(false) };
     /// Called once the first write succeeded (moving data out of `localStorage`).
@@ -147,7 +147,7 @@ async fn open_worker() -> Result<(), String> {
     let rows: Array = call("load", &[STATE.into()]).await?.unchecked_into();
     let events: Array = call("load", &["e/".into()]).await?.unchecked_into();
     let state = assemble(&rows.concat(&events));
-    if let Some(state) = &state {
+    if let Ok(Some(state)) = &state {
         SAVED.set(
             state
                 .streams
@@ -161,8 +161,8 @@ async fn open_worker() -> Result<(), String> {
 }
 
 /// The replica state found when the storage was opened (once).
-pub fn take_loaded() -> Option<ReplicaState> {
-    LOADED.take()
+pub fn take_loaded() -> Result<Option<ReplicaState>, StoredStateError> {
+    LOADED.replace(Ok(None))
 }
 
 /// Runs `f` after the next successful write (e.g. to remove data that moved here).
@@ -180,8 +180,10 @@ fn encrypted(key: &str, bytes: &[u8]) -> Option<JsValue> {
     Some(Uint8Array::from(text.as_bytes()).into())
 }
 
-/// The replica state from the stored rows; `None` without a (readable) state row.
-fn assemble(rows: &Array) -> Option<ReplicaState> {
+/// The replica state from the stored rows; `None` without a state row. A state that
+/// cannot be used (written by a newer version, or damaged) is an error, never "none": the
+/// device must not start empty and overwrite it.
+fn assemble(rows: &Array) -> Result<Option<ReplicaState>, StoredStateError> {
     let mut state: Option<ReplicaState> = None;
     let mut events: BTreeMap<StreamKey, Vec<SequencedEvent>> = BTreeMap::new();
     for row in rows.iter() {
@@ -193,7 +195,7 @@ fn assemble(rows: &Array) -> Option<ReplicaState> {
             continue; // written with an earlier storage key: unreadable on purpose
         };
         if key == STATE {
-            state = message::decode(&bytes).ok();
+            state = Some(ReplicaState::decode(&bytes)?);
         } else if key.starts_with("e/") {
             let Ok(event) = message::decode::<SequencedEvent>(&bytes) else {
                 continue;
@@ -207,14 +209,16 @@ fn assemble(rows: &Array) -> Option<ReplicaState> {
                 .push(event);
         }
     }
-    let mut state = state?;
+    let Some(mut state) = state else {
+        return Ok(None);
+    };
     for (stream, list) in &mut state.streams {
         if let Some(stored) = events.remove(stream) {
             *list = stored;
         }
     }
     state.streams.extend(events);
-    Some(state)
+    Ok(Some(state))
 }
 
 // [impl->dsn~device-storage~1]

@@ -51,7 +51,6 @@ fuzz_target!(|data: &[u8]| {
     round_trip::<med::hospitals::HospitalSet>(data);
     round_trip::<med::hospitals::CapacitySet>(data);
     round_trip::<med::record::EntryRecorded>(data);
-    round_trip::<med::record::PhotoAdded>(data);
     round_trip::<med::record::PhotoAttached>(data);
     // Connectors (derived by the server).
     round_trip::<ordo_contracts::PatientCountsV1>(data);

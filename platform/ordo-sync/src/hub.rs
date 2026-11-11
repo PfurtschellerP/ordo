@@ -1040,14 +1040,6 @@ impl<P: AccessPolicy> Hub<P> {
         });
         (id, data_key)
     }
-
-    /// Streams a session currently receives (for tests).
-    pub fn session_streams(&self, session: SessionId) -> BTreeSet<StreamKey> {
-        self.sessions
-            .get(&session)
-            .map(|s| s.streams.iter().cloned().collect())
-            .unwrap_or_default()
-    }
 }
 
 impl From<StreamKey> for Subscription {

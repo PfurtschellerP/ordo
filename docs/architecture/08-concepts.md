@@ -94,7 +94,7 @@ Tags: must, m0
 #### Outbox and resend
 `dsn~outbox-and-resend~1`
 
-A device records every new event in its outbox and shows it at once. After connecting, it sends `hello` with the last sequence number it has per stream, receives what it missed, and then sends its whole outbox. The server ignores events it has already ordered (by event ID), so resending after a lost confirmation never duplicates anything. An event leaves the outbox when it comes back ordered from the server.
+A device records every new event in its outbox and shows it at once. After connecting, it sends `hello` with the last sequence number it has per stream, receives what it missed, and then sends its outbox in pushes of at most 4 MiB, the next as the server confirms the last. The server ignores events it has already ordered (by event ID), so resending after a lost confirmation never duplicates anything, and accepts messages of at most 16 MiB. An event leaves the outbox when it comes back ordered from the server, or when the server rejects it for what it is (forbidden, malformed, wrongly signed or sealed); a rejection for the moment (no session yet, login expired, clock ahead) keeps it for the next connection, so no input is lost.
 
 Covers:
 
@@ -351,6 +351,30 @@ Covers:
 Needs: itest
 
 Tags: must, m28
+
+#### Content Security Policy
+`dsn~content-security-policy~1`
+
+Every response of the server carries a strict Content Security Policy. `default-src`,
+`script-src`, `style-src`, `connect-src` and `worker-src` are `'self'`. Scripts may also
+compile WebAssembly (`'wasm-unsafe-eval'`). Images may be `data:` and `blob:` URLs
+(symbols, photos). Frames, objects, other base URIs and other form targets are not
+allowed. The app has no inline code of its own:
+- the boot script is a file;
+- MapLibre's styles come in through `app.css`;
+- the map module is imported through a wasm-bindgen module snippet instead of `new Function`.
+
+The only inline script is Trunk's loader, which changes with every build; the server reads
+the built page at start and allows exactly that script by its SHA-256 hash. The browser test
+records every policy violation and expects none.
+
+Covers:
+
+* [req~sec-18~1](../requirements/07-quality.md#sec-18--only-ordos-own-code-runs-in-the-app)
+
+Needs: impl, utest, itest
+
+Tags: must, m42
 
 #### Fuzzing
 `dsn~fuzzing~1`
@@ -818,8 +842,9 @@ of the replica (`state`). The app encrypts every value with the vault's storage 
 it leaves the main thread (ADR-0041), so the worker sees only ciphertext. After a change
 only the new events and the state row are written; streams the device lost are deleted.
 At start the app waits for the worker's `ready`, opens and loads the database (time limit
-ten seconds); data of older versions moves over from `localStorage` with the first write;
-without OPFS in workers the app keeps using `localStorage`. The worker is its own Cargo
+ten seconds). Browsers without OPFS in workers keep the replica in `localStorage`
+(encrypted); once such a browser can use the worker, the replica moves there with the first
+write. The worker is its own Cargo
 workspace (own lockfile): its SQLite for the browser cannot share the dependency graph with
 the server's SQLite yet.
 

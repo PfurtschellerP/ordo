@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 axum.workspace = true
+base64.workspace = true
 blake3.workspace = true
 object_store.workspace = true
 cedar-policy.workspace = true
@@ -52,3 +53,7 @@ tokio-tungstenite.workspace = true
 
 [lints]
 workspace = true
+
+# Dependencies cargo-machete cannot see being used: named only to select TLS features of the HTTP clients of openidconnect and object_store.
+[package.metadata.cargo-machete]
+ignored = ["reqwest", "reqwest-s3"]

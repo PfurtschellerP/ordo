@@ -1241,3 +1241,10 @@ pub fn draw_corners(n: usize) -> String {
         n => format!("{n} Eckpunkte gesetzt."),
     }
 }
+
+// Stored data that cannot be used (local persistence)
+pub fn stored_state_unusable(reason: &str) -> String {
+    format!(
+        "Die Daten auf diesem Gerät können von dieser Version nicht gelesen werden ({reason}). Sie bleiben unverändert erhalten; bitte die App neu laden oder die Administration verständigen."
+    )
+}

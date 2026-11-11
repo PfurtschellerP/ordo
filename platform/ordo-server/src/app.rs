@@ -219,19 +219,21 @@ impl App {
             }
             None => api,
         };
-        let header = |name: &'static str, value: &'static str| {
-            SetResponseHeaderLayer::if_not_present(
-                HeaderName::from_static(name),
-                HeaderValue::from_static(value),
-            )
+        let header = |name: &'static str, value: HeaderValue| {
+            SetResponseHeaderLayer::if_not_present(HeaderName::from_static(name), value)
         };
+        let policy =
+            HeaderValue::from_str(&content_security_policy(app_dir)).expect("the policy is ASCII");
         router
-            .layer(header("x-content-type-options", "nosniff"))
-            .layer(header("referrer-policy", "no-referrer"))
             .layer(header(
-                "content-security-policy",
-                "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+                "x-content-type-options",
+                HeaderValue::from_static("nosniff"),
             ))
+            .layer(header(
+                "referrer-policy",
+                HeaderValue::from_static("no-referrer"),
+            ))
+            .layer(header("content-security-policy", policy))
     }
 
     // [impl->dsn~store-before-send~1]
@@ -469,8 +471,62 @@ impl App {
     }
 }
 
+// [impl->dsn~content-security-policy~1]
+/// The Content Security Policy of every response: scripts, styles, workers and
+/// connections only from ORDO itself; WebAssembly may compile; the app page's inline
+/// scripts (Trunk's loader) only by their hash, read from the built page at start; images
+/// also as `data:` and `blob:` URLs (symbols, photos). No inline styles, no eval.
+fn content_security_policy(app_dir: Option<&std::path::Path>) -> String {
+    let hashes = app_dir
+        .and_then(|dir| std::fs::read_to_string(dir.join("index.html")).ok())
+        .map(|html| inline_script_hashes(&html))
+        .unwrap_or_default();
+    let scripts: String = hashes.iter().map(|h| format!(" '{h}'")).collect();
+    format!(
+        "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'{scripts}; \
+         style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; \
+         worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; object-src 'none'; \
+         base-uri 'self'; form-action 'self'"
+    )
+}
+
+/// `sha256-…` of every inline `<script>` (one without `src`) of a page.
+fn inline_script_hashes(html: &str) -> Vec<String> {
+    use base64::Engine as _;
+    use sha2::{Digest, Sha256};
+    let mut hashes = Vec::new();
+    let mut rest = html;
+    while let Some(start) = rest.find("<script") {
+        let after = &rest[start..];
+        let Some(open_end) = after.find('>') else {
+            break;
+        };
+        let tag = &after[..open_end];
+        let body = &after[open_end + 1..];
+        let Some(close) = body.find("</script>") else {
+            break;
+        };
+        if !tag.contains(" src=") {
+            let digest = Sha256::digest(&body.as_bytes()[..close]);
+            hashes.push(format!(
+                "sha256-{}",
+                base64::engine::general_purpose::STANDARD.encode(digest)
+            ));
+        }
+        rest = &body[close..];
+    }
+    hashes
+}
+
+/// Largest WebSocket message: a push carries at most 4 MiB of events (protocol §2), one
+/// event at most 1 MiB; more is refused before it is read into memory (SEC-17).
+const MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+
 async fn sync(State(app): State<Arc<App>>, upgrade: WebSocketUpgrade) -> Response {
-    upgrade.on_upgrade(move |socket| app.session(socket))
+    upgrade
+        .max_message_size(MAX_MESSAGE_BYTES)
+        .max_frame_size(MAX_MESSAGE_BYTES)
+        .on_upgrade(move |socket| app.session(socket))
 }
 
 async fn readyz(State(app): State<Arc<App>>) -> Response {
@@ -591,6 +647,36 @@ fn is_hashed_asset(path: &str) -> bool {
 
 #[cfg(test)]
 mod cache_tests {
+    // [utest->dsn~content-security-policy~1]
+    #[test]
+    fn the_policy_allows_exactly_the_pages_inline_scripts() {
+        let page = r#"<head><script src="/boot.js"></script>
+<script type="module">import init from '/app.js';</script></head>"#;
+        let hashes = super::inline_script_hashes(page);
+        assert_eq!(hashes.len(), 1, "files are allowed by 'self', not by hash");
+        // echo -n "import init from '/app.js';" | openssl dgst -sha256 -binary | base64
+        assert_eq!(
+            hashes[0],
+            "sha256-lIu2QzD3kpYH4IKFiA/ZCfzcckv8zd+3oxfRlLTdixk="
+        );
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("index.html"), page).unwrap();
+        let policy = super::content_security_policy(Some(dir.path()));
+        assert!(policy.contains(&format!(
+            "script-src 'self' 'wasm-unsafe-eval' '{}'",
+            hashes[0]
+        )));
+        for directive in [
+            "style-src 'self';",
+            "connect-src 'self';",
+            "object-src 'none';",
+            "frame-ancestors 'none';",
+        ] {
+            assert!(policy.contains(directive), "{directive}");
+        }
+        assert!(!policy.contains("unsafe-inline") && !policy.contains("'unsafe-eval'"));
+    }
+
     use super::is_hashed_asset;
 
     #[test]

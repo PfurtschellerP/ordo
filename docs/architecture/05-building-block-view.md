@@ -629,8 +629,7 @@ it and re-encodes it as JPEG, which drops camera and location metadata: the full
 photo, an encrypted attachment (design item "Attachment transfer", chapter 8;
 [ADR-0033](../adr/0033-attachments-in-an-object-store.md)). The module rejects larger
 photos and other media types. The record shows the latest photo: the full photo once the
-device has it, the preview with a note until then. Older `epcr.photoAdded` events (photo
-inside the event, at most 160 KiB, ADR-0028) are still shown.
+device has it, the preview with a note until then.
 
 Covers:
 
@@ -650,13 +649,13 @@ palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Flu
 #### Local persistence
 `dsn~local-persistence~1`
 
-The app saves the replica state (ordered events, outbox, data keys) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8).
+The app saves the replica state (ordered events, outbox, data keys) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8). The stored state names its format (`REPLICA_FORMAT`), which is read before anything else. A state written by a newer version, or one that cannot be read, stops the start with a message and is left untouched: the device never starts empty over stored data. An older format is upgraded when it is read.
 
 Covers:
 
 * [req~ux-5~1](../requirements/07-quality.md#ux-5--no-lost-input)
 
-Needs: impl, itest
+Needs: impl, utest, itest
 
 Tags: must, m3
 

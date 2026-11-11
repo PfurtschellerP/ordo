@@ -273,9 +273,6 @@ fn describe(e: &AppliedEvent, c: &Context) -> Line {
                     corrects: p.replaces,
                 }
             }
-            med::record::PHOTO_ADDED => {
-                text::photo_added(&decode::<med::record::PhotoAdded>(e)?.tag).into()
-            }
             med::record::PHOTO_ATTACHED => {
                 text::photo_added(&decode::<med::record::PhotoAttached>(e)?.tag).into()
             }

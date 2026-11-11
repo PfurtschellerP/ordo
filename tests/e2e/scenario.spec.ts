@@ -48,9 +48,22 @@ let benFrames: ReturnType<typeof recordFrames>;
 
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
 
+/** Content Security Policy violations reported by any page of the scenario (SEC-18). */
+const cspViolations: string[] = [];
+
 async function newDevice(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1200, height: 1000 } });
-  return context.newPage();
+  const page = await context.newPage();
+  // Chromium: "Refused to …", Firefox: "Content-Security-Policy: …", WebKit: "Refused to …".
+  // Scripts the test injects have no URL (axe-core reads styles through <style>
+  // elements, which the policy rightly blocks): only the app's own code counts.
+  page.on("console", (m) => {
+    const csp = /Content.Security.Policy|Refused to (load|execute|apply|connect|compile|create|evaluate)/i;
+    if (csp.test(m.text()) && m.location().url !== "") {
+      cspViolations.push(`${m.location().url}:${m.location().lineNumber} ${m.text().slice(0, 200)}`);
+    }
+  });
+  return page;
 }
 
 test.beforeAll(async ({ browser }, info) => {
@@ -1090,5 +1103,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await shot(ben, "device-revoked");
     await ben.getByRole("button", { name: "Neu koppeln" }).click();
     await expect(ben.getByRole("button", { name: "Anmelden" }), "the tablet can be paired again").toBeVisible();
+  });
+
+  // [itest->dsn~content-security-policy~1]
+  await test.step("the whole scenario ran under the strict Content Security Policy", async () => {
+    const policy = (await dora.request.get(server.url)).headers()["content-security-policy"];
+    expect(policy, "scripts and styles only from ORDO").toMatch(/script-src 'self' 'wasm-unsafe-eval' 'sha256-[^']+'; style-src 'self';/);
+    expect(cspViolations, "no page broke the policy").toEqual([]);
   });
 });

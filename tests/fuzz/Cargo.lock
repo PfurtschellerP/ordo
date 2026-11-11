@@ -356,7 +356,6 @@ dependencies = [
  "ordo-core",
  "ordo-sync",
  "serde",
- "thiserror",
 ]
 
 [[package]]

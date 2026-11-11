@@ -1,8 +1,11 @@
 /* ORDO app styles. Only design tokens (--ordo-*) for colours, sizes and motion, so all
    themes and organisation themes apply (architecture 8.6). */
 
-/* `vendor`: third-party styles (MapLibre), below ORDO's own, so the design system wins. */
+/* `vendor`: third-party styles (MapLibre), below ORDO's own, so the design system wins.
+   Imported here, not injected by the map's script: the Content Security Policy allows no
+   inline styles. */
 @layer vendor, base, components, utilities;
+@import url("/map/vendor/maplibre-gl.css") layer(vendor);
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }

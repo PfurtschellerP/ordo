@@ -564,11 +564,16 @@ fn reused_event_id_with_other_content_is_rejected() {
     let mut world = World::new();
     world.sync();
     set_status(&mut world, "ben", "RTW 1", "2", None);
-    let ClientMessage::Push(events) = world.replica("ben").push().unwrap() else {
-        unreachable!()
-    };
-    let original = events[0].clone();
     world.sync(); // ordered
+    let original = world
+        .replica("ben")
+        .stored_events()
+        .find(|e| {
+            e.decode_body()
+                .is_ok_and(|b| b.event_type.as_str() == "units.statusChanged")
+        })
+        .unwrap()
+        .clone();
     let mut other = original.decode_body().unwrap();
     other.payload = Payload::Plain(
         StatusChanged {
@@ -1454,4 +1459,96 @@ fn the_situation_map_reaches_every_device_the_same() {
         Geometry::Point([10.91, 48.41])
     );
     assert_eq!(clara.centre(), Some([10.89, 48.37]));
+}
+
+/// A large outbox goes out in bounded pushes, the next one as the server confirms the
+/// last, and arrives completely (SEC-17: the server limits message size).
+// [itest->dsn~outbox-and-resend~1]
+#[test]
+fn a_large_outbox_is_sent_in_bounded_batches() {
+    let mut world = World::new();
+    world.sync();
+    world.set_online("ben", false);
+    // Six events of almost 1 MiB each: more than one push may carry.
+    let big = "x".repeat(900 * 1024);
+    for i in 0..6 {
+        set_status(&mut world, "ben", &format!("{big}{i}"), "2", None);
+    }
+    let ClientMessage::Push(first) = world.replica("ben").push().unwrap() else {
+        unreachable!()
+    };
+    assert!(
+        (1..6).contains(&first.len()),
+        "one push carries at most {} bytes: {} events",
+        ordo_sync::PUSH_BYTES,
+        first.len()
+    );
+    assert!(
+        first.iter().map(|e| e.body.len()).sum::<usize>() <= ordo_sync::PUSH_BYTES,
+        "within the budget"
+    );
+    world.set_online("ben", true);
+    world.sync();
+    assert_eq!(world.replica("ben").outbox_len(), 0, "every batch arrived");
+}
+
+/// A rejection for the moment (no session, login expired, clock ahead, …) keeps the event
+/// for the next connection; only a rejection of the event itself removes it.
+// [itest->dsn~outbox-and-resend~1]
+#[test]
+fn only_final_rejections_take_an_event_out_of_the_outbox() {
+    use ordo_sync::message::{Rejected, ServerMessage};
+    let mut world = World::new();
+    world.sync();
+    world.set_online("ben", false);
+    set_status(&mut world, "ben", "RTW 1", "2", None);
+    set_status(&mut world, "ben", "RTW 2", "2", None);
+    let ids: Vec<_> = world
+        .replica("ben")
+        .stored_events()
+        .filter_map(|e| e.decode_body().ok())
+        .filter(|b| b.event_type.as_str() == "units.statusChanged")
+        .map(|b| b.id)
+        .collect();
+    let now = world.now;
+    for reason in [
+        Rejection::NotConnected,
+        Rejection::LoginExpired,
+        Rejection::ClockAhead,
+    ] {
+        world
+            .replica("ben")
+            .receive(
+                ServerMessage::Rejected(Rejected {
+                    event: ids[0],
+                    reason,
+                }),
+                now,
+            )
+            .unwrap();
+    }
+    assert_eq!(
+        world.replica("ben").outbox_len(),
+        2,
+        "kept for the next connection"
+    );
+    world
+        .replica("ben")
+        .receive(
+            ServerMessage::Rejected(Rejected {
+                event: ids[1],
+                reason: Rejection::Forbidden,
+            }),
+            now,
+        )
+        .unwrap();
+    assert_eq!(
+        world.replica("ben").outbox_len(),
+        1,
+        "a forbidden event leaves"
+    );
+    assert_eq!(world.replica("ben").rejected().len(), 1);
+    world.set_online("ben", true);
+    world.sync();
+    assert_eq!(world.replica("ben").outbox_len(), 0, "the kept one arrives");
 }

@@ -51,11 +51,6 @@ pub fn open_item(key: &DataKey, label: &str, text: &str) -> Option<Vec<u8>> {
     seal::unwrap(key, &format!("storage/{label}"), &sealed).ok()
 }
 
-/// Whether a stored text is encrypted (older versions stored plain text).
-pub fn is_encrypted(text: &str) -> bool {
-    text.starts_with(ITEM_PREFIX)
-}
-
 /// Encrypts an item with the storage key; `None` before [`open`] succeeded.
 pub fn encrypt(label: &str, bytes: &[u8]) -> Option<String> {
     let mut nonce = [0u8; 24];
@@ -286,7 +281,7 @@ mod tests {
             "ordo.pairing",
             b"{\"private_key\":\"secret\"}",
         );
-        assert!(is_encrypted(&text));
+        assert!(text.starts_with(ITEM_PREFIX));
         assert!(!text.contains("secret"), "no plain text");
         assert_eq!(
             open_item(&key, "ordo.pairing", &text).as_deref(),
@@ -310,7 +305,6 @@ mod tests {
             None,
             "changes are detected"
         );
-        assert!(!is_encrypted("{\"user\":\"anna\"}"));
         assert_eq!(open_item(&key, "ordo.pairing", "b64:AAAA"), None);
     }
 }

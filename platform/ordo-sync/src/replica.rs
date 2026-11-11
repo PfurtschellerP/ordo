@@ -1,6 +1,6 @@
 //! The device side: local copy of the streams the user may read, plus the outbox.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use ordo_core::event::ENVELOPE_VERSION;
 use ordo_core::{
@@ -15,12 +15,37 @@ use crate::applied::{AppliedEvent, Entropy, StreamKey, random_u128};
 use crate::message::{ClientMessage, Hello, KeyGrant, Rejected, ServerMessage, Subscription};
 use crate::version::{SYNC as SYNC_VERSIONS, Version};
 
+/// The most a [`Replica::push`] carries, in bytes of events (an event is at most 1 MiB);
+/// the server accepts messages of up to 16 MiB.
+pub const PUSH_BYTES: usize = 4 * 1024 * 1024;
+
+/// Whether a rejection is about the event itself, so sending it again cannot help.
+fn is_final(reason: crate::message::Rejection) -> bool {
+    use crate::message::Rejection as R;
+    matches!(
+        reason,
+        R::Malformed
+            | R::WrongAuthor
+            | R::BadSignature
+            | R::Forbidden
+            | R::WrongSealing
+            | R::DuplicateId
+    )
+}
+
+/// The format of [`ReplicaState`] this version writes. Raise it when the stored form
+/// changes, and handle older formats in [`ReplicaState::decode`].
+pub const REPLICA_FORMAT: u32 = 1;
+
 /// Everything a device stores locally, for saving and loading (e.g. browser storage).
 ///
 /// Contains the compartment data keys. Stored at rest, it must be protected by the
 /// device: the web app encrypts it with its storage key (ADR-0041).
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReplicaState {
+    /// The stored format ([`REPLICA_FORMAT`] when written by this version).
+    #[serde(default)]
+    pub format: u32,
     /// Compartments that must be sealed, once known.
     pub protected: Option<Vec<CompartmentId>>,
     /// Streams the device asks for.
@@ -38,6 +63,38 @@ pub struct ReplicaState {
     /// End of the device's login (ADR-0040).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub valid_until: Option<u64>,
+}
+
+/// Why a stored [`ReplicaState`] cannot be used.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum StoredStateError {
+    /// Written by a newer version of ORDO: kept untouched until that version runs again.
+    #[error("stored by a newer version of ORDO (format {0})")]
+    Newer(u32),
+    /// Not a stored state, or damaged.
+    #[error("the stored state cannot be read: {0}")]
+    Unreadable(String),
+}
+
+impl ReplicaState {
+    // [impl->dsn~local-persistence~1]
+    /// Decodes a stored state. The format is read first, so a state written by a newer
+    /// version is recognised even if its form changed, and never mistaken for none.
+    pub fn decode(bytes: &[u8]) -> Result<Self, StoredStateError> {
+        #[derive(serde::Deserialize)]
+        struct Format {
+            #[serde(default)]
+            format: u32,
+        }
+        let format = crate::message::decode::<Format>(bytes)
+            .map_err(|e| StoredStateError::Unreadable(e.to_string()))?
+            .format;
+        if format > REPLICA_FORMAT {
+            return Err(StoredStateError::Newer(format));
+        }
+        // Format 0 (before the first release) has the same form as format 1.
+        crate::message::decode(bytes).map_err(|e| StoredStateError::Unreadable(e.to_string()))
+    }
 }
 
 #[derive(Default)]
@@ -70,6 +127,8 @@ pub struct Replica {
     keys: HashMap<StreamKey, (KeyId, DataKey)>,
     streams: BTreeMap<StreamKey, LocalStream>,
     outbox: Vec<(StreamKey, SignedEvent)>,
+    /// Outbox events sent on this connection and not yet confirmed or rejected.
+    in_flight: HashSet<EventId>,
     rejected: Vec<Rejected>,
     /// The server's challenge on the current connection, until the hello answers it.
     challenge: Option<[u8; 32]>,
@@ -105,6 +164,7 @@ impl Replica {
             keys: HashMap::new(),
             streams: BTreeMap::new(),
             outbox: Vec::new(),
+            in_flight: HashSet::new(),
             rejected: Vec::new(),
             challenge: None,
             asked: SYNC_VERSIONS.max,
@@ -141,6 +201,7 @@ impl Replica {
 
     fn snapshot_meta(&self) -> ReplicaState {
         ReplicaState {
+            format: REPLICA_FORMAT,
             protected: self.protected.clone(),
             wanted: self.wanted.iter().cloned().collect(),
             granted: self.granted.iter().cloned().collect(),
@@ -239,6 +300,8 @@ impl Replica {
     // [impl->dsn~device-proof~1]
     pub fn hello(&mut self) -> Option<ClientMessage> {
         let challenge = self.challenge.take()?;
+        // A new connection: whatever was sent on the last one goes again.
+        self.in_flight.clear();
         let proof = self
             .signer
             .sign_hello(&challenge, &self.author.device, &self.author.user);
@@ -263,11 +326,29 @@ impl Replica {
     }
 
     // [impl->dsn~outbox-and-resend~1]
-    /// All unconfirmed events, to send after [`Replica::hello`]. Sending them again is
-    /// safe: the server ignores events it has already ordered.
-    pub fn push(&self) -> Option<ClientMessage> {
-        (!self.outbox.is_empty())
-            .then(|| ClientMessage::Push(self.outbox.iter().map(|(_, e)| e.clone()).collect()))
+    /// The next unconfirmed events not yet sent on this connection, oldest first, up to
+    /// [`PUSH_BYTES`] (at least one), to send after [`Replica::hello`]; `None` when all
+    /// are on their way. Call it again as the server confirms them. Sending an event
+    /// again is safe: the server ignores events it has already ordered.
+    pub fn push(&mut self) -> Option<ClientMessage> {
+        let mut batch = Vec::new();
+        let mut bytes = 0;
+        for (_, event) in &self.outbox {
+            let Ok(id) = event.decode_body().map(|b| b.id) else {
+                continue;
+            };
+            if self.in_flight.contains(&id) {
+                continue;
+            }
+            let size = event.body.len() + 96;
+            if !batch.is_empty() && bytes + size > PUSH_BYTES {
+                break;
+            }
+            bytes += size;
+            self.in_flight.insert(id);
+            batch.push(event.clone());
+        }
+        (!batch.is_empty()).then_some(ClientMessage::Push(batch))
     }
 
     /// Number of events not yet confirmed by the server.
@@ -457,10 +538,17 @@ impl Replica {
             | ServerMessage::MapRegion(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::BlobTicket(_) => Ok(()),
+            // [impl->dsn~outbox-and-resend~1]
+            // Refused for what the event is: it leaves the outbox. Refused for the moment
+            // (no session, login expired, clock ahead, …): it stays and goes again on the
+            // next connection, so no input is lost.
             ServerMessage::Rejected(rejected) => {
-                self.outbox
-                    .retain(|(_, e)| e.decode_body().map(|b| b.id) != Ok(rejected.event));
-                self.rejected.push(rejected);
+                self.in_flight.remove(&rejected.event);
+                if is_final(rejected.reason) {
+                    self.outbox
+                        .retain(|(_, e)| e.decode_body().map(|b| b.id) != Ok(rejected.event));
+                    self.rejected.push(rejected);
+                }
                 Ok(())
             }
             ServerMessage::Deliver(delivery) => {
@@ -505,6 +593,7 @@ impl Replica {
         stream.events.push(event);
         self.outbox
             .retain(|(_, e)| e.decode_body().map(|b| b.id) != Ok(body.id));
+        self.in_flight.remove(&body.id);
         Ok(())
     }
 
@@ -572,5 +661,78 @@ impl Replica {
                 Ok(AppliedEvent { seq, body, payload })
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod stored_state_tests {
+    use super::*;
+
+    fn state(format: u32) -> ReplicaState {
+        ReplicaState {
+            format,
+            protected: None,
+            wanted: Vec::new(),
+            granted: Vec::new(),
+            denied: Vec::new(),
+            keys: Vec::new(),
+            streams: Vec::new(),
+            outbox: Vec::new(),
+            valid_until: Some(42),
+        }
+    }
+
+    // [utest->dsn~local-persistence~1]
+    #[test]
+    fn a_stored_state_names_its_format_and_newer_ones_are_never_taken_for_none() {
+        let bytes = crate::message::encode(&state(REPLICA_FORMAT)).unwrap();
+        let decoded = ReplicaState::decode(&bytes).unwrap();
+        assert_eq!(
+            (decoded.format, decoded.valid_until),
+            (REPLICA_FORMAT, Some(42))
+        );
+
+        // Before the first release the field was missing: format 0, same form.
+        #[derive(serde::Serialize)]
+        struct Unversioned {
+            protected: Option<Vec<CompartmentId>>,
+            wanted: Vec<StreamKey>,
+            granted: Vec<StreamKey>,
+            denied: Vec<StreamKey>,
+            keys: Vec<KeyGrant>,
+            streams: Vec<(StreamKey, Vec<SequencedEvent>)>,
+            outbox: Vec<(StreamKey, SignedEvent)>,
+        }
+        let old = crate::message::encode(&Unversioned {
+            protected: None,
+            wanted: Vec::new(),
+            granted: Vec::new(),
+            denied: Vec::new(),
+            keys: Vec::new(),
+            streams: Vec::new(),
+            outbox: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(ReplicaState::decode(&old).unwrap().format, 0);
+
+        // A newer version's state, even of another form, is recognised as such.
+        #[derive(serde::Serialize)]
+        struct Future {
+            format: u32,
+            everything: String,
+        }
+        let newer = crate::message::encode(&Future {
+            format: REPLICA_FORMAT + 1,
+            everything: "different".into(),
+        })
+        .unwrap();
+        assert_eq!(
+            ReplicaState::decode(&newer).err(),
+            Some(StoredStateError::Newer(REPLICA_FORMAT + 1))
+        );
+        assert!(matches!(
+            ReplicaState::decode(b"not a state"),
+            Err(StoredStateError::Unreadable(_))
+        ));
     }
 }

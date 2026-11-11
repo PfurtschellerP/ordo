@@ -301,6 +301,15 @@ Tags: must, quality, m42
 
 Needs: dsn
 
+#### SEC-18 — Only ORDO's own code runs in the app
+`req~sec-18~1`
+
+ORDO shall let the browser run only ORDO's own scripts, styles and workers and connect only to ORDO's server (Content Security Policy, no inline code, no eval), so that injected content cannot run or send data elsewhere.
+
+Tags: must, quality, m42
+
+Needs: dsn
+
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 

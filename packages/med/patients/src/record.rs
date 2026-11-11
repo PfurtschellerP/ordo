@@ -25,14 +25,9 @@ use serde::{Deserialize, Serialize};
 pub const MODULE: &str = "med.epcr";
 /// Event type: values of one form were recorded for a patient.
 pub const ENTRY_RECORDED: &str = "epcr.entryRecorded";
-/// Event type: a photo of a patient was added inside the event (ADR-0028, superseded;
-/// still read, no longer written).
-pub const PHOTO_ADDED: &str = "epcr.photoAdded";
 /// Event type: a photo of a patient was attached (ADR-0033): a small preview inside the
 /// event, the full image as an encrypted attachment.
 pub const PHOTO_ATTACHED: &str = "epcr.photoAttached";
-/// Largest photo inside an `epcr.photoAdded` event, in bytes.
-pub const MAX_PHOTO_BYTES: usize = 160 * 1024;
 /// Largest preview inside an `epcr.photoAttached` event, in bytes.
 pub const MAX_PREVIEW_BYTES: usize = 16 * 1024;
 /// Largest full photo (plaintext) of an `epcr.photoAttached` event, in bytes.
@@ -543,46 +538,15 @@ impl EntryRecorded {
     }
 }
 
-/// Payload of `epcr.photoAdded`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PhotoAdded {
-    /// Triage tag number of the patient.
-    pub tag: String,
-    /// `image/jpeg` or `image/webp`.
-    pub media_type: String,
-    /// Image bytes, re-encoded on the device (no camera metadata).
-    #[serde(with = "serde_bytes")]
-    pub data: Vec<u8>,
-}
-
 /// Why a photo cannot be recorded.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PhotoError {
-    /// Larger than [`MAX_PHOTO_BYTES`].
-    #[error("photo has {0} bytes, more than {MAX_PHOTO_BYTES}")]
+    /// Larger than allowed ([`MAX_PREVIEW_BYTES`], [`MAX_FULL_PHOTO_BYTES`]).
+    #[error("photo has {0} bytes, more than allowed")]
     TooLarge(usize),
     /// Not an accepted media type.
     #[error("media type {0} is not accepted")]
     MediaType(String),
-}
-
-impl PhotoAdded {
-    /// Checks size and media type.
-    pub fn check(&self) -> Result<(), PhotoError> {
-        if !PHOTO_MEDIA_TYPES.contains(&self.media_type.as_str()) {
-            return Err(PhotoError::MediaType(self.media_type.clone()));
-        }
-        if self.data.len() > MAX_PHOTO_BYTES {
-            return Err(PhotoError::TooLarge(self.data.len()));
-        }
-        Ok(())
-    }
-
-    /// CBOR payload; checks size and media type first.
-    pub fn encode(&self) -> Result<Vec<u8>, String> {
-        self.check().map_err(|e| e.to_string())?;
-        codec::to_cbor(self).map_err(|e| e.to_string())
-    }
 }
 
 /// Payload of `epcr.photoAttached`.
@@ -715,7 +679,6 @@ pub struct Records {
 
 enum Change {
     Entry(EntryRecorded),
-    Photo(PhotoAdded),
     Attached(PhotoAttached),
 }
 
@@ -729,7 +692,6 @@ impl Records {
             .filter_map(|e| {
                 let change = match e.body.event_type.as_str() {
                     ENTRY_RECORDED => Change::Entry(codec::from_cbor(&e.payload).ok()?),
-                    PHOTO_ADDED => Change::Photo(codec::from_cbor(&e.payload).ok()?),
                     PHOTO_ATTACHED => Change::Attached(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
@@ -745,22 +707,6 @@ impl Records {
                 event.body.id.to_string(),
             );
             match change {
-                Change::Photo(photo) => {
-                    if photo.check().is_ok() {
-                        records
-                            .records
-                            .entry(photo.tag)
-                            .or_default()
-                            .photos
-                            .push(Photo {
-                                id,
-                                media_type: photo.media_type,
-                                data: photo.data,
-                                full: None,
-                                at,
-                            });
-                    }
-                }
                 Change::Attached(photo) => {
                     if photo.check().is_ok() {
                         records
@@ -1140,31 +1086,6 @@ mod tests {
             "the corrected entry stays"
         );
         assert!(record.entries["vitals"][0].replaced_by.is_some());
-    }
-
-    // [utest->dsn~patient-photo~2]
-    #[test]
-    fn photos_are_limited_in_size_and_type() {
-        let photo = |media_type: &str, len: usize| PhotoAdded {
-            tag: "DE-0042".into(),
-            media_type: media_type.into(),
-            data: vec![0xff; len],
-        };
-        assert!(photo("image/jpeg", 1000).encode().is_ok());
-        assert_eq!(
-            photo("image/jpeg", MAX_PHOTO_BYTES + 1).check(),
-            Err(PhotoError::TooLarge(MAX_PHOTO_BYTES + 1))
-        );
-        assert!(
-            photo("image/svg+xml", 10).check().is_err(),
-            "no active content"
-        );
-        let ok = photo("image/jpeg", 1000).encode().expect("encodes");
-        // CBOR byte string, not an array of numbers: little overhead.
-        assert!(ok.len() < 1100, "{} bytes", ok.len());
-        let records = Records::from_events(&[event(1, PHOTO_ADDED, ok)]);
-        assert!(records.has_photo("DE-0042"));
-        assert!(!records.has_photo("DE-0043"));
     }
 
     // [utest->dsn~patient-photo~2]

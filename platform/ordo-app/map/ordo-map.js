@@ -38,14 +38,7 @@ function script(src) {
 
 async function load() {
   if (libs) return libs;
-  // MapLibre's styles go into the cascade layer `vendor` (app.css), below ORDO's own, so
-  // the design system (tokens, touch targets) wins over them.
-  if (!document.getElementById("maplibre-css")) {
-    const css = document.createElement("style");
-    css.id = "maplibre-css";
-    css.textContent = '@import url("/map/vendor/maplibre-gl.css") layer(vendor);';
-    document.head.append(css);
-  }
+  // MapLibre's styles are imported by app.css into the cascade layer `vendor`.
   const maplibre = await import("/map/vendor/maplibre-gl.mjs");
   await script("/map/vendor/pmtiles.js");
   await script("/map/vendor/basemaps.js");

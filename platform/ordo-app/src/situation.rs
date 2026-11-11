@@ -22,13 +22,17 @@ use crate::ui::{Action, Actions};
 /// Where the glue is served (copied by Trunk, cached by the service worker).
 const GLUE: &str = "/map/ordo-map.js";
 
+// A module snippet, not `new Function`: the Content Security Policy forbids eval.
+#[wasm_bindgen::prelude::wasm_bindgen(
+    inline_js = "export function import_module(path) { return import(path); }"
+)]
+extern "C" {
+    fn import_module(path: &str) -> js_sys::Promise;
+}
+
 /// Imports the glue module (a dynamic `import()`, so the map code loads only here).
 async fn glue() -> Result<JsValue, JsValue> {
-    let import = js_sys::Function::new_with_args("path", "return import(path)");
-    let promise: js_sys::Promise = import
-        .call1(&JsValue::NULL, &JsValue::from_str(GLUE))?
-        .dyn_into()?;
-    JsFuture::from(promise).await
+    JsFuture::from(import_module(GLUE)).await
 }
 
 /// Calls an exported function of the glue.
