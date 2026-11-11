@@ -11,5 +11,13 @@
   },
   "propagationMs": 2000,
   "offlineNoticedMs": 40000,
-  "reconnectMs": 30000
+  "reconnectMs": 30000,
+  "large": {
+    "_comment": "Large incident (PERF-3, dsn~large-incident~1), set from the first measurement on 2026-11-11 with headroom (join 2.4 s, log 2.3 s, WebAssembly 51 MB, heap 22 MB, ORDO 27 MB). Propagation keeps PERF-2's 2 s.",
+    "joinMs": 10000,
+    "logMs": 10000,
+    "wasmMemoryBytes": 100663296,
+    "jsHeapBytes": 50331648,
+    "ordoMemoryBytes": 67108864
+  }
 }

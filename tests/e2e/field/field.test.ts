@@ -1,80 +1,20 @@
 // Field-near test (dsn~field-test~1): the Compose bundle with an Android tablet (Chromium)
 // and an iPad (WebKit), each a browser in its own container on the bundle's network. Run
 // by field/run.sh, which starts everything and sets FIELD_WORK.
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { Browser, BrowserContext, chromium, devices, expect, Page, test, webkit } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { createUhs, grantRole, loginPair, openIncident, openView, register, status } from "../support/app";
-import type { OrdoServer } from "../support/server";
+import { arrival, budgets, connect, container, device, docker, jsHeap, mb, note, serverMemory, SITE, wasmMemory, WORK } from "./common";
 
-const WORK = process.env.FIELD_WORK ?? "";
-const SITE = { url: "https://ordo.internal/" } as OrdoServer;
 const INCIDENT = "Feldtest";
 const UHS = "UHS Feld";
-const budgets = JSON.parse(fs.readFileSync(path.join(__dirname, "budgets.json"), "utf8"));
-const report: string[] = [];
-const note = (line: string) => {
-  report.push(line);
-  console.log(line);
-};
-const mb = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`;
-
-const docker = (...args: string[]) => execFileSync("docker", args, { encoding: "utf8" }).trim();
-const container = (service: string) => `ordo-field-${service}-1`;
-
-/** Connects to a tablet's browser, retrying while its container starts. */
-async function connect(kind: "android" | "ipad"): Promise<Browser> {
-  const port = kind === "android" ? process.env.FIELD_ANDROID_PORT ?? "3201" : process.env.FIELD_IPAD_PORT ?? "3202";
-  let url = `ws://127.0.0.1:${port}/`;
-  if (kind === "android") {
-    const spki = fs.readFileSync(path.join(WORK, "tls", "site-spki.txt"), "utf8").trim();
-    url += `?launch-options=${encodeURIComponent(JSON.stringify({ args: [`--ignore-certificate-errors-spki-list=${spki}`] }))}`;
-  }
-  const end = Date.now() + 180_000;
-  for (;;) {
-    try {
-      return await (kind === "android" ? chromium : webkit).connect(url, { timeout: 30_000 });
-    } catch (error) {
-      if (Date.now() > end) throw error;
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-  }
-}
-
-/** A device: its own context with the tablet's screen, and the app's WebAssembly memory kept. */
-async function device(browser: Browser, descriptor: string): Promise<Page> {
-  const { defaultBrowserType: _, ...options } = devices[descriptor];
-  const context: BrowserContext = await browser.newContext({ ...options, locale: "de-DE" });
-  await context.addInitScript(() => {
-    addEventListener("TrunkApplicationStarted", (e) => {
-      (window as unknown as { ordoWasm: unknown }).ordoWasm = (e as CustomEvent).detail.wasm;
-    });
-  });
-  return context.newPage();
-}
-
-const wasmMemory = (page: Page) =>
-  page.evaluate(() => (window as unknown as { ordoWasm?: { memory: WebAssembly.Memory } }).ordoWasm?.memory.buffer.byteLength ?? 0);
-
-/** How long until `tag` is listed on `page`, in ms. */
-async function arrival(page: Page, tag: string, since: number, timeout = 30_000): Promise<number> {
-  await expect(page.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible({ timeout });
-  return Date.now() - since;
-}
-
-test.afterAll(() => {
-  if (!WORK) return;
-  const text = ["# ORDO field-near test", "", ...report, ""].join("\n");
-  fs.writeFileSync(path.join(WORK, "report.md"), text);
-  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
-});
 
 // [itest->dsn~field-test~1]
 test("two tablets and the Compose bundle, as in the field", async () => {
   expect(WORK, "run by field/run.sh").not.toBe("");
   const android = await connect("android");
   const ipad = await connect("ipad");
+  note("# ORDO field-near test");
+  note("");
   note(`Bundle: ${docker("inspect", "--format", "{{.Config.Image}}", container("ordo"))}; Android tablet: Chromium ${android.version()}; iPad: WebKit ${ipad.version()}.`);
   note("");
 
@@ -183,19 +123,10 @@ test("two tablets and the Compose bundle, as in the field", async () => {
   note("## Memory (PERF-5)");
   const benWasm = await wasmMemory(ben);
   const annaWasm = await wasmMemory(anna);
-  const cdp = await ben.context().newCDPSession(ben);
-  await cdp.send("Performance.enable");
-  const { metrics } = await cdp.send("Performance.getMetrics");
-  const heap = metrics.find((m) => m.name === "JSHeapUsedSize")?.value ?? 0;
+  const heap = await jsHeap(ben);
   note(`- Android tablet: WebAssembly memory ${mb(benWasm)}, JavaScript heap ${mb(heap)}`);
   note(`- iPad: WebAssembly memory ${mb(annaWasm)}`);
-  const server: Record<string, number> = {};
-  for (const service of ["ordo", "dex", "caddy"]) {
-    const used = docker("stats", "--no-stream", "--format", "{{.MemUsage}}", container(service)).split("/")[0].trim();
-    const [, value, unit] = used.match(/^([\d.]+)\s*([KMG]i?B|B)$/) ?? [];
-    const factor: Record<string, number> = { B: 1, KiB: 1024, KB: 1000, MiB: 1048576, MB: 1e6, GiB: 1073741824, GB: 1e9 };
-    server[service] = Number(value) * (factor[unit] ?? 1);
-  }
+  const server = serverMemory();
   note(`- Server: ORDO ${mb(server.ordo)}, Dex ${mb(server.dex)}, Caddy ${mb(server.caddy)}`);
 
   expect.soft(download.transfer, "app download").toBeLessThanOrEqual(budgets.appTransferBytes);

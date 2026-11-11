@@ -1,6 +1,8 @@
 #!/bin/sh
-# Field-near test (dsn~field-test~1): starts the Compose bundle with two tablets, runs
-# field.test.ts against it and writes report.md to the work directory.
+# Field-near test (dsn~field-test~1, dsn~large-incident~1): starts the Compose bundle with
+# two tablets, runs field.test.ts and large.test.ts against it and writes report.md to the
+# work directory. The large incident is written by the load device (tests/load), built
+# here unless FIELD_LOAD_BIN names one.
 #
 #   tests/e2e/field/run.sh                # image ordo:local (docker build -f deploy/Containerfile -t ordo:local .)
 #   ORDO_FIELD_IMAGE=ordo:ci tests/e2e/field/run.sh
@@ -14,6 +16,11 @@ export FIELD_WORK="${FIELD_WORK:-$(mktemp -d "${TMPDIR:-/tmp}/ordo-field-XXXXXX"
 export ORDO_FIELD_IMAGE="${ORDO_FIELD_IMAGE:-ordo:local}"
 export ORDO_DOMAIN=ordo.internal ORDO_OIDC_CLIENT_SECRET=field-test-secret ORDO_ADMINS=dora
 export FIELD_ANDROID_PORT="${FIELD_ANDROID_PORT:-3201}" FIELD_IPAD_PORT="${FIELD_IPAD_PORT:-3202}"
+export FIELD_ORDO_PORT="${FIELD_ORDO_PORT:-3203}"
+if [ -z "${FIELD_LOAD_BIN:-}" ]; then
+  cargo build --quiet --release --manifest-path "$repo/Cargo.toml" -p ordo-load
+  export FIELD_LOAD_BIN="$repo/target/release/ordo-load"
+fi
 compose() {
   docker compose --project-directory "$repo/deploy/compose/minimal" \
     -f "$repo/deploy/compose/minimal/compose.yaml" -f "$here/compose.field.yaml" "$@"
@@ -49,7 +56,7 @@ chmod 755 dex-api
   cat "$repo/deploy/compose/minimal/dex.yaml.example"
   printf '\nstaticPasswords:\n'
   n=1
-  for p in "dora:Dora Klein" "anna:Anna Schmidt" "ben:Ben Weber"; do
+  for p in "dora:Dora Klein" "anna:Anna Schmidt" "ben:Ben Weber" "lea:Lea Lorenz"; do
     printf '  - email: "%s@example.org"\n    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"\n' "${p%%:*}"
     printf '    username: "%s"\n    preferredUsername: "%s"\n    userID: "00000000-0000-4000-8000-00000000000%s"\n' "${p#*:}" "${p%%:*}" "$n"
     n=$((n + 1))
@@ -65,4 +72,8 @@ compose up -d --wait --no-build
 echo "field test: bundle up, work directory $FIELD_WORK"
 
 cd "$repo/tests/e2e"
-npx playwright test -c playwright.field.config.ts
+: > "$FIELD_WORK/report.md"
+status=0
+npx playwright test -c playwright.field.config.ts || status=$?
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$FIELD_WORK/report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+exit "$status"

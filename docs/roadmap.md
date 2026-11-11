@@ -256,8 +256,11 @@ Then:
    with an Android tablet and an iPad, network cut and server restart, budgets for download
    and memory. It found that the image lacked the web app, that the bundle did not start
    with current Compose, and that a vanished network went unnoticed (now: ping and
-   reconnect). Next: a large incident (PERF-3) in the same setup, and the test on real
-   tablets.
+   reconnect). The large incident (PERF-3, m48) runs in the same setup: a load device
+   writes 10,000 events; fresh tablets show all 500 patients and the log within 2.5 s.
+   It found that a change then takes 1.5–2.1 s to reach the other tablet (80 ms in a
+   small incident) and that the app's memory grows to about 50 MB: next are incremental
+   projections on the device (see "Scaling" below). Later: the test on real tablets.
 4. Upstream login configured in ORDO: administrators connect the organisation's OpenID
    Connect provider (Microsoft Entra ID, Keycloak, Authentik, Google, …) to Dex in the
    app instead of editing `dex.yaml`, with a test login before it is saved. Builds on the

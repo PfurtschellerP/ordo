@@ -708,6 +708,37 @@ Needs: itest
 
 Tags: must, m47
 
+#### Large incident in the field-near test
+`dsn~large-incident~1`
+
+The field-near test also runs an incident of the size PERF-3 names. A load device
+(`tests/load`, `ordo-load`) pairs as a shared tablet does (QR pairing): a person with the
+roles of incident command and physician approves it. It joins the incident by name and
+writes over the sync protocol, with the modules' payloads and the profile's position kinds
+and status codes: an incident command with 50 sectors, 5 UHS, 100 units each assigned to a
+sector, and 500 patients. Unit status changes (each naming the status it replaces) and
+re-triages fill it up to 10,000 events. It uses no interface a tablet does not use.
+
+Then two tablets that have never seen the incident join it. The test measures and checks
+against `budgets.json`:
+
+* **Joining:** the time until a tablet shows all 500 patients.
+* **Incident log:** the time until the Android tablet's log shows all entries.
+* **Propagation (PERF-2):** patients registered on one tablet appear on the other within
+  2 s, also in the large incident.
+* **Memory:** WebAssembly memory of both tablets, the JavaScript heap of the Android one,
+  and ORDO's memory.
+
+The numbers go into the field-near test's report.
+
+Covers:
+
+* [req~perf-3~1](../requirements/07-quality.md#perf-3--large-incidents)
+
+Needs: itest
+
+Tags: must, m48
+
 #### Device storage encryption
 `dsn~device-storage-encryption~1`
 

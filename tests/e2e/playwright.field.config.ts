@@ -7,6 +7,8 @@ export default defineConfig({
   testMatch: "*.test.ts",
   timeout: 15 * 60_000,
   expect: { timeout: 20_000 },
+  // A control that never appears fails the step, not the whole test after its timeout.
+  use: { actionTimeout: 30_000 },
   workers: 1,
   reporter: "list",
 });

@@ -222,7 +222,7 @@ Needs: dsn
 
 Handles an incident with 100 units, 50 sectors, 500 patients and 10,000 log entries
 
-Tags: must, quality
+Tags: must, quality, m48
 
 Needs: dsn
 

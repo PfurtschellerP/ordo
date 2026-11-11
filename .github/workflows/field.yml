@@ -1,8 +1,9 @@
 name: Field test
 
-# The field-near test (dsn~field-test~1): the Compose bundle with an Android tablet and an
-# iPad, network cut and server restart, download and memory budgets. Weekly, on demand,
-# and when the bundle or the test changes.
+# The field-near test (dsn~field-test~1, dsn~large-incident~1): the Compose bundle with an
+# Android tablet and an iPad, network cut and server restart, a large incident written by
+# the load device, download and memory budgets. Weekly, on demand, and when the bundle or
+# the test changes.
 on:
   schedule:
     - cron: "23 4 * * 1"
@@ -12,6 +13,7 @@ on:
     paths:
       - "deploy/**"
       - "tests/e2e/field/**"
+      - "tests/load/**"
       - ".github/workflows/field.yml"
 
 permissions:
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   field:
-    name: Two tablets and the Compose bundle
+    name: Two tablets, the Compose bundle and a large incident
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -32,6 +34,11 @@ jobs:
           persist-credentials: false
       - name: Build the image
         run: docker build -f deploy/Containerfile --build-arg "ORDO_COMMIT=$GITHUB_SHA" -t ordo:field .
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Build the load device (tests/load)
+        run: cargo build --locked --release -p ordo-load
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -41,6 +48,7 @@ jobs:
       - name: Run the field-near test
         env:
           ORDO_FIELD_IMAGE: ordo:field
+          FIELD_LOAD_BIN: ${{ github.workspace }}/target/release/ordo-load
         run: FIELD_WORK="$RUNNER_TEMP/field" tests/e2e/field/run.sh
       - name: Keep the report and the logs
         if: always()

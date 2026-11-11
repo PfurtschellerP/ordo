@@ -2865,6 +2865,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordo-load"
+version = "0.0.0"
+dependencies = [
+ "futures-util",
+ "getrandom 0.4.3",
+ "ordo-command",
+ "ordo-contracts",
+ "ordo-core",
+ "ordo-crypto",
+ "ordo-med-patients",
+ "ordo-sync",
+ "ordo-units",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.30.0",
+ "toml",
+]
+
+[[package]]
 name = "ordo-map"
 version = "0.0.0"
 dependencies = [

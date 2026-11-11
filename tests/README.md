@@ -75,6 +75,12 @@ internet, and two tablets as browsers in containers on its network: an Android t
 that a server restart loses nothing; it measures the app's download and the memory of
 tablets and server against `e2e/field/budgets.json` (PERF-5) and writes `report.md`.
 
+`large.test.ts` then runs a large incident (PERF-3, dsn~large-incident~1). The load device
+`load/` (crate `ordo-load`) pairs like a shared tablet, its pairing approved in a browser.
+It writes 100 units, 50 sectors, 500 patients and 10,000 events over the sync protocol.
+Then two fresh tablets join. `run.sh` builds the load device unless `FIELD_LOAD_BIN` names
+one; it reaches ORDO on `127.0.0.1:3203` (`FIELD_ORDO_PORT`).
+
 ```sh
 docker build -f deploy/Containerfile -t ordo:local .
 (cd tests/e2e && npm ci)
