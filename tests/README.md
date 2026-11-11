@@ -52,6 +52,19 @@ the licence page (`cargo install --locked cargo-about --version 0.9.3 --features
 without it the page says the crates' notices are left out, and this test fails. Screenshots go to `tests/e2e/screenshots/<browser>/`, failure traces to
 `tests/e2e/test-results/` (`npx playwright show-trace …`).
 
+Where Playwright's WebKit does not run (e.g. Fedora), run its browser server in the
+official container and connect to it; the version must match `package.json`:
+
+```sh
+docker run -d --rm --name pw-webkit --network host --init mcr.microsoft.com/playwright:v1.65.0-noble \
+  /bin/sh -c "cd /tmp && npx -y playwright@1.65.0 run-server --port 3123 --host 127.0.0.1"
+PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:3123/ npx playwright test --project=webkit
+```
+
+The scenario checks that no page breaks the Content Security Policy in Chromium and
+Firefox. WebKit reports the `<style>` elements axe-core adds seconds later and without a
+source, so there only the policy header is checked.
+
 ## Traceability
 
 Acceptance and end-to-end tests mark what they verify with `itest` coverage tags, unit
