@@ -13,6 +13,21 @@ import { expect, Page } from "@playwright/test";
 
 export const THEMES = ["day", "night", "high-contrast"] as const;
 
+/** While axe-core runs: it reads stylesheets through <style> elements of its own, which the
+ *  app's Content Security Policy rightly blocks; the scenario ignores those reports. */
+export const axeRunning = { count: 0 };
+
+async function runAxe(page: Page) {
+  axeRunning.count++;
+  try {
+    return await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  } finally {
+    // Console messages arrive a moment after the call returns.
+    await page.waitForTimeout(200);
+    axeRunning.count--;
+  }
+}
+
 const LAYOUT_CHECKS = () => {
   const visible = (el: Element) => {
     if (el.closest(".visually-hidden")) return false;
@@ -94,7 +109,7 @@ export async function audit(page: Page, label: string, widths = [1200, 320]): Pr
       const firefox = page.context().browser()?.browserType().name() === "firefox";
       const axe = firefox
         ? { violations: [] as { id: string; help: string; nodes: { target: unknown[] }[] }[] }
-        : await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+        : await runAxe(page);
       const problems = [
         ...axe.violations.map((v) => `axe ${v.id}: ${v.help} — ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join("; ")}`),
         ...(await page.evaluate(LAYOUT_CHECKS)),
