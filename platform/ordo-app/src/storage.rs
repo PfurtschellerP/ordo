@@ -33,6 +33,8 @@ thread_local! {
     static LOADED: RefCell<Result<Option<ReplicaState>, StoredStateError>> = const { RefCell::new(Ok(None)) };
     /// The worker refused a write (storage full or blocked).
     static FAILED: Cell<bool> = const { Cell::new(false) };
+    /// Saves of the replica completed so far (see [`mark_saved`]).
+    static WRITES: Cell<u32> = const { Cell::new(0) };
     /// Called once the first write succeeded (moving data out of `localStorage`).
     static ON_FIRST_WRITE: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
     /// Resolves the wait for the worker's `ready`.
@@ -259,6 +261,7 @@ pub fn save(replica: &Replica) -> Result<(), ()> {
         match call("write", &[puts.into(), deletes.into()]).await {
             Ok(_) => {
                 FAILED.set(false);
+                mark_saved();
                 if let Some(f) = ON_FIRST_WRITE.take() {
                     f();
                 }
@@ -270,6 +273,19 @@ pub fn save(replica: &Replica) -> Result<(), ()> {
         }
     });
     if FAILED.get() { Err(()) } else { Ok(()) }
+}
+
+/// Counts a completed save of the replica on `<html data-saved>`, for support and tests:
+/// the write to device storage finishes after the change is shown.
+pub fn mark_saved() {
+    let n = WRITES.get().wrapping_add(1);
+    WRITES.set(n);
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    {
+        let _ = root.set_attribute("data-saved", &n.to_string());
+    }
 }
 
 /// Stores bytes as they are (attachments, which are encrypted already). Fire and forget.

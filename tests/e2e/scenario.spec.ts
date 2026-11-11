@@ -506,8 +506,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await server.stop();
     await expect.poll(() => status(anna), { message: "loss of connection is shown" }).toContain("Offline");
     await expect(anna.locator(".connection"), "offline has its own icon and colour").toHaveClass(/connection--offline/);
+    const saved = () => anna.evaluate(() => Number(document.documentElement.dataset.saved ?? 0));
+    const before = await saved();
     await register(anna, "DE-0045", 2, "UHS Eingang");
     await expect.poll(() => status(anna), { message: "pending input is shown" }).toContain("1 Eingabe noch nicht gesendet");
+    // The write to device storage ends a moment after the change shows.
+    await expect.poll(saved, { message: "saved on the device" }).toBeGreaterThan(before);
     // [itest->dsn~local-persistence~1]
     await anna.reload(); // the server is down: the app must start from the device
     await expect.poll(() => patientRows(anna), { message: "offline registration survives a reload" }).toContain("DE-0045 SK III noch nicht gesendet");
