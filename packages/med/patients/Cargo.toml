@@ -24,3 +24,7 @@ workspace = true
 [dev-dependencies]
 ciborium.workspace = true
 toml.workspace = true
+
+# Dependencies cargo-machete cannot see being used: used through serde attributes (`with = "serde_bytes"`).
+[package.metadata.cargo-machete]
+ignored = ["serde_bytes"]

@@ -12,7 +12,6 @@ publish.workspace = true
 ordo-core.workspace = true
 ordo-sync.workspace = true
 serde.workspace = true
-thiserror.workspace = true
 
 [dev-dependencies]
 toml.workspace = true

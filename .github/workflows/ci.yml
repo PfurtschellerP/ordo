@@ -142,6 +142,11 @@ jobs:
           command: check
           manifest-path: platform/ordo-store/Cargo.toml
           arguments: --all-features
+      # Dependencies no code uses any more (deliberate ones are listed per crate).
+      - name: Unused dependencies (cargo-machete)
+        run: |
+          cargo install --locked cargo-machete --version 0.9.1
+          cargo machete --with-metadata
 
   storage-worker:
     name: Device storage worker (format, lint)
