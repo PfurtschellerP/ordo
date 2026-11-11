@@ -51,6 +51,9 @@ jobs:
   webapp:
     name: Build app and run UI scenario
     runs-on: ubuntu-24.04
+    # A normal run takes about a quarter of an hour; a hanging download must not hold
+    # the runner for hours.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,6 +91,7 @@ jobs:
           npm run check
       - name: Install Playwright and the browsers
         working-directory: tests/e2e
+        timeout-minutes: 10
         run: |
           npm ci
           npx playwright install --with-deps firefox chromium webkit
