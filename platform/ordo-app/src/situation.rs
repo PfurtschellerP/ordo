@@ -272,6 +272,24 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }
         });
     };
+    // [impl->dsn~situation-map~1]
+    // The device's own position, only when asked: the map moves there.
+    let located = RwSignal::new(None::<&'static str>);
+    let locate = move |_| {
+        let Some((module, map)) = handle.with_value(Clone::clone) else {
+            return;
+        };
+        located.set(Some(text::MAP_LOCATING));
+        leptos::task::spawn_local(async move {
+            match call_async(&module, "locate", &[map]).await {
+                Ok(_) => located.set(Some(text::MAP_LOCATED)),
+                Err(e) if e.as_string().as_deref() == Some("denied") => {
+                    located.set(Some(text::MAP_LOCATE_DENIED));
+                }
+                Err(_) => located.set(Some(text::MAP_LOCATE_FAILED)),
+            }
+        });
+    };
     view! {
         <section class="card situation" aria-labelledby="situation-title">
             <h2 id="situation-title">{text::MAP_TITLE}</h2>
@@ -290,6 +308,12 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }></div>
                 // The map's centre, where objects are placed and corners set.
                 <div class="situation__crosshair" aria-hidden="true"></div>
+            </div>
+            <div class="row">
+                <button id="map-locate" type="button" class="button button--small"
+                    disabled=move || !matches!(state.get(), MapState::Ready(_))
+                    on:click=locate>{text::MAP_LOCATE}</button>
+                <p role="status" class="hint">{move || located.get()}</p>
             </div>
             <h3 id="objects-title">{text::MAP_OBJECTS}</h3>
             {move || {

@@ -413,7 +413,7 @@ async fn finish(
             )
             .await?;
     }
-    // [impl->dsn~display-names~1]
+    // [impl->dsn~display-names~2]
     // The provider's name of the person, unless they chose their own (ORG-7).
     if let Some(display) = tidy_name(
         claims.name().and_then(|n| n.get(None)).map(|n| n.as_str()),

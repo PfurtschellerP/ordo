@@ -555,6 +555,7 @@ async fn only_a_uhs_staff_registers_its_patients_once_it_has_a_staff_list() {
     let mut anna = Client::connect(addr, replica("anna")).await;
     let staff = patients::UhsUpdated {
         id: "UHS 1".into(),
+        name: None,
         location: None,
         capacity: None,
         staff: Some(vec![format!("anna@{SERVER}")]),

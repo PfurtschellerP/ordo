@@ -19,6 +19,7 @@ fn svg(name: &str) -> &'static str {
     }
     icons!(
         "ambulance",
+        "app-window",
         "chart-column",
         "clipboard-list",
         "cloud-check",
@@ -35,6 +36,7 @@ fn svg(name: &str) -> &'static str {
         "tent",
         "truck",
         "users",
+        "zap",
     )
 }
 

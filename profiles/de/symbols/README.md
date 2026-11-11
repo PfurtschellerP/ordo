@@ -22,7 +22,7 @@ Compared on 2026-11-10. Numbers are the document's sections.
 | Patientenablage | F.3.1 | Drawn by hand: the library has no double arrow |
 | Behandlungsplatz | F.3.5 | Match: fixed place with the physician sign; capacity not shown |
 | ELW, HLF, LF, DLK | C.2.2, C.2.8–C.2.9, C.2.14–C.2.16 | Match: short name top left, ELW at the bottom under the command bar |
-| Fire, THW, police, civil-protection vehicle (by service) | 2.x, 5.1.1.1 | Match. Civil-protection units of aid organisations or fire services would be white or red, not orange; units are matched by service only |
+| Fire, THW, police, civil-protection and civil-defence vehicle (by service) | 2.x, 5.1.1.1 | Match. Civil-protection units of aid organisations or fire services would be white or red, not orange; units are matched by service only |
 | Incident command (EL), sector (EAL), sub-sector (UEAL) | D.1.1, D.1.4–D.1.6 | Match: command post in yellow with the command bar. Before, the older flag with a pole |
 | Medical command (SanEL), transport organisation (TO) | D.1.1, 2.4, P.7 | Same form as other command posts, with the short names used in the state concepts; the document has no own sign for them |
 | Incident location | – | Not in the 2024 edition (it shows damage and hazards by kind, 5.8); kept as the DV 102 *Anlass* sign until the map editor draws damage and hazards (MAP-4) |

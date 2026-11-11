@@ -28,7 +28,7 @@
   ],
   "units": {
     "by_type": { "RTW": "rtw", "KTW": "ktw", "ITW": "itw", "NEF": "nef", "RTH": "rth", "ELW": "elw", "HLF": "hlf", "LF": "lf", "DLK": "dlk" },
-    "by_service": { "rescue": "rescue-vehicle", "medical": "medical-unit", "fire": "fire-vehicle", "civil-protection": "civil-protection-vehicle", "thw": "thw-vehicle", "police": "police-vehicle" }
+    "by_service": { "rescue": "rescue-vehicle", "medical": "medical-unit", "fire": "fire-vehicle", "civil-protection": "civil-protection-vehicle", "civil-defence": "civil-protection-vehicle", "thw": "thw-vehicle", "police": "police-vehicle" }
   },
   "uhs": { "uhs": "uhs", "treatmentArea": "treatment-area", "collectionPoint": "collection-point" },
   "positions": {

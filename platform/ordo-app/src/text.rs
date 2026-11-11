@@ -366,6 +366,10 @@ pub const INCIDENTS_INTRO: &str =
     "Einsatz wählen. Rollen im Einsatz vergibt die Einsatzleitung oder die Einsatzplanung.";
 pub const INCIDENTS_LOADING: &str = "Einsätze werden geladen …";
 pub const INCIDENTS_OFFLINE: &str = "Die Einsatzliste ist nur mit Verbindung zum Server verfügbar.";
+/// Logging out from the incident list: the device is unpaired, so another person can log in.
+pub const LOG_OUT: &str = "Abmelden";
+pub const LOG_OUT_HINT: &str =
+    "Abmelden entkoppelt dieses Gerät; danach kann sich eine andere Person anmelden.";
 pub const INCIDENTS_EMPTY: &str = "Noch kein Einsatz freigegeben. Die Einsatzleitung oder die Einsatzplanung gibt Personen eine Rolle im Einsatz.";
 pub const OPEN: &str = "Öffnen";
 pub const MY_ROLES: &str = "Rollen";
@@ -854,6 +858,7 @@ pub fn released_at(at: &str) -> String {
 
 // UHS details (UHS-1).
 pub const UHS_DETAILS: &str = "Ort und Personal";
+pub const UHS_NAME_NEEDED: &str = "Die UHS braucht einen Namen.";
 pub const UHS_LOCATION: &str = "Ort";
 pub const UHS_STAFF: &str = "Personal";
 pub const UHS_STAFF_NONE: &str = "Kein Personal eingetragen.";
@@ -880,6 +885,10 @@ pub fn staff_remove_label(name: &str) -> String {
 
 pub fn uhs_updated(name: &str) -> String {
     format!("{name} gespeichert")
+}
+
+pub fn uhs_renamed(name: &str) -> String {
+    format!("UHS umbenannt in {name}")
 }
 
 // Tasks (TASK-1…4).
@@ -1018,6 +1027,12 @@ pub const MAP_FROM_SERVER: &str = "Kartengrundlage: vom Server.";
 pub const MAP_NO_REGION: &str =
     "Keine Kartengrundlage eingerichtet: die Objekte stehen auf neutralem Hintergrund.";
 pub const MAP_OBJECTS: &str = "Auf der Karte";
+pub const MAP_LOCATE: &str = "Zu meinem Standort";
+pub const MAP_LOCATING: &str = "Standort wird bestimmt …";
+pub const MAP_LOCATED: &str =
+    "Die Karte zeigt Ihren Standort; Objekte werden in der Mitte gesetzt.";
+pub const MAP_LOCATE_DENIED: &str = "Der Standort ist nicht freigegeben. Erlauben Sie ORDO den Standort in den Einstellungen des Browsers.";
+pub const MAP_LOCATE_FAILED: &str = "Der Standort konnte nicht bestimmt werden.";
 pub const MAP_OBJECTS_NONE: &str = "Noch nichts auf der Karte.";
 pub const MAP_SHOW: &str = "Zeigen";
 pub const MAP_REMOVE: &str = "Entfernen";

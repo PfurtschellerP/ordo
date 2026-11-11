@@ -493,6 +493,43 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let call_signs = Signal::derive(move || {
         vehicles.with(|v| v.iter().map(|v| v.unit.clone()).collect::<Vec<_>>())
     });
+    // Organisations and types offered as choices: those of the installation's vehicles and
+    // of the units already in the incident; anything else can still be typed.
+    let in_incident = Memo::new(move |_| {
+        revision.track();
+        let events = core.with_value(|c| c.events(ordo_units::COMPARTMENT));
+        ordo_units::UnitRegister::from_events(&events)
+            .units
+            .into_values()
+            .map(|u| (u.organisation, u.unit_type))
+            .collect::<Vec<_>>()
+    });
+    let known = move |organisations: bool| {
+        Signal::derive(move || {
+            let mut set = BTreeSet::new();
+            vehicles.with(|v| {
+                set.extend(v.iter().map(|v| {
+                    if organisations {
+                        v.organisation.clone()
+                    } else {
+                        v.unit_type.clone()
+                    }
+                }));
+            });
+            in_incident.with(|units| {
+                set.extend(
+                    units
+                        .iter()
+                        .map(|(o, t)| if organisations { o.clone() } else { t.clone() }),
+                );
+            });
+            set.into_iter()
+                .filter(|s| !s.trim().is_empty())
+                .collect::<Vec<_>>()
+        })
+    };
+    let organisations = known(true);
+    let types = known(false);
     // A known call sign fills in type, organisation, service and default strength.
     let fill = move |value: String| {
         if let Some(v) =
@@ -567,11 +604,13 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </div>
                 <div class="field">
                     <label for="unit-type">{text::UNIT_TYPE}</label>
-                    <input id="unit-type" type="text" required bind:value=unit_type />
+                    <input id="unit-type" type="text" required autocomplete="off" list="unit-types" bind:value=unit_type />
+                    <Suggestions id="unit-types" values=types />
                 </div>
                 <div class="field">
                     <label for="unit-organisation">{text::UNIT_ORGANISATION}</label>
-                    <input id="unit-organisation" type="text" bind:value=organisation />
+                    <input id="unit-organisation" type="text" autocomplete="off" list="unit-organisations" bind:value=organisation />
+                    <Suggestions id="unit-organisations" values=organisations />
                 </div>
                 <div class="field">
                     <label for="unit-service">{text::UNIT_SERVICE}</label>

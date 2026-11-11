@@ -564,7 +564,7 @@ fn Device(
                 {if has_incident {
                     view! { <Workspace core revision on_unpair=unpair on_change_incident=change_incident /> }.into_any()
                 } else {
-                    view! { <incidents::IncidentPicker core revision paired /> }.into_any()
+                    view! { <incidents::IncidentPicker core revision paired on_unpair=unpair /> }.into_any()
                 }}
             </Show>
         </Show>
@@ -1012,12 +1012,13 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 #[derive(Clone, Copy)]
 struct UhsDraft {
     open: RwSignal<bool>,
+    name: RwSignal<String>,
     location: RwSignal<String>,
     capacity: RwSignal<String>,
     person: RwSignal<String>,
 }
 
-// [impl->dsn~uhs-details~1]
+// [impl->dsn~uhs-details~2]
 /// Location, capacity and assigned staff of one unit (UHS-1), behind a disclosure.
 #[component]
 fn UhsDetailsPanel(
@@ -1030,6 +1031,7 @@ fn UhsDetailsPanel(
 ) -> impl IntoView {
     let UhsDraft {
         open,
+        name: new_name,
         location,
         capacity: cap,
         person,
@@ -1042,15 +1044,22 @@ fn UhsDetailsPanel(
     });
     let error = RwSignal::new(None::<&'static str>);
     let save = {
-        let id = id.clone();
+        let (id, current_name) = (id.clone(), name.clone());
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
             let Ok(capacity) = cap.get_untracked().trim().parse::<u32>() else {
                 error.set(Some(text::UHS_CAPACITY_NUMBER));
                 return;
             };
+            let chosen = new_name.get_untracked().trim().to_owned();
+            if chosen.is_empty() {
+                error.set(Some(text::UHS_NAME_NEEDED));
+                return;
+            }
             let update = med::UhsUpdated {
                 id: id.clone(),
+                // Only a changed name is sent: the log then shows the renaming.
+                name: (chosen != current_name).then_some(chosen),
                 location: Some(location.get_untracked().trim().to_owned()),
                 capacity: Some(capacity),
                 staff: None,
@@ -1122,6 +1131,10 @@ fn UhsDetailsPanel(
         >
             <form class="form form--inline" novalidate on:submit=save>
                 <div class="field">
+                    <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
+                    <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
+                </div>
+                <div class="field">
                     <label for=format!("uhs-location-{slug}")>{text::UHS_LOCATION}</label>
                     <input id=format!("uhs-location-{slug}") type="text" autocomplete="off" bind:value=location />
                 </div>
@@ -1173,12 +1186,13 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
     // Drafts of the panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, details: &med::UhsDetails, capacity: u32| {
+    let draft = move |id: &str, name: &str, details: &med::UhsDetails, capacity: u32| {
         let mut out = None;
         drafts.update_value(|m| {
             let d = *m.entry(id.to_owned()).or_insert_with(|| {
                 owner.with(|| UhsDraft {
                     open: RwSignal::new(false),
+                    name: RwSignal::new(name.to_owned()),
                     location: RwSignal::new(details.location.clone().unwrap_or_default()),
                     capacity: RwSignal::new(capacity.to_string()),
                     person: RwSignal::new(String::new()),
@@ -1207,7 +1221,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                         <h3>{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
                                         <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                            draft=draft(&id, &details, capacity) />
+                                            draft=draft(&id, &name, &details, capacity) />
                                     </li>
                                 }
                             })
@@ -1281,12 +1295,13 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     // Drafts of the details panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, details: &med::UhsDetails, capacity: u32| {
+    let draft = move |id: &str, name: &str, details: &med::UhsDetails, capacity: u32| {
         let mut out = None;
         drafts.update_value(|m| {
             let d = *m.entry(id.to_owned()).or_insert_with(|| {
                 owner.with(|| UhsDraft {
                     open: RwSignal::new(false),
+                    name: RwSignal::new(name.to_owned()),
                     location: RwSignal::new(details.location.clone().unwrap_or_default()),
                     capacity: RwSignal::new(capacity.to_string()),
                     person: RwSignal::new(String::new()),
@@ -1312,7 +1327,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .map(|(i, (id, name, n, cap, total, free, details))| {
                                 let editor = view! {
                                     <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                        draft=draft(&id, &details, cap) />
+                                        draft=draft(&id, &name, &details, cap) />
                                 };
                                 // [impl->dsn~treatment-places~1]
                                 let count = RwSignal::new(total.to_string());

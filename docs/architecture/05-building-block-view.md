@@ -358,7 +358,9 @@ areas, MAP-4) use the same events with their own IDs.
 The command workspace's first view *Lage* shows the map with the objects and, beside or
 below it, the list of objects (A11Y-5) and the patient counts. The command places an
 object at the map's centre (the keyboard moves the map) and removes it from the list.
-The map opens on the incident location, else on the objects. Only the command writes the
+The map opens on the incident location, else on the objects, else on the map region.
+The command can move the map to the device's own position (browser geolocation, only
+when asked) to place an object there. Only the command writes the
 module (Cedar).
 
 Offline (MAP-2): the server serves a PMTiles region file (`ORDO_MAP_FILE`) at
@@ -542,12 +544,12 @@ Needs: impl, itest
 Tags: must, m4
 
 #### UHS details
-`dsn~uhs-details~1`
+`dsn~uhs-details~2`
 
 A unit is set up with name, kind and capacity (`uhs.created`). `uhs.updated` (module
-`med.uhs`, shared `incident` compartment, no clinical data) changes its location (free
-text, e.g. "Bühne Nord, Zelt 2"), its capacity and its assigned staff (names or user IDs,
-the whole list); a field left out keeps its value, and the latest change of each field
+`med.uhs`, shared `incident` compartment, no clinical data) changes its name (schema
+version 2; the log shows the renaming), its location (free text, e.g. "Bühne Nord,
+Zelt 2"), its capacity and its assigned staff (names or user IDs, the whole list); a field left out keeps its value, and the latest change of each field
 counts (hybrid logical clock). *UHS verwalten* shows location and staff per unit and
 changes them in a details panel, with the incident's people suggested; the overview and
 the command's counts use the current capacity.

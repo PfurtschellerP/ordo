@@ -119,6 +119,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator("#device-name"), "a device name is suggested from the browser").toHaveValue(/^\w+ auf \w+$/);
     await loginPair(dora, server, "dora@example.org", "Laptop Einsatzplanung");
     await expect(dora.locator(".incident-card"), "no incident planned yet").toHaveCount(0);
+    await expect(dora.getByRole("button", { name: "Abmelden" }), "logging out also works without an incident").toBeVisible();
     await audit(dora, "Incident list", [1200, 320]);
     await dora.locator("#plan-name").fill(INCIDENT);
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
@@ -143,6 +144,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await grantRole(dora, "anna@localhost", "Sanitätsdienst");
     await grantRole(dora, "ben@localhost", "Einsatzleitung");
     await grantRole(dora, "petra@localhost", "Arzt/Ärztin");
+    // [itest->dsn~display-names~2]
+    await expect(dora.locator(".roster__entry", { hasText: "petra@localhost" }).locator(".roster__person"), "named from her local account before her first login").toHaveText("Dr. Petra Lang");
     await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
     await expect(dora.locator("#incident-state")).toHaveText("Laufend");
     await audit(dora, "Roster", [1200, 320]);
@@ -154,7 +157,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".incident-card"), "Anna sees the incident she has a role in").toHaveCount(1);
     await expect(anna.locator(".incident-card")).toContainText("Sanitätsdienst");
     await openIncident(anna, INCIDENT);
-    // [itest->dsn~display-names~1]
+    // [itest->dsn~display-names~2]
     await expect(anna.locator(".launcher__user"), "the login maps to an ORDO user, shown by the provider's name").toHaveText("Angemeldet als Anna Schmidt (anna@localhost)");
     // [itest->dsn~device-storage-encryption~1]
     for (const item of ["ordo.pairing", "ordo.storage-key"]) {
@@ -170,7 +173,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await createUhs(anna, "UHS Eingang", 5);
     // [itest->dsn~uhs-registry~1]
     await expect(anna.locator(".load-list__item"), "two UHS are listed with their load").toHaveCount(2);
-    // [itest->dsn~uhs-details~1]
+    // [itest->dsn~uhs-details~2]
     const eingang = anna.locator(".load-list__item", { hasText: "UHS Eingang" });
     await anna.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
     await eingang.getByLabel("Ort", { exact: true }).fill("Eingang West, Zelt 2");
@@ -180,6 +183,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: Anna Schmidt");
     await expect(eingang.locator(".crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
+    // A UHS can be renamed (and here back again).
+    await eingang.getByLabel("Name der UHS").fill("UHS Tor");
+    await eingang.getByRole("button", { name: "Speichern" }).click();
+    const tor = anna.locator(".load-list__item", { hasText: "UHS Tor" });
+    await expect(tor.locator(".load-list__name"), "renamed").toHaveText("UHS Tor");
+    await tor.getByLabel("Name der UHS").fill("UHS Eingang");
+    await tor.getByRole("button", { name: "Speichern" }).click();
+    await expect(eingang.locator(".load-list__name")).toHaveText("UHS Eingang");
 
     await openView(anna, "Patienten");
     // [itest->dsn~triage-reference~1]
@@ -887,7 +898,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#place-label").fill("Stadtfest");
     await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
     const objects = ben.locator(".map-object");
-    await expect(objects.first(), "the incident is on the map and in the list").toContainText("Stadtfest · Einsatzort · 51.16000, 10.45000");
+    await expect(objects.first(), "the map opened on the map region; the incident is on the map and in the list").toContainText(/Stadtfest · Einsatzort · 48\.[34]\d+, 10\.[89]\d+/);
+    // The device's own position, when asked.
+    await ben.context().grantPermissions(["geolocation"]);
+    await ben.context().setGeolocation({ latitude: 48.36, longitude: 10.89 });
+    await ben.getByRole("button", { name: "Zu meinem Standort" }).click();
+    await expect(ben.locator(".situation .row [role=status]")).toHaveText("Die Karte zeigt Ihren Standort; Objekte werden in der Mitte gesetzt.");
     // The keyboard moves the map; the unit goes where the centre is now.
     await ben.locator(".situation__map canvas").focus();
     for (let i = 0; i < 3; i++) await ben.keyboard.press("ArrowRight");
@@ -902,7 +918,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(unit.getByRole("img", { name: "Rettungswagen" }), "a unit of type RTW gets its symbol").toHaveAttribute("data-symbol", "rtw");
     await expect(objects.first().locator(".map-object__symbol"), "the incident location gets its symbol").toHaveAttribute("data-symbol", "incident");
     expect(Number(await ben.locator(".situation__map").getAttribute("data-symbols")), "the map has the symbols as images").toBeGreaterThan(20);
-    expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map").not.toBe("51.16000, 10.45000");
+    expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map from the device's position").toMatch(/^48\.36000, 10\.(?!89000)\d+$/);
     // [itest->dsn~map-drawing~1]
     // MAP-4: the incident area, drawn corner by corner at the crosshair, by keyboard.
     await ben.locator("#draw-category").selectOption({ label: "Einsatzraum" });
@@ -1200,6 +1216,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(eva, "deleted in Dex").toHaveCount(0);
     await expect(evaDevice.getByRole("heading", { name: /Anmeldung abgelaufen/ }), "her device locks").toBeVisible({ timeout: 30_000 });
     await evaDevice.context().close();
+
+    // Logging out from the incident list unpairs the device: another person can log in.
+    const spare = await newDevice(browser);
+    await loginPair(spare, server, "ben@example.org", "Ersatztablet");
+    await spare.getByRole("button", { name: "Abmelden" }).click();
+    await expect(spare.getByRole("button", { name: "Anmelden" }), "back at the login").toBeVisible();
+    await spare.context().close();
   });
 
   // [itest->dsn~content-security-policy~1]

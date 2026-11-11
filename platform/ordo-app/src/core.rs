@@ -238,6 +238,7 @@ impl Core {
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
+            (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
             (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
             _ => 1,
         };
@@ -942,7 +943,7 @@ pub fn update_task(
     )
 }
 
-// [impl->dsn~uhs-details~1]
+// [impl->dsn~uhs-details~2]
 /// Changes the location, capacity or staff of an on-site care unit (UHS-1).
 pub fn update_uhs(
     core: Handle,

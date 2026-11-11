@@ -160,6 +160,15 @@ pub fn rank(query: &str, items: Vec<Item>) -> Vec<Item> {
         .collect()
 }
 
+/// The icon of a result's kind: a view to open, or a command to run.
+fn group_icon(group: &str) -> &'static str {
+    if group == text::GROUP_VIEWS {
+        "app-window"
+    } else {
+        "zap"
+    }
+}
+
 fn item(group: &'static str, label: String, action: Action) -> Item {
     Item {
         group,
@@ -549,7 +558,12 @@ pub fn Palette(
                                             }
                                         }
                                     >
-                                        <span class="palette__group">{item.group}</span>
+                                        // The kind as an icon, leaving room for the text; the
+                                        // word stays for screen readers and as a tooltip.
+                                        <span class="palette__group" title=item.group>
+                                            <crate::ui::Icon name=group_icon(item.group) />
+                                            <span class="visually-hidden">{item.group}</span>
+                                        </span>
                                         <span class="palette__label">{item.label.clone()}</span>
                                         <span class="palette__detail">{item.disabled.map_or(item.detail.clone(), str::to_owned)}</span>
                                         {(!item.name.is_empty()).then(|| view! { <span class="palette__name" lang="en">{item.name.clone()}</span> })}

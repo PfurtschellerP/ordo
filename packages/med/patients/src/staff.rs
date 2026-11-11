@@ -173,6 +173,7 @@ mod tests {
     fn staff(n: u64, by: &str, uhs: &str, people: &[&str]) -> AppliedEvent {
         let update = UhsUpdated {
             id: uhs.into(),
+            name: None,
             location: None,
             capacity: None,
             staff: Some(

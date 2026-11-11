@@ -44,6 +44,7 @@ fn main() {
             "uhs-updated",
             codec::to_cbor(&med::UhsUpdated {
                 id: "nord".into(),
+                name: None,
                 location: Some("Bühne Nord".into()),
                 capacity: Some(10),
                 staff: Some(vec!["anna@ordo.example.org".into()]),

@@ -232,7 +232,7 @@ impl Store {
         Ok(())
     }
 
-    // [impl->dsn~display-names~1]
+    // [impl->dsn~display-names~2]
     /// Stores the identity provider's name of `user` (ORG-7). Returns whether the shown
     /// name changed (not while they chose their own).
     pub async fn set_provider_name(&self, user: &UserId, name: &str) -> Result<bool, StoreError> {
@@ -247,6 +247,32 @@ impl Store {
         .await?;
         Ok(before.as_deref() != Some(name)
             && self.display_name(user).await?.as_deref() == Some(name))
+    }
+
+    /// Stores `name` as the provider's name of `user` only if there is none yet (a name
+    /// from a local account before the first login, ORG-7). Returns whether the shown name
+    /// changed.
+    pub async fn fill_provider_name(&self, user: &UserId, name: &str) -> Result<bool, StoreError> {
+        let before = self.display_name(user).await?;
+        sqlx::query(
+            "INSERT INTO people (user_id, provider_name) VALUES (?, ?)
+             ON CONFLICT (user_id) DO UPDATE SET provider_name = excluded.provider_name
+             WHERE people.provider_name IS NULL",
+        )
+        .bind(user.as_str())
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
+        Ok(before != self.display_name(user).await?)
+    }
+
+    /// Whether some login already holds `user`.
+    pub async fn has_identity(&self, user: &UserId) -> Result<bool, StoreError> {
+        let found: Option<i64> = sqlx::query_scalar("SELECT 1 FROM identities WHERE user_id = ?")
+            .bind(user.as_str())
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(found.is_some())
     }
 
     /// Sets the name `user` chose for themselves; `None` clears it, and the provider's
@@ -765,7 +791,37 @@ mod tests {
         assert!(store.load_organisation_roles().await.unwrap().is_empty());
     }
 
-    // [utest->dsn~display-names~1]
+    // [utest->dsn~display-names~2]
+    #[tokio::test]
+    async fn an_account_name_fills_in_only_where_there_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let (anna, ben) = (user("anna"), user("ben"));
+        assert!(
+            store
+                .fill_provider_name(&anna, "Anna Schmidt")
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            store.display_name(&anna).await.unwrap().as_deref(),
+            Some("Anna Schmidt"),
+            "before the first login"
+        );
+        assert!(!store.fill_provider_name(&anna, "Anna S.").await.unwrap());
+        store.set_provider_name(&ben, "Ben Weber").await.unwrap();
+        assert!(
+            !store.fill_provider_name(&ben, "Benjamin").await.unwrap(),
+            "a name from a login wins"
+        );
+        assert_eq!(
+            store.display_name(&ben).await.unwrap().as_deref(),
+            Some("Ben Weber")
+        );
+        assert!(!store.has_identity(&anna).await.unwrap());
+    }
+
+    // [utest->dsn~display-names~2]
     #[tokio::test]
     async fn a_chosen_display_name_wins_over_the_providers_while_set() {
         let dir = tempfile::tempdir().unwrap();

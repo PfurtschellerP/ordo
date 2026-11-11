@@ -187,6 +187,55 @@ impl App {
         }
     }
 
+    // [impl->dsn~display-names~2]
+    /// Names of the local accounts (ADR-0060) for people ORDO has no name of yet, e.g.
+    /// before their first login, so rosters show them by name (ORG-7). A name from a login
+    /// or one the person chose always wins.
+    pub(crate) async fn names_from_accounts(&self) {
+        let (Some(api), Some(login)) = (&self.dex_api, &self.login) else {
+            return;
+        };
+        // Dex may not be up yet; the next minute tries again.
+        let Ok(accounts) = api.list().await else {
+            return;
+        };
+        let filled = async {
+            for account in accounts {
+                let Some(name) =
+                    crate::login::tidy_name(Some(&account.username), crate::login::MAX_PERSON_NAME)
+                else {
+                    continue;
+                };
+                let subject = crate::dex_api::local_subject(&account.user_id);
+                let user = match self
+                    .store
+                    .user_of_identity(login.issuer(), &subject)
+                    .await?
+                {
+                    Some(user) => user,
+                    // Not logged in yet: the user ID the login would give, if still free.
+                    None => {
+                        let wanted = crate::login::user_name(None, Some(&account.email));
+                        let Ok(user) = UserId::new(&wanted, &self.server) else {
+                            continue;
+                        };
+                        if self.store.has_identity(&user).await? {
+                            continue;
+                        }
+                        user
+                    }
+                };
+                if self.store.fill_provider_name(&user, &name).await? {
+                    self.person_changed(&user).await?;
+                }
+            }
+            Ok::<(), StoreError>(())
+        };
+        if let Err(error) = filled.await {
+            tracing::error!(%error, "names from local accounts failed");
+        }
+    }
+
     /// Sends refusals and forgets their connections (they close after sending).
     fn send_refusals(&self, out: Vec<ordo_sync::Outgoing>) {
         let mut sessions = self.sessions.lock().expect("session registry lock");
@@ -209,6 +258,7 @@ impl App {
                 _ = minute.tick() => {
                     self.expire_sessions().await;
                     self.expire_roles().await;
+                    self.names_from_accounts().await;
                 }
                 _ = quarter.tick() => login::reverify(&self).await,
                 () = &mut stop => return,
@@ -585,6 +635,9 @@ impl App {
                 let hash = hash_password(password).await?;
                 let outcome = api.create(&email, &name, hash).await.map_err(failed)?;
                 tracing::info!(%user, account = email, "local account created");
+                if outcome == Outcome::Done {
+                    self.names_from_accounts().await;
+                }
                 outcome
             }
             AccountChange::SetPassword { email, password } => {
@@ -662,7 +715,7 @@ impl App {
                     .await?;
                 (vec![user], true)
             }
-            // [impl->dsn~display-names~1]
+            // [impl->dsn~display-names~2]
             ClientMessage::SetName(name) => {
                 let name = crate::login::tidy_name(name.as_deref(), crate::login::MAX_PERSON_NAME);
                 self.store.set_chosen_name(&user, name.as_deref()).await?;
@@ -695,7 +748,7 @@ impl App {
         Ok(Avatar { user, image, name })
     }
 
-    // [impl->dsn~display-names~1]
+    // [impl->dsn~display-names~2]
     /// After `user`'s name or picture changed elsewhere (a login): tells the connections
     /// that asked about them.
     pub(crate) async fn person_changed(&self, user: &UserId) -> Result<(), StoreError> {

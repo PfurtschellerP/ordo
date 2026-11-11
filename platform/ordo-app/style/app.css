@@ -759,7 +759,7 @@
   .palette__option[aria-selected="true"] { border-color: var(--ordo-component-button-primary-background); background: var(--ordo-color-surface-default); }
   .palette__option[aria-disabled="true"] { cursor: not-allowed; }
   .palette__option[aria-disabled="true"] .palette__label { color: var(--ordo-color-text-secondary); }
-  .palette__group { grid-row: span 3; font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); min-width: 6rem; }
+  .palette__group { grid-row: span 3; color: var(--ordo-color-text-secondary); display: inline-flex; }
   .palette__label { font-weight: var(--ordo-font-weight-bold); }
   .palette__detail { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
   .palette__detail:empty { display: none; }
@@ -768,7 +768,6 @@
   .palette__keys { margin: 0; color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
   @media (max-width: 40rem) {
     .palette { margin-top: var(--ordo-space-4); }
-    .palette__group { grid-row: auto; grid-column: 1 / -1; }
     .palette__name { grid-column: 1 / -1; }
     .palette__keys { display: none; }
   }

@@ -136,8 +136,10 @@ pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> 
     sets.into_iter().map(|(_, s)| (s.uhs, s.places)).collect()
 }
 
-/// Event type: an on-site care unit's location, capacity or staff changed (UHS-1).
+/// Event type: an on-site care unit's name, location, capacity or staff changed (UHS-1).
 pub const UHS_UPDATED: &str = "uhs.updated";
+/// Payload schema of `uhs.updated`: 2 adds the name.
+pub const UHS_UPDATED_SCHEMA: u32 = 2;
 
 /// Payload of `uhs.updated`: the fields given replace earlier values; a field left out
 /// keeps its value.
@@ -145,6 +147,9 @@ pub const UHS_UPDATED: &str = "uhs.updated";
 pub struct UhsUpdated {
     /// The unit ([`UhsCreated::id`]).
     pub id: String,
+    /// A new name (schema version 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Where it is, e.g. "Bühne Nord, Zelt 2".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
@@ -173,9 +178,9 @@ pub struct UhsDetails {
 }
 
 // [impl->dsn~uhs-registry~1]
-// [impl->dsn~uhs-details~1]
+// [impl->dsn~uhs-details~2]
 /// The on-site care units of an incident, in order of creation (first wins per ID), with
-/// the current capacity.
+/// the current name and capacity.
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
     let mut created: Vec<(Hlc, UhsCreated)> = incident_events
         .iter()
@@ -196,6 +201,14 @@ pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
         .map(|(_, u)| u)
         .filter(|u| seen.insert(u.id.clone()))
         .map(|mut u| {
+            if let Some(name) = updates.iter().rev().find_map(|x| {
+                (x.id == u.id)
+                    .then(|| x.name.clone())
+                    .flatten()
+                    .filter(|n| !n.trim().is_empty())
+            }) {
+                u.name = name;
+            }
             if let Some(capacity) = updates
                 .iter()
                 .rev()
@@ -221,7 +234,7 @@ fn uhs_updates(incident_events: &[AppliedEvent]) -> Vec<UhsUpdated> {
     updates.into_iter().map(|(_, u)| u).collect()
 }
 
-// [impl->dsn~uhs-details~1]
+// [impl->dsn~uhs-details~2]
 /// Location and staff per unit ID: the latest value of each field.
 pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDetails> {
     let mut details: BTreeMap<String, UhsDetails> = BTreeMap::new();
@@ -953,7 +966,7 @@ mod tests {
         assert_eq!(decoded.algorithm, None);
     }
 
-    // [utest->dsn~uhs-details~1]
+    // [utest->dsn~uhs-details~2]
     #[test]
     fn the_latest_location_capacity_and_staff_count_per_field() {
         let shared = |n: u64, event_type: &str, payload: Vec<u8>| {
@@ -968,6 +981,7 @@ mod tests {
         let update =
             |location: Option<&str>, capacity: Option<u32>, staff: Option<&[&str]>| UhsUpdated {
                 id: "uhs-1".into(),
+                name: None,
                 location: location.map(Into::into),
                 capacity,
                 staff: staff.map(|s| s.iter().map(|x| (*x).to_owned()).collect()),
@@ -992,8 +1006,20 @@ mod tests {
                 update(Some("Zelt 2"), None, None).encode().unwrap(),
             ),
         ];
+        events.push(shared(
+            5,
+            UHS_UPDATED,
+            UhsUpdated {
+                id: "uhs-1".into(),
+                name: Some("UHS Nordost".into()),
+                ..Default::default()
+            }
+            .encode()
+            .unwrap(),
+        ));
         events.reverse();
         assert_eq!(uhs_list(&events)[0].capacity, 14, "the current capacity");
+        assert_eq!(uhs_list(&events)[0].name, "UHS Nordost", "renamed");
         let d = &uhs_details(&events)["uhs-1"];
         assert_eq!(d.location.as_deref(), Some("Zelt 2"));
         assert_eq!(d.staff, ["anna"], "a field left out keeps its value");

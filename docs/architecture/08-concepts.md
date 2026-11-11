@@ -592,10 +592,16 @@ Needs: impl, utest, itest
 Tags: must, m9
 
 #### Display names
-`dsn~display-names~1`
+`dsn~display-names~2`
 
 People are shown by a display name. At every login the server stores the identity
-provider's `name` (OpenID Connect) with the person (table `people`, migration 0003). In the
+provider's `name` (OpenID Connect) with the person (table `people`, migration 0003).
+People who have not logged in yet get the name of their local account: with Dex's API
+configured ([ADR-0060](../adr/0060-local-accounts-managed-in-ordo.md)), the server reads
+the accounts every minute and fills in the name where it has none. The person is found
+by the account's login identity, or, before the first login, by the user ID the login
+would give (from the e-mail address), unless another login already holds that ID. A
+name from a login or a chosen name always wins. In the
 profile menu a person may set their own name, which wins while it is set, or clear it
 (`setName`); then the provider's name shows again. Names go to devices with the profile
 pictures: `avatars` carries an optional `name` per person, and the app asks for the people

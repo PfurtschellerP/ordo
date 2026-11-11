@@ -46,6 +46,16 @@ impl Context {
                         c.uhs.insert(p.id, p.name);
                     }
                 }
+                med::UHS_UPDATED => {
+                    if let Some(med::UhsUpdated {
+                        id,
+                        name: Some(name),
+                        ..
+                    }) = decode(e)
+                    {
+                        c.uhs.insert(id, name);
+                    }
+                }
                 med::UHS_PLACES => {
                     if let Some(p) = decode::<med::PlacesSet>(e) {
                         c.places
@@ -204,7 +214,13 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                 text::log_map_removed(Context::name(&c.objects, &p.object)).into()
             }
             med::UHS_CREATED => text::uhs_created(&decode::<med::UhsCreated>(e)?.name).into(),
-            med::UHS_UPDATED => text::uhs_updated(c.uhs(&decode::<med::UhsUpdated>(e)?.id)).into(),
+            med::UHS_UPDATED => {
+                let p = decode::<med::UhsUpdated>(e)?;
+                match p.name {
+                    Some(name) => text::uhs_renamed(&name).into(),
+                    None => text::uhs_updated(c.uhs(&p.id)).into(),
+                }
+            }
             med::UHS_PLACES => {
                 let p = decode::<med::PlacesSet>(e)?;
                 text::log_places(c.uhs(&p.uhs), p.places.len()).into()

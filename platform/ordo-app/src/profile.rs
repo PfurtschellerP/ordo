@@ -22,7 +22,7 @@ pub fn initials(user: &UserId) -> String {
         .collect()
 }
 
-// [impl->dsn~display-names~1]
+// [impl->dsn~display-names~2]
 /// A person's display name (ORG-7), else their user ID. An unknown name is asked for, as
 /// pictures are; the view shows it once it arrives.
 pub fn display_name(core: Handle, user: &UserId) -> String {
@@ -144,7 +144,7 @@ mod tests {
     }
 }
 
-// [impl->dsn~display-names~1]
+// [impl->dsn~display-names~2]
 /// The own display name (ORG-7): as the identity provider gave it, or chosen here.
 #[component]
 pub fn DisplayName(core: Handle, revision: RwSignal<u64>) -> impl IntoView {

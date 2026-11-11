@@ -6,7 +6,8 @@
 #     ordo:
 #       environment: { ORDO_VEHICLES_FILE: /config/vehicles.toml }
 #       volumes: ["./vehicles.toml:/config/vehicles.toml:ro"]
-# Services come from the profile (DE: fire, rescue, medical, civil-protection, thw, police);
+# Services come from the profile (DE: fire, rescue, medical, civil-protection, civil-defence,
+# thw, police);
 # strength is leaders (Führer), sub-leaders (Unterführer), crew (Mannschaft).
 
 [[vehicle]]

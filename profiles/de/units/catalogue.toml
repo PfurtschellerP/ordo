@@ -18,6 +18,12 @@ label = "Sanitätsdienst"
 id = "civil-protection"
 label = "Katastrophenschutz"
 
+# Civil defence (Zivilschutz): the federal protection of the population in a state of
+# defence (ZSKG), apart from the states' disaster protection above.
+[[service]]
+id = "civil-defence"
+label = "Zivilschutz"
+
 [[service]]
 id = "thw"
 label = "THW"

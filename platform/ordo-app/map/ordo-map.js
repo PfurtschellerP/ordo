@@ -67,12 +67,17 @@ async function offlineFile() {
 async function region({ pmtiles, protocol }) {
   const file = await offlineFile();
   if (file && file.size > 0) {
-    protocol.add(new pmtiles.PMTiles(new pmtiles.FileSource(file)));
-    return { url: `pmtiles://${file.name}`, from: "device" };
+    const archive = new pmtiles.PMTiles(new pmtiles.FileSource(file));
+    protocol.add(archive);
+    return { url: `pmtiles://${file.name}`, from: "device", archive };
   }
   try {
     const head = await fetch(REGION_URL, { method: "HEAD" });
-    if (head.ok) return { url: `pmtiles://${location.origin}${REGION_URL}`, from: "server" };
+    if (head.ok) {
+      const archive = new pmtiles.PMTiles(`${location.origin}${REGION_URL}`);
+      protocol.add(archive);
+      return { url: `pmtiles://${location.origin}${REGION_URL}`, from: "server", archive };
+    }
   } catch {
     // offline and no copy on the device
   }
@@ -111,6 +116,15 @@ export async function create(element, centre, label) {
   map.getCanvas().setAttribute("aria-label", label);
   map.addControl(new l.maplibre.NavigationControl({ showCompass: false }));
   await new Promise((resolve) => map.once("load", resolve));
+  // Nothing placed yet: open on the map region, the incident's area, not on all Germany.
+  if (!centre && source.archive) {
+    try {
+      const h = await source.archive.getHeader();
+      map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], { padding: 24, animate: false });
+    } catch {
+      // no bounds in the archive: keep the start view
+    }
+  }
   const accent = token("--ordo-color-action-primary-background");
   const text = token("--ordo-color-text-primary");
   const halo = token("--ordo-color-surface-default");
@@ -189,6 +203,23 @@ export async function setSymbols(handle, json) {
   );
   // How many symbols the map has, for support and tests.
   handle.map.getContainer().dataset.symbols = String(Object.keys(symbols).filter((id) => handle.map.hasImage(id)).length);
+}
+
+/** Moves the map to the device's position, asked once (browser geolocation), without an
+ *  animation, so objects are placed there right away; fails with "denied" or "unavailable". */
+export function locate(handle) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject("unavailable");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const at = [p.coords.longitude, p.coords.latitude];
+        handle.map.jumpTo({ center: at, zoom: Math.max(handle.map.getZoom(), 16) });
+        resolve(at);
+      },
+      (e) => reject(e.code === e.PERMISSION_DENIED ? "denied" : "unavailable"),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 },
+    );
+  });
 }
 
 /** Shows ORDO's objects (a GeoJSON FeatureCollection as text). */

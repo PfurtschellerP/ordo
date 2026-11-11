@@ -18,6 +18,7 @@ pub fn IncidentPicker(
     core: Handle,
     revision: RwSignal<u64>,
     paired: RwSignal<Option<Pairing>>,
+    on_unpair: impl Fn() + Clone + Send + Sync + 'static,
 ) -> impl IntoView {
     let ready = Memo::new(move |_| {
         revision.track();
@@ -62,6 +63,15 @@ pub fn IncidentPicker(
         if let Some(id) = core::new_incident_id(&server) {
             open(id, Some(name));
         }
+    };
+    // Logging out unpairs the device as in the profile menu (SEC-4): also without an
+    // incident, so another person can log in on it.
+    let me = core.with_value(|c| c.replica.user().clone());
+    let log_out = move |_| {
+        let device = core.with_value(|c| c.replica.device());
+        core::revoke_device(core, device);
+        core::forget_device();
+        on_unpair();
     };
     after_render(|| focus("incidents-title"));
     view! {
@@ -119,6 +129,15 @@ pub fn IncidentPicker(
                     </form>
                 </section>
             </Show>
+            <section class="card" aria-labelledby="log-out-title">
+                <h2 id="log-out-title" class="visually-hidden">{text::LOG_OUT}</h2>
+                <p>{text::SIGNED_IN_AS} " " <strong>{crate::profile::naming({
+                    let me = me.clone();
+                    move || crate::profile::display_name(core, &me)
+                })}</strong> " (" {me.to_string()} ")"</p>
+                <p class="hint">{text::LOG_OUT_HINT}</p>
+                <button id="log-out" type="button" class="button" on:click=log_out>{text::LOG_OUT}</button>
+            </section>
         </main>
     }
 }
