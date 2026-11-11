@@ -352,6 +352,28 @@ Needs: itest
 
 Tags: must, m28
 
+#### Container image
+`dsn~container-image~1`
+
+The server image (`deploy/Containerfile`) is a static musl binary on distroless, non-root,
+with a read-only file system. Its base images are pinned by the digest of their
+multi-architecture index. CI builds it on every change for `linux/amd64` and, on a native
+arm64 runner, for `linux/arm64`, and smoke-tests both with `tests/container/smoke.sh`: it
+starts read-only, answers health, readiness and metrics, runs as user 65532, and Docker
+reports it healthy. A release builds each architecture natively, smoke-tests and pushes it
+by digest, then joins both into one image index with the version tags. That index is signed
+keyless with cosign (`--recursive`, so each architecture is signed too), and the build
+provenance and bill of materials are attested on it
+([ADR-0043](../adr/0043-supply-chain.md)).
+
+Covers:
+
+* [req~ops-5~1](../requirements/07-quality.md#ops-5--container-image)
+
+Needs: itest
+
+Tags: must, m41
+
 #### Licence notices
 `dsn~licence-notices~1`
 

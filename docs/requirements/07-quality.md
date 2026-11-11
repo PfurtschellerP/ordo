@@ -443,7 +443,7 @@ Needs: dsn
 
 An official container image (multi-architecture: amd64, arm64) is published with every release
 
-Tags: must, quality
+Tags: must, quality, m41
 
 Needs: dsn
 

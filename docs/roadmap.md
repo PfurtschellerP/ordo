@@ -246,7 +246,7 @@ Then:
 1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
    the first release (signed image, provenance, bills of materials: the release workflow
-   is ready, ADR-0043); multi-architecture images (arm64); later the device lock with
+   is ready, ADR-0043; images for amd64 and arm64 since 2026-11-11); later the device lock with
    WebAuthn PRF or PIN (SEC-13).
 2. Login, step 3, rest ([ADR-0038](adr/0038-login-and-device-pairing.md)): device names
    in the device list; an admin view for roles, "valid until" and Dex's local accounts.
