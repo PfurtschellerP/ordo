@@ -6,7 +6,7 @@
 // audited (support/audit.ts).
 import os from "node:os";
 import path from "node:path";
-import { Browser, expect, Page, test } from "@playwright/test";
+import { Browser, expect, Locator, Page, test } from "@playwright/test";
 import { audit, settle } from "./support/audit";
 import {
   announced,
@@ -714,6 +714,25 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
+    // [itest->dsn~incident-devices~1]
+    // The incident command sees the devices of the incident's people, and blocks one of
+    // Anna's two tablets, which she no longer uses (ORG-12).
+    const inUse = ben.locator("section", { has: ben.locator("#incident-devices-title") });
+    await expect(inUse.locator("h2")).toHaveText("Geräte im Einsatz");
+    const linkOf = (card: Locator) => card.locator("div", { has: ben.locator("dt", { hasText: "Verbindung" }) }).locator("dd");
+    await expect(linkOf(inUse.locator(".device-card", { hasText: "dieses Gerät" })), "his own tablet is connected").toHaveText("verbunden");
+    const annas = inUse.locator(".device-card", { hasText: "Anna Schmidt" });
+    await expect(annas, "with the person").toHaveCount(2);
+    const old = annas.first();
+    const oldName = (await old.locator("h3").textContent()) ?? "";
+    await expect(linkOf(old), "Anna's tablets are switched off").toHaveText("nicht verbunden");
+    await audit(ben, "Incident devices");
+    await old.getByRole("button", { name: /^Sperren/ }).click();
+    await expect(ben.getByRole("button", { name: "Ja, sperren" }), "focus moves to the confirmation").toBeFocused();
+    await ben.getByRole("button", { name: "Ja, sperren" }).click();
+    await expect(inUse.locator(".device-card h3", { hasText: oldName }), "the blocked tablet is gone from the list").toHaveCount(0);
+    await expect(annas, "her other one stays").toHaveCount(1);
+    await expect.poll(() => announced(ben)).toContain("gesperrt");
     await openWorkspace(ben, "Führung");
     // [itest->dsn~workspace-navigation~3]
     await expect.poll(() => title(ben), { message: "the commander starts in the first workspace they may use" }).toContain("Einsatzleitung – Führung");
@@ -1227,7 +1246,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(dora, "Zugriff");
     await openView(dora, "Geräte");
     await expect(dora.locator("#devices-title")).toHaveText("Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(8);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "Ben Weber" });
@@ -1236,7 +1255,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(7);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(6);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

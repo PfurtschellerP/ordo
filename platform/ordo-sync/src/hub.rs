@@ -14,11 +14,15 @@ use ordo_crypto::{Chain, EventSigner};
 use crate::applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, WriteGuard, random_u128};
 use crate::incidents::{self, Effect, Registry};
 use crate::message::{
-    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentPermissions, IncidentSummary,
-    KeyGrant, Rejected, Rejection, ServerMessage, StreamRef, Subscription, Welcome,
+    Challenge, ClientMessage, Delivery, DeviceInfo, Hello, IncidentDevices, IncidentPermissions,
+    IncidentSummary, KeyGrant, Rejected, Rejection, ServerMessage, StreamRef, Subscription,
+    Welcome,
 };
 use crate::policy::AccessPolicy;
 use crate::version::{SYNC as SYNC_VERSIONS, Version};
+
+/// The incident permission to see and block the devices used in an incident (ORG-12).
+pub const BLOCK_DEVICES: &str = "block_devices";
 
 /// Identifies one connection of a device.
 pub type SessionId = u64;
@@ -439,20 +443,58 @@ impl<P: AccessPolicy> Hub<P> {
     /// The devices `user` may see: all with `manage_devices`, else their own.
     fn device_list(&self, user: &UserId) -> Vec<DeviceInfo> {
         let all = self.policy.can_manage_devices(user);
+        self.devices_where(|owner| all || owner == user)
+    }
+
+    /// The paired devices whose person passes `keep`, each with whether it is connected,
+    /// sorted by person and device.
+    fn devices_where(&self, keep: impl Fn(&UserId) -> bool) -> Vec<DeviceInfo> {
         let mut list: Vec<DeviceInfo> = self
             .devices
             .iter()
-            .filter(|(_, d)| all || &d.user == user)
+            .filter(|(_, d)| keep(&d.user))
             .map(|(id, d)| DeviceInfo {
                 device: *id,
                 user: d.user.clone(),
                 paired: d.paired,
                 valid_until: d.valid_until,
                 name: d.name.clone(),
+                connected: self.sessions.values().any(|s| s.device == *id),
             })
             .collect();
         list.sort_by(|a, b| (&a.user, a.device).cmp(&(&b.user, b.device)));
         list
+    }
+
+    // [impl->dsn~incident-devices~1]
+    /// Whether `user` may see and block the devices used in `incident`: with the incident
+    /// permission `block_devices` there, or `manage_devices`.
+    fn may_block_in(&self, user: &UserId, incident: &IncidentId) -> bool {
+        self.registry.get(incident).is_some()
+            && (self.policy.can_manage_devices(user)
+                || self.may_in_incident(user, incident, BLOCK_DEVICES))
+    }
+
+    /// Whether `device` is used in `incident`: its person has a role there.
+    fn used_in(&self, device: &DeviceId, incident: &IncidentId) -> bool {
+        match (self.devices.get(device), self.registry.get(incident)) {
+            (Some(d), Some(i)) => i.roster.contains_key(&d.user),
+            _ => false,
+        }
+    }
+
+    /// The devices used in `incident`, for `user`: empty unless they may block them.
+    fn incident_devices(&self, user: &UserId, incident: &IncidentId) -> IncidentDevices {
+        let devices = match self.registry.get(incident) {
+            Some(i) if self.may_block_in(user, incident) => {
+                self.devices_where(|owner| i.roster.contains_key(owner))
+            }
+            _ => Vec::new(),
+        };
+        IncidentDevices {
+            incident: incident.clone(),
+            devices,
+        }
     }
 
     // [impl->dsn~device-revocation~1]
@@ -467,6 +509,13 @@ impl<P: AccessPolicy> Hub<P> {
         if !allowed {
             return false;
         }
+        self.cut_off(device, out);
+        true
+    }
+
+    /// Revokes `device`: it is refused from now on, the revocation is stored, and its open
+    /// connections are cut with `revoked`.
+    fn cut_off(&mut self, device: DeviceId, out: &mut Vec<Outgoing>) {
         self.devices.remove(&device);
         self.revoked.insert(device);
         self.changes.push(Change::Revoked { device });
@@ -483,7 +532,6 @@ impl<P: AccessPolicy> Hub<P> {
                 message: ServerMessage::Refused(Rejection::Revoked),
             });
         }
-        true
     }
 
     // [impl->dsn~access-timeout~1]
@@ -663,6 +711,47 @@ impl<P: AccessPolicy> Hub<P> {
                     out.push(Outgoing {
                         session,
                         message: ServerMessage::Devices(self.device_list(&user)),
+                    });
+                }
+                out
+            }
+            // [impl->dsn~incident-devices~1]
+            // Protocol 1.2; an older session never asks.
+            ClientMessage::ListIncidentDevices(incident) => {
+                if self
+                    .session_version(session)
+                    .is_some_and(|v| v >= crate::version::SYNC_INCIDENT_DEVICES)
+                {
+                    vec![Outgoing {
+                        session,
+                        message: ServerMessage::IncidentDevices(
+                            self.incident_devices(&user, &incident),
+                        ),
+                    }]
+                } else {
+                    Vec::new()
+                }
+            }
+            ClientMessage::BlockDevice(block) => {
+                let allowed = self
+                    .session_version(session)
+                    .is_some_and(|v| v >= crate::version::SYNC_INCIDENT_DEVICES)
+                    && self.used_in(&block.device, &block.incident)
+                    && self.may_block_in(&user, &block.incident);
+                if !allowed {
+                    return vec![Outgoing {
+                        session,
+                        message: ServerMessage::Refused(Rejection::Forbidden),
+                    }];
+                }
+                let mut out = Vec::new();
+                self.cut_off(block.device, &mut out);
+                if self.sessions.contains_key(&session) {
+                    out.push(Outgoing {
+                        session,
+                        message: ServerMessage::IncidentDevices(
+                            self.incident_devices(&user, &block.incident),
+                        ),
                     });
                 }
                 out

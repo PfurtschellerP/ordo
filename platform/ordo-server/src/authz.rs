@@ -32,12 +32,13 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
-pub const INCIDENT_PERMISSIONS: [&str; 5] = [
+pub const INCIDENT_PERMISSIONS: [&str; 6] = [
     "view_situation",
     "edit_units",
     "give_orders",
     "all_uhs",
     "manage_map",
+    ordo_sync::BLOCK_DEVICES,
 ];
 
 /// A policy file could not be used.
@@ -543,6 +544,23 @@ mod tests {
         );
     }
 
+    // [utest->dsn~incident-devices~1]
+    #[test]
+    fn only_the_incident_command_blocks_the_devices_of_its_incident() {
+        let p = policy(&[]).expect("valid");
+        let incident = incident();
+        let erik = user("erik");
+        let blocks = |roles: &[&str]| {
+            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            p.incident_permissions(&erik, &incident, &roles)
+                .contains(&"block_devices".to_owned())
+        };
+        assert!(blocks(&["commander"]));
+        assert!(!blocks(&["medic"]), "the crews do not");
+        assert!(!blocks(&["physician"]));
+        assert!(!blocks(&[]));
+    }
+
     // [utest->dsn~views-by-role~1]
     #[test]
     fn views_and_unit_changes_follow_the_role() {
@@ -557,7 +575,12 @@ mod tests {
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &commander),
-            ["view_situation", "edit_units", "manage_map"]
+            [
+                "view_situation",
+                "edit_units",
+                "manage_map",
+                "block_devices"
+            ]
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &["physician".to_owned()]),

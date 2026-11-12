@@ -32,7 +32,8 @@ action read, write appliesTo {
 //   give_orders: give medical orders (the server still checks every `orders.given`)
 //   all_uhs: work at every on-site care unit, whatever its staff list (ADR-0056)
 //   manage_map: cut the incident's map region (MAP-8, ADR-0062)
-action view_situation, edit_units, give_orders, all_uhs, manage_map appliesTo {
+//   block_devices: see and block the devices used in the incident (ORG-12)
+action view_situation, edit_units, give_orders, all_uhs, manage_map, block_devices appliesTo {
   principal: [User],
   resource: [Compartment],
   context: Request,

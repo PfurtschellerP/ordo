@@ -563,6 +563,7 @@ impl Replica {
             ServerMessage::Refused(reason) => Err(SyncError::Refused(reason)),
             // Device and incident lists are for the app, not for the replica.
             ServerMessage::Devices(_)
+            | ServerMessage::IncidentDevices(_)
             | ServerMessage::Incidents(_)
             | ServerMessage::People(_)
             | ServerMessage::Vehicles(_)

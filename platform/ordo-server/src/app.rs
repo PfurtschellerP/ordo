@@ -380,8 +380,21 @@ impl App {
             return self.map_region(session, message).await;
         }
         let mut hub = self.hub.lock().await;
+        // [impl->dsn~incident-devices~1]
+        // Who blocked which device in which incident is logged.
+        let block = match &message {
+            ClientMessage::BlockDevice(block) => Some((block.clone(), hub.session_user(session))),
+            _ => None,
+        };
         let outgoing = hub.handle(session, message, now_ms());
         let changes = hub.take_changes();
+        if let Some((block, Some(user))) = block
+            && changes.iter().any(
+                |c| matches!(c, ordo_sync::Change::Revoked { device } if *device == block.device),
+            )
+        {
+            tracing::warn!(%user, incident = %block.incident, device = %block.device.ulid(), "device blocked in the incident");
+        }
         self.store.save(&changes, &self.master).await?;
         let new_events = changes
             .iter()

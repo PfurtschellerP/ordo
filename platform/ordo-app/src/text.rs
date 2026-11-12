@@ -73,6 +73,14 @@ pub const THIS_DEVICE: &str = "dieses Gerät";
 pub const DEVICE_PERSON: &str = "Person";
 pub const DEVICE_PAIRED: &str = "Gekoppelt";
 pub const DEVICE_VALID_UNTIL: &str = "Anmeldung gültig bis";
+pub const DEVICE_CONNECTION: &str = "Verbindung";
+pub const DEVICE_CONNECTED: &str = "verbunden";
+pub const DEVICE_NOT_CONNECTED: &str = "nicht verbunden";
+/// Devices used in the incident, on *Vorbereitung – Personal* (ORG-12).
+pub const INCIDENT_DEVICES: &str = "Geräte im Einsatz";
+pub const INCIDENT_DEVICES_INTRO: &str = "Die Geräte aller Personen mit einer Rolle in diesem Einsatz. Ein verlorenes oder gestohlenes Gerät hier sperren: Es wird sofort getrennt und löscht alle ORDO-Daten, sobald es sich wieder verbindet, auch die anderer Einsätze.";
+pub const INCIDENT_DEVICES_EMPTY: &str =
+    "Noch keine Geräte: Niemand mit einer Rolle in diesem Einsatz hat ein gekoppeltes Gerät.";
 pub const UNKNOWN: &str = "unbekannt";
 pub const REVOKE: &str = "Sperren";
 pub const REVOKE_CONFIRM: &str = "Ja, sperren";

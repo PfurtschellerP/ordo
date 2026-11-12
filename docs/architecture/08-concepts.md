@@ -591,6 +591,33 @@ Needs: impl, utest, itest
 
 Tags: must, m9
 
+#### Incident devices
+`dsn~incident-devices~1`
+
+The incident command sees and blocks the devices used in its incident without the
+organisation's device list ([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md)).
+A device is used in an incident if its person has a role there (the roster): only they
+receive the incident's streams. The incident permission `block_devices` (Cedar, default
+role `commander`; `manage_devices` also allows it) lets a person ask for the list
+(`listIncidentDevices`, protocol 1.2) and block one of its devices (`blockDevice`). The
+answer `incidentDevices` names the incident and lists each device with its person, its
+name, whether it is connected now, and the end of its login; without the permission the
+list is empty and a block is refused. Blocking is a revocation (*Device revocation*): the
+device is refused everywhere and deletes its data, since a lost tablet holds more than one
+incident's data. The server logs who blocked which device in which incident.
+
+The app shows the list on *Vorbereitung – Personal*, below the roster, with the same
+device cards and in-place confirmation as *Administration – Geräte*, and asks again when
+the roster changes and every 30 seconds while the page is open.
+
+Covers:
+
+* [req~org-12~1](../requirements/02-shared.md#org-12--devices-in-the-incident)
+
+Needs: impl, utest, itest
+
+Tags: should, m53
+
 #### Display names
 `dsn~display-names~2`
 

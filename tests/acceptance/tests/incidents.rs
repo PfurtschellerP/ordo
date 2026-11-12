@@ -248,3 +248,121 @@ fn only_planners_plan_incidents() {
         "a second plan of the same incident is refused"
     );
 }
+
+// [itest->dsn~incident-devices~1]
+/// The incident command sees the devices of the people with a role in its incident, and
+/// whether they are connected, and blocks a lost one; it sees no other devices, and a
+/// medic sees none and blocks none.
+#[test]
+fn the_incident_command_blocks_a_device_used_in_its_incident() {
+    use ordo_sync::message::{DeviceBlock, IncidentDevices};
+    let server = "ordo.drk-musterstadt.de".parse().unwrap();
+    let dora = UserId::new("dora", &server).unwrap();
+    let policy = StaticPolicy::default()
+        .planner(&dora)
+        .role("medic", &["incident", "med.clinical"])
+        .role("commander", &["incident"])
+        .assigner("commander")
+        .permit("commander", ordo_sync::BLOCK_DEVICES);
+    let mut world = World::with_policy(policy);
+    world.add_device("dora", 9);
+    world.sync();
+    let planned = Planned {
+        name: "Sanitätsdienst Stadtfest".into(),
+    }
+    .encode()
+    .unwrap();
+    incident_event(&mut world, "dora", incidents::PLANNED, planned);
+    grant(&mut world, "dora", "ben", "commander", true);
+    world.sync();
+    grant(&mut world, "ben", "anna", "medic", true);
+    world.sync();
+    let incident = world.incident.clone();
+    let (anna, ben, clara) = (
+        world.replica("anna").device(),
+        world.replica("ben").device(),
+        world.replica("clara").device(),
+    );
+    let list = |out: &[ordo_sync::Outgoing], session| -> Vec<(ordo_core::DeviceId, bool)> {
+        out.iter()
+            .find_map(|o| match &o.message {
+                ServerMessage::IncidentDevices(IncidentDevices { devices, .. })
+                    if o.session == session =>
+                {
+                    Some(devices.iter().map(|d| (d.device, d.connected)).collect())
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("no device list for {session}: {out:?}"))
+    };
+    let block = |device| {
+        ClientMessage::BlockDevice(DeviceBlock {
+            incident: incident.clone(),
+            device,
+        })
+    };
+    let now = world.now;
+
+    // Ben sees the devices of the incident's people (his and Anna's), not Clara's or the
+    // planner's; his own is connected.
+    let hello = world.hello("ben", 910);
+    world.hub.handle(910, hello, now);
+    let out = world.hub.handle(
+        910,
+        ClientMessage::ListIncidentDevices(incident.clone()),
+        now,
+    );
+    let seen = list(&out, 910);
+    let mut ids: Vec<_> = seen.iter().map(|(d, _)| *d).collect();
+    ids.sort();
+    let mut expected = vec![anna, ben];
+    expected.sort();
+    assert_eq!(ids, expected);
+    assert!(seen.contains(&(ben, true)));
+
+    // A medic gets an empty list and may not block.
+    let hello = world.hello("anna", 911);
+    world.hub.handle(911, hello, now);
+    let out = world.hub.handle(
+        911,
+        ClientMessage::ListIncidentDevices(incident.clone()),
+        now,
+    );
+    assert!(list(&out, 911).is_empty());
+    let out = world.hub.handle(911, block(ben), now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Forbidden));
+
+    // A device outside the incident cannot be blocked from it.
+    let hello = world.hello("ben", 912);
+    world.hub.handle(912, hello, now);
+    let out = world.hub.handle(912, block(clara), now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Forbidden));
+
+    // Ben blocks Anna's device: its connections are cut, it is revoked for good, and Ben
+    // gets the new list.
+    let hello = world.hello("anna", 913);
+    world.hub.handle(913, hello, now);
+    let hello = world.hello("ben", 914);
+    world.hub.handle(914, hello, now);
+    let out = world.hub.handle(914, block(anna), now);
+    assert!(
+        out.iter()
+            .any(|o| o.session == 913 && o.message == ServerMessage::Refused(Rejection::Revoked)),
+        "{out:?}"
+    );
+    assert_eq!(
+        list(&out, 914).iter().map(|(d, _)| *d).collect::<Vec<_>>(),
+        [ben]
+    );
+    assert!(
+        world
+            .hub
+            .take_changes()
+            .iter()
+            .any(|c| matches!(c, ordo_sync::Change::Revoked { device } if *device == anna)),
+        "the revocation is stored"
+    );
+    let hello = world.hello("anna", 915);
+    let out = world.hub.handle(915, hello, now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
+}

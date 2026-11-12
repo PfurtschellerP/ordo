@@ -68,6 +68,7 @@ pub struct StaticPolicy {
     admins: HashSet<UserId>,
     planners: HashSet<UserId>,
     assigners: HashSet<String>,
+    role_permissions: HashMap<String, Vec<String>>,
 }
 
 impl StaticPolicy {
@@ -101,6 +102,16 @@ impl StaticPolicy {
         self
     }
 
+    /// Gives holders of the incident role `role` the incident permission `permission`
+    /// (e.g. `block_devices`).
+    pub fn permit(mut self, role: &str, permission: &str) -> Self {
+        self.role_permissions
+            .entry(role.to_owned())
+            .or_default()
+            .push(permission.to_owned());
+        self
+    }
+
     /// Lets `user` plan incidents (and read their `incident` compartment).
     pub fn planner(mut self, user: &UserId) -> Self {
         self.planners.insert(user.clone());
@@ -127,6 +138,23 @@ impl AccessPolicy for StaticPolicy {
 
     fn can_assign_roles(&self, _user: &UserId, _incident: &IncidentId, roles: &[String]) -> bool {
         roles.iter().any(|r| self.assigners.contains(r))
+    }
+
+    fn incident_permissions(
+        &self,
+        _user: &UserId,
+        _incident: &IncidentId,
+        roles: &[String],
+    ) -> Vec<String> {
+        let mut permissions: Vec<String> = roles
+            .iter()
+            .filter_map(|r| self.role_permissions.get(r))
+            .flatten()
+            .cloned()
+            .collect();
+        permissions.sort();
+        permissions.dedup();
+        permissions
     }
 
     fn can_read(

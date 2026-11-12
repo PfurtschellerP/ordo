@@ -10,6 +10,9 @@ client-message = { "hello": hello }
                / { "push": [* signed-event] }
                / "listDevices"                ; own devices, all with manage_devices
                / { "revokeDevice": device-id } ; own device, any with manage_devices
+               / { "listIncidentDevices": incident-id } ; devices of the incident's
+                                              ; people, with block_devices there (1.2)
+               / { "blockDevice": device-block } ; revoke one of them (1.2)
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
                / "listVehicles"               ; vehicles of the installation (1.1)
@@ -67,6 +70,8 @@ server-message = { "challenge": challenge }
                / { "deliver": delivery }
                / { "rejected": rejected }
                / { "devices": [* device-info] } ; answer to listDevices and revokeDevice
+               / { "incidentDevices": incident-devices } ; answer to listIncidentDevices
+                                              ; and blockDevice (1.2)
                / { "incidents": [* incident-summary] } ; answer to listIncidents
                / { "people": [* user-id] }    ; answer to listPeople; empty unless the
                                               ; user may grant roles somewhere
@@ -110,6 +115,18 @@ device-info = {
   ? "paired": uint,                ; when it was paired (ms since 1970)
   ? "valid_until": uint,           ; end of its login (ms since 1970)
   ? "name": tstr,                  ; as chosen at pairing, e.g. "Firefox auf Android" (1.2)
+  ? "connected": bool,             ; has an open connection now (1.2); absent: false
+}
+
+; The devices used in an incident (ORG-12): those of everyone with a role there.
+incident-devices = {
+  "incident": incident-id,
+  "devices": [* device-info],      ; empty without block_devices in the incident
+}
+
+device-block = {
+  "incident": incident-id,
+  "device": device-id,
 }
 
 ; Organisation roles (ORG-9): "admin", "planner".

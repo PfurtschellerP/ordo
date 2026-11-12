@@ -446,3 +446,12 @@ When an administrator adds or changes an OpenID Connect provider of the organisa
 Tags: should, shared, m52
 
 Needs: dsn
+
+#### ORG-12 — Devices in the incident
+`req~org-12~1`
+
+When the incident command opens the people of its incident, ORDO shall list the devices of everyone with a role in the incident, with their person and whether they are connected, and shall let it block (revoke) any of them; it shall not show the organisation's other devices.
+
+Tags: should, shared, m53
+
+Needs: dsn

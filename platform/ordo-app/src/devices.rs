@@ -4,6 +4,9 @@
 //! Revoking asks for confirmation in place, on the device's card, not in a modal dialog
 //! (ADR-0029). The server cuts the device off at once; the device deletes its key and data
 //! as soon as it connects again.
+//!
+//! The incident command sees the devices used in its incident with the same cards and
+//! blocks them there, without the organisation's list (ORG-12).
 
 use leptos::prelude::*;
 use ordo_core::DeviceId;
@@ -75,7 +78,7 @@ pub fn DevicesView(
                                     .into_iter()
                                     .map(|info| {
                                         let own = info.device == own;
-                                        view! { <DeviceCard core info own show_person confirming /> }
+                                        view! { <DeviceCard core info own show_person confirming block=false /> }
                                     })
                                     .collect_view()}
                             </ul>
@@ -88,7 +91,99 @@ pub fn DevicesView(
     }
 }
 
-/// One device, with its facts and the revoke action.
+/// Incident permission to see and block the devices used in the incident.
+const BLOCK_DEVICES: &str = "block_devices";
+
+// [impl->dsn~incident-devices~1]
+/// The devices used in the open incident, for those who may block them (*Vorbereitung –
+/// Personal*); nothing for everyone else.
+#[component]
+pub fn IncidentDevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let allowed = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, BLOCK_DEVICES))
+        })
+    });
+    let ready = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.replica.is_ready())
+    });
+    let welcomes = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.welcomes)
+    });
+    // The people of the incident: a new role brings their devices into the list.
+    let people = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.incident_info().map(|i| i.roster.len()))
+    });
+    Effect::new(move |_| {
+        people.track();
+        if allowed.get() && ready.get() && welcomes.get() > 0 {
+            core::list_incident_devices(core);
+        }
+    });
+    // Whether each device is connected changes without events: ask again now and then.
+    if let Ok(tick) = set_interval_with_handle(
+        move || {
+            if allowed.get_untracked() && ready.get_untracked() {
+                core::list_incident_devices(core);
+            }
+        },
+        std::time::Duration::from_secs(30),
+    ) {
+        on_cleanup(move || tick.clear());
+    }
+    let devices = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident_devices
+                .as_ref()
+                .filter(|list| c.incident.as_ref() == Some(&list.incident))
+                .map(|list| list.devices.clone())
+        })
+    });
+    let own = core.with_value(|c| c.replica.device());
+    let confirming = RwSignal::new(None::<DeviceId>);
+    move || {
+        allowed.get().then(|| {
+            view! {
+                <section aria-labelledby="incident-devices-title" class="card">
+                    <h2 id="incident-devices-title" tabindex="-1">{text::INCIDENT_DEVICES}</h2>
+                    <p>{text::INCIDENT_DEVICES_INTRO}</p>
+                    {move || {
+                        if !ready.get() {
+                            return view! { <p class="notice">{text::DEVICES_OFFLINE}</p> }.into_any();
+                        }
+                        match devices.get() {
+                            None => view! { <p>{text::DEVICES_LOADING}</p> }.into_any(),
+                            Some(list) if list.is_empty() => {
+                                view! { <p>{text::INCIDENT_DEVICES_EMPTY}</p> }.into_any()
+                            }
+                            Some(list) => view! {
+                                <ul class="device-list" data-keys="list">
+                                    {list
+                                        .into_iter()
+                                        .map(|info| {
+                                            let own = info.device == own;
+                                            view! { <DeviceCard core info own show_person=true confirming block=true /> }
+                                        })
+                                        .collect_view()}
+                                </ul>
+                            }
+                            .into_any(),
+                        }
+                    }}
+                </section>
+            }
+        })
+    }
+}
+
+/// One device, with its facts and the revoke action (`block`: in the open incident).
 #[component]
 fn DeviceCard(
     core: Handle,
@@ -96,6 +191,7 @@ fn DeviceCard(
     own: bool,
     show_person: bool,
     confirming: RwSignal<Option<DeviceId>>,
+    block: bool,
 ) -> impl IntoView {
     let device = info.device;
     let ulid = device.ulid().to_string();
@@ -115,6 +211,16 @@ fn DeviceCard(
     }
     facts.push((text::DEVICE_PAIRED, when(info.paired).into()));
     facts.push((text::DEVICE_VALID_UNTIL, when(info.valid_until).into()));
+    facts.push((
+        text::DEVICE_CONNECTION,
+        if info.connected {
+            text::DEVICE_CONNECTED
+        } else {
+            text::DEVICE_NOT_CONNECTED
+        }
+        .to_owned()
+        .into(),
+    ));
 
     let ask = {
         let confirm_id = confirm_id.clone();
@@ -134,9 +240,19 @@ fn DeviceCard(
     };
     let revoke = move |_| {
         confirming.set(None);
-        core::revoke_device(core, device);
+        if block {
+            core::block_device(core, device);
+        } else {
+            core::revoke_device(core, device);
+        }
         // The card disappears with the server's new list; keep focus in the view.
-        after_render(|| focus("devices-title"));
+        after_render(move || {
+            focus(if block {
+                "incident-devices-title"
+            } else {
+                "devices-title"
+            })
+        });
     };
     let label = text::revoke_label(&short);
     let question = text::revoke_question(&short, own);

@@ -20,6 +20,12 @@ pub enum ClientMessage {
     ListDevices,
     /// Revokes a device (one's own, or any with permission `manage_devices`).
     RevokeDevice(DeviceId),
+    /// Asks for the devices used in an incident (ORG-12; incident permission
+    /// `block_devices`); protocol 1.2.
+    ListIncidentDevices(IncidentId),
+    /// Blocks (revokes) a device used in an incident (incident permission
+    /// `block_devices`); protocol 1.2.
+    BlockDevice(DeviceBlock),
     /// Asks for the incidents the user takes part in (all with `manage_incidents`).
     ListIncidents,
     /// Asks for the people the server knows, to suggest them when granting a role.
@@ -493,6 +499,27 @@ pub struct DeviceInfo {
     /// Its name, as chosen at pairing (ORG-8).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Whether it has an open connection now (protocol 1.2).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub connected: bool,
+}
+
+/// The devices used in an incident: those of everyone with a role there (ORG-12).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncidentDevices {
+    /// The incident.
+    pub incident: IncidentId,
+    /// Its devices; empty without the incident permission `block_devices`.
+    pub devices: Vec<DeviceInfo>,
+}
+
+/// A device to block in an incident.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceBlock {
+    /// The incident whose permission allows it.
+    pub incident: IncidentId,
+    /// The device.
+    pub device: DeviceId,
 }
 
 /// Identifies the device, proves its key and asks for streams.
@@ -553,6 +580,9 @@ pub enum ServerMessage {
     Rejected(Rejected),
     /// The paired devices the user may see (answer to `listDevices` and `revokeDevice`).
     Devices(Vec<DeviceInfo>),
+    /// The devices used in an incident (answer to `listIncidentDevices` and `blockDevice`,
+    /// protocol 1.2).
+    IncidentDevices(IncidentDevices),
     /// The incidents the user may open (answer to `listIncidents`).
     Incidents(Vec<IncidentSummary>),
     /// The people the server knows (answer to `listPeople`): empty for those who may not
@@ -754,6 +784,7 @@ mod tests {
             paired: Some(1),
             valid_until: None,
             name: Some("Firefox auf Android".into()),
+            connected: true,
         }]);
         assert_eq!(
             decode::<ServerMessage>(&encode(&list).unwrap()).unwrap(),
@@ -763,6 +794,30 @@ mod tests {
         assert_eq!(
             decode::<ServerMessage>(&encode(&revoked).unwrap()).unwrap(),
             revoked
+        );
+        let incident = IncidentId::new(
+            Ulid::from_parts(3, 4).unwrap(),
+            &"ordo.example.org".parse().unwrap(),
+        );
+        for message in [
+            ClientMessage::ListIncidentDevices(incident.clone()),
+            ClientMessage::BlockDevice(DeviceBlock {
+                incident: incident.clone(),
+                device,
+            }),
+        ] {
+            assert_eq!(
+                decode::<ClientMessage>(&encode(&message).unwrap()).unwrap(),
+                message
+            );
+        }
+        let answer = ServerMessage::IncidentDevices(IncidentDevices {
+            incident,
+            devices: Vec::new(),
+        });
+        assert_eq!(
+            decode::<ServerMessage>(&encode(&answer).unwrap()).unwrap(),
+            answer
         );
     }
 }

@@ -983,7 +983,10 @@ fn Workspace(
                     (Some("command.lead"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
                     (Some("command.lead"), _) => view! { <crate::summary::CommandOverview core revision /> }.into_any(),
                     (Some("command.prepare"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
-                    (Some("command.prepare"), Some("people")) => view! { <crate::incidents::RosterView core revision /> }.into_any(),
+                    (Some("command.prepare"), Some("people")) => view! {
+                        <crate::incidents::RosterView core revision />
+                        <crate::devices::IncidentDevicesView core revision />
+                    }.into_any(),
                     (Some("command.prepare"), Some("structure")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
                     (Some("command.prepare"), _) => view! { <crate::incidents::IncidentPage core revision /> }.into_any(),
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),

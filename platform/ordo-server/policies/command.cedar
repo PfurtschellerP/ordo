@@ -11,12 +11,17 @@ permit (
 when { context.roles.contains("commander") };
 
 // The incident command sees the situation of the whole incident (every UHS's load and
-// counts, never clinical details), manages units and prepares the incident's map region
-// (ADR-0062).
+// counts, never clinical details), manages units, prepares the incident's map region
+// (ADR-0062) and blocks the devices used in its incident (ORG-12).
 @id("command.commander-views")
 permit (
   principal,
-  action in [Action::"view_situation", Action::"edit_units", Action::"manage_map"],
+  action in [
+    Action::"view_situation",
+    Action::"edit_units",
+    Action::"manage_map",
+    Action::"block_devices"
+  ],
   resource == Compartment::"incident"
 )
 when { context.roles.contains("commander") };

@@ -142,6 +142,17 @@ fn main() {
         ),
         ("map-ticket", ClientMessage::MapTicket(incident.clone())),
         ("revoke", ClientMessage::RevokeDevice(device)),
+        (
+            "list-incident-devices",
+            ClientMessage::ListIncidentDevices(incident.clone()),
+        ),
+        (
+            "block-device",
+            ClientMessage::BlockDevice(ordo_sync::message::DeviceBlock {
+                incident: incident.clone(),
+                device,
+            }),
+        ),
         ("push", ClientMessage::Push(vec![event.clone()])),
     ];
     for (name, m) in &client {
@@ -155,6 +166,20 @@ fn main() {
     let server_messages = [
         ("refused", ServerMessage::Refused(Rejection::Forbidden)),
         ("incidents", ServerMessage::Incidents(Vec::new())),
+        (
+            "incident-devices",
+            ServerMessage::IncidentDevices(ordo_sync::message::IncidentDevices {
+                incident: incident.clone(),
+                devices: vec![ordo_sync::message::DeviceInfo {
+                    device,
+                    user: "anna@ordo.example.org".parse().expect("valid user"),
+                    paired: Some(1_800_000_000_000),
+                    valid_until: None,
+                    name: Some("Firefox auf Android".into()),
+                    connected: true,
+                }],
+            }),
+        ),
         (
             "map-region",
             ServerMessage::MapRegion(MapRegion {

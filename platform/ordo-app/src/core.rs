@@ -126,6 +126,8 @@ pub struct Core {
     pub revoked: bool,
     /// The devices the user may see, as last listed by the server.
     pub devices: Option<Vec<DeviceInfo>>,
+    /// The devices used in an incident, as last listed by the server (ORG-12).
+    pub incident_devices: Option<ordo_sync::message::IncidentDevices>,
     /// A revocation sent, announced once the server's new list no longer has the device.
     revoking: Option<DeviceId>,
     /// The view was closed: do not reconnect.
@@ -207,6 +209,7 @@ impl Core {
             login_expired: false,
             revoked: false,
             devices: None,
+            incident_devices: None,
             revoking: None,
             stopped: false,
             socket: None,
@@ -434,6 +437,15 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 }
                 c.devices = Some(list.clone());
             }
+            if let ServerMessage::IncidentDevices(list) = &message {
+                if let Some(device) = c.revoking
+                    && list.devices.iter().all(|d| d.device != device)
+                {
+                    c.revoking = None;
+                    c.announcement = text::device_revoked(&short_device(&device));
+                }
+                c.incident_devices = Some(list.clone());
+            }
             // A server on protocol 1.2 answers `ping`: the line can be watched.
             if let ServerMessage::Welcome(w) = &message {
                 c.liveness = w
@@ -490,6 +502,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     forget_device();
                     c.revoked = true;
                     c.devices = None;
+                    c.incident_devices = None;
                     return;
                 }
                 // [impl->dsn~protocol-versions~1]
@@ -563,6 +576,33 @@ pub fn revoke_device(core: Handle, device: DeviceId) {
     core.update_value(|c| {
         c.revoking = Some(device);
         c.send(&ClientMessage::RevokeDevice(device));
+    });
+}
+
+// [impl->dsn~incident-devices~1]
+/// Asks the server for the devices used in the open incident (protocol 1.2); the answer
+/// lands in `Core::incident_devices`.
+pub fn list_incident_devices(core: Handle) {
+    core.with_value(|c| {
+        if c.map_regions
+            && let Some(incident) = c.incident.clone()
+        {
+            c.send(&ClientMessage::ListIncidentDevices(incident));
+        }
+    });
+}
+
+// [impl->dsn~incident-devices~1]
+/// Blocks a device used in the open incident. The server revokes it and sends the new
+/// list.
+pub fn block_device(core: Handle, device: DeviceId) {
+    core.update_value(|c| {
+        if let Some(incident) = c.incident.clone() {
+            c.revoking = Some(device);
+            c.send(&ClientMessage::BlockDevice(
+                ordo_sync::message::DeviceBlock { incident, device },
+            ));
+        }
     });
 }
 

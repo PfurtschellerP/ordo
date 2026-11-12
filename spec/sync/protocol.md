@@ -103,6 +103,14 @@ MUST refuse it (`refused: forbidden`). On a revocation the server MUST:
 A device that receives `refused: revoked` MUST delete its device key and all local data
 of ORDO, and MUST NOT reconnect. Pairing it again creates a new device.
 
+From protocol 1.2, a device MAY send `listIncidentDevices` with an incident; the server
+answers `incidentDevices` with the devices of everyone who has a role in that incident,
+each with `connected` set while it has an open connection. The list is empty unless the
+user has the incident permission `block_devices` there, or `manage_devices`.
+`blockDevice` (incident and device) revokes a device of that list under the same rule, as
+above, and answers the new `incidentDevices`; otherwise the server MUST refuse it
+(`refused: forbidden`). The server MUST log who blocked which device in which incident.
+
 ## 7. Incidents and roles
 
 Incidents and their rosters are events of the module `incidents` in the incident's
@@ -243,5 +251,5 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
-| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
+| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 
