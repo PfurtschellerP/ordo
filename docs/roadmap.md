@@ -219,9 +219,11 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   eHealth once an organisation's agreement covers it; a hospital list kept by the
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
-- **Orders, next steps:** substances from the medication catalogue (below); the fields
-  and the confirmation of spoken orders ([ADR-0053](adr/0053-verbal-orders.md)) checked
-  with practitioners and a medical director (ÄLRD).
+- **Orders, next steps:** substances from the medication catalogue (below). Spoken
+  orders ([ADR-0053](adr/0053-verbal-orders.md), proposed) are checked against federal
+  law; open are who gives and confirms orders (physicians only, or paramedics for some
+  kinds), recording an ÄLRD SOP as the ground of a measure, and a check of the fields and
+  state law with practitioners and a medical director (ÄLRD).
 - **Triage references, next step:** a local copy of the official charts for offline use,
   once the rights are clear (open question 9).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances
@@ -282,8 +284,9 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 
-7. **Orders only by those who give them** is done (m50, ADR-0053): the crew records an
-   order given by voice, radio or phone with who gave it, how and whether it was read back;
+7. **Orders only by those who give them** is built (m50; ADR-0053 proposed until the open
+   legal points are decided): the crew records an order given by voice, radio or phone
+   with who gave it, how and whether it was read back;
    its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
    documented medication keeps its order, and "Angeordnet durch" is filled only from it.
 8. **Patient record (profile):** a working, suspected or confirmed diagnosis (passed on

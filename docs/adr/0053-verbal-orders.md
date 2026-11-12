@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 date: 2026-11-12
 ---
 
@@ -28,8 +28,8 @@ decides on the author's roles and the event type only.
 
 ## Decision Outcome
 
-Chosen option: the second one, decided on 2026-11-12 with the product owner after a
-practitioner's test of the demo: anyone documenting a medication could type any physician
+Proposed option: the second one, chosen on 2026-11-12 with the product owner after a
+practitioner's test of the demo, implemented, and to be accepted after the legal check below: anyone documenting a medication could type any physician
 as "Angeordnet durch", so documented orders did not show who really gave them.
 
 * **`orders.recorded`** (module `med.orders`, compartment `med.clinical`): the same
@@ -55,10 +55,51 @@ as "Angeordnet durch", so documented orders did not show who really gave them.
 * ORDO records and shows; it never judges whether an order was permitted, needed or
   correct (EPCR-9).
 
-Still to do with practitioners and an organisation's medical director (ÄLRD): confirm the
-fields and the confirmation step, and check them against the rules for delegated measures
-(in Germany e.g. § 4 NotSanG); measures a paramedic takes on their own authority are
-documented without an order.
+### Legal check (Germany, federal law, 2026-11-12)
+
+Checked against the current federal texts; not legal advice. State law (rescue service
+acts, the ÄLRD's instructions) can add rules and is still to be checked with an ÄLRD.
+
+A paramedic (Notfallsanitäter) carries out a medical measure on one of three grounds:
+
+1. **On their own responsibility** until a physician arrives or other medical care,
+   telemedical included, begins (§ 2a and § 4 (2) no. 1 c NotSanG). No order exists; the
+   measure is documented without one. This fits ORDER-7.
+2. **Ordered by a physician in the individual case** ("ärztlich veranlasst", § 4 (2)
+   no. 2 b NotSanG). The order may come from the emergency physician on scene or from a
+   tele-emergency physician; the latter is a delegation like one on scene, with
+   supervision by continuous contact (guidance of the Bavarian interior ministry). This is
+   what `orders.given` and `orders.recorded` document; the channel covers telemedicine.
+3. **Standing orders of the ÄLRD** (SOPs, § 4 (2) no. 2 c NotSanG; for narcotics § 13 (1b)
+   BtMG, the SOP in text form). No individual order exists; the ground is the SOP.
+
+Findings:
+
+* **Recording spoken orders fits the law.** Delegation by voice, radio or telemedicine is
+  lawful, and the delegating physician keeps the responsibility for the order, the crew
+  for carrying it out. Documenting who ordered, how, and whether it was read back serves
+  both.
+* **Documentation:** records are kept close in time to the treatment, and changes keep
+  the original visible with their date (model: § 630f BGB). Immutable events and
+  correction events meet this.
+* **Confirmation is not required by federal law.** No federal rule asks the physician to
+  countersign a spoken order. The confirmation step is an extra safeguard; it must never
+  hold up carrying out an order, and it does not.
+* **Open: who gives and confirms orders.** Under federal law a physician (on scene, by
+  telemedicine, or the ÄLRD by SOP) delegates medical measures; a paramedic does not
+  delegate them to others. The default rule lets physicians *and paramedics* give and
+  confirm orders (ORDER-3). That fits orders that are not medical measures (e.g.
+  transport, positioning), but not medication ordered by a paramedic for another crew
+  member. To be decided: physicians only by default, a profile setting, or kinds of
+  orders.
+* **Open: SOP as the ground.** A measure under an ÄLRD SOP is documented without an
+  order; the record cannot yet say that its ground is an SOP (and which one) rather than
+  the paramedic's own responsibility. To be decided with the profile's ÄLRD.
+* **Narcotics:** the narcotics register (stock and use, §§ 13–14 BtMVV) is kept by the
+  physician appointed for the rescue service. ORDO's patient record does not replace it.
+
+Still to do with practitioners and an ÄLRD: the open points above, the fields and the
+confirmation step, and the state law of the first users.
 
 ### Consequences
 
