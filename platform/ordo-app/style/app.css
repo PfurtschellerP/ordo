@@ -108,6 +108,8 @@
   }
   .button--quiet { margin-inline-start: auto; }
   .button--small { min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-3); }
+  /* A link that looks like a button, e.g. "Karte bearbeiten": text and icon on one line. */
+  a.button { display: inline-flex; align-items: center; gap: var(--ordo-space-2); text-decoration: none; }
 
 
   .status { display: grid; gap: var(--ordo-space-1); margin: 0; }
@@ -670,6 +672,28 @@
   }
   .situation__map:not([data-map="ready"]) + .situation__crosshair { display: none; }
   .situation__map[data-map="unavailable"] { display: none; }
+  /* The map editor (ADR-0064): the map as large as the page allows, the tools above it.
+     The chosen tool is filled (not only another colour) and pressed for screen readers. */
+  .map-editor .situation__map { block-size: max(20rem, min(70vh, 48rem)); }
+  .map-tools { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .map-tool {
+    display: inline-flex; align-items: center; gap: var(--ordo-space-2);
+    min-height: var(--ordo-size-touch-target); padding: 0 var(--ordo-space-3);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
+    background: var(--ordo-color-surface-default); color: var(--ordo-color-text-primary);
+    font: inherit; cursor: pointer;
+  }
+  .map-tool[aria-pressed="true"] {
+    background: var(--ordo-component-button-primary-background);
+    border-color: var(--ordo-component-button-primary-background);
+    color: var(--ordo-component-button-primary-text);
+    font-weight: var(--ordo-font-weight-bold);
+  }
+  .map-panel { display: grid; gap: var(--ordo-space-3); }
+  .map-panel .draw-form { display: grid; gap: var(--ordo-space-3); }
+  @media (forced-colors: active) {
+    .map-tool[aria-pressed="true"] { outline: 3px solid Highlight; }
+  }
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
   .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }
   .map-object .row { margin-inline-start: auto; }

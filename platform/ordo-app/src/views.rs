@@ -975,6 +975,11 @@ fn Workspace(
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
                     // [impl->dsn~workspaces-by-phase~1]
+                    // [impl->dsn~map-drawing~2]
+                    // The editor page, also opened to place one object (`place:<kind>:<ID>`).
+                    (Some("command.lead"), Some("map")) if record.get().is_some_and(|r| crate::situation::is_editor(&r)) => view! {
+                        <crate::situation::MapEditor core revision preset=record.get_untracked().and_then(|r| crate::situation::preset(&r)) />
+                    }.into_any(),
                     (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
@@ -1095,13 +1100,13 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 struct UhsDraft {
     open: RwSignal<bool>,
     name: RwSignal<String>,
-    location: RwSignal<String>,
     capacity: RwSignal<String>,
     person: RwSignal<String>,
 }
 
-// [impl->dsn~uhs-details~2]
-/// Location, capacity and assigned staff of one unit (UHS-1), behind a disclosure.
+// [impl->dsn~uhs-details~3]
+/// Name, capacity, place on the situation map and assigned staff of one unit (UHS-1),
+/// behind a disclosure.
 #[component]
 fn UhsDetailsPanel(
     core: Handle,
@@ -1114,7 +1119,6 @@ fn UhsDetailsPanel(
     let UhsDraft {
         open,
         name: new_name,
-        location,
         capacity: cap,
         person,
     } = draft;
@@ -1142,7 +1146,9 @@ fn UhsDetailsPanel(
                 id: id.clone(),
                 // Only a changed name is sent: the log then shows the renaming.
                 name: (chosen != current_name).then_some(chosen),
-                location: Some(location.get_untracked().trim().to_owned()),
+                // The place is the UHS on the situation map (ADR-0064); a location text
+                // written before stays as it is.
+                location: None,
                 capacity: Some(capacity),
                 staff: None,
             };
@@ -1216,10 +1222,6 @@ fn UhsDetailsPanel(
                     <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
                     <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
                 </div>
-                <div class="field">
-                    <label for=format!("uhs-location-{slug}")>{text::UHS_LOCATION}</label>
-                    <input id=format!("uhs-location-{slug}") type="text" autocomplete="off" bind:value=location />
-                </div>
                 <div class="field field--small">
                     <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
                     <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
@@ -1227,6 +1229,7 @@ fn UhsDetailsPanel(
                 <button type="submit" class="button button--small">{text::UHS_SAVE}</button>
             </form>
             <p role="alert" class="error">{move || error.get()}</p>
+            <UhsOnMap core revision id=id.clone() name=name.clone() written=details.location.clone() />
             <h4>{text::UHS_STAFF}</h4>
             {if staff.is_empty() {
                 view! { <p class="hint">{text::UHS_STAFF_NONE}</p> }.into_any()
@@ -1243,6 +1246,68 @@ fn UhsDetailsPanel(
                 <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
             </form>
         </crate::ui::Disclosure>
+    }
+}
+
+// [impl->dsn~uhs-details~3]
+/// Where a UHS is: its place on the situation map, and a location text written before
+/// (kept, events are never changed). The incident command sets the place on the map.
+#[component]
+fn UhsOnMap(
+    core: Handle,
+    revision: RwSignal<u64>,
+    id: String,
+    name: String,
+    written: Option<String>,
+) -> impl IntoView {
+    let object = ordo_map::ObjectKind::Uhs.object_id(&id);
+    let at = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            ordo_map::SituationMap::from_events(&c.events(ordo_map::COMPARTMENT))
+                .objects
+                .get(&object)
+                .and_then(|o| o.placed.geometry.anchor())
+        })
+    });
+    let may_place = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident.as_ref().is_some_and(|i| {
+                c.replica.may(i, "view_situation") && c.replica.may(i, "edit_units")
+            })
+        })
+    });
+    let place = nav::Route::record(
+        "command.lead",
+        "map",
+        &crate::situation::place_record(ordo_map::ObjectKind::Uhs, &id),
+    );
+    let name = StoredValue::new(name);
+    let visible = move || {
+        if at.get().is_some() {
+            text::UHS_MOVE_ON_MAP
+        } else {
+            text::UHS_PLACE_ON_MAP
+        }
+    };
+    view! {
+        <p class="uhs-on-map">
+            {text::UHS_ON_MAP} ": "
+            <span class="uhs-on-map__at">{move || at.get().map_or_else(
+                || text::UHS_NOT_ON_MAP.to_owned(),
+                |[lon, lat]| format!("{lat:.5}, {lon:.5}"),
+            )}</span>
+        </p>
+        {written.filter(|w| !w.is_empty()).map(|w| view! {
+            <p class="hint">{text::UHS_LOCATION} ": " {w}</p>
+        })}
+        <Show when=move || may_place.get()>
+            <a class="button button--small" href=place.to_path() on:click=follow_route(place.clone())
+                aria-label=move || name.with_value(|n| text::uhs_place_label(visible(), n))>
+                {visible}
+            </a>
+        </Show>
     }
 }
 
@@ -1268,14 +1333,13 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
     // Drafts of the panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, details: &med::UhsDetails, capacity: u32| {
+    let draft = move |id: &str, name: &str, capacity: u32| {
         let mut out = None;
         drafts.update_value(|m| {
             let d = *m.entry(id.to_owned()).or_insert_with(|| {
                 owner.with(|| UhsDraft {
                     open: RwSignal::new(false),
                     name: RwSignal::new(name.to_owned()),
-                    location: RwSignal::new(details.location.clone().unwrap_or_default()),
                     capacity: RwSignal::new(capacity.to_string()),
                     person: RwSignal::new(String::new()),
                 })
@@ -1303,7 +1367,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                         <h3>{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
                                         <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                            draft=draft(&id, &name, &details, capacity) />
+                                            draft=draft(&id, &name, capacity) />
                                     </li>
                                 }
                             })
@@ -1377,14 +1441,13 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     // Drafts of the details panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, details: &med::UhsDetails, capacity: u32| {
+    let draft = move |id: &str, name: &str, capacity: u32| {
         let mut out = None;
         drafts.update_value(|m| {
             let d = *m.entry(id.to_owned()).or_insert_with(|| {
                 owner.with(|| UhsDraft {
                     open: RwSignal::new(false),
                     name: RwSignal::new(name.to_owned()),
-                    location: RwSignal::new(details.location.clone().unwrap_or_default()),
                     capacity: RwSignal::new(capacity.to_string()),
                     person: RwSignal::new(String::new()),
                 })
@@ -1409,7 +1472,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .map(|(i, (id, name, n, cap, total, free, details))| {
                                 let editor = view! {
                                     <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                        draft=draft(&id, &name, &details, cap) />
+                                        draft=draft(&id, &name, cap) />
                                 };
                                 // [impl->dsn~treatment-places~1]
                                 let count = RwSignal::new(total.to_string());

@@ -178,7 +178,7 @@ pub struct UhsDetails {
 }
 
 // [impl->dsn~uhs-registry~1]
-// [impl->dsn~uhs-details~2]
+// [impl->dsn~uhs-details~3]
 /// The on-site care units of an incident, in order of creation (first wins per ID), with
 /// the current name and capacity.
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
@@ -234,7 +234,7 @@ fn uhs_updates(incident_events: &[AppliedEvent]) -> Vec<UhsUpdated> {
     updates.into_iter().map(|(_, u)| u).collect()
 }
 
-// [impl->dsn~uhs-details~2]
+// [impl->dsn~uhs-details~3]
 /// Location and staff per unit ID: the latest value of each field.
 pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDetails> {
     let mut details: BTreeMap<String, UhsDetails> = BTreeMap::new();
@@ -966,7 +966,7 @@ mod tests {
         assert_eq!(decoded.algorithm, None);
     }
 
-    // [utest->dsn~uhs-details~2]
+    // [utest->dsn~uhs-details~3]
     #[test]
     fn the_latest_location_capacity_and_staff_count_per_field() {
         let shared = |n: u64, event_type: &str, payload: Vec<u8>| {

@@ -62,11 +62,12 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0055](0055-licence-notices.md) | Licence notices: `cargo-about` for the crates, a list for the other parts | accepted | 2026-11-10 |
 | [0056](0056-uhs-staff-write-guard.md) | A UHS's patients are written by its staff, checked by the server per event | accepted | 2026-11-11 |
 | [0057](0057-map-region-cut-on-the-server.md) | Map regions are cut on the server from the open world map | accepted | 2026-11-11 |
-| [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | accepted | 2026-11-11 |
+| [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | superseded by 0064 | 2026-11-11 |
 | [0059](0059-fuzzing-with-cargo-fuzz-and-clusterfuzzlite.md) | Fuzzing with cargo-fuzz, run continuously by ClusterFuzzLite | accepted | 2026-11-11 |
 | [0060](0060-local-accounts-managed-in-ordo.md) | Local accounts are managed in ORDO, through Dex's API | accepted | 2026-11-11 |
 | [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted | 2026-11-11 |
 | [0062](0062-map-region-per-incident.md) | A map region per incident | accepted | 2026-11-11 |
 | [0063](0063-upstream-login-configured-in-ordo.md) | Upstream logins are configured in ORDO, through Dex's connector API, after a test login | accepted | 2026-11-12 |
+| [0064](0064-map-editor-with-terra-draw.md) | The map is edited on its own page, with a toolbar, taps and Terra Draw | accepted | 2026-11-12 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

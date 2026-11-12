@@ -15,6 +15,8 @@ const MAP_FILES = [
   "/map/vendor/maplibre-gl.css",
   "/map/vendor/pmtiles.js",
   "/map/vendor/basemaps.js",
+  "/map/vendor/terra-draw.js",
+  "/map/vendor/terra-draw-maplibre-gl-adapter.js",
   ...["Noto%20Sans%20Regular", "Noto%20Sans%20Medium", "Noto%20Sans%20Italic"].flatMap((font) =>
     ["0-255", "256-511", "8192-8447"].map((range) => `/map/glyphs/${font}/${range}.pbf`),
   ),

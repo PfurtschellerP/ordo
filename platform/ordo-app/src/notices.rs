@@ -63,6 +63,13 @@ pub const PARTS: &[Part] = &[
         text: "/map/vendor/basemaps.LICENSE.md",
     },
     Part {
+        name: "Terra Draw 1.39.0, MapLibre adapter 1.5.0",
+        used_for: text::NOTICES_USED_MAP,
+        copyright: "© James Milner",
+        licence: "MIT",
+        text: "/map/vendor/terra-draw.LICENSE.txt",
+    },
+    Part {
         name: "Atkinson Hyperlegible Next 5.3.0",
         used_for: text::NOTICES_USED_FONT,
         copyright: "© The Atkinson Hyperlegible Next Project Authors",

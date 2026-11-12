@@ -182,12 +182,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await createUhs(anna, "UHS Eingang", 5);
     // [itest->dsn~uhs-registry~1]
     await expect(anna.locator(".load-list__item"), "two UHS are listed with their load").toHaveCount(2);
-    // [itest->dsn~uhs-details~2]
+    // [itest->dsn~uhs-details~3]
     const eingang = anna.locator(".load-list__item", { hasText: "UHS Eingang" });
     await anna.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await eingang.getByLabel("Ort", { exact: true }).fill("Eingang West, Zelt 2");
-    await eingang.getByRole("button", { name: "Speichern" }).click();
-    await expect(eingang.locator(".load-list__location"), "a UHS has a location").toHaveText("Ort: Eingang West, Zelt 2");
+    await expect(eingang.locator(".uhs-on-map"), "its place is on the situation map, set by the incident command").toHaveText("Auf der Lagekarte: noch nicht gesetzt");
+    await expect(eingang.getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }), "a medic does not edit the map").toHaveCount(0);
     await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
     await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: Anna Schmidt");
@@ -600,7 +599,6 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(unit("UHS Eingang"), "open orders and transports").toContainText("Offene Anordnungen: 0 · Transporte: 1 offen, 0 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Transporte: 0 offen, 1 geplant");
     await expect(unit("UHS Bühne Nord")).toContainText("Behandlungsplätze:");
-    await expect(unit("UHS Eingang"), "with its location").toContainText("Ort: Eingang West, Zelt 2");
     await expect(unit("Alle Einheiten"), "and all units added up").toContainText("Gesamt: 4 · Belegung: 4 / 15 · Entlassen: 0");
     await expect(unit("Alle Einheiten")).toContainText("Transporte: 1 offen, 1 geplant");
     await audit(anna, "Overview");
@@ -970,8 +968,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
-  // [itest->dsn~situation-map~1]
-  await test.step("situation map: place the incident and a unit, keep the map region offline", async () => {
+  // [itest->dsn~situation-map~2]
+  await test.step("situation map: edit it on its own page, keep the map region offline", async () => {
     await openWorkspace(ben, "Führung");
     await openView(ben, "Lagekarte");
     const state = ben.locator(".situation__state");
@@ -987,18 +985,30 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(state, "the region comes from the server").toHaveText("Kartengrundlage: vom Server.");
     await expect(ben.locator(".situation__map canvas")).toHaveCount(1);
     await expect(ben.locator(".maplibregl-ctrl-attrib"), "OpenStreetMap is credited").toContainText("OpenStreetMap");
+    // [itest->dsn~map-drawing~2]
+    // The editor page (ADR-0064): a toolbar, taps, and the keyboard at the crosshair.
+    await ben.getByRole("link", { name: "Karte bearbeiten" }).click();
+    await expect(ben.locator("#map-editor-title")).toHaveText("Karte bearbeiten");
+    await expect(ben.locator(".situation__map"), "the editor's map loads").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
+    const canvas = ben.locator(".situation__map canvas");
+    const tool = (name: string) => ben.locator(".map-tools").getByRole("button", { name });
+    const panelStatus = ben.locator(".map-panel__status");
+    await tool("Symbol setzen").click();
+    await expect(tool("Symbol setzen"), "the chosen tool is pressed").toHaveAttribute("aria-pressed", "true");
+    await expect(tool("Auswählen")).toHaveAttribute("aria-pressed", "false");
     await ben.locator("#place-kind").selectOption({ label: "Einsatzort" });
     await ben.locator("#place-label").fill("Stadtfest");
     await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
     const objects = ben.locator(".map-object");
     await expect(objects.first(), "the map opened on the map region; the incident is on the map and in the list").toContainText(/Stadtfest · Einsatzort · 48\.[34]\d+, 10\.[89]\d+/);
+    await expect(panelStatus).toHaveText("Stadtfest platziert.");
     // The device's own position, when asked.
     await ben.context().grantPermissions(["geolocation"]);
     await ben.context().setGeolocation({ latitude: 48.36, longitude: 10.89 });
     await ben.getByRole("button", { name: "Zu meinem Standort" }).click();
-    await expect(ben.locator(".situation .row [role=status]")).toHaveText("Die Karte zeigt Ihren Standort; Objekte werden in der Mitte gesetzt.");
+    await expect(ben.locator(".map-locate__state")).toHaveText("Die Karte zeigt Ihren Standort.");
     // The keyboard moves the map; the unit goes where the centre is now.
-    await ben.locator(".situation__map canvas").focus();
+    await canvas.focus();
     for (let i = 0; i < 3; i++) await ben.keyboard.press("ArrowRight");
     await expect.poll(async () => ben.evaluate(() => document.activeElement?.classList.contains("maplibregl-canvas"))).toBe(true);
     await ben.locator("#place-kind").selectOption({ label: "Einsatzmittel" });
@@ -1012,30 +1022,93 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(objects.first().locator(".map-object__symbol"), "the incident location gets its symbol").toHaveAttribute("data-symbol", "incident");
     expect(Number(await ben.locator(".situation__map").getAttribute("data-symbols")), "the map has the symbols as images").toBeGreaterThan(20);
     expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map from the device's position").toMatch(/^48\.36000, 10\.(?!89000)\d+$/);
-    // [itest->dsn~map-drawing~1]
-    // MAP-4: the incident area, drawn corner by corner at the crosshair, by keyboard.
+    // MAP-4 by keyboard: the incident area, corner by corner at the crosshair.
+    await tool("Fläche").click();
     await ben.locator("#draw-category").selectOption({ label: "Einsatzraum" });
     await ben.locator("#draw-label").fill("Festgelände");
     const corner = async (key: string) => {
-      await ben.locator(".situation__map canvas").focus();
+      await canvas.focus();
       for (let i = 0; i < 3; i++) await ben.keyboard.press(key);
-      await ben.getByRole("button", { name: "Eckpunkt setzen" }).click();
+      await ben.getByRole("button", { name: "Ecke in der Kartenmitte setzen" }).click();
     };
     await corner("ArrowUp");
     await corner("ArrowLeft");
-    await ben.getByRole("button", { name: "Zeichnung speichern" }).click();
-    await expect(ben.locator(".draw-form [role=alert]"), "an area needs three corners").toHaveText("Eine Fläche braucht mindestens drei Eckpunkte.");
+    await ben.getByRole("button", { name: "Fertig" }).click();
+    await expect(ben.locator(".map-panel [role=alert]"), "an area needs three corners").toHaveText("Eine Fläche braucht mindestens drei Ecken.");
     await corner("ArrowDown");
     await corner("ArrowDown");
-    await ben.getByRole("button", { name: "Letzten Eckpunkt entfernen" }).click();
-    await expect(ben.locator(".draw-form__count")).toHaveText("3 Eckpunkte gesetzt.");
-    await ben.getByRole("button", { name: "Zeichnung speichern" }).click();
+    await ben.getByRole("button", { name: "Letzte Ecke entfernen" }).click();
+    await expect(ben.locator(".draw-form__count")).toHaveText("3 Ecken gesetzt.");
+    await ben.getByRole("button", { name: "Fertig" }).click();
     await expect(objects.filter({ hasText: "Festgelände" }), "the area is on the map and in the list, by its kind").toContainText("Festgelände · Einsatzraum");
-    await expect(ben.locator(".draw-form__count"), "ready for the next").toHaveText("Noch kein Eckpunkt gesetzt.");
-    await audit(ben, "Situation map");
-    await shot(ben, "situation-map");
+    await expect(ben.locator(".draw-form__count"), "ready for the next").toHaveText("Noch keine Ecke gesetzt.");
+    // MAP-4 by pointer: a cordon tapped corner by corner.
+    await tool("Linie").click();
+    await ben.locator("#draw-category").selectOption({ label: "Absperrung" });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("no map canvas");
+    const at = (x: number, y: number) => ({ x: Math.round(box.width * x), y: Math.round(box.height * y) });
+    await canvas.click({ position: at(0.2, 0.75) });
+    await canvas.click({ position: at(0.45, 0.8) });
+    await expect(ben.locator(".draw-form__count"), "each tap sets a corner").toHaveText("2 Ecken gesetzt.");
+    await ben.getByRole("button", { name: "Fertig" }).click();
+    const cordon = objects.filter({ hasText: "Absperrung · Absperrung" });
+    await expect(cordon, "the line is saved under its category's name").toHaveCount(1);
+    // Reshaping by dragging a corner (Terra Draw), saved as one change.
+    const before = await cordon.locator(".map-object__at").innerText();
+    await cordon.getByRole("button", { name: "Absperrung bearbeiten" }).click();
+    await expect(tool("Auswählen")).toHaveAttribute("aria-pressed", "true");
+    const apply = ben.getByRole("button", { name: "Übernehmen" });
+    await expect(apply, "Terra Draw has the line").toBeEnabled();
+    // The list's button scrolled the page: measure the map again where it is now.
+    await canvas.scrollIntoViewIfNeeded();
+    const now = await canvas.boundingBox();
+    if (!now) throw new Error("no map canvas");
+    const first = at(0.2, 0.75);
+    await ben.mouse.move(now.x + first.x, now.y + first.y);
+    await ben.mouse.down();
+    await ben.mouse.move(now.x + first.x + 30, now.y + first.y - 40, { steps: 8 });
+    await ben.mouse.up();
+    await apply.click();
+    await expect(panelStatus).toHaveText("Absperrung geändert.");
+    await expect(cordon.locator(".map-object__at"), "its first corner moved").not.toHaveText(before);
+    // Moving a symbol: choose it, then tap the new place.
+    const unitAt = await unit.locator(".map-object__at").innerText();
+    await unit.getByRole("button", { name: "RTW 83/1 bearbeiten" }).click();
+    await expect(panelStatus).toHaveText("RTW 83/1 ausgewählt.");
+    await canvas.click({ position: at(0.15, 0.2) });
+    await expect(panelStatus).toHaveText("RTW 83/1 verschoben.");
+    await expect(unit.locator(".map-object__at"), "the unit is where the tap was").not.toHaveText(unitAt);
+    await audit(ben, "Map editor");
+    await shot(ben, "map-editor");
     await ben.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }).click();
     await expect(unit).toHaveCount(0);
+    // [itest->dsn~uhs-details~3]
+    // A UHS's place is its symbol on the map, set from its details panel.
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
+    const gate = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
+    await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(gate.locator(".uhs-on-map")).toHaveText("Auf der Lagekarte: noch nicht gesetzt");
+    await gate.getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }).click();
+    await expect(ben.locator("#map-editor-title"), "the editor opens, ready to place it").toHaveText("Karte bearbeiten");
+    await expect(tool("Symbol setzen")).toHaveAttribute("aria-pressed", "true");
+    await expect(ben.locator("#place-reference")).toHaveValue(/.+/);
+    await expect(ben.locator(".situation__map")).toHaveAttribute("data-map", "ready", { timeout: 30_000 });
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    await expect(panelStatus).toHaveText("UHS Eingang platziert.");
+    await expect(objects.filter({ hasText: "UHS Eingang · UHS" }), "the UHS is on the map").toHaveCount(1);
+    await ben.goBack();
+    await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(gate.locator(".uhs-on-map"), "the panel shows where it is").toHaveText(/^Auf der Lagekarte: 48\.\d{5}, 10\.\d{5}$/);
+    await ben.goForward();
+    await expect(ben.locator("#map-editor-title")).toHaveText("Karte bearbeiten");
+    await ben.getByRole("link", { name: "Zur Lagekarte" }).click();
+    await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
+    await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
+    await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
+    await audit(ben, "Situation map");
+    await shot(ben, "situation-map");
     // MAP-2: the region is kept on the device.
     const offline = ben.locator(".offline-region");
     await expect(offline.locator(".offline-region__state")).toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");

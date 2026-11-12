@@ -1006,6 +1006,15 @@ pub fn released_at(at: &str) -> String {
 pub const UHS_DETAILS: &str = "Ort und Personal";
 pub const UHS_NAME_NEEDED: &str = "Die UHS braucht einen Namen.";
 pub const UHS_LOCATION: &str = "Ort";
+pub const UHS_ON_MAP: &str = "Auf der Lagekarte";
+pub const UHS_NOT_ON_MAP: &str = "noch nicht gesetzt";
+pub const UHS_PLACE_ON_MAP: &str = "Auf der Karte setzen";
+pub const UHS_MOVE_ON_MAP: &str = "Auf der Karte versetzen";
+
+/// The link's visible text, then the unit: the name contains what is seen.
+pub fn uhs_place_label(visible: &str, name: &str) -> String {
+    format!("{visible}: {name}")
+}
 pub const UHS_STAFF: &str = "Personal";
 pub const UHS_STAFF_NONE: &str = "Kein Personal eingetragen.";
 pub const UHS_RESOURCES_TITLE: &str = "UHS und Personal";
@@ -1174,16 +1183,14 @@ pub const MAP_NO_REGION: &str = "Für diesen Einsatz wurde keine Kartengrundlage
 pub const MAP_OBJECTS: &str = "Auf der Karte";
 pub const MAP_LOCATE: &str = "Zu meinem Standort";
 pub const MAP_LOCATING: &str = "Standort wird bestimmt …";
-pub const MAP_LOCATED: &str =
-    "Die Karte zeigt Ihren Standort; Objekte werden in der Mitte gesetzt.";
+pub const MAP_LOCATED: &str = "Die Karte zeigt Ihren Standort.";
 pub const MAP_LOCATE_DENIED: &str = "Der Standort ist nicht freigegeben. Erlauben Sie ORDO den Standort in den Einstellungen des Browsers.";
 pub const MAP_LOCATE_FAILED: &str = "Der Standort konnte nicht bestimmt werden.";
 pub const MAP_OBJECTS_NONE: &str = "Noch nichts auf der Karte.";
 pub const MAP_SHOW: &str = "Zeigen";
 pub const MAP_REMOVE: &str = "Entfernen";
 pub const MAP_SAVED: &str = "Lagekarte gespeichert";
-pub const MAP_PLACE: &str = "Auf der Karte platzieren";
-pub const MAP_PLACE_HINT: &str = "Karte so verschieben, dass die Stelle in der Mitte liegt (auch mit den Pfeiltasten), dann platzieren.";
+pub const MAP_PLACE_HINT: &str = "Auf die Stelle tippen – oder die Karte so verschieben, dass die Stelle am Fadenkreuz liegt (auch mit den Pfeiltasten), und in der Kartenmitte platzieren.";
 pub const MAP_PLACE_KIND: &str = "Was";
 pub const MAP_PLACE_WHICH: &str = "Welches";
 pub const MAP_PLACE_CHOOSE: &str = "Bitte wählen";
@@ -1216,6 +1223,61 @@ pub fn map_show_label(label: &str) -> String {
 
 pub fn map_remove_label(label: &str) -> String {
     format!("{label} von der Karte entfernen")
+}
+
+// The map editor (ADR-0064)
+pub const MAP_EDIT: &str = "Karte bearbeiten";
+pub const MAP_EDIT_BACK: &str = "Zur Lagekarte";
+pub const MAP_EDIT_NOT_ALLOWED: &str =
+    "Die Karte bearbeitet die Einsatzleitung; hier ist sie nur zu sehen.";
+pub const MAP_EDIT_OBJECT: &str = "Bearbeiten";
+pub const MAP_TOOLS: &str = "Werkzeug";
+pub const TOOL_SELECT: &str = "Auswählen";
+pub const TOOL_PLACE: &str = "Symbol setzen";
+pub const TOOL_AREA: &str = "Fläche";
+pub const TOOL_LINE: &str = "Linie";
+pub const MAP_TAP_TO_CHOOSE: &str =
+    "Auf ein Objekt der Karte tippen oder es in der Liste unten bearbeiten.";
+pub const MAP_MOVE_HINT: &str = "Auf die neue Stelle tippen – oder die Karte so verschieben, dass sie am Fadenkreuz liegt (auch mit den Pfeiltasten), und in die Kartenmitte setzen.";
+pub const MAP_MOVE_CENTRE: &str = "In die Kartenmitte setzen";
+pub const MAP_DESELECT: &str = "Auswahl aufheben";
+pub const RESHAPE_HINT: &str = "Ecken ziehen, um die Form zu ändern; aus der Mitte einer Seite eine neue Ecke ziehen; die Form ziehen, um sie zu verschieben. Ohne Ziehen: „Neu zeichnen“.";
+pub const RESHAPE_APPLY: &str = "Übernehmen";
+pub const RESHAPE_DISCARD: &str = "Verwerfen";
+pub const RESHAPE_REDRAW: &str = "Neu zeichnen";
+pub const MAP_RESHAPE_FAILED: &str =
+    "Diese Form lässt sich hier nicht ziehen; „Neu zeichnen“ geht immer.";
+
+pub fn map_edit_label(label: &str) -> String {
+    format!("{label} bearbeiten")
+}
+
+pub fn map_chosen(label: &str) -> String {
+    format!("{label} ausgewählt.")
+}
+
+pub fn map_moved(label: &str) -> String {
+    format!("{label} verschoben.")
+}
+
+pub fn map_placed(label: &str) -> String {
+    format!("{label} platziert.")
+}
+
+pub fn map_reshaped(label: &str) -> String {
+    format!("{label} geändert.")
+}
+
+pub fn map_drawn(label: &str) -> String {
+    format!("{label} gespeichert.")
+}
+
+pub fn map_removed(label: &str) -> String {
+    format!("{label} entfernt.")
+}
+
+pub fn draw_redraw(label: &str) -> String {
+    format!("{label} neu zeichnen")
 }
 
 fn megabytes(bytes: f64) -> String {
@@ -1393,21 +1455,20 @@ pub fn map_region_failed(error: &str) -> String {
 }
 
 // Drawing on the map (MAP-4)
-pub const DRAW_TITLE: &str = "Auf der Karte zeichnen";
-pub const DRAW_HINT: &str = "Karte so verschieben, dass das Fadenkreuz auf einem Eckpunkt liegt (auch mit den Pfeiltasten), dann den Eckpunkt setzen; so weiter bis zum letzten.";
+pub const DRAW_HINT: &str = "Auf jede Ecke tippen – oder die Karte so verschieben, dass die Ecke am Fadenkreuz liegt (auch mit den Pfeiltasten), und sie setzen. Dann „Fertig“.";
 pub const DRAW_CATEGORY: &str = "Art";
-pub const DRAW_ADD_CORNER: &str = "Eckpunkt setzen";
-pub const DRAW_UNDO: &str = "Letzten Eckpunkt entfernen";
-pub const DRAW_CANCEL: &str = "Verwerfen";
-pub const DRAW_FINISH: &str = "Zeichnung speichern";
-pub const DRAW_TOO_FEW_AREA: &str = "Eine Fläche braucht mindestens drei Eckpunkte.";
+pub const DRAW_ADD_CORNER: &str = "Ecke in der Kartenmitte setzen";
+pub const DRAW_UNDO: &str = "Letzte Ecke entfernen";
+pub const DRAW_CANCEL: &str = "Abbrechen";
+pub const DRAW_FINISH: &str = "Fertig";
+pub const DRAW_TOO_FEW_AREA: &str = "Eine Fläche braucht mindestens drei Ecken.";
 pub const DRAW_TOO_FEW_LINE: &str = "Eine Linie braucht mindestens zwei Punkte.";
 
 pub fn draw_corners(n: usize) -> String {
     match n {
-        0 => "Noch kein Eckpunkt gesetzt.".to_owned(),
-        1 => "1 Eckpunkt gesetzt.".to_owned(),
-        n => format!("{n} Eckpunkte gesetzt."),
+        0 => "Noch keine Ecke gesetzt.".to_owned(),
+        1 => "1 Ecke gesetzt.".to_owned(),
+        n => format!("{n} Ecken gesetzt."),
     }
 }
 

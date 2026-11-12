@@ -6,15 +6,24 @@
 // the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
-// [impl->dsn~situation-map~1]
+// [impl->dsn~situation-map~2]
 // [impl->dsn~tactical-symbols~1]
+// [impl->dsn~map-drawing~2]
 
 // One region per incident, named by the incident's ULID; read with a ticket.
 const regionPath = (incident) => `/tiles/${incident}.pmtiles`;
 const authorised = (ticket) => new Headers({ Authorization: `Bearer ${ticket}` });
 const OBJECTS = "ordo-objects";
-// The shape being drawn (MAP-4), before it is saved.
+// The shape being drawn (MAP-4), before it is saved, and the chosen object's mark.
 const DRAFT = "ordo-draft";
+// ORDO's layers a tap can hit, to choose an object on the editor page.
+const HIT_LAYERS = ["ordo-symbols", "ordo-points", "ordo-labels", "ordo-areas", "ordo-lines-solid", "ordo-lines-dashed", "ordo-lines-dotted"];
+// How far from a tap an object still counts as hit, in CSS pixels (a finger, a glove).
+const HIT_SLOP = 12;
+// Line patterns while Terra Draw shows a line being reshaped, in pixels.
+const DASH_PIXELS = { dashed: [9, 6], dotted: [2, 5] };
+// Terra Draw rejects coordinates with more decimals than this (about 0.1 mm).
+const PRECISION = 9;
 // Line patterns of drawings (profile map/drawings.toml): categories differ by pattern and
 // label, not by colour alone.
 const DASHES = { solid: null, dashed: [3, 2], dotted: [0.5, 1.5] };
@@ -178,8 +187,20 @@ export async function create(element, centre, label, incident, ticket) {
   });
   map.addSource(DRAFT, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "ordo-draft-line", type: "line", source: DRAFT, filter: ["!=", ["geometry-type"], "Point"], paint: { "line-color": text, "line-width": 2, "line-dasharray": [2, 1] } });
-  map.addLayer({ id: "ordo-draft-corners", type: "circle", source: DRAFT, filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 5, "circle-color": halo, "circle-stroke-width": 2, "circle-stroke-color": text } });
-  return { map, from: source.from };
+  const corner = ["all", ["==", ["geometry-type"], "Point"], ["!", ["has", "chosen"]]];
+  map.addLayer({ id: "ordo-draft-corners", type: "circle", source: DRAFT, filter: corner, paint: { "circle-radius": 5, "circle-color": halo, "circle-stroke-width": 2, "circle-stroke-color": text } });
+  // The chosen object: a ring around it, its name says the rest in the tool panel.
+  map.addLayer({ id: "ordo-chosen", type: "circle", source: DRAFT, filter: ["has", "chosen"], paint: { "circle-radius": SYMBOL_HEIGHT * 0.75, "circle-opacity": 0, "circle-stroke-width": 3, "circle-stroke-color": text } });
+  const handle = { map, from: source.from, tap: null, draw: null, objects: null, hidden: null };
+  // [impl->dsn~map-drawing~2]
+  // Taps go to the editor page, with the object hit, if any (none while Terra Draw edits).
+  map.on("click", (e) => {
+    if (!handle.tap || handle.hidden) return;
+    const box = [[e.point.x - HIT_SLOP, e.point.y - HIT_SLOP], [e.point.x + HIT_SLOP, e.point.y + HIT_SLOP]];
+    const hit = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
+    handle.tap(e.lngLat.lng, e.lngLat.lat, hit[0]?.properties?.object ?? null);
+  });
+  return handle;
 }
 
 /** Shows the shape being drawn (a GeoJSON FeatureCollection as text; empty to clear). */
@@ -234,9 +255,119 @@ export function locate(handle) {
   });
 }
 
-/** Shows ORDO's objects (a GeoJSON FeatureCollection as text). */
+/** Shows ORDO's objects (a GeoJSON FeatureCollection as text), except the one being
+ *  reshaped, which Terra Draw shows meanwhile. */
 export function setObjects(handle, geojson) {
-  handle.map.getSource(OBJECTS)?.setData(JSON.parse(geojson));
+  handle.objects = JSON.parse(geojson);
+  showObjects(handle);
+}
+
+function showObjects(handle) {
+  if (!handle.objects) return;
+  const features = handle.objects.features.filter((f) => f.properties?.object !== handle.hidden);
+  handle.map.getSource(OBJECTS)?.setData({ ...handle.objects, features });
+}
+
+/** Calls `callback(longitude, latitude, object ID or null)` for each tap on the map; `null`
+ *  stops it. */
+export function onTap(handle, callback) {
+  handle.tap = callback;
+}
+
+/** Removes the map and everything it holds. */
+export function destroy(handle) {
+  try {
+    handle.draw?.stop();
+  } catch {
+    // already stopped
+  }
+  handle.map.remove();
+}
+
+async function terraDraw(handle) {
+  if (handle.draw) return handle.draw;
+  await script("/map/vendor/terra-draw.js");
+  await script("/map/vendor/terra-draw-maplibre-gl-adapter.js");
+  const td = globalThis.terraDraw;
+  const accent = token("--ordo-color-action-primary-background");
+  const text = token("--ordo-color-text-primary");
+  const halo = token("--ordo-color-surface-default");
+  const editable = { draggable: true, coordinates: { draggable: true, midpoints: true, deletable: false } };
+  const draw = new td.TerraDraw({
+    adapter: new globalThis.terraDrawMaplibreGlAdapter.TerraDrawMapLibreGLAdapter({ map: handle.map, coordinatePrecision: PRECISION }),
+    // ORDO's object IDs, not Terra Draw's UUIDs.
+    idStrategy: { isValidId: (id) => typeof id === "string" && id.length > 0, getId: () => crypto.randomUUID() },
+    modes: [
+      new td.TerraDrawPolygonMode({ editable: false, styles: { fillColor: accent, fillOpacity: 0.2, outlineColor: text, outlineWidth: 2 } }),
+      new td.TerraDrawLineStringMode({ editable: false, styles: { lineStringColor: text, lineStringWidth: 3 } }),
+      new td.TerraDrawSelectMode({
+        // The shape stays chosen until the editor page saves or discards it.
+        allowManualDeselection: false,
+        keyEvents: { deselect: null, delete: null, rotate: null, scale: null },
+        flags: { polygon: { feature: editable }, linestring: { feature: editable } },
+        styles: {
+          selectedPolygonColor: accent,
+          selectedPolygonFillOpacity: 0.3,
+          selectedPolygonOutlineColor: text,
+          selectedPolygonOutlineWidth: 3,
+          selectedLineStringColor: text,
+          selectedLineStringWidth: 4,
+          selectedLineStringDash: (f) => DASH_PIXELS[f.properties?.line] ?? undefined,
+          // Corners: large enough for a finger; the middle of each side, to add one.
+          selectionPointWidth: 9,
+          selectionPointColor: halo,
+          selectionPointOutlineColor: text,
+          selectionPointOutlineWidth: 3,
+          midPointWidth: 6,
+          midPointColor: accent,
+          midPointOutlineColor: halo,
+          midPointOutlineWidth: 2,
+        },
+      }),
+    ],
+  });
+  // Terra Draw starts in its own mode "static", where it only shows its shapes.
+  draw.start();
+  handle.draw = draw;
+  return draw;
+}
+
+const rounded = (geometry) => {
+  const round = ([lon, lat]) => [Number(lon.toFixed(PRECISION)), Number(lat.toFixed(PRECISION))];
+  if (geometry.type === "LineString") return { ...geometry, coordinates: geometry.coordinates.map(round) };
+  return { ...geometry, coordinates: geometry.coordinates.map((ring) => ring.map(round)) };
+};
+
+/** Lets the pointer reshape a drawing (`object`, its GeoJSON `geometry` as text, its line
+ *  pattern): corners dragged, corners added from the middle of a side, the shape moved. */
+export async function reshape(handle, object, geometry, line) {
+  const draw = await terraDraw(handle);
+  draw.clear();
+  const g = rounded(JSON.parse(geometry));
+  const mode = g.type === "Polygon" ? "polygon" : "linestring";
+  const [checked] = draw.addFeatures([{ id: object, type: "Feature", geometry: g, properties: { mode, line } }]);
+  if (!checked?.valid) throw new Error(checked?.reason ?? "invalid shape");
+  draw.setMode("select");
+  draw.selectFeature(object);
+  handle.hidden = object;
+  showObjects(handle);
+}
+
+/** The shape being reshaped, as GeoJSON text, or null. */
+export function reshaped(handle) {
+  if (!handle.draw || !handle.hidden) return null;
+  const feature = handle.draw.getSnapshotFeature(handle.hidden);
+  return feature ? JSON.stringify(feature.geometry) : null;
+}
+
+/** Ends reshaping; the map shows the object as saved again. */
+export function stopReshaping(handle) {
+  if (handle.draw) {
+    handle.draw.setMode("static");
+    handle.draw.clear();
+  }
+  handle.hidden = null;
+  showObjects(handle);
 }
 
 /** The centre of the map: [longitude, latitude]. */

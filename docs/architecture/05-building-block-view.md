@@ -346,7 +346,7 @@ Tags: must, m32
 ### 5.5.1c Shared module `map`
 
 #### Situation map
-`dsn~situation-map~1`
+`dsn~situation-map~2`
 
 Crate `ordo-map`, module `map`, in the shared `incident` compartment
 ([ADR-0006](../adr/0006-maplibre-pmtiles.md)). `map.objectPlaced` puts an object on the
@@ -356,13 +356,18 @@ geometry (RFC 7946: point, line or area, longitude first); `map.objectRemoved` t
 off. The latest event of an object counts (hybrid logical clock). Drawn objects (lines and
 areas, MAP-4) use the same events with their own IDs.
 
-The command workspace's first view *Lage* shows the map with the objects and, beside or
-below it, the list of objects (A11Y-5) and the patient counts. The command places an
-object at the map's centre (the keyboard moves the map) and removes it from the list.
-The map opens on the incident location, else on the objects, else on the map region.
-The command can move the map to the device's own position (browser geolocation, only
-when asked) to place an object there. Only the command writes the
-module (Cedar).
+The view *Führung – Lagekarte* shows the map with the objects and, below it, the list of
+objects (A11Y-5). Those who may edit open *Karte bearbeiten*, the editor page
+(`command.lead/map/edit`, [ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
+fills the page, a toolbar above it offers *Auswählen*, *Symbol setzen*, *Fläche* and
+*Linie*, and the list stays below. *Symbol setzen* takes the incident location, a unit, a
+UHS or a position and places it where the next tap is, or at the map's centre (the
+keyboard moves the map, a crosshair marks the centre). *Auswählen* chooses an object by a
+tap on the map or *Bearbeiten* in the list; a chosen symbol moves to the next tap or to
+the centre, and every object can be removed. The map opens on the incident location, else
+on the objects, else on the map region. The command can move the map to the device's own
+position (browser geolocation, only when asked). Only the command writes the module
+(Cedar).
 
 Offline (MAP-2): the server serves each incident's PMTiles region file at
 `/tiles/<incident ULID>.pmtiles` with range requests and a ticket (*Map region from the
@@ -379,21 +384,27 @@ Covers:
 
 Needs: impl, utest, itest
 
-Tags: must, m33
+Tags: must, m33, m54
 
 #### Drawing on the map
-`dsn~map-drawing~1`
+`dsn~map-drawing~2`
 
 The profile file `map/drawings.toml` lists what can be drawn (DE: incident area, sector,
 hazard zone, staging area, cordon, hose line): ID, label, area or line, and a line pattern
-(solid, dashed, dotted). The situation view's form *Auf der Karte zeichnen* takes a
-category, a name and the corners: each "Eckpunkt setzen" adds the map's centre, marked by a
-crosshair and moved by keyboard, touch or mouse. The map previews the shape. Undo removes
-the last corner; an area needs three, a line two. Saving writes `map.objectPlaced` with kind
-`drawing`, the category as reference and a GeoJSON polygon (closed ring) or line. The map
-draws each drawing's outline with its category's pattern, so categories differ without
-colour; the list names the category
-([ADR-0058](../adr/0058-drawing-at-the-map-centre.md)).
+(solid, dashed, dotted). On the editor page, the tools *Fläche* and *Linie* take a
+category and a name, then the corners: each tap on the map sets one, and so does *Ecke in
+Kartenmitte setzen* at the crosshair, which the keyboard moves. The map previews the
+shape. *Letzte Ecke entfernen* undoes, *Abbrechen* discards; *Fertig* saves once an area
+has three corners, a line two. Saving writes `map.objectPlaced` with kind `drawing`, the
+category as reference and a GeoJSON polygon (closed ring) or line.
+
+A drawing chosen with *Auswählen* can be reshaped with Terra Draw's select mode: its
+corners dragged, a corner added from the middle of a side, the whole shape moved.
+*Übernehmen* writes one `map.objectPlaced` with the same object ID and the new geometry;
+*Verwerfen* restores it. *Neu zeichnen* sets its corners again by tap or at the centre,
+the way without dragging. The map draws each drawing's outline with its category's
+pattern, so categories differ without colour; the list names the category
+([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)).
 
 Covers:
 
@@ -401,7 +412,7 @@ Covers:
 
 Needs: impl, utest, itest
 
-Tags: must, m40
+Tags: must, m40, m54
 
 #### Map region from the server
 `dsn~map-region~2`
@@ -555,15 +566,22 @@ Needs: impl, itest
 Tags: must, m4
 
 #### UHS details
-`dsn~uhs-details~2`
+`dsn~uhs-details~3`
 
 A unit is set up with name, kind and capacity (`uhs.created`). `uhs.updated` (module
 `med.uhs`, shared `incident` compartment, no clinical data) changes its name (schema
-version 2; the log shows the renaming), its location (free text, e.g. "Bühne Nord,
-Zelt 2"), its capacity and its assigned staff (names or user IDs, the whole list); a field left out keeps its value, and the latest change of each field
-counts (hybrid logical clock). *UHS verwalten* shows location and staff per unit and
-changes them in a details panel, with the incident's people suggested; the overview and
-the command's counts use the current capacity.
+version 2; the log shows the renaming), its capacity and its assigned staff (names or user
+IDs, the whole list); a field left out keeps its value, and the latest change of each field
+counts (hybrid logical clock). *UHS verwalten* shows place and staff per unit and changes
+them in a details panel, with the incident's people suggested; the overview and the
+command's counts use the current capacity.
+
+The place of a unit is the UHS on the situation map (`map.objectPlaced`, kind `uhs`), not a
+text field ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)). The details panel
+shows its coordinates, or that it is not placed yet, and offers those who may edit the map
+*Auf der Karte setzen*: the editor page opens with *Symbol setzen* and this unit chosen. A
+location text written before (the field `location` of `uhs.updated`) is still shown;
+`uhs.updated` keeps the field for those events, and the app no longer writes it.
 
 Covers:
 
@@ -571,7 +589,7 @@ Covers:
 
 Needs: impl, utest, itest
 
-Tags: must, m30
+Tags: must, m30, m54
 
 #### UHS overview
 `dsn~uhs-overview~2`

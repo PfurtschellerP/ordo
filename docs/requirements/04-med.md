@@ -110,7 +110,7 @@ Needs: dsn
 
 ORDO shall allow creating on-site care units (*Unfallhilfsstelle UHS*, *Behandlungsplatz*, patient collection point), each with location, capacity and assigned staff.
 
-Tags: must, med, m30
+Tags: must, med, m30, m54
 
 Needs: dsn
 

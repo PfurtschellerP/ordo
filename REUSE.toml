@@ -50,7 +50,8 @@ path = "design/assets/icons/lucide/search.svg"
 SPDX-FileCopyrightText = ["Lucide Icons and Contributors", "2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"
 
-# Map libraries, vendored from npm (ADR-0006): MapLibre GL JS, PMTiles, Protomaps basemap.
+# Map libraries, vendored from npm (ADR-0006, ADR-0064): MapLibre GL JS, PMTiles, Protomaps
+# basemap, Terra Draw.
 [[annotations]]
 path = ["platform/ordo-app/map/vendor/maplibre-gl*"]
 SPDX-FileCopyrightText = "2023 MapLibre contributors"
@@ -60,6 +61,12 @@ SPDX-License-Identifier = "BSD-3-Clause"
 path = ["platform/ordo-app/map/vendor/pmtiles.*", "platform/ordo-app/map/vendor/basemaps.*"]
 SPDX-FileCopyrightText = "Protomaps LLC"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+# Terra Draw and its MapLibre adapter, for reshaping drawings (ADR-0064).
+[[annotations]]
+path = ["platform/ordo-app/map/vendor/terra-draw*"]
+SPDX-FileCopyrightText = "2022 James Milner"
+SPDX-License-Identifier = "MIT"
 
 # Label fonts for the map (Noto Sans glyphs from Protomaps' basemap assets).
 [[annotations]]

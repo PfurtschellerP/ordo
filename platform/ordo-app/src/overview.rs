@@ -52,7 +52,7 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 let places = s.places.map(|(free, total)| text::places_free(free, total));
                                 view! {
                                     <CountCard name capacity counts=s.counts.clone()>
-                                        // [impl->dsn~uhs-details~2]
+                                        // [impl->dsn~uhs-details~3]
                                         {location.map(|l| view! { <p class="count-card__location">{text::UHS_LOCATION} ": " {l}</p> })}
                                         <p class="count-card__more">
                                             {places.map(|p| format!("{}: {p} · ", text::PLACES))}

@@ -126,7 +126,7 @@ the build fails.
 | 37 — UHS staff | `m37` | Choose the UHS one works at; only a UHS's staff (or roles allowed everywhere) write its patients, checked by the server (UHS-9, UHS-10, ADR-0056) |
 | 38 — Map region from the server | `m38` | An administrator cuts the map region (centre, radius) on the server from the open world map (MAP-8, ADR-0057) |
 | 39 — UHS among the resources | `m39` | Every UHS with its staff in *Einsatzmittel*; the incident command assigns staff (UHS-11) |
-| 40 — Drawing on the map | `m40` | Areas and lines (incident area, hazard zone, cordon, …) drawn corner by corner at the map's centre, also by keyboard (MAP-4, ADR-0058) |
+| 40 — Drawing on the map | `m40` | Areas and lines (incident area, hazard zone, cordon, …) drawn corner by corner at the map's centre, also by keyboard (MAP-4, ADR-0058, superseded by ADR-0064) |
 | 41 — Multi-architecture image | `m41` | The server image for linux/amd64 and linux/arm64, each built natively and smoke-tested, signed as one (OPS-5) |
 | 42 — Fuzzing | `m42` | The decoders of everything from the network fuzzed continuously with cargo-fuzz and ClusterFuzzLite (SEC-17, ADR-0059) |
 | 43 — Device names | `m43` | Each device named at pairing (suggested from the browser), shown in the device list (ORG-8) |
@@ -140,6 +140,7 @@ the build fails.
 | 51 — Map region per incident | `m51` | Each incident has its own map region, cut by its incident command and read only by its devices with a ticket (ADR-0062, MAP-8) |
 | 52 — Upstream login providers | `m52` | Administrators connect the organisation's OpenID Connect providers to Dex in the app, after a test login (ADR-0063, ORG-11) |
 | 53 — Devices in the incident | `m53` | The incident command sees the devices of the people in its incident and blocks a lost one, without the organisation's device list (ADR-0061, ORG-12) |
+| 54 — Map editor | `m54` | The map is edited on its own page with a toolbar: symbols placed and corners set by a tap or at the map's centre, drawings reshaped by dragging; a UHS's place is its symbol on the map (MAP-1, MAP-4, UHS-1, ADR-0064) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -148,5 +149,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54 docs platform modules packages tests
 ```

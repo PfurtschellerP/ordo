@@ -215,7 +215,7 @@ Needs: dsn
 
 Map centred on the incident, with units, sectors, UHS and drawn objects
 
-Tags: must, shared, m33
+Tags: must, shared, m33, m54
 
 Needs: dsn
 
@@ -242,7 +242,7 @@ Needs: dsn
 
 Draw points, lines and areas (e.g. danger zone, hose line, cordon, staging area)
 
-Tags: must, shared, m40
+Tags: must, shared, m40, m54
 
 Needs: dsn
 

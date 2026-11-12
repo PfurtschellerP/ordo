@@ -1,4 +1,4 @@
-//! What can be drawn on the situation map (MAP-4, ADR-0058): the categories of the profile
+//! What can be drawn on the situation map (MAP-4, ADR-0064): the categories of the profile
 //! (`map/drawings.toml`), each an area or a line with a line pattern.
 
 use serde::{Deserialize, Serialize};
@@ -100,7 +100,7 @@ mod tests {
     use super::*;
     use crate::Geometry;
 
-    // [utest->dsn~map-drawing~1]
+    // [utest->dsn~map-drawing~2]
     #[test]
     fn categories_are_checked_and_areas_are_closed() {
         let c = DrawingCatalogue {

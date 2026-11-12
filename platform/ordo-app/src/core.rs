@@ -955,7 +955,7 @@ pub fn command_event(
     )
 }
 
-// [impl->dsn~situation-map~1]
+// [impl->dsn~situation-map~2]
 /// Records an event of the situation map: an object placed or removed (MAP-1).
 pub fn map_event(
     core: Handle,
@@ -1020,7 +1020,7 @@ pub fn update_task(
     )
 }
 
-// [impl->dsn~uhs-details~2]
+// [impl->dsn~uhs-details~3]
 /// Changes the location, capacity or staff of an on-site care unit (UHS-1).
 pub fn update_uhs(
     core: Handle,

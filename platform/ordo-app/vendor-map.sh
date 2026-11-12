@@ -10,14 +10,20 @@ cd "$(dirname "$0")/map"
 MAPLIBRE=6.17.0
 PMTILES=4.5.0
 BASEMAPS=5.7.2
+# Reshaping drawings on the map editor page (ADR-0064).
+TERRA_DRAW=1.39.0
+TERRA_DRAW_MAPLIBRE=1.5.0
 ASSETS=028c18f713baecad011301ff7a69acc39bcc2ae7
 # Licence files of PMTiles and the basemap (not in their npm packages).
 PMTILES_REPO=aec8fa1341222fdddb3318e9ffa8e18e19b312f7
 BASEMAPS_REPO=42ffaaa4a85a41bfcb23e43cc0f5b492a5eca123
+# Terra Draw's licence, at the commit of its tag terra-draw@$TERRA_DRAW (covers the adapter).
+TERRA_DRAW_REPO=4a8cfa2ef2dece2284dd06aa71ed0023d84a5cfb
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-(cd "$work" && npm pack --silent "maplibre-gl@$MAPLIBRE" "pmtiles@$PMTILES" "@protomaps/basemaps@$BASEMAPS" >/dev/null)
+(cd "$work" && npm pack --silent "maplibre-gl@$MAPLIBRE" "pmtiles@$PMTILES" "@protomaps/basemaps@$BASEMAPS" \
+  "terra-draw@$TERRA_DRAW" "terra-draw-maplibre-gl-adapter@$TERRA_DRAW_MAPLIBRE" >/dev/null)
 for t in "$work"/*.tgz; do
   name=$(basename "$t" .tgz)
   mkdir -p "$work/$name" && tar -xzf "$t" -C "$work/$name"
@@ -28,9 +34,14 @@ cp "$work/maplibre-gl-$MAPLIBRE/package/dist/maplibre-gl.mjs" \
    "$work/maplibre-gl-$MAPLIBRE/package/dist/maplibre-gl.css" vendor/
 cp "$work/pmtiles-$PMTILES/package/dist/pmtiles.js" vendor/
 cp "$work/protomaps-basemaps-$BASEMAPS/package/dist/basemaps.js" vendor/
+# UMD builds: they set globals like pmtiles.js, so no import map is needed.
+cp "$work/terra-draw-$TERRA_DRAW/package/dist/terra-draw.umd.js" vendor/terra-draw.js
+cp "$work/terra-draw-maplibre-gl-adapter-$TERRA_DRAW_MAPLIBRE/package/dist/terra-draw-maplibre-gl-adapter.umd.js" \
+   vendor/terra-draw-maplibre-gl-adapter.js
 cp "$work/maplibre-gl-$MAPLIBRE/package/LICENSE.txt" vendor/maplibre-gl.LICENSE.txt
 curl -sfL "https://raw.githubusercontent.com/protomaps/PMTiles/$PMTILES_REPO/LICENSE" -o vendor/pmtiles.LICENSE.txt
 curl -sfL "https://raw.githubusercontent.com/protomaps/basemaps/$BASEMAPS_REPO/LICENSE.md" -o vendor/basemaps.LICENSE.md
+curl -sfL "https://raw.githubusercontent.com/JamesLMilner/terra-draw/$TERRA_DRAW_REPO/LICENSE" -o vendor/terra-draw.LICENSE.txt
 curl -sfL "https://raw.githubusercontent.com/protomaps/basemaps-assets/$ASSETS/fonts/OFL.txt" -o glyphs/OFL.txt
 
 for font in "Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic"; do
@@ -40,4 +51,4 @@ for font in "Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic"; do
       -o "glyphs/$font/$range.pbf"
   done
 done
-echo "map libraries: maplibre-gl $MAPLIBRE, pmtiles $PMTILES, @protomaps/basemaps $BASEMAPS; fonts at $ASSETS"
+echo "map libraries: maplibre-gl $MAPLIBRE, pmtiles $PMTILES, @protomaps/basemaps $BASEMAPS, terra-draw $TERRA_DRAW (maplibre adapter $TERRA_DRAW_MAPLIBRE); fonts at $ASSETS"
