@@ -166,6 +166,18 @@ The server MUST NOT store passwords. Deleting an account MUST end the person's l
 ([ADR-0060](../../docs/adr/0060-local-accounts-managed-in-ordo.md)). A session agreed on
 1.0 or 1.1 gets no answer.
 
+`getLoginProviders` (version 1.2) asks for the upstream login providers of Dex;
+`testLoginProvider` starts a test login through a new or changed OpenID Connect provider,
+`saveLoginProvider` saves the provider of a passed test, `deleteLoginProvider` removes one.
+All are answered with `loginProviders`: `managed` false for a user without
+`manage_accounts` or without a connection to Dex's API, else the providers, the user's
+running test and, after a change that was not made, the reason. The server MUST write a
+provider only after a test login through it by the same user passed within 10 minutes, MUST
+NOT send client secrets to devices, and MUST log every saved or deleted provider with the
+user ([ADR-0063](../../docs/adr/0063-upstream-login-configured-in-ordo.md)). The test login
+runs in a browser at `GET /auth/test/<token>`; it pairs no device. A session agreed on 1.0
+or 1.1 gets no answer.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with
@@ -231,5 +243,5 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
-| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (§7) | `/tiles/<incident>.pmtiles` with a ticket |
+| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 

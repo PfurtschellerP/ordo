@@ -49,6 +49,8 @@ services:
     environment:
       ORDO_DOMAIN: ${ORDO_DOMAIN}
       ORDO_OIDC_CLIENT_SECRET: ${ORDO_OIDC_CLIENT_SECRET:?set ORDO_OIDC_CLIENT_SECRET in .env}
+      # Administrators add the organisation's login providers in ORDO (ADR-0063).
+      DEX_API_CONNECTORS_CRUD: "true"
     volumes:
       - ./dex.yaml:/etc/dex/config.yaml:ro
       - dex-data:/var/dex

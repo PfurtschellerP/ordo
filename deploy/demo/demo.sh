@@ -66,7 +66,8 @@ sed -e "s#http://127.0.0.1:5556/dex#$issuer#" \
 # Dex's API for local accounts (ADR-0060): certificates once, readable by Dex's user.
 [ -f "$data/dex-api/ca.pem" ] || "$bin" generate-dex-certs "$data/dex-api" 127.0.0.1 localhost >/dev/null
 chmod 755 "$data/dex-api" && chmod 644 "$data/dex-api"/*.pem
-"$docker" run -d --name ordo-demo-dex -p 5556:5556 -p 127.0.0.1:5557:5557 \
+# Connectors (upstream login providers) can be changed through the API (ADR-0063).
+"$docker" run -d --name ordo-demo-dex -p 5556:5556 -p 127.0.0.1:5557:5557 -e DEX_API_CONNECTORS_CRUD=true \
   -v "$data/dex.yaml:/etc/dex/config.yaml:ro,Z" -v "$data/dex-api:/etc/dex/api:ro,Z" \
   ghcr.io/dexidp/dex:v2.46.1 dex serve /etc/dex/config.yaml >/dev/null
 until curl -sf "$issuer/.well-known/openid-configuration" >/dev/null; do sleep 0.5; done

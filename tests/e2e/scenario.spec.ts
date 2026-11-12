@@ -32,7 +32,7 @@ import {
   storedItem,
   title,
 } from "./support/app";
-import { ORDO_PORT, startDex } from "./support/dex";
+import { DEX_URL, ORDO_PORT, startDex, UPSTREAM } from "./support/dex";
 import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
@@ -131,7 +131,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Command overview");
     await shot(dora, "command-overview");
     await openWorkspace(dora, "Zugriff");
-    await expect(dora.locator(".views__item"), "administration: accounts, permissions, devices").toHaveText(["Konten", "Berechtigungen", "Geräte"]);
+    await expect(dora.locator(".views__item"), "administration: accounts, permissions, devices, login").toHaveText(["Konten", "Berechtigungen", "Geräte", "Anmeldung"]);
     await shot(dora, "administration", false);
     await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
     // [itest->dsn~map-region~2]
@@ -1298,6 +1298,61 @@ test("ORDO in the browser", async ({ browser }) => {
     await spare.getByRole("button", { name: "Abmelden" }).click();
     await expect(spare.getByRole("button", { name: "Anmelden" }), "back at the login").toBeVisible();
     await spare.context().close();
+  });
+
+  // [itest->dsn~login-providers~1]
+  await test.step("an administrator connects the organisation's login provider after a test login", async () => {
+    await openWorkspace(dora, "Zugriff");
+    await openView(dora, "Anmeldung");
+    const providers = dora.locator(".provider-list");
+    await expect(providers.locator("[data-provider='local']"), "Dex's local accounts are listed, not changeable").toContainText("Lokale Konten dieses Servers");
+    await expect(dora.locator("#provider-redirect"), "the address to register at the provider").toHaveText(`${DEX_URL}/callback`);
+    await dora.getByLabel("Name auf der Anmeldeseite").fill("Organisation");
+    await dora.getByLabel("Aussteller-URL (Issuer)").fill(UPSTREAM.issuer);
+    await dora.getByLabel("Client-ID").fill(UPSTREAM.clientId);
+    await dora.getByRole("button", { name: "Testanmeldung vorbereiten" }).click();
+    await expect(dora.locator("form [role=alert]").last(), "the secret is needed").toHaveText(/Client-Secret/);
+    await dora.getByLabel("Client-Secret").fill(UPSTREAM.secret);
+    await dora.getByRole("button", { name: "Testanmeldung vorbereiten" }).click();
+    await audit(dora, "Login providers");
+
+    // The test login, in a new tab: through the temporary connector to the provider.
+    const [tab] = await Promise.all([dora.context().waitForEvent("page"), dora.locator("#provider-test-link").click()]);
+    await tab.locator("#login").fill(UPSTREAM.email);
+    await tab.locator("#password").fill(UPSTREAM.password);
+    await tab.locator("#submit-login").click();
+    await expect(tab.getByRole("heading", { level: 1 }), "the tab says how it went").toHaveText("Testanmeldung erfolgreich");
+    await tab.close();
+    const result = dora.locator("#provider-test-result");
+    await expect(result, "the identity ORDO would take").toContainText("olga@localhost", { timeout: 15_000 });
+    await expect(result).toContainText("Olga Ostermann");
+    const save = dora.getByRole("button", { name: "Anbieter speichern" });
+    await expect(save, "saving needs a confirmation").toBeDisabled();
+    await dora.getByLabel(/Ich bestätige: Anmeldungen über „Organisation“/).check();
+    await save.click();
+    await expect(dora.locator(".card > [role=status]")).toHaveText("Anbieter gespeichert.");
+    const organisation = providers.locator("[data-provider='organisation']");
+    await expect(organisation, "saved in Dex, without its secret").toContainText(UPSTREAM.issuer);
+
+    // A person of the organisation logs in through it on a new device.
+    const olga = await newDevice(browser);
+    await olga.goto(server.url);
+    await olga.getByRole("button", { name: "Anmelden" }).click();
+    // Dex's theme nests the button in a link: found by its text.
+    await olga.getByText("Log in with Organisation").click();
+    await olga.locator("#login").fill(UPSTREAM.email);
+    await olga.locator("#password").fill(UPSTREAM.password);
+    await olga.locator("#submit-login").click();
+    // A real login asks the provider for a renewal token, so it asks the person once.
+    await olga.locator("button", { hasText: "Grant Access" }).click();
+    await expect(olga.getByRole("heading", { name: "ORDO – Einsätze" }), "paired through the organisation's provider").toBeVisible();
+    await olga.context().close();
+
+    // Removed again (asked in place); the login page then offers the local accounts only.
+    await organisation.getByRole("button", { name: "Entfernen: Organisation" }).click();
+    await dora.getByRole("button", { name: "Ja, entfernen" }).click();
+    await expect(dora.locator(".card > [role=status]")).toHaveText("Anbieter entfernt.");
+    await expect(organisation).toHaveCount(0);
   });
 
   // [itest->dsn~content-security-policy~1]

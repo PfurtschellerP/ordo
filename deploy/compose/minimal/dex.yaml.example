@@ -34,8 +34,8 @@ staticClients:
       - "https://{{ getenv "ORDO_DOMAIN" }}/auth/callback"
       - "/dex/device/callback"
 
-# Local accounts: administrators create, reset and delete them in ORDO (Organisation –
-# Konten, ADR-0060). Roles are given in ORDO, not by groups (ADR-0046).
+# Local accounts: administrators create, reset and delete them in ORDO (Administration –
+# Zugriff – Konten, ADR-0060). Roles are given in ORDO, not by groups (ADR-0046).
 enablePasswordDB: true
 # Accounts can also be written here; ORDO lists them but cannot change them.
 #   Password hash:  docker run --rm httpd:2-alpine htpasswd -nbBC 10 "" 'the password' | tr -d ':\n'
@@ -48,7 +48,8 @@ enablePasswordDB: true
 #     userID: "replace with a random UUID"
 
 # Everyone else: connect your organisation's OpenID Connect provider instead of (or
-# besides) local accounts.
+# besides) local accounts. Administrators do it in ORDO (Administration – Zugriff –
+# Anmeldung, ADR-0063); a connector written here is listed there but changed only here.
 # connectors:
 #   - type: oidc
 #     id: organisation

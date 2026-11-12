@@ -67,5 +67,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0060](0060-local-accounts-managed-in-ordo.md) | Local accounts are managed in ORDO, through Dex's API | accepted | 2026-11-11 |
 | [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted | 2026-11-11 |
 | [0062](0062-map-region-per-incident.md) | A map region per incident | accepted | 2026-11-11 |
+| [0063](0063-upstream-login-configured-in-ordo.md) | Upstream logins are configured in ORDO, through Dex's connector API, after a test login | accepted | 2026-11-12 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

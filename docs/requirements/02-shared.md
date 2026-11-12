@@ -437,3 +437,12 @@ When an administrator creates, resets or deletes a local login account (e-mail a
 Tags: should, shared, m46
 
 Needs: dsn
+
+#### ORG-11 — Upstream login providers
+`req~org-11~1`
+
+When an administrator adds or changes an OpenID Connect provider of the organisation in ORDO, ORDO shall offer saving it only after a successful test login through it that shows the identity ORDO would take, shall make the change in the installation's identity provider (Dex) without a restart, shall never show the client secret again, and shall log who changed which provider.
+
+Tags: should, shared, m52
+
+Needs: dsn

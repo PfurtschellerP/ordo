@@ -989,6 +989,7 @@ fn Workspace(
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
                     (Some("admin.access"), Some("permissions")) => view! { <crate::roles::RolesView core revision /> }.into_any(),
                     (Some("admin.access"), Some("devices")) => view! { <devices::DevicesView core revision /> }.into_any(),
+                    (Some("admin.access"), Some("login")) => view! { <crate::login_providers::LoginProvidersView core revision /> }.into_any(),
                     (Some("admin.access"), _) => view! { <crate::accounts::AccountsView core revision /> }.into_any(),
                     (Some("person.devices"), _) => view! { <devices::DevicesView core revision mine_only=true /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),

@@ -571,6 +571,7 @@ impl Replica {
             | ServerMessage::Avatars(_)
             | ServerMessage::OrganisationRoles(_)
             | ServerMessage::Accounts(_)
+            | ServerMessage::LoginProviders(_)
             | ServerMessage::BlobTicket(_)
             | ServerMessage::Pong => Ok(()),
             // [impl->dsn~outbox-and-resend~1]

@@ -47,6 +47,10 @@ pub struct App {
     roles: crate::authz::Roles,
     /// Dex's API for local accounts (ORG-10), if configured.
     dex_api: Option<crate::dex_api::DexApi>,
+    /// Test logins through new or changed upstream providers (ORG-11).
+    pub(crate) login_tests: crate::providers::Tests,
+    /// Whether temporary connectors left from before the start were looked for.
+    tests_cleaned: AtomicBool,
     /// Up to when lapsed role grants were looked for (ms).
     roles_checked: AtomicU64,
     sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
@@ -95,6 +99,8 @@ impl App {
             map: Arc::new(map),
             roles,
             dex_api,
+            login_tests: crate::providers::Tests::default(),
+            tests_cleaned: AtomicBool::new(false),
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
             asked: std::sync::Mutex::new(HashMap::new()),
@@ -259,6 +265,7 @@ impl App {
                     self.expire_sessions().await;
                     self.expire_roles().await;
                     self.names_from_accounts().await;
+                    self.clean_login_tests().await;
                 }
                 _ = quarter.tick() => login::reverify(&self).await,
                 () = &mut stop => return,
@@ -280,6 +287,7 @@ impl App {
             .route("/auth/config", get(login::config))
             .route("/auth/login", get(login::start))
             .route("/auth/callback", get(login::callback))
+            .route("/auth/test/{token}", get(login::test))
             .route("/auth/device", post(login::device_start))
             .route("/auth/device/{id}", get(login::device_status))
             .route("/auth/device/{id}/qr.svg", get(login::device_qr))
@@ -350,6 +358,13 @@ impl App {
         }
         if let ClientMessage::BlobTicket(request) = message {
             return self.blob_ticket(session, request).await;
+        }
+        if let ClientMessage::GetLoginProviders
+        | ClientMessage::TestLoginProvider(_)
+        | ClientMessage::SaveLoginProvider(_)
+        | ClientMessage::DeleteLoginProvider(_) = message
+        {
+            return self.login_providers(session, message).await;
         }
         if let ClientMessage::GetAccounts | ClientMessage::ChangeAccount(_) = message {
             return self.accounts(session, message).await;
@@ -623,6 +638,224 @@ impl App {
             let _ = sender.send(ServerMessage::Accounts(answer));
         }
         Ok(())
+    }
+
+    // [impl->dsn~login-providers~1]
+    /// Answers the login provider messages (ORG-11, ADR-0063): the providers, and changes,
+    /// for users with `manage_accounts` on a server with Dex's API; nothing for others.
+    async fn login_providers(
+        self: &Arc<Self>,
+        session: SessionId,
+        message: ClientMessage,
+    ) -> Result<(), StoreError> {
+        let (user, version, may) = {
+            let hub = self.hub.lock().await;
+            let Some(user) = hub.session_user(session) else {
+                return Ok(()); // not authenticated: nothing
+            };
+            let may = hub.may_manage_accounts(&user);
+            (user, hub.session_version(session), may)
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_MAP_REGION) {
+            return Ok(());
+        }
+        let answer = match (&self.dex_api, &self.login, may) {
+            (Some(api), Some(login), true) => {
+                let redirect_uri = format!("{}/callback", login.issuer().trim_end_matches('/'));
+                let error = match message {
+                    ClientMessage::TestLoginProvider(draft) => self
+                        .test_provider(api, &user, draft, &redirect_uri)
+                        .await
+                        .err(),
+                    ClientMessage::SaveLoginProvider(token) => {
+                        self.save_provider(api, &user, &token).await.err()
+                    }
+                    ClientMessage::DeleteLoginProvider(id) => {
+                        self.delete_provider(api, &user, &id).await.err()
+                    }
+                    _ => None,
+                };
+                match api.connectors().await {
+                    Ok(list) => message::LoginProviders {
+                        managed: true,
+                        redirect_uri: Some(redirect_uri),
+                        list: list
+                            .iter()
+                            .filter_map(crate::providers::provider_of)
+                            .collect(),
+                        test: self.login_tests.of(&user),
+                        error,
+                    },
+                    Err(e) => message::LoginProviders {
+                        managed: true,
+                        redirect_uri: Some(redirect_uri),
+                        error: Some(provider_error(&e)),
+                        ..message::LoginProviders::default()
+                    },
+                }
+            }
+            _ => message::LoginProviders::default(),
+        };
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(ServerMessage::LoginProviders(answer));
+        }
+        Ok(())
+    }
+
+    /// Writes a temporary connector for a test login through a new or changed provider.
+    async fn test_provider(
+        &self,
+        api: &crate::dex_api::DexApi,
+        user: &UserId,
+        draft: message::LoginProviderDraft,
+        redirect_uri: &str,
+    ) -> Result<(), message::LoginProviderError> {
+        use crate::providers::{NewTest, TEST_PREFIX, changeable, issuer, oidc_config};
+        use message::LoginProviderError as E;
+        let name = crate::login::tidy_name(Some(&draft.name), 60).ok_or(E::Invalid)?;
+        let issuer = issuer(&draft.issuer).ok_or(E::Invalid)?;
+        let client_id = draft.client_id.trim().to_owned();
+        if client_id.is_empty() {
+            return Err(E::Invalid);
+        }
+        let target = draft.id.filter(|id| changeable(id));
+        let secret = match draft.client_secret.filter(|s| !s.trim().is_empty()) {
+            Some(secret) => secret.trim().to_owned(),
+            // Changing without a new secret keeps the old one, which stays in Dex.
+            None => {
+                let target = target.as_deref().ok_or(E::Invalid)?;
+                let list = api.connectors().await.map_err(|e| provider_error(&e))?;
+                list.iter()
+                    .find(|c| c.id == target)
+                    .and_then(crate::providers::secret_of)
+                    .ok_or(E::NotFound)?
+            }
+        };
+        let token = random_hex(32);
+        let connector = format!("{TEST_PREFIX}{}", random_hex(8));
+        let config = oidc_config(
+            &issuer,
+            &client_id,
+            &secret,
+            redirect_uri,
+            draft.skip_email_verified,
+        );
+        api.create_connector(crate::dex_api::Connector {
+            id: connector.clone(),
+            r#type: "oidc".to_owned(),
+            name: format!("Test: {name}"),
+            config: config.clone(),
+            grant_types: Vec::new(),
+        })
+        .await
+        .map_err(|e| provider_error(&e))?;
+        tracing::info!(%user, provider = name, %issuer, "test login through a provider started");
+        let earlier = self.login_tests.insert(
+            token,
+            NewTest {
+                connector,
+                target,
+                name,
+                config,
+                by: user.clone(),
+            },
+        );
+        for id in earlier {
+            let _ = api.delete_connector(&id).await;
+        }
+        Ok(())
+    }
+
+    /// Saves the provider of a passed test login and removes the temporary connector.
+    async fn save_provider(
+        &self,
+        api: &crate::dex_api::DexApi,
+        user: &UserId,
+        token: &str,
+    ) -> Result<(), message::LoginProviderError> {
+        use crate::dex_api::{Connector, Outcome};
+        use message::LoginProviderError as E;
+        let test = self
+            .login_tests
+            .take_passed(token, user)
+            .ok_or(E::NotTested)?;
+        let list = api.connectors().await.map_err(|e| provider_error(&e))?;
+        let ids: Vec<String> = list.iter().map(|c| c.id.clone()).collect();
+        let (id, exists) = match &test.target {
+            Some(id) if ids.contains(id) => (id.clone(), true),
+            _ => (crate::providers::id_for(&test.name, &ids), false),
+        };
+        let connector = Connector {
+            id: id.clone(),
+            r#type: "oidc".to_owned(),
+            name: test.name.clone(),
+            config: test.config.clone(),
+            grant_types: Vec::new(),
+        };
+        let outcome = if exists {
+            api.update_connector(connector).await
+        } else {
+            api.create_connector(connector).await
+        }
+        .map_err(|e| provider_error(&e))?;
+        let _ = api.delete_connector(&test.connector).await;
+        if outcome != Outcome::Done {
+            return Err(E::NotFound);
+        }
+        // Every change of who may log in is logged (ADR-0063).
+        tracing::warn!(%user, provider = id, name = test.name, "login provider saved");
+        Ok(())
+    }
+
+    /// Deletes a provider.
+    async fn delete_provider(
+        &self,
+        api: &crate::dex_api::DexApi,
+        user: &UserId,
+        id: &str,
+    ) -> Result<(), message::LoginProviderError> {
+        use message::LoginProviderError as E;
+        if !crate::providers::changeable(id) {
+            return Err(E::NotFound);
+        }
+        match api
+            .delete_connector(id)
+            .await
+            .map_err(|e| provider_error(&e))?
+        {
+            crate::dex_api::Outcome::Done => {
+                tracing::warn!(%user, provider = id, "login provider deleted");
+                Ok(())
+            }
+            _ => Err(E::NotFound),
+        }
+    }
+
+    /// Deletes temporary connectors of expired tests, and at the first run those left from
+    /// before the start.
+    async fn clean_login_tests(&self) {
+        let Some(api) = &self.dex_api else { return };
+        let first = !self.tests_cleaned.swap(true, Ordering::SeqCst);
+        let (live, expired) = self.login_tests.expire();
+        if !first && !expired {
+            return;
+        }
+        let Ok(list) = api.connectors().await else {
+            return;
+        };
+        for c in list
+            .iter()
+            .filter(|c| c.id.starts_with(crate::providers::TEST_PREFIX) && !live.contains(&c.id))
+        {
+            if api.delete_connector(&c.id).await.is_ok() {
+                tracing::info!(connector = c.id, "temporary login connector removed");
+            }
+        }
     }
 
     /// Makes one change to a local account in Dex.
@@ -1074,6 +1307,25 @@ fn is_hashed_asset(path: &str) -> bool {
     let stem = name.split('.').next().unwrap_or_default();
     stem.split(['-', '_'])
         .any(|part| part.len() == 16 && part.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+/// What the app is told when Dex's connector API fails.
+fn provider_error(error: &crate::dex_api::DexApiError) -> message::LoginProviderError {
+    use crate::dex_api::DexApiError;
+    tracing::warn!(%error, "a call to Dex's connector API failed");
+    match error {
+        DexApiError::Refused(_) => message::LoginProviderError::Refused,
+        DexApiError::Unreachable(_) | DexApiError::Config(_) => {
+            message::LoginProviderError::Unreachable
+        }
+    }
+}
+
+/// `n` random bytes, hex.
+fn random_hex(n: usize) -> String {
+    let mut bytes = vec![0u8; n];
+    getrandom::fill(&mut bytes).expect("the operating system provides randomness");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 #[cfg(test)]

@@ -23,6 +23,8 @@
   h1, h2 { line-height: var(--ordo-font-line-height-heading); margin: 0 0 var(--ordo-space-4); }
   /* Long German compounds (Führungsstruktur) break with a hyphen on narrow screens. */
   h1, h2, h3 { hyphens: auto; overflow-wrap: break-word; }
+  /* Addresses and IDs (a redirect URI) break anywhere rather than widen the page. */
+  code { overflow-wrap: anywhere; }
   h1 { font-size: var(--ordo-font-size-6); }
   h2 { font-size: var(--ordo-font-size-5); }
   p { margin: 0 0 var(--ordo-space-4); }
@@ -595,7 +597,7 @@
     outline-offset: var(--ordo-component-focus-ring-offset);
   }
   label.button { display: inline-flex; align-items: center; }
-  .hint { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); margin: 0; }
+  .hint { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); margin: 0; overflow-wrap: anywhere; }
   .hint:empty { display: none; }
 
   .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(12rem, 100%), 1fr)); gap: var(--ordo-space-2) var(--ordo-space-4); margin: 0; }

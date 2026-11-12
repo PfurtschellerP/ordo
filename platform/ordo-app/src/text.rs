@@ -1458,6 +1458,102 @@ pub fn org_role_withdraw_label(role: &str, person: &str) -> String {
 }
 
 // Local accounts (ORG-10)
+// Upstream login providers (ORG-11, ADR-0063).
+pub const LOGIN_PROVIDERS: &str = "Anmeldung";
+pub const PROVIDERS_TITLE: &str = "Anmeldung über die Organisation";
+pub const PROVIDERS_INTRO: &str = "Verbinden Sie den Anmeldedienst Ihrer Organisation (OpenID Connect, z. B. Microsoft Entra ID, Keycloak, Authentik, Google). Er erscheint dann als eigene Schaltfläche auf der Anmeldeseite. Vor dem Speichern melden Sie sich einmal testweise darüber an.";
+pub const PROVIDERS_LOADING: &str = "Anbieter werden geladen …";
+pub const PROVIDERS_NOT_MANAGED: &str = "Dieser Server verwaltet keine Anmeldeanbieter (kein Zugang zur Schnittstelle des Anmeldedienstes). Anbieter stehen dann in dessen Konfiguration.";
+pub const PROVIDER_LOCAL: &str = "Lokale Konten dieses Servers";
+pub const PROVIDER_CHANGE: &str = "Ändern";
+pub const PROVIDER_DELETE: &str = "Entfernen";
+pub const PROVIDER_DELETE_CONFIRM: &str = "Ja, entfernen";
+pub const PROVIDER_NEW: &str = "Anbieter hinzufügen";
+pub const PROVIDER_NAME: &str = "Name auf der Anmeldeseite";
+pub const PROVIDER_NAME_HINT: &str = "z. B. „DRK-Konto“";
+pub const PROVIDER_ISSUER: &str = "Aussteller-URL (Issuer)";
+pub const PROVIDER_ISSUER_HINT: &str = "z. B. https://login.microsoftonline.com/<Mandant>/v2.0";
+pub const PROVIDER_CLIENT_ID: &str = "Client-ID";
+pub const PROVIDER_SECRET: &str = "Client-Secret";
+pub const PROVIDER_SECRET_HINT: &str =
+    "Wird an den Anmeldedienst übergeben und in ORDO nie wieder angezeigt.";
+pub const PROVIDER_SECRET_KEEP: &str = "Leer lassen, um das bisherige Secret zu behalten.";
+pub const PROVIDER_SKIP_EMAIL: &str =
+    "E-Mail-Adressen auch ohne Bestätigungsvermerk annehmen (z. B. bei Microsoft Entra ID)";
+pub const PROVIDER_REDIRECT: &str = "Beim Anbieter als Weiterleitungs-URI eintragen:";
+pub const PROVIDER_INVALID: &str =
+    "Bitte Name, Aussteller-URL (https://…), Client-ID und Client-Secret angeben.";
+pub const PROVIDER_TEST: &str = "Testanmeldung vorbereiten";
+pub const PROVIDER_TEST_TITLE: &str = "Testanmeldung";
+pub const PROVIDER_TEST_OPEN: &str = "Testanmeldung öffnen";
+pub const PROVIDER_TEST_HINT: &str = "Danach hierher zurückkehren: Das Ergebnis erscheint hier.";
+pub const PROVIDER_SAVE: &str = "Anbieter speichern";
+pub const PROVIDER_SAVED: &str = "Anbieter gespeichert.";
+pub const PROVIDER_REMOVED: &str = "Anbieter entfernt.";
+
+pub fn provider_kind(kind: &str) -> String {
+    format!("Aus der Konfiguration ({kind})")
+}
+
+pub fn provider_change_label(name: &str) -> String {
+    format!("{PROVIDER_CHANGE}: {name}")
+}
+
+pub fn provider_delete_label(name: &str) -> String {
+    format!("{PROVIDER_DELETE}: {name}")
+}
+
+pub fn provider_delete_question(name: &str) -> String {
+    format!("„{name}“ entfernen? Neue Anmeldungen darüber sind dann nicht mehr möglich.")
+}
+
+pub fn provider_change_title(name: &str) -> String {
+    format!("„{name}“ ändern")
+}
+
+pub fn provider_test_waiting(name: &str) -> String {
+    format!(
+        "Melden Sie sich in einem neuen Tab über „{name}“ an. Die Testanmeldung gilt 10 Minuten; so lange steht auf der Anmeldeseite zusätzlich „Test: {name}“."
+    )
+}
+
+pub fn provider_test_passed(user: &str, name: Option<&str>, email: Option<&str>) -> String {
+    let mut text = format!("Die Testanmeldung hat geklappt. ORDO würde sie als {user} erkennen");
+    match (name, email) {
+        (Some(n), Some(e)) => text.push_str(&format!(" (Name: {n}, E-Mail: {e})")),
+        (Some(n), None) => text.push_str(&format!(" (Name: {n})")),
+        (None, Some(e)) => text.push_str(&format!(" (E-Mail: {e})")),
+        (None, None) => {}
+    }
+    text.push('.');
+    text
+}
+
+pub fn provider_confirm(name: &str) -> String {
+    format!("Ich bestätige: Anmeldungen über „{name}“ werden für diesen Server angenommen.")
+}
+
+pub fn provider_test_failed(error: &str) -> String {
+    format!(
+        "Die Testanmeldung ist fehlgeschlagen: {error}. Bitte die Angaben prüfen und erneut testen."
+    )
+}
+
+pub fn provider_error(error: ordo_sync::message::LoginProviderError) -> &'static str {
+    use ordo_sync::message::LoginProviderError as E;
+    match error {
+        E::Invalid => PROVIDER_INVALID,
+        E::NotFound => {
+            "Diesen Anbieter gibt es nicht mehr, oder er lässt sich nur in der Konfiguration ändern."
+        }
+        E::NotTested => "Bitte zuerst erfolgreich testen; die Testanmeldung gilt 10 Minuten.",
+        E::Refused => {
+            "Der Anmeldedienst hat die Änderung abgelehnt. Ist seine Schnittstelle für Anbieter freigeschaltet (DEX_API_CONNECTORS_CRUD)?"
+        }
+        E::Unreachable => ACCOUNT_UNREACHABLE,
+    }
+}
+
 pub const ACCOUNTS: &str = "Konten";
 pub const ACCOUNTS_TITLE: &str = "Anmeldekonten";
 pub const ACCOUNTS_INTRO: &str = "Konten für die Anmeldung an diesem Server, z. B. für Helferinnen und Helfer ohne Konto der Organisation. Passwörter speichert nur der Anmeldedienst; ORDO kennt sie nicht.";

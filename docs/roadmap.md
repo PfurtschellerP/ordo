@@ -265,7 +265,9 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    done (m49). **A map region per incident** is done (m51, ADR-0062): the incident command
    cuts it on the incident's page, and only the devices of that incident read it, with a
    ticket from their sync connection.
-4. **Upstream login** configured in ORDO (item 4 of the list below).
+4. **Upstream login** configured in ORDO is done (m52,
+   [ADR-0063](adr/0063-upstream-login-configured-in-ordo.md)): administrators add
+   OpenID Connect providers in *Administration – Zugriff – Anmeldung*, after a test login.
 5. **Situation map:** editing on its own page with a toolbar (replaces the centre
    crosshair of ADR-0058; Terra Draw is the candidate), address search with an open
    geocoder at planning time (online, like the map download), other map types (aerial
@@ -325,14 +327,8 @@ Then:
    It found that a change then takes 1.5–2.1 s to reach the other tablet (80 ms in a
    small incident) and that the app's memory grows to about 50 MB: next are incremental
    projections on the device (see "Scaling" below). Later: the test on real tablets.
-4. Upstream login configured in ORDO: administrators connect the organisation's OpenID
-   Connect provider (Microsoft Entra ID, Keycloak, Authentik, Google, …) to Dex in the
-   app instead of editing `dex.yaml`, with a test login before it is saved. Builds on the
-   Dex API connection of ADR-0060: Dex's connector API (`CreateConnector`,
-   `UpdateConnector`, `DeleteConnector`, `ListConnectors`, enabled with
-   `additionalFeatures: [ConnectorsCRUD]`). Needs its own ADR: the ORDO server could then
-   redirect every login of the organisation, so the change needs a confirmation and is
-   logged; client secrets are written to Dex and never shown again.
+4. Upstream login configured in ORDO is done (m52, ADR-0063). Later: LDAP and SAML
+   providers in the app; a permission of its own instead of `manage_accounts`.
 5. Master data in an admin view instead of a file (ORG-1).
 6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).

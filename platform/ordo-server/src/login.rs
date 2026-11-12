@@ -111,12 +111,22 @@ type OidcClient<HasDeviceAuthUrl = EndpointSet> = openidconnect::Client<
 type Claims = IdTokenClaims<Groups, CoreGenderClaim>;
 
 struct PendingLogin {
-    device: DeviceId,
-    key: VerifyingKey,
-    name: Option<String>,
+    purpose: Purpose,
     verifier: PkceCodeVerifier,
     nonce: Nonce,
     started: Instant,
+}
+
+/// What a login is for.
+enum Purpose {
+    /// Pairs the device that sent its key (ORG-8: with its name).
+    Pair {
+        device: DeviceId,
+        key: Box<VerifyingKey>,
+        name: Option<String>,
+    },
+    /// A test login through a new or changed upstream provider (ORG-11), by its token.
+    Test(String),
 }
 
 #[derive(Clone)]
@@ -577,9 +587,11 @@ pub(crate) async fn start(State(app): State<Arc<App>>, Query(q): Query<LoginQuer
         pending.insert(
             state.secret().clone(),
             PendingLogin {
-                device,
-                key,
-                name: device_name(q.name.as_deref()),
+                purpose: Purpose::Pair {
+                    device,
+                    key: Box::new(key),
+                    name: device_name(q.name.as_deref()),
+                },
                 verifier,
                 nonce,
                 started: Instant::now(),
@@ -592,6 +604,62 @@ pub(crate) async fn start(State(app): State<Arc<App>>, Query(q): Query<LoginQuer
         login.secure_cookie()
     );
     ([(header::SET_COOKIE, cookie)], Redirect::to(url.as_str())).into_response()
+}
+
+// [impl->dsn~login-providers~1]
+/// `GET /auth/test/{token}`: starts the test login of a new or changed upstream provider
+/// at Dex, through its temporary connector (ADR-0063).
+pub(crate) async fn test(State(app): State<Arc<App>>, Path(token): Path<String>) -> Response {
+    let Some(login) = app.login.as_ref() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Some(connector) = app.login_tests.waiting(&token) else {
+        return page(&ordo_sync::message::LoginTestState::Waiting);
+    };
+    let client = match login.client().await {
+        Ok(client) => client,
+        Err(e) => return failed(&e),
+    };
+    let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
+    let mut request = client
+        .authorize_url(
+            CoreAuthenticationFlow::AuthorizationCode,
+            CsrfToken::new_random,
+            Nonce::new_random,
+        )
+        .add_extra_param("connector_id", connector);
+    for scope in ["profile", "email"] {
+        request = request.add_scope(Scope::new(scope.to_owned()));
+    }
+    let (url, state, nonce) = request.set_pkce_challenge(challenge).url();
+    {
+        let mut pending = login.pending.lock().expect("pending logins");
+        pending.retain(|_, p| p.started.elapsed() < PENDING_TTL);
+        pending.insert(
+            state.secret().clone(),
+            PendingLogin {
+                purpose: Purpose::Test(token),
+                verifier,
+                nonce,
+                started: Instant::now(),
+            },
+        );
+    }
+    let cookie = format!(
+        "{COOKIE}={}; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=600{}",
+        state.secret(),
+        login.secure_cookie()
+    );
+    ([(header::SET_COOKIE, cookie)], Redirect::to(url.as_str())).into_response()
+}
+
+/// The page shown in the browser tab of a test login.
+fn page(state: &ordo_sync::message::LoginTestState) -> Response {
+    (
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        crate::providers::test_page(state),
+    )
+        .into_response()
 }
 
 #[derive(Deserialize)]
@@ -640,11 +708,25 @@ pub(crate) async fn callback(
         return StatusCode::NOT_FOUND.into_response();
     };
     let clear = format!("{COOKIE}=; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=0");
+    // A test login's token, once its pending login is found: the result goes to the test.
+    let mut test = None::<String>;
     let result = async {
-        if let Some(error) = q.error {
-            return Err(LoginError::Token(error));
-        }
-        let (code, state) = q.code.zip(q.state).ok_or(LoginError::Invalid)?;
+        let (code, state) = match (q.code, q.state, q.error) {
+            (Some(code), Some(state), None) => (code, state),
+            (_, state, error) => {
+                // A failed test login still finds its test, to show the error there.
+                if let Some(state) = state
+                    && cookie(&headers).as_deref() == Some(state.as_str())
+                    && let Some(PendingLogin {
+                        purpose: Purpose::Test(token),
+                        ..
+                    }) = login.pending.lock().expect("pending logins").remove(&state)
+                {
+                    test = Some(token);
+                }
+                return Err(error.map_or(LoginError::Invalid, LoginError::Token));
+            }
+        };
         // The answer must come back to the browser that started the login.
         if cookie(&headers).as_deref() != Some(state.as_str()) {
             return Err(LoginError::Invalid);
@@ -656,6 +738,9 @@ pub(crate) async fn callback(
             .remove(&state)
             .filter(|p| p.started.elapsed() < PENDING_TTL)
             .ok_or(LoginError::Invalid)?;
+        if let Purpose::Test(token) = &pending.purpose {
+            test = Some(token.clone());
+        }
         let client = login.client().await?;
         let tokens = client
             .exchange_code(AuthorizationCode::new(code))
@@ -672,24 +757,57 @@ pub(crate) async fn callback(
                 return Err(LoginError::Token(e.to_string()));
             }
         };
-        finish(
-            &app,
-            &claims,
-            tokens.refresh_token(),
-            pending.device,
-            pending.key,
-            pending.name,
-        )
-        .await
+        match pending.purpose {
+            Purpose::Pair { device, key, name } => {
+                finish(&app, &claims, tokens.refresh_token(), device, *key, name)
+                    .await
+                    .map(Some)
+            }
+            // [impl->dsn~login-providers~1]
+            // A test: only the identity ORDO would take; no device, no stored login.
+            Purpose::Test(token) => {
+                let user = user_name(
+                    claims.preferred_username().map(|u| u.as_str()),
+                    claims.email().map(|e| e.as_str()),
+                );
+                let state = ordo_sync::message::LoginTestState::Passed {
+                    user: format!("{user}@{}", app.server),
+                    name: tidy_name(
+                        claims.name().and_then(|n| n.get(None)).map(|n| n.as_str()),
+                        MAX_PERSON_NAME,
+                    ),
+                    email: claims.email().map(|e| e.as_str().to_owned()),
+                };
+                tracing::info!(%user, "test login through a provider passed");
+                app.login_tests.finish(&token, state);
+                Ok(None)
+            }
+        }
     }
     .await;
-    match result {
-        Ok(user) => (
+    match (result, test) {
+        (Ok(Some(user)), _) => (
             [(header::SET_COOKIE, clear)],
             Redirect::to(&format!("/?paired={user}")),
         )
             .into_response(),
-        Err(e) => ([(header::SET_COOKIE, clear)], failed(&e)).into_response(),
+        (Ok(None), Some(token)) => {
+            let state = app
+                .login_tests
+                .state(&token)
+                .unwrap_or(ordo_sync::message::LoginTestState::Waiting);
+            ([(header::SET_COOKIE, clear)], page(&state)).into_response()
+        }
+        (Err(e), Some(token)) => {
+            tracing::warn!(error = %e, "test login through a provider failed");
+            let state = ordo_sync::message::LoginTestState::Failed(e.to_string());
+            app.login_tests.finish(&token, state.clone());
+            ([(header::SET_COOKIE, clear)], page(&state)).into_response()
+        }
+        (Ok(None), None) => {
+            ([(header::SET_COOKIE, clear)], failed(&LoginError::Invalid)).into_response()
+        }
+        (Err(e), None) => ([(header::SET_COOKIE, clear)], failed(&e)).into_response(),
     }
 }
 

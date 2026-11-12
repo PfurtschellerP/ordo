@@ -69,13 +69,18 @@ ORDO stores no passwords and talks only to the bundled Dex
 `dex.yaml`:
 
 - **Very small organisations: local accounts.** Administrators create, reset and delete
-  them in ORDO (*Organisation – Konten*); ORDO passes the change to Dex through its API
+  them in ORDO (*Administration – Zugriff – Konten*); ORDO passes the change to Dex through its API
   and keeps no passwords ([ADR-0060](../../../docs/adr/0060-local-accounts-managed-in-ordo.md)).
   Accounts written in `dex.yaml` (`staticPasswords`) still work but can only be changed
   there. Field servers keep local accounts for people who join on scene.
 - **Everyone else: your organisation's OpenID Connect provider** (Microsoft Entra ID,
-  Keycloak, Authentik, Google, …) as a Dex connector; see the commented example in
-  `dex.yaml.example`. Register Dex there with the redirect URI `https://<domain>/dex/callback`.
+  Keycloak, Authentik, Google, …) as a Dex connector. Administrators add it in ORDO
+  (*Administration – Zugriff – Anmeldung*): ORDO writes it to Dex after a test login
+  through it, and never shows the client secret again
+  ([ADR-0063](../../../docs/adr/0063-upstream-login-configured-in-ordo.md)); Dex needs
+  `DEX_API_CONNECTORS_CRUD=true`, as in `compose.yaml`. It can also be written into
+  `dex.yaml` (commented example in `dex.yaml.example`). Register Dex at the provider with
+  the redirect URI `https://<domain>/dex/callback`.
 
 The identity provider only says who someone is. Roles are given per incident in ORDO
 ([ADR-0046](../../../docs/adr/0046-roles-granted-per-incident.md)): the administrators in

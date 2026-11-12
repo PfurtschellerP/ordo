@@ -1,6 +1,7 @@
 //! Dex's gRPC API for local accounts (ORG-10, ADR-0060): list, create, reset and delete
-//! accounts, and revoke their renewal tokens. Dex authenticates only by TLS client
-//! certificates; `generate_certificates` makes the installation's CA and both certificates.
+//! accounts, and revoke their renewal tokens; and for connectors to upstream providers
+//! (ORG-11, ADR-0063). Dex authenticates only by TLS client certificates;
+//! `generate_certificates` makes the installation's CA and both certificates.
 //!
 //! The messages are the few needed from Dex's `api/v2/api.proto` (Apache-2.0), written as
 //! prost structs with the same field numbers, so the build needs no `protoc`.
@@ -140,6 +141,77 @@ struct RevokeRefreshReq {
 struct RevokeRefreshResp {
     #[prost(bool, tag = "1")]
     not_found: bool,
+}
+
+/// A connector to an upstream identity provider as Dex keeps it.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct Connector {
+    /// ID, e.g. `organisation`; part of every `sub` claim through it.
+    #[prost(string, tag = "1")]
+    pub id: String,
+    /// Kind, e.g. `oidc`, `ldap`, `local`.
+    #[prost(string, tag = "2")]
+    pub r#type: String,
+    /// The button text on Dex's login page.
+    #[prost(string, tag = "3")]
+    pub name: String,
+    /// The kind's configuration as JSON (for `oidc` with the client secret).
+    #[prost(bytes = "vec", tag = "4")]
+    pub config: Vec<u8>,
+    /// Allowed grant types; empty: all.
+    #[prost(string, repeated, tag = "5")]
+    pub grant_types: Vec<String>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct CreateConnectorReq {
+    #[prost(message, optional, tag = "1")]
+    connector: Option<Connector>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct CreateConnectorResp {
+    #[prost(bool, tag = "1")]
+    already_exists: bool,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct UpdateConnectorReq {
+    #[prost(string, tag = "1")]
+    id: String,
+    #[prost(string, tag = "2")]
+    new_type: String,
+    #[prost(string, tag = "3")]
+    new_name: String,
+    #[prost(bytes = "vec", tag = "4")]
+    new_config: Vec<u8>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct UpdateConnectorResp {
+    #[prost(bool, tag = "1")]
+    not_found: bool,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct DeleteConnectorReq {
+    #[prost(string, tag = "1")]
+    id: String,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct DeleteConnectorResp {
+    #[prost(bool, tag = "1")]
+    not_found: bool,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct ListConnectorReq {}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct ListConnectorResp {
+    #[prost(message, repeated, tag = "1")]
+    connectors: Vec<Connector>,
 }
 
 /// What went wrong with a call.
@@ -314,6 +386,71 @@ impl DexApi {
     }
 }
 
+// [impl->dsn~login-providers~1]
+impl DexApi {
+    /// All connectors, sorted by ID.
+    pub async fn connectors(&self) -> Result<Vec<Connector>, DexApiError> {
+        let resp: ListConnectorResp = self
+            .call("/api.Dex/ListConnectors", ListConnectorReq {})
+            .await?;
+        let mut list = resp.connectors;
+        list.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(list)
+    }
+
+    /// Creates a connector.
+    pub async fn create_connector(&self, connector: Connector) -> Result<Outcome, DexApiError> {
+        let resp: CreateConnectorResp = self
+            .call(
+                "/api.Dex/CreateConnector",
+                CreateConnectorReq {
+                    connector: Some(connector),
+                },
+            )
+            .await?;
+        Ok(if resp.already_exists {
+            Outcome::Exists
+        } else {
+            Outcome::Done
+        })
+    }
+
+    /// Replaces a connector's kind, name and configuration; its ID stays.
+    pub async fn update_connector(&self, connector: Connector) -> Result<Outcome, DexApiError> {
+        let resp: UpdateConnectorResp = self
+            .call(
+                "/api.Dex/UpdateConnector",
+                UpdateConnectorReq {
+                    id: connector.id,
+                    new_type: connector.r#type,
+                    new_name: connector.name,
+                    new_config: connector.config,
+                },
+            )
+            .await?;
+        Ok(if resp.not_found {
+            Outcome::NotFound
+        } else {
+            Outcome::Done
+        })
+    }
+
+    /// Deletes a connector.
+    pub async fn delete_connector(&self, id: &str) -> Result<Outcome, DexApiError> {
+        let resp: DeleteConnectorResp = self
+            .call(
+                "/api.Dex/DeleteConnector",
+                DeleteConnectorReq { id: id.to_owned() },
+            )
+            .await?;
+        Ok(if resp.not_found {
+            Outcome::NotFound
+        } else {
+            Outcome::Done
+        })
+    }
+}
+
 /// bcrypt hash of a password, as Dex stores it (cost 10, Dex's default).
 pub fn hash_password(password: &str) -> Result<Vec<u8>, DexApiError> {
     bcrypt::hash(password, 10)
@@ -424,6 +561,33 @@ mod tests {
         assert_eq!(bytes, [0x0a, 0x03, 0x0a, 0x01, b'a']);
         let resp = ListPasswordResp::decode(&[0x0a, 0x03, 0x22, 0x01, b'x'][..]).unwrap();
         assert_eq!(resp.passwords[0].user_id, "x", "user_id is field 4");
+        // [utest->dsn~login-providers~1]
+        // Connector { id: "o", type: "oidc" }: fields 1 and 2.
+        let bytes = CreateConnectorReq {
+            connector: Some(Connector {
+                id: "o".to_owned(),
+                r#type: "oidc".to_owned(),
+                ..Default::default()
+            }),
+        }
+        .encode_to_vec();
+        assert_eq!(
+            bytes,
+            [
+                0x0a, 0x09, 0x0a, 0x01, b'o', 0x12, 0x04, b'o', b'i', b'd', b'c'
+            ]
+        );
+        let update = UpdateConnectorReq {
+            id: "o".to_owned(),
+            new_config: b"{}".to_vec(),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert_eq!(
+            update,
+            [0x0a, 0x01, b'o', 0x22, 0x02, b'{', b'}'],
+            "config is field 4"
+        );
         // As Dex 2.46 issues it for a static test account (seen in a login).
         assert_eq!(
             local_subject("8f8a6a4e-2d4b-4b3a-9b1e-0a6a1d1e0001"),

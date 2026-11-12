@@ -92,6 +92,10 @@ pub struct Core {
     pub accounts: Option<ordo_sync::message::Accounts>,
     /// Answers about accounts so far (to tell a new answer from the last one).
     pub account_answers: u64,
+    /// The upstream login providers, as last reported (ORG-11; administrators only).
+    pub login_providers: Option<ordo_sync::message::LoginProviders>,
+    /// Answers about login providers so far.
+    pub provider_answers: u64,
     /// An incident being planned on this device (name), see [`Pairing::plan`].
     plan: Option<String>,
     /// Counts the server's welcomes: views that ask the server for lists ask again after
@@ -187,6 +191,8 @@ impl Core {
             organisation_roles: None,
             accounts: None,
             account_answers: 0,
+            login_providers: None,
+            provider_answers: 0,
             plan: pairing.plan.clone(),
             welcomes: 0,
             reconnect_now: false,
@@ -410,6 +416,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::OrganisationRoles(list) = &message {
                 c.organisation_roles = Some(list.clone());
+            }
+            if let ServerMessage::LoginProviders(providers) = &message {
+                c.login_providers = Some(providers.clone());
+                c.provider_answers += 1;
             }
             if let ServerMessage::Accounts(accounts) = &message {
                 c.accounts = Some(accounts.clone());
@@ -1083,6 +1093,13 @@ pub fn get_organisation_roles(core: Handle) {
 /// Asks for the local login accounts (ORG-10).
 pub fn get_accounts(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::GetAccounts));
+}
+
+// [impl->dsn~login-providers~1]
+/// Sends a login provider message (ORG-11): asks for the providers, tests, saves or
+/// deletes one.
+pub fn login_providers(core: Handle, message: ClientMessage) {
+    core.with_value(|c| c.send(&message));
 }
 
 /// Creates, resets or deletes a local login account (ORG-10).

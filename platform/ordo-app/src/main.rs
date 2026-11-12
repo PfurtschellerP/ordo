@@ -8,6 +8,7 @@ mod devices;
 mod images;
 mod incidents;
 mod log;
+mod login_providers;
 mod map_region;
 mod nav;
 mod notices;

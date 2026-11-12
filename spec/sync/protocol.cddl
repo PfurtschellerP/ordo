@@ -24,6 +24,10 @@ client-message = { "hello": hello }
                / { "setOrganisationRole": organisation-role-change } ; with manage_roles (1.2)
                / "getAccounts"                ; with manage_accounts (1.2)
                / { "changeAccount": account-change } ; with manage_accounts (1.2)
+               / "getLoginProviders"          ; with manage_accounts (1.2)
+               / { "testLoginProvider": login-provider-draft } ; with manage_accounts (1.2)
+               / { "saveLoginProvider": tstr } ; a passed test's token (1.2)
+               / { "deleteLoginProvider": tstr } ; a provider's ID (1.2)
                / "ping"                       ; is the line alive? (1.2)
 
 hello = {
@@ -76,6 +80,8 @@ server-message = { "challenge": challenge }
                                               ; getOrganisationRoles and setOrganisationRole
                                               ; (1.2); empty without manage_roles
                / { "accounts": accounts }     ; answer to getAccounts and changeAccount (1.2)
+               / { "loginProviders": login-providers } ; answer to the login provider
+                                              ; messages (1.2)
                / { "blobTicket": blob-ticket } ; answer to blobTicket
                / "pong"                       ; answer to ping (1.2)
 
@@ -133,6 +139,44 @@ accounts = {
   "managed": bool,                 ; false without manage_accounts or without Dex's API
   ? "list": [* account],
   ? "error": "invalid" / "passwordLength" / "exists" / "notFound" / "refused" / "unreachable",
+}
+
+; Upstream login providers (ORG-11, ADR-0063): OpenID Connect connectors of Dex, saved
+; only after a test login through them. Secrets are never sent to the device.
+login-provider-draft = {
+  ? "id": tstr,                    ; the provider being changed
+  "name": tstr,
+  "issuer": tstr,                  ; http(s) URL
+  "clientId": tstr,
+  ? "clientSecret": tstr,          ; none: keep the old one (changing only)
+  ? "skipEmailVerified": bool,
+}
+
+login-provider = {
+  "id": tstr,
+  "name": tstr,
+  "kind": tstr,                    ; e.g. "oidc", "local", "ldap"
+  ? "issuer": tstr,
+  ? "clientId": tstr,
+  ? "skipEmailVerified": bool,
+  "editable": bool,                ; OpenID Connect, not the local accounts
+}
+
+login-test-state = "waiting"
+                 / { "passed": { "user": tstr, ? "name": tstr, ? "email": tstr } }
+                 / { "failed": tstr }
+
+login-providers = {
+  "managed": bool,                 ; false without manage_accounts or without Dex's API
+  ? "redirectUri": tstr,           ; to register at a provider
+  ? "list": [* login-provider],
+  ? "test": {                      ; the user's running test login (10 minutes)
+    "token": tstr,
+    "url": tstr,                   ; /auth/test/<token>, to open in a new browser tab
+    "name": tstr,
+    "state": login-test-state,
+  },
+  ? "error": "invalid" / "notFound" / "notTested" / "refused" / "unreachable",
 }
 
 ; Attachments: encrypted on the device, named by the BLAKE3 hash of the ciphertext.

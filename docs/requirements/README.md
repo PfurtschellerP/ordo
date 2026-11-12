@@ -138,6 +138,7 @@ the build fails.
 | 49 — Workspaces by phase | `m49` | The incident command's pages grouped by phase with an overview first; administration apart from the incident (ADR-0061, UX-1) |
 | 50 — Spoken orders | `m50` | Orders given by voice, radio or phone recorded by the crew and confirmed by their giver; who ordered a documented medication only from an order (ADR-0053, ORDER-6, ORDER-7) |
 | 51 — Map region per incident | `m51` | Each incident has its own map region, cut by its incident command and read only by its devices with a ticket (ADR-0062, MAP-8) |
+| 52 — Upstream login providers | `m52` | Administrators connect the organisation's OpenID Connect providers to Dex in the app, after a test login (ADR-0063, ORG-11) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -146,5 +147,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52 docs platform modules packages tests
 ```

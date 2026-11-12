@@ -30,6 +30,7 @@ fn svg(name: &str) -> &'static str {
         "id-card",
         "key-round",
         "layout-grid",
+        "log-in",
         "map",
         "network",
         "notebook-text",

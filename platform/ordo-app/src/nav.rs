@@ -192,6 +192,16 @@ pub const WORKSPACES: &[Workspace] = &[
                 permission: Some("manage_devices"),
                 ..view("devices", text::DEVICES, "devices", "tablet-smartphone")
             },
+            // [impl->dsn~login-providers~1]
+            View {
+                permission: Some("manage_accounts"),
+                ..view(
+                    "login",
+                    text::LOGIN_PROVIDERS,
+                    "login providers single sign-on oidc entra keycloak",
+                    "log-in",
+                )
+            },
         ],
         hidden: false,
     },

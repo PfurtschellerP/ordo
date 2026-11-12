@@ -11,6 +11,7 @@ pub mod config;
 pub mod dex_api;
 mod login;
 mod map_region;
+mod providers;
 pub mod store;
 
 use std::net::SocketAddr;

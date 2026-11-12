@@ -665,7 +665,7 @@ Tags: should, m45
 `dsn~local-accounts~1`
 
 Administrators (organisation action `manage_accounts`) manage Dex's local accounts in the
-organisation workspace (*Konten*), see [ADR-0060](../adr/0060-local-accounts-managed-in-ordo.md).
+workspace *Administration – Zugriff* (*Konten*), see [ADR-0060](../adr/0060-local-accounts-managed-in-ordo.md).
 The app asks over the sync connection (`getAccounts`, `changeAccount`, answered with
 `accounts`); the server calls Dex's gRPC API (`ORDO_DEX_API`) with a TLS client
 certificate. Creating an account takes the e-mail address, the name and a first password;
@@ -684,6 +684,39 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: should, m46
+
+#### Login providers
+`dsn~login-providers~1`
+
+Administrators (organisation action `manage_accounts`) connect OpenID Connect providers in
+*Administration – Zugriff – Anmeldung*, see
+[ADR-0063](../adr/0063-upstream-login-configured-in-ordo.md). The app asks over the sync
+connection (`getLoginProviders`, `testLoginProvider`, `saveLoginProvider`,
+`deleteLoginProvider`, answered with `loginProviders`); the server calls Dex's connector API
+over the connection of *Local accounts*. The list holds Dex's connectors: OpenID Connect
+ones with name, issuer and client ID (never the secret), others only by name, not
+changeable. A test writes a temporary connector `ordo-test-<random>` with Dex's `oidc`
+configuration (issuer, client ID and secret, redirect URI `<Dex issuer>/callback`, scopes
+`openid profile email`, optionally `insecureSkipEmailVerified`) and answers with a link
+`/auth/test/<token>`. That link starts a login at Dex with `connector_id` set to the test
+connector; the callback reads the ID token, keeps the user ID ORDO would derive, the name
+and the e-mail address as the test's result, and shows a page saying the tab can be
+closed, without pairing a device. The app asks again until the result is there. Saving
+(after a confirmation) writes the tested configuration as the connector `<slug of the
+name>` (created, or updated in place when changing one), deletes the temporary one and
+logs who saved which provider; a change without a new secret takes the old one from Dex.
+Temporary connectors are deleted after 10 minutes and at start. Dex's defaults stay: at a
+real login Dex asks the provider for a renewal token (`prompt=consent`), so the provider
+may ask the person to agree; the test asks for none. Without `ORDO_DEX_API` the server
+answers that login providers are not managed here.
+
+Covers:
+
+* [req~org-11~1](../requirements/02-shared.md#org-11--upstream-login-providers)
+
+Needs: impl, utest, itest
+
+Tags: should, m52
 
 #### Field-near test
 `dsn~field-test~1`

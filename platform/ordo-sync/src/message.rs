@@ -48,6 +48,16 @@ pub enum ClientMessage {
     /// Creates, resets or deletes a local login account (permission `manage_accounts`);
     /// protocol 1.2.
     ChangeAccount(AccountChange),
+    /// Asks for the upstream login providers (ORG-11; permission `manage_accounts`); 1.2.
+    GetLoginProviders,
+    /// Starts a test login through a new or changed provider (permission
+    /// `manage_accounts`); protocol 1.2.
+    TestLoginProvider(LoginProviderDraft),
+    /// Saves the provider of a passed test login, named by its token (permission
+    /// `manage_accounts`); protocol 1.2.
+    SaveLoginProvider(String),
+    /// Deletes a provider, named by its ID (permission `manage_accounts`); protocol 1.2.
+    DeleteLoginProvider(String),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
     /// Asks the server to answer `pong`: the line is alive (protocol 1.2).
@@ -295,6 +305,122 @@ pub enum AccountError {
     Unreachable,
 }
 
+/// A new or changed OpenID Connect provider, to be tested (ORG-11, ADR-0063).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginProviderDraft {
+    /// The provider being changed; none for a new one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// The button text on the login page, e.g. "DRK-Konto".
+    pub name: String,
+    /// The provider's issuer URL.
+    pub issuer: String,
+    /// ORDO's client ID at the provider.
+    pub client_id: String,
+    /// The client secret; none when changing keeps the old one. Never sent back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+    /// Accept e-mail addresses the provider does not mark as verified (Entra ID).
+    #[serde(default)]
+    pub skip_email_verified: bool,
+}
+
+/// An upstream login provider as the identity provider keeps it (without its secret).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginProvider {
+    /// ID, e.g. `drk-konto`.
+    pub id: String,
+    /// The button text.
+    pub name: String,
+    /// Kind, e.g. `oidc`, `ldap`.
+    pub kind: String,
+    /// OpenID Connect: the issuer URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+    /// OpenID Connect: ORDO's client ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    /// OpenID Connect: unverified e-mail addresses are accepted.
+    #[serde(default)]
+    pub skip_email_verified: bool,
+    /// Whether ORDO may change it (OpenID Connect providers not from the configuration).
+    pub editable: bool,
+}
+
+/// How a test login went.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginTestState {
+    /// Waiting for the login in the browser.
+    Waiting,
+    /// Logged in: the identity ORDO would take.
+    Passed {
+        /// The ORDO user ID.
+        user: String,
+        /// The name from the provider.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        /// The e-mail address from the provider.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        email: Option<String>,
+    },
+    /// The login failed.
+    Failed(String),
+}
+
+/// A running test login.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginTest {
+    /// Names the test when saving.
+    pub token: String,
+    /// The page that starts the test login, to open in a new browser tab.
+    pub url: String,
+    /// The provider's name.
+    pub name: String,
+    /// How it went so far.
+    pub state: LoginTestState,
+}
+
+/// Why a change to a login provider was not made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginProviderError {
+    /// Name, issuer URL, client ID or secret missing or invalid.
+    Invalid,
+    /// No such provider, or it cannot be changed.
+    NotFound,
+    /// The test expired, failed or has not passed yet.
+    NotTested,
+    /// The identity provider refused (e.g. connectors cannot be changed through its API).
+    Refused,
+    /// The identity provider is not reachable.
+    Unreachable,
+}
+
+/// The upstream login providers (answer to `getLoginProviders`, `testLoginProvider`,
+/// `saveLoginProvider` and `deleteLoginProvider`).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginProviders {
+    /// Whether this server manages login providers (and the user may).
+    pub managed: bool,
+    /// The redirect URI to register at a provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
+    /// The providers, sorted by ID.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub list: Vec<LoginProvider>,
+    /// The user's running test login, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test: Option<LoginTest>,
+    /// Why the last change was not made, if it was not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<LoginProviderError>,
+}
+
 /// The local login accounts (answer to `getAccounts` and `changeAccount`).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Accounts {
@@ -447,6 +573,8 @@ pub enum ServerMessage {
     OrganisationRoles(Vec<OrganisationRole>),
     /// The local login accounts (answer to `getAccounts` and `changeAccount`, 1.2).
     Accounts(Accounts),
+    /// The upstream login providers (answer to the login provider messages, 1.2).
+    LoginProviders(LoginProviders),
     /// Answer to `blobTicket`.
     BlobTicket(BlobTicket),
     /// Answer to `ping` (protocol 1.2).

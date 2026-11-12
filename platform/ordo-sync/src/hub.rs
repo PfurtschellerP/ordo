@@ -615,6 +615,10 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::SetOrganisationRole(_)
             | ClientMessage::GetAccounts
             | ClientMessage::ChangeAccount(_)
+            | ClientMessage::GetLoginProviders
+            | ClientMessage::TestLoginProvider(_)
+            | ClientMessage::SaveLoginProvider(_)
+            | ClientMessage::DeleteLoginProvider(_)
             | ClientMessage::BlobTicket(_)
             | ClientMessage::GetMapRegion(_)
             | ClientMessage::CutMapRegion(_)
