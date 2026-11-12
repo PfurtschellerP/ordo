@@ -1,5 +1,6 @@
 //! Module `med.orders`: medical orders (*Anordnungen*) given by physicians and paramedics
-//! and carried out by the crew (ORDER-1, ORDER-2, ORDER-4).
+//! and carried out by the crew (ORDER-1, ORDER-2, ORDER-4), and orders given by voice,
+//! radio or phone, recorded by the crew and confirmed later by their giver (ORDER-6).
 //!
 //! ORDO records what was ordered, by whom, and what happened to it. It never proposes,
 //! checks or calculates a medication, dose or measure (EPCR-9). Who may give an order is
@@ -22,6 +23,12 @@ pub const COMPARTMENT: &str = "med.clinical";
 pub const GIVEN: &str = "orders.given";
 /// Event type: an order was acknowledged, done or withdrawn.
 pub const UPDATED: &str = "orders.updated";
+/// Event type: a crew member recorded an order given by voice, radio, phone or
+/// telemedicine (ORDER-6). Every role that writes clinical data may write it.
+pub const RECORDED: &str = "orders.recorded";
+/// Event type: the person who gave a recorded order confirmed it. Only roles the policies
+/// allow to give orders may write it.
+pub const CONFIRMED: &str = "orders.confirmed";
 
 /// Profile settings (`med/orders.toml`): the routes a medication order can name, and
 /// where a done medication order is documented.
@@ -56,7 +63,7 @@ pub struct RecordFields {
 }
 
 impl OrderCatalogue {
-    // [impl->dsn~order-documentation~2]
+    // [impl->dsn~order-documentation~3]
     /// Checks `record` against the ePCR forms: a series form whose fields exist with
     /// fitting types, and whose route field offers every route of the catalogue.
     pub fn check_record(&self, forms: &FormCatalogue) -> Result<(), String> {
@@ -102,7 +109,7 @@ impl OrderCatalogue {
         Ok(())
     }
 
-    // [impl->dsn~order-documentation~2]
+    // [impl->dsn~order-documentation~3]
     /// The values a new entry of the record form starts with for a done medication order:
     /// substance, dose and unit (when the ordered dose is a number followed by a unit of
     /// the form, else left empty), route, who ordered and who gives it. `None` for a
@@ -245,6 +252,88 @@ impl OrderGiven {
     }
 }
 
+/// How a recorded order reached the crew.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Channel {
+    /// Spoken on scene, e.g. by the physician at the stretcher.
+    InPerson,
+    /// By radio.
+    Radio,
+    /// By phone.
+    Phone,
+    /// By a tele-emergency physician (*Telenotarzt*).
+    Telemedicine,
+}
+
+impl Channel {
+    /// Every channel, in the order the app offers them.
+    pub const ALL: [Self; 4] = [Self::InPerson, Self::Radio, Self::Phone, Self::Telemedicine];
+}
+
+/// Payload of `orders.recorded` (ORDER-6): the same content as [`OrderGiven`] plus who gave
+/// the order, how, and whether it was read back. The author is the person who recorded it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderRecorded {
+    /// New order ID (a ULID).
+    pub order: String,
+    /// Number of the triage tag.
+    pub tag: String,
+    /// What is ordered.
+    pub ordered: Ordered,
+    /// Optional note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// Who gave it: a user ID of the incident, or a name as typed, e.g. "Telenotarzt Dr. M.".
+    pub ordered_by: String,
+    /// How it reached the crew.
+    pub channel: Channel,
+    /// Whether it was repeated back and confirmed (closed-loop communication).
+    pub read_back: bool,
+}
+
+impl OrderRecorded {
+    /// The order's content, as if given in ORDO.
+    pub fn content(&self) -> OrderGiven {
+        OrderGiven {
+            order: self.order.clone(),
+            tag: self.tag.clone(),
+            ordered: self.ordered.clone(),
+            note: self.note.clone(),
+        }
+    }
+
+    /// Checks a recorded order for completeness: the content as for a given order, and who
+    /// gave it.
+    pub fn check(&self, catalogue: &OrderCatalogue) -> Result<(), OrderError> {
+        self.content().check(catalogue)?;
+        if self.ordered_by.trim().is_empty() {
+            return Err(OrderError::Missing("ordered by"));
+        }
+        Ok(())
+    }
+
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// Payload of `orders.confirmed`: the person who gave a recorded order confirms it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrderConfirmed {
+    /// The recorded order.
+    pub order: String,
+}
+
+impl OrderConfirmed {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
 /// Status of an order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -320,22 +409,60 @@ impl OrderStep {
     }
 }
 
+/// A confirmation: who and when.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Confirmation {
+    /// When.
+    pub at: Hlc,
+    /// Who confirmed it.
+    pub by: UserId,
+}
+
+/// What a recorded order adds: who gave it, how, and the confirmation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Spoken {
+    /// Who gave it, as recorded: a user ID or a name.
+    pub ordered_by: String,
+    /// How it reached the crew.
+    pub channel: Channel,
+    /// Whether it was read back.
+    pub read_back: bool,
+    /// The first confirmation, if any.
+    pub confirmed: Option<Confirmation>,
+}
+
 /// An order with its current status.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Order {
-    /// The order as given.
+    /// The order's content.
     pub given: OrderGiven,
     /// Current status (of the latest update).
     pub status: OrderStatus,
     /// Every change, oldest first; the first is the order itself, with the person who
-    /// gave it.
+    /// wrote it.
     pub history: Vec<OrderStep>,
+    /// For an order recorded by the crew: who gave it, how, and its confirmation.
+    pub spoken: Option<Spoken>,
 }
 
 impl Order {
-    /// Who gave the order.
+    /// Who wrote the order into ORDO: who gave it, or who recorded a spoken one.
     pub fn by(&self) -> &UserId {
         &self.history[0].by
+    }
+
+    // [impl->dsn~recorded-orders~1]
+    /// Who gave the order: the author of a given order (checked by the server), or the
+    /// person named in a recorded one.
+    pub fn giver(&self) -> String {
+        self.spoken
+            .as_ref()
+            .map_or_else(|| self.by().to_string(), |s| s.ordered_by.clone())
+    }
+
+    /// Whether this is a recorded order its giver has not confirmed yet.
+    pub fn unconfirmed(&self) -> bool {
+        self.spoken.as_ref().is_some_and(|s| s.confirmed.is_none())
     }
 
     /// When it was given.
@@ -361,18 +488,32 @@ pub struct OrderBook {
 
 impl OrderBook {
     // [impl->dsn~medical-orders~2]
+    // [impl->dsn~recorded-orders~1]
     /// Computes the book. The result doesn't depend on the order of `events`: an order
-    /// given twice keeps its first version, updates apply in clock order and the latest
-    /// sets the status, updates of unknown orders are ignored.
+    /// given or recorded twice keeps its first version, updates apply in clock order and
+    /// the latest sets the status, updates of unknown orders are ignored. A recorded order
+    /// keeps its first confirmation; confirmations of given orders are ignored.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
-        let mut given: Vec<(Hlc, UserId, OrderGiven)> = Vec::new();
+        let mut given: Vec<(Hlc, UserId, OrderGiven, Option<Spoken>)> = Vec::new();
         let mut updates: Vec<(Hlc, UserId, OrderUpdated)> = Vec::new();
+        let mut confirmations: Vec<(Hlc, UserId, OrderConfirmed)> = Vec::new();
         for e in events.iter().filter(|e| e.body.module.as_str() == MODULE) {
             let (at, by) = (e.body.hlc, e.body.author.user.clone());
             match e.body.event_type.as_str() {
                 GIVEN => {
                     if let Ok(g) = codec::from_cbor(&e.payload) {
-                        given.push((at, by, g));
+                        given.push((at, by, g, None));
+                    }
+                }
+                RECORDED => {
+                    if let Ok(r) = codec::from_cbor::<OrderRecorded>(&e.payload) {
+                        let spoken = Spoken {
+                            ordered_by: r.ordered_by.clone(),
+                            channel: r.channel,
+                            read_back: r.read_back,
+                            confirmed: None,
+                        };
+                        given.push((at, by, r.content(), Some(spoken)));
                     }
                 }
                 UPDATED => {
@@ -380,13 +521,19 @@ impl OrderBook {
                         updates.push((at, by, u));
                     }
                 }
+                CONFIRMED => {
+                    if let Ok(c) = codec::from_cbor(&e.payload) {
+                        confirmations.push((at, by, c));
+                    }
+                }
                 _ => {}
             }
         }
-        given.sort_by_key(|(at, _, _)| *at);
+        given.sort_by_key(|(at, ..)| *at);
         updates.sort_by_key(|(at, _, _)| *at);
+        confirmations.sort_by_key(|(at, _, _)| *at);
         let mut orders = BTreeMap::new();
-        for (at, by, g) in given {
+        for (at, by, g, spoken) in given {
             orders.entry(g.order.clone()).or_insert_with(|| Order {
                 given: g,
                 status: OrderStatus::Given,
@@ -396,7 +543,19 @@ impl OrderBook {
                     by,
                     performed_by: None,
                 }],
+                spoken,
             });
+        }
+        for (at, by, c) in confirmations {
+            let Some(order) = orders.get_mut(&c.order) else {
+                continue;
+            };
+            let after = at > order.at();
+            if let Some(spoken) = order.spoken.as_mut().filter(|s| s.confirmed.is_none())
+                && after
+            {
+                spoken.confirmed = Some(Confirmation { at, by });
+            }
         }
         for (at, by, u) in updates {
             let Some(order) = orders.get_mut(&u.order) else {
@@ -428,6 +587,14 @@ impl OrderBook {
             .collect();
         open.sort_by_key(|o| o.at());
         open
+    }
+
+    /// Recorded orders not yet confirmed by their giver, except withdrawn ones.
+    pub fn unconfirmed(&self) -> usize {
+        self.orders
+            .values()
+            .filter(|o| o.unconfirmed() && o.status != OrderStatus::Withdrawn)
+            .count()
     }
 
     /// The orders of one patient: open ones first, each group oldest first.
@@ -473,7 +640,7 @@ mod tests {
         toml::from_str(text).expect("valid order settings")
     }
 
-    // [utest->dsn~order-documentation~2]
+    // [utest->dsn~order-documentation~3]
     #[test]
     fn a_done_medication_order_prefills_the_record_form_of_the_profile() {
         let (orders, forms) = de();
@@ -518,7 +685,7 @@ mod tests {
         assert!(orders.documentation(&measure, "p", "a", &forms).is_none());
     }
 
-    // [utest->dsn~order-documentation~2]
+    // [utest->dsn~order-documentation~3]
     #[test]
     fn the_record_mapping_must_fit_the_forms() {
         let (mut orders, forms) = de();
@@ -677,6 +844,104 @@ mod tests {
             .collect();
         assert_eq!(de1, vec!["old", "done"], "open first");
         assert!(!book.orders.contains_key("unknown"));
+    }
+
+    fn recorded(n: u64, user: &str, order: &str, ordered_by: &str) -> AppliedEvent {
+        let r = OrderRecorded {
+            order: order.into(),
+            tag: "DE-1".into(),
+            ordered: medication(order, "DE-1").ordered,
+            note: None,
+            ordered_by: ordered_by.into(),
+            channel: Channel::Radio,
+            read_back: true,
+        };
+        event(n, user, RECORDED, r.encode().unwrap())
+    }
+
+    fn confirmed(n: u64, user: &str, order: &str) -> AppliedEvent {
+        let c = OrderConfirmed {
+            order: order.into(),
+        };
+        event(n, user, CONFIRMED, c.encode().unwrap())
+    }
+
+    // [utest->dsn~recorded-orders~1]
+    #[test]
+    fn a_spoken_order_names_its_giver_apart_from_who_recorded_it_until_confirmed() {
+        // Anna records a radio order of Petra's, Petra confirms it later.
+        let mut events = vec![
+            confirmed(1, "petra", "o1"),
+            recorded(2, "anna", "o1", "petra@ordo.example.org"),
+            update(3, "anna", "o1", OrderStatus::Done),
+        ];
+        let book = OrderBook::from_events(&events);
+        let order = &book.orders["o1"];
+        assert_eq!(
+            order.by().as_str(),
+            "anna@ordo.example.org",
+            "who recorded it"
+        );
+        assert_eq!(order.giver(), "petra@ordo.example.org", "who gave it");
+        let spoken = order.spoken.as_ref().expect("recorded");
+        assert_eq!((spoken.channel, spoken.read_back), (Channel::Radio, true));
+        assert!(
+            order.unconfirmed(),
+            "a confirmation before the order counts not"
+        );
+        assert_eq!(book.unconfirmed(), 1, "done, still unconfirmed");
+        assert_eq!(order.status, OrderStatus::Done, "it follows the same steps");
+
+        events.push(confirmed(5, "eva", "o1"));
+        events.push(confirmed(4, "petra", "o1"));
+        events.reverse();
+        let book = OrderBook::from_events(&events);
+        let confirmation = book.orders["o1"]
+            .spoken
+            .as_ref()
+            .and_then(|s| s.confirmed.clone())
+            .expect("confirmed");
+        assert_eq!(
+            confirmation.by.as_str(),
+            "petra@ordo.example.org",
+            "the first confirmation counts"
+        );
+        assert_eq!(book.unconfirmed(), 0);
+
+        // A name outside ORDO is kept as typed; a given order needs no confirmation.
+        let book = OrderBook::from_events(&[
+            recorded(1, "anna", "o2", "Telenotarzt Dr. M."),
+            given(2, "o3", "DE-1"),
+            confirmed(3, "petra", "o3"),
+            recorded(4, "anna", "o4", "Dr. N."),
+            update(5, "anna", "o4", OrderStatus::Withdrawn),
+        ]);
+        assert_eq!(book.orders["o2"].giver(), "Telenotarzt Dr. M.");
+        assert_eq!(book.orders["o3"].giver(), "petra@ordo.example.org");
+        assert!(book.orders["o3"].spoken.is_none() && !book.orders["o3"].unconfirmed());
+        assert_eq!(book.unconfirmed(), 1, "withdrawn ones are not counted");
+        assert_eq!(book.open().len(), 2, "recorded orders are open orders");
+
+        // Who gave it must be named.
+        let mut r = OrderRecorded {
+            order: "o".into(),
+            tag: "DE-1".into(),
+            ordered: medication("o", "DE-1").ordered,
+            note: None,
+            ordered_by: " ".into(),
+            channel: Channel::Phone,
+            read_back: false,
+        };
+        assert_eq!(
+            r.check(&catalogue()),
+            Err(OrderError::Missing("ordered by"))
+        );
+        r.ordered_by = "Dr. M.".into();
+        assert_eq!(r.check(&catalogue()), Ok(()));
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["orderedBy"], "Dr. M.");
+        assert_eq!(json["channel"], "phone");
+        assert_eq!(json["readBack"], false);
     }
 
     // [utest->dsn~medical-orders~2]

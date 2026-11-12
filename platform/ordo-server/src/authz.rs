@@ -718,6 +718,34 @@ mod tests {
         }
     }
 
+    // [utest->dsn~recorded-orders~1]
+    #[test]
+    fn the_crew_records_spoken_orders_only_those_who_give_orders_confirm_them() {
+        let p = policy(&[]).expect("valid");
+        let (incident, clinical) = (incident(), compartment("med.clinical"));
+        let write = |roles: &[&str], event_type: &str| {
+            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            p.can_write(
+                &user("erik"),
+                &incident,
+                &clinical,
+                "med.orders",
+                event_type,
+                &roles,
+            )
+        };
+        for role in ["medic", "paramedic", "physician"] {
+            assert!(write(&[role], "orders.recorded"), "{role} records");
+        }
+        assert!(
+            !write(&["medic"], "orders.confirmed"),
+            "a medic confirms none"
+        );
+        assert!(write(&["physician"], "orders.confirmed"));
+        assert!(write(&["paramedic"], "orders.confirmed"));
+        assert!(!write(&[], "orders.recorded"));
+    }
+
     // [utest->dsn~organisation-roles~1]
     #[test]
     fn granted_organisation_roles_count_until_their_end_and_fixed_ones_stay() {

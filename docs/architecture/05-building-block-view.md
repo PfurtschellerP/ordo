@@ -771,7 +771,8 @@ A form field that names a member of the crew is, in the profile's questionnaire,
 `reference` item limited to `Practitioner` (extension `questionnaire-referenceResource`,
 [subset](../../spec/profiles/questionnaire-subset.md)); the DE forms mark "Durchgeführt
 von", "Angeordnet durch" and "Verabreicht durch" so. The answer stays text, as typed or
-chosen. Such a field suggests the people on the incident's roster, the person using the
+chosen; only who ordered a medication is not typed but taken from the order (design item
+*Order documentation*). Such a field suggests the people on the incident's roster, the person using the
 device first: data every participant's device already has. Granting a role suggests the
 people the installation knows (with a paired device or a role in any incident): the device
 asks the server (`listPeople`), which answers only those who may grant roles somewhere and

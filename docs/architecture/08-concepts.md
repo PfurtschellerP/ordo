@@ -984,7 +984,7 @@ Needs: impl, utest, itest
 Tags: must, m15
 
 #### Order documentation
-`dsn~order-documentation~2`
+`dsn~order-documentation~3`
 
 The profile file `med/orders.toml` names, in `[record]`, the series form of the ePCR
 forms where an administration is documented and which of its fields take the substance,
@@ -994,17 +994,56 @@ of the order catalogue is an option of the form's route field, so the two catalo
 cannot drift apart. A done medication order on the record offers "In Dokumentation
 übernehmen": it opens a new entry of that form, filled in with the substance, the dose
 (split into number and unit when the ordered dose is a number followed by a unit of the
-form, otherwise left for the crew), the route, the person who gave the order, the person
-who carried it out (not the person using the device) and the time it was reported done. The crew checks, completes and saves it like any
-entry; ORDO saves nothing on its own and converts no dose.
+form, otherwise left for the crew), the route, the person who gave the order (for a
+spoken order the person named, see *Recorded orders*), the person who carried it out (not
+the person using the device) and the time it was reported done. The crew checks, completes
+and saves it like any entry; ORDO saves nothing on its own and converts no dose.
+
+The entry keeps the order's ID (`order` in `epcr.entryRecorded`, schema version 2), and a
+correction keeps it too. The field for who ordered is read-only: it is filled only from the
+order, and a new entry without an order leaves it empty. The record shows who ordered from
+the linked order (its author, whose role the server checked, or the giver named in a
+recorded order) with the order's time; a name in that field without an order, from older
+entries, is marked "ohne Anordnung in ORDO". The server cannot read the entry, so this is
+the app's rule; the link makes a mismatch visible.
 
 Covers:
 
 * [req~order-5~2](../requirements/04-med.md#order-5--document-a-done-medication-order)
+* [req~order-7~1](../requirements/04-med.md#order-7--who-ordered-comes-from-the-order)
 
 Needs: impl, utest, itest
 
-Tags: should, m21
+Tags: should, m21, m50
+
+#### Recorded orders
+`dsn~recorded-orders~1`
+
+An order given by voice, radio, phone or telemedicine is recorded by the crew as
+`orders.recorded` ([ADR-0053](../adr/0053-verbal-orders.md)): the same content as
+`orders.given` plus `orderedBy` (a user ID of the incident or a name as typed, e.g.
+"Telenotarzt Dr. M."), `channel` (`inPerson`, `radio`, `phone`, `telemedicine`) and
+`readBack` (repeated back and confirmed). Every role that writes `med.clinical` may write
+it; its author is the person who recorded it. It then follows the same steps as a given
+order and is listed with the open orders. `orders.confirmed` (order ID) confirms it; the
+Med policies accept it only from `physician` or `paramedic`, like `orders.given`. The first
+confirmation after the order counts; confirmations of given orders are ignored. The record's
+order form offers "Mündlich, per Funk oder Telefon angeordnet" next to "Ich ordne an" to
+those who give orders, and only the first to the rest of the crew. The order card shows who
+gave it, how and whether it was read back, apart from who recorded it, and "Noch nicht
+bestätigt" until confirmed. The app offers "Bestätigen" to the person named, when that is
+their user ID and their roles give orders. The UHS overview counts the unconfirmed ones.
+The server cannot check that the confirmer is the person named (it does not read the
+payload); the record shows both names. ORDO never judges whether an order was permitted,
+needed or correct (EPCR-9).
+
+Covers:
+
+* [req~order-6~1](../requirements/04-med.md#order-6--record-spoken-orders)
+
+Needs: impl, utest, itest
+
+Tags: must, m50
 
 #### Order permission
 `dsn~order-permission~1`

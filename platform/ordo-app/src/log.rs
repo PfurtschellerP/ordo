@@ -79,6 +79,11 @@ impl Context {
                         c.orders.insert(p.order, p.tag);
                     }
                 }
+                med::orders::RECORDED => {
+                    if let Some(p) = decode::<med::orders::OrderRecorded>(e) {
+                        c.orders.insert(p.order, p.tag);
+                    }
+                }
                 med::transport::REQUESTED => {
                     if let Some(p) = decode::<med::transport::TransportRequested>(e) {
                         c.transports.insert(p.request, (p.transport_type, p.uhs));
@@ -269,6 +274,13 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
             }
             med::orders::GIVEN => {
                 text::order_given(&decode::<med::orders::OrderGiven>(e)?.tag).into()
+            }
+            med::orders::RECORDED => {
+                text::order_recorded(&decode::<med::orders::OrderRecorded>(e)?.tag).into()
+            }
+            med::orders::CONFIRMED => {
+                let p = decode::<med::orders::OrderConfirmed>(e)?;
+                text::log_order_confirmed(Context::name(&c.orders, &p.order)).into()
             }
             med::orders::UPDATED => {
                 let p = decode::<med::orders::OrderUpdated>(e)?;

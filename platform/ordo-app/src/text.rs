@@ -687,6 +687,71 @@ pub fn order_status_performed(status: &str, person: &str) -> String {
     format!("{status} (durch {person})")
 }
 
+// Spoken orders, recorded by the crew and confirmed by their giver (ORDER-6), and who
+// ordered a documented medication (ORDER-7).
+pub const ORDER_WHO: &str = "Wer ordnet an?";
+pub const ORDER_MINE: &str = "Ich ordne an";
+pub const ORDER_SPOKEN: &str = "Mündlich, per Funk oder Telefon angeordnet";
+pub const ORDER_ORDERED_BY: &str = "Angeordnet von";
+pub const ORDER_CHANNEL: &str = "Übermittelt";
+pub const ORDER_READ_BACK: &str = "Wiederholt und bestätigt (Closed Loop)";
+pub const ORDER_RECORD: &str = "Anordnung erfassen";
+pub const ORDER_SPOKEN_HINT: &str =
+    "Wer angeordnet hat, bestätigt die Anordnung später in ORDO, sofern er oder sie ORDO nutzt.";
+pub const ORDER_UNCONFIRMED: &str = "Noch nicht bestätigt";
+pub const ORDER_CONFIRM: &str = "Bestätigen";
+pub const ORDER_CONFIRMED_SAID: &str = "Anordnung bestätigt";
+pub const ORDERED_BY_FROM_ORDER: &str =
+    "Wird aus der Anordnung übernommen. Mündliche Anordnungen zuerst unter „Anordnungen“ erfassen.";
+pub const ORDERED_BY_NO_ORDER: &str = "ohne Anordnung in ORDO";
+
+pub fn order_channel(channel: ordo_med_patients::orders::Channel) -> &'static str {
+    use ordo_med_patients::orders::Channel as C;
+    match channel {
+        C::InPerson => "persönlich",
+        C::Radio => "per Funk",
+        C::Phone => "per Telefon",
+        C::Telemedicine => "per Telemedizin",
+    }
+}
+
+pub fn order_recorded(tag: &str) -> String {
+    format!("{tag}: Mündliche Anordnung erfasst")
+}
+
+/// "Mündlich angeordnet von Petra Schulz, per Funk, wiederholt und bestätigt"
+pub fn order_spoken(giver: &str, channel: &str, read_back: bool) -> String {
+    let read_back = if read_back {
+        "wiederholt und bestätigt"
+    } else {
+        "nicht wiederholt"
+    };
+    format!("Mündlich angeordnet von {giver}, {channel}, {read_back}")
+}
+
+/// "Erfasst 10:12 von Anna Becker"
+pub fn order_recorded_by(at: &str, by: &str) -> String {
+    format!("Erfasst {at} von {by}")
+}
+
+/// "Bestätigt 10:20 von Petra Schulz"
+pub fn order_confirmed(at: &str, by: &str) -> String {
+    format!("Bestätigt {at} von {by}")
+}
+
+pub fn order_confirm_label(what: &str) -> String {
+    format!("Anordnung bestätigen: {what}")
+}
+
+pub fn log_order_confirmed(tag: &str) -> String {
+    format!("{tag}: Mündliche Anordnung bestätigt")
+}
+
+/// Who ordered a documented medication, taken from its order: "Petra Schulz (Anordnung 10:12)"
+pub fn ordered_by_order(giver: &str, at: &str) -> String {
+    format!("{giver} (Anordnung {at})")
+}
+
 // Admission and discharge (UHS-3).
 pub const STAY_TITLE: &str = "Patientenweg";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
@@ -799,8 +864,13 @@ pub fn document_order_label(what: &str) -> String {
 pub const OVERVIEW: &str = "Übersicht";
 pub const OVERVIEW_TITLE: &str = "Übersicht der UHS";
 
-pub fn open_orders(n: usize) -> String {
-    format!("Offene Anordnungen: {n}")
+/// "Offene Anordnungen: 3 (1 nicht bestätigt)"
+pub fn open_orders(n: usize, unconfirmed: usize) -> String {
+    if unconfirmed == 0 {
+        format!("Offene Anordnungen: {n}")
+    } else {
+        format!("Offene Anordnungen: {n} ({unconfirmed} nicht bestätigt)")
+    }
 }
 
 pub fn transports_count(open: usize, planned: usize) -> String {

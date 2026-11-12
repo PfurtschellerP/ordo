@@ -61,6 +61,17 @@ forbid (
 when { context.event_type == "orders.given" }
 unless { context.roles.contains("physician") || context.roles.contains("paramedic") };
 
+// A spoken order recorded by the crew (orders.recorded) is confirmed only by those who give
+// orders (ORDER-6); every crew role records one.
+@id("med.orders-confirmed-by-physicians-and-paramedics")
+forbid (
+  principal,
+  action == Action::"write",
+  resource == Compartment::"med.clinical"
+)
+when { context.event_type == "orders.confirmed" }
+unless { context.roles.contains("physician") || context.roles.contains("paramedic") };
+
 // The app offers the order form to them.
 @id("med.give-orders")
 permit (

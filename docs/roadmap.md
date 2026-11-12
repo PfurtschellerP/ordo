@@ -219,10 +219,9 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   eHealth once an organisation's agreement covers it; a hospital list kept by the
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
-- **Orders, next steps:** substances from the medication catalogue (below); orders given
-  by voice or radio recorded by the crew with who gave them, how, and whether they were
-  read back, confirmed later ([ADR-0053](adr/0053-verbal-orders.md), proposed: to be
-  confirmed by practitioners and the medical director).
+- **Orders, next steps:** substances from the medication catalogue (below); the fields
+  and the confirmation of spoken orders ([ADR-0053](adr/0053-verbal-orders.md)) checked
+  with practitioners and a medical director (ÄLRD).
 - **Triage references, next step:** a local copy of the official charts for offline use,
   once the rights are clear (open question 9).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances
@@ -279,9 +278,10 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 
-7. **Orders only by those who give them:** the medication entry's "ordered by" is a free
-   field, so anyone documenting can name any physician; it shall come from a real order,
-   or from a spoken order confirmed later by its giver (ADR-0053).
+7. **Orders only by those who give them** is done (m50, ADR-0053): the crew records an
+   order given by voice, radio or phone with who gave it, how and whether it was read back;
+   its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
+   documented medication keeps its order, and "Angeordnet durch" is filled only from it.
 8. **Patient record (profile):** a working, suspected or confirmed diagnosis (passed on
    with the transport only to those who carry the patient), "other" with free text for
    breathing and skin, choices for the pupils (isocoric/anisocoric, size, reaction to

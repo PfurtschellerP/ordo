@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-10
+status: accepted
+date: 2026-11-12
 ---
 
 # Orders given by voice or radio are recorded by the crew and confirmed later
@@ -28,7 +28,9 @@ decides on the author's roles and the event type only.
 
 ## Decision Outcome
 
-Proposed option: the second one.
+Chosen option: the second one, decided on 2026-11-12 with the product owner after a
+practitioner's test of the demo: anyone documenting a medication could type any physician
+as "Angeordnet durch", so documented orders did not show who really gave them.
 
 * **`orders.recorded`** (module `med.orders`, compartment `med.clinical`): the same
   content as `orders.given` (what, for which patient, note) plus `ordered_by` (a person
@@ -47,12 +49,16 @@ Proposed option: the second one.
   payload; the record shows both names, so a mismatch is visible.
 * `orders.given` and its rule stay unchanged: giving an order in ORDO yourself still needs
   the role.
+* **Who ordered a documented medication** comes only from an order, given or recorded: the
+  entry keeps the order's ID, and the form's field for who ordered is read-only
+  ([ORDER-7](../requirements/04-med.md#order-7--who-ordered-comes-from-the-order)).
 * ORDO records and shows; it never judges whether an order was permitted, needed or
   correct (EPCR-9).
 
-Before acceptance, practitioners and the organisation's medical director (ÄLRD) should
-confirm the fields and the confirmation step, and check them against the rules for
-delegated measures (in Germany e.g. § 4 NotSanG).
+Still to do with practitioners and an organisation's medical director (ÄLRD): confirm the
+fields and the confirmation step, and check them against the rules for delegated measures
+(in Germany e.g. § 4 NotSanG); measures a paramedic takes on their own authority are
+documented without an order.
 
 ### Consequences
 
@@ -63,11 +69,8 @@ delegated measures (in Germany e.g. § 4 NotSanG).
 * Bad, because there are two ways an order comes into ORDO, which the app and the
   overview must show apart.
 
-### If accepted
+### Implementation
 
-* New requirement ORDER-6 (EARS): "When a crew member records an order given by voice,
-  radio, phone or telemedicine, ORDO shall record who gave it, by which channel and
-  whether it was read back, mark it until the person who gave it confirms it, and accept
-  the confirmation only from roles that give orders."
-* Design item in chapter 8 next to *Medical orders*, Cedar rule next to *Order
-  permission*.
+[ORDER-6](../requirements/04-med.md#order-6--record-spoken-orders) and ORDER-7, design
+items *Recorded orders* and *Order documentation* in
+[chapter 8](../architecture/08-concepts.md#recorded-orders), next to *Order permission*.

@@ -56,7 +56,7 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         {location.map(|l| view! { <p class="count-card__location">{text::UHS_LOCATION} ": " {l}</p> })}
                                         <p class="count-card__more">
                                             {places.map(|p| format!("{}: {p} · ", text::PLACES))}
-                                            {text::open_orders(s.open_orders)} " · "
+                                            {text::open_orders(s.open_orders, s.unconfirmed_orders)} " · "
                                             {text::transports_count(s.transports_open, s.transports_planned)}
                                         </p>
                                     </CountCard>

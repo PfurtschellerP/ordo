@@ -20,6 +20,8 @@ pub struct UhsSummary {
     pub places: Option<(usize, usize)>,
     /// Open orders of the unit's patients.
     pub open_orders: usize,
+    /// Spoken orders of the unit's patients their giver has not confirmed (ORDER-6).
+    pub unconfirmed_orders: usize,
     /// Open transports wanted now.
     pub transports_open: usize,
     /// Open planned transports.
@@ -46,9 +48,20 @@ pub fn summaries(
             .count();
         out.entry(uhs).or_default().places = Some((list.len().saturating_sub(taken), list.len()));
     }
-    for order in OrderBook::from_events(clinical).open() {
+    let book = OrderBook::from_events(clinical);
+    for order in book.open() {
         if let Some(p) = register.patient(&order.given.tag) {
             out.entry(p.uhs.clone()).or_default().open_orders += 1;
+        }
+    }
+    // [impl->dsn~recorded-orders~1]
+    for order in book
+        .orders
+        .values()
+        .filter(|o| o.unconfirmed() && o.status != crate::orders::OrderStatus::Withdrawn)
+    {
+        if let Some(p) = register.patient(&order.given.tag) {
+            out.entry(p.uhs.clone()).or_default().unconfirmed_orders += 1;
         }
     }
     for t in TransportBoard::from_events(incident)
@@ -81,6 +94,7 @@ pub fn total<'a>(summaries: impl IntoIterator<Item = &'a UhsSummary>) -> UhsSumm
             t.places = Some((f + free, a + all));
         }
         t.open_orders += s.open_orders;
+        t.unconfirmed_orders += s.unconfirmed_orders;
         t.transports_open += s.transports_open;
         t.transports_planned += s.transports_planned;
     }
@@ -143,6 +157,44 @@ mod tests {
             transport::REQUESTED,
             r.encode().unwrap(),
         )
+    }
+
+    // [utest->dsn~recorded-orders~1]
+    #[test]
+    fn the_overview_counts_spoken_orders_not_yet_confirmed() {
+        let spoken = |n, id: &str| {
+            let r = orders::OrderRecorded {
+                order: id.into(),
+                tag: "A".into(),
+                ordered: Ordered::Measure {
+                    text: "Lagerung".into(),
+                },
+                note: None,
+                ordered_by: "Dr. M.".into(),
+                channel: orders::Channel::Radio,
+                read_back: true,
+            };
+            clinical(n, orders::MODULE, orders::RECORDED, r.encode().unwrap())
+        };
+        let confirmed = orders::OrderConfirmed { order: "s2".into() };
+        let events = vec![
+            patient(1, "A", "nord", TriageCategory::Immediate),
+            spoken(2, "s1"),
+            spoken(3, "s2"),
+            clinical(
+                4,
+                orders::MODULE,
+                orders::CONFIRMED,
+                confirmed.encode().unwrap(),
+            ),
+            order(5, "o1", "A"),
+        ];
+        let s = summaries(&events, &[]);
+        assert_eq!(
+            (s["nord"].open_orders, s["nord"].unconfirmed_orders),
+            (3, 1)
+        );
+        assert_eq!(total(s.values()).unconfirmed_orders, 1);
     }
 
     // [utest->dsn~uhs-overview~2]

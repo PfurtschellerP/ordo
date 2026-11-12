@@ -517,6 +517,9 @@ fn format_number(n: f64) -> String {
 // Events
 // ---------------------------------------------------------------------------
 
+/// Schema version of `epcr.entryRecorded` payloads: 2 added `order`.
+pub const ENTRY_SCHEMA: u32 = 2;
+
 /// Payload of `epcr.entryRecorded`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EntryRecorded {
@@ -529,6 +532,9 @@ pub struct EntryRecorded {
     /// Series forms: ID of the entry this one corrects.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replaces: Option<String>,
+    /// The order this entry documents (ORDER-7): who ordered it is taken from there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<String>,
 }
 
 impl EntryRecorded {
@@ -617,6 +623,8 @@ pub struct Entry {
     pub by: UserId,
     /// The entry this one corrects.
     pub replaces: Option<String>,
+    /// The order it documents, if any.
+    pub order: Option<String>,
     /// The entry that corrects this one, if any.
     pub replaced_by: Option<String>,
 }
@@ -751,6 +759,7 @@ impl Records {
                         at,
                         by,
                         replaces: entry.replaces,
+                        order: entry.order,
                         replaced_by: None,
                     });
                 }
@@ -914,10 +923,40 @@ mod tests {
                 .map(|(k, v)| ((*k).to_owned(), v.clone()))
                 .collect(),
             replaces,
+            order: None,
         }
         .encode()
         .expect("encodes");
         event(n, ENTRY_RECORDED, payload)
+    }
+
+    // [utest->dsn~order-documentation~3]
+    #[test]
+    fn an_entry_keeps_the_order_it_documents_and_older_entries_read_without() {
+        let payload = EntryRecorded {
+            tag: "DE-0042".into(),
+            form: "medication".into(),
+            values: BTreeMap::from([("drug".to_owned(), one("Paracetamol"))]),
+            replaces: None,
+            order: Some("o1".into()),
+        }
+        .encode()
+        .expect("encodes");
+        let old = codec::to_cbor(&serde_json::json!({
+            "tag": "DE-0042", "form": "medication", "values": { "drug": "Glukose" }
+        }))
+        .expect("encodes");
+        let records = Records::from_events(&[
+            event(1, ENTRY_RECORDED, payload),
+            event(2, ENTRY_RECORDED, old),
+        ]);
+        let orders: Vec<_> = records
+            .get("DE-0042")
+            .expect("record")
+            .current_entries("medication")
+            .map(|e| e.order.clone())
+            .collect();
+        assert_eq!(orders, [Some("o1".to_owned()), None]);
     }
 
     #[test]

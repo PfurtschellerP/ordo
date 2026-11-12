@@ -89,8 +89,8 @@ enum Mode {
 #[derive(Clone, Copy)]
 pub struct Drafts(StoredValue<HashMap<String, Draft>, LocalStorage>);
 
-/// An open editor and its values.
-type Draft = (Mode, BTreeMap<String, Value>);
+/// An open editor, its values and the order it documents, if any (ORDER-7).
+type Draft = (Mode, BTreeMap<String, Value>, Option<String>);
 
 impl Default for Drafts {
     fn default() -> Self {
@@ -102,16 +102,17 @@ fn draft_key(tag: &str, form: &str) -> String {
     format!("{tag}/{form}")
 }
 
-// [impl->dsn~order-documentation~2]
+// [impl->dsn~order-documentation~3]
 /// Opens a new entry of `form` on the record of `tag`, filled with `values` (time fields
-/// with `time`, else the time now). If an entry of that form is open already, it is only
-/// brought into view: the crew's input is never overwritten.
+/// with `time`, else the time now), documenting `order` if given. If an entry of that form
+/// is open already, it is only brought into view: the crew's input is never overwritten.
 pub fn open_prefilled(
     drafts: Drafts,
     tag: &str,
     form: &'static Form,
     values: BTreeMap<String, Value>,
     time: Option<String>,
+    order: Option<String>,
 ) {
     let key = draft_key(tag, &form.id);
     let open = drafts.0.with_value(|d| d.contains_key(&key));
@@ -132,7 +133,7 @@ pub fn open_prefilled(
             })
             .collect();
         drafts.0.update_value(|d| {
-            d.insert(key, (Mode::New, start));
+            d.insert(key, (Mode::New, start, order));
         });
         crate::views::click(&format!("new-{}", form.id));
     } else {
@@ -1264,7 +1265,11 @@ fn FormSection(
 ) -> impl IntoView {
     let drafts = use_context::<Drafts>().unwrap_or_default();
     let key = draft_key(&tag, &form.id);
-    let editing = RwSignal::new(drafts.0.with_value(|d| d.get(&key).map(|(m, _)| m.clone())));
+    let editing = RwSignal::new(
+        drafts
+            .0
+            .with_value(|d| d.get(&key).map(|(m, ..)| m.clone())),
+    );
     let heading = format!("section-{}", form.id);
     let opener = match form.kind {
         FormKind::Snapshot => format!("edit-{}", form.id),
@@ -1432,13 +1437,40 @@ fn EntryView(
         Some(Value::One(t)) if !t.is_empty() => t.clone(),
         _ => core::clock(entry.at.wall_ms),
     };
+    // [impl->dsn~order-documentation~3]
+    // Who ordered it: from the order the entry documents (its author checked by the
+    // server, or the giver named in a recorded order); a name without an order is marked.
+    let from_order = entry.order.as_ref().and_then(|id| {
+        core.with_value(|c| {
+            ordo_med_patients::orders::OrderBook::from_events(
+                &c.events(ordo_med_patients::orders::COMPARTMENT),
+            )
+            .orders
+            .get(id)
+            .map(|o| (o.giver(), core::clock(o.at().wall_ms)))
+        })
+    });
     let mut facts: Vec<(String, String)> = form
         .fields
         .iter()
         .filter(|f| f.id != "time")
         .filter_map(|f| {
-            let value = entry.values.get(&f.id).filter(|v| !v.is_empty())?;
-            Some((f.label.clone(), f.display(value)))
+            let value = entry.values.get(&f.id).filter(|v| !v.is_empty());
+            if crate::orders::is_ordered_by(&form.id, &f.id) {
+                let shown = match (&from_order, value) {
+                    (Some((giver, at)), _) => {
+                        text::ordered_by_order(&crate::profile::display_text(core, giver), at)
+                    }
+                    (None, Some(v)) => format!(
+                        "{} – {}",
+                        crate::profile::display_text(core, &f.display(v)),
+                        text::ORDERED_BY_NO_ORDER
+                    ),
+                    (None, None) => return None,
+                };
+                return Some((f.label.clone(), shown));
+            }
+            Some((f.label.clone(), f.display(value?)))
         })
         .collect();
     facts.extend(
@@ -1515,14 +1547,29 @@ fn EntryEditor(
 ) -> impl IntoView {
     let drafts = use_context::<Drafts>().unwrap_or_default();
     let key = draft_key(&tag, &form.id);
-    let start = drafts
-        .0
-        .with_value(|d| {
-            d.get(&key)
-                .filter(|(m, _)| *m == mode)
-                .map(|(_, v)| v.clone())
-        })
-        .unwrap_or_else(|| records.with_untracked(|r| initial_values(form, &mode, r.get(&tag))));
+    let draft = drafts.0.with_value(|d| {
+        d.get(&key)
+            .filter(|(m, ..)| *m == mode)
+            .map(|(_, v, o)| (v.clone(), o.clone()))
+    });
+    // [impl->dsn~order-documentation~3]
+    // The order it documents: from the draft, or the one of the entry it corrects.
+    let order = match &draft {
+        Some((_, order)) => order.clone(),
+        None => match &mode {
+            Mode::Correct(id) => records.with_untracked(|r| {
+                r.get(&tag)
+                    .and_then(|r| r.entries.get(&form.id))
+                    .and_then(|list| list.iter().find(|e| &e.id == id))
+                    .and_then(|e| e.order.clone())
+            }),
+            _ => None,
+        },
+    };
+    let start = draft.map_or_else(
+        || records.with_untracked(|r| initial_values(form, &mode, r.get(&tag))),
+        |(v, _)| v,
+    );
     let values: Vec<(&'static Field, RwSignal<Value>)> = form
         .fields
         .iter()
@@ -1543,14 +1590,14 @@ fn EntryEditor(
     {
         // Keep unsaved input while the app runs.
         let values = values.clone();
-        let (key, mode) = (key.clone(), mode.clone());
+        let (key, mode, order) = (key.clone(), mode.clone(), order.clone());
         Effect::new(move |_| {
             let snapshot: BTreeMap<String, Value> = values
                 .iter()
                 .map(|(f, v)| (f.id.clone(), v.get()))
                 .collect();
             drafts.0.update_value(|d| {
-                d.insert(key.clone(), (mode.clone(), snapshot));
+                d.insert(key.clone(), (mode.clone(), snapshot, order.clone()));
             });
         });
     }
@@ -1567,6 +1614,7 @@ fn EntryEditor(
         let values = values.clone();
         let close = close.clone();
         let mode = mode.clone();
+        let order = order.clone();
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
             let current =
@@ -1612,6 +1660,7 @@ fn EntryEditor(
                             Mode::Correct(id) => Some(id.clone()),
                             _ => None,
                         },
+                        order: order.clone(),
                     };
                     match core::record_entry(
                         core,
@@ -1708,6 +1757,23 @@ fn FieldInput(
                     />
                     {now}
                 </div>
+            }
+            .into_any()
+        }
+        // [impl->dsn~order-documentation~3]
+        // Who ordered a medication comes only from an order (ORDER-7).
+        FieldType::Person if crate::orders::is_ordered_by(&form.id, &field.id) => {
+            let note_id = format!("{id}-from-order");
+            view! {
+                <label for=id.clone()>{field.label.clone()}</label>
+                <input
+                    id=id.clone()
+                    type="text"
+                    readonly
+                    aria-describedby=format!("{note_id} {described}")
+                    prop:value=text_value
+                />
+                <p id=note_id class="hint">{text::ORDERED_BY_FROM_ORDER}</p>
             }
             .into_any()
         }

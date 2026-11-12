@@ -149,7 +149,7 @@ impl WriteGuard for UhsStaffGuard {
                     insert(incident.patients.entry(tag).or_default(), when, uhs);
                 }
             }
-            crate::orders::GIVEN => {
+            crate::orders::GIVEN | crate::orders::RECORDED => {
                 if let Ok(Refers {
                     tag: Some(tag),
                     order: Some(order),

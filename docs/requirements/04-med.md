@@ -347,6 +347,24 @@ Tags: should, med, m21
 
 Needs: dsn
 
+#### ORDER-6 — Record spoken orders
+`req~order-6~1`
+
+When a crew member records an order given by voice, radio, phone or telemedicine, ORDO shall record who gave it, by which channel and whether it was read back, mark it until the person who gave it confirms it, and accept the confirmation only from roles that give orders.
+
+Tags: must, med, m50
+
+Needs: dsn
+
+#### ORDER-7 — Who ordered comes from the order
+`req~order-7~1`
+
+When an administration is documented in the patient care record, ORDO shall take who ordered it only from an order in ORDO (given, or recorded as spoken), and shall not let it be typed.
+
+Tags: must, med, m50
+
+Needs: dsn
+
 ### 4.12 Med package: transport planning
 
 #### TRANS-1 — Transport request

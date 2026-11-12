@@ -242,6 +242,7 @@ impl Core {
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
             (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
+            (record::MODULE, record::ENTRY_RECORDED) => record::ENTRY_SCHEMA,
             _ => 1,
         };
         self.replica
@@ -1241,6 +1242,51 @@ pub fn give_order(
         orders::GIVEN,
         &payload,
         text::order_given(&order.tag),
+    )
+}
+
+// [impl->dsn~recorded-orders~1]
+/// Records an order given by voice, radio, phone or telemedicine (ORDER-6); every crew
+/// role may.
+pub fn record_order(
+    core: Handle,
+    revision: RwSignal<u64>,
+    order: orders::OrderRecorded,
+) -> Result<(), String> {
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let order = orders::OrderRecorded {
+        order: id.to_string(),
+        ..order
+    };
+    let payload = order.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        orders::COMPARTMENT,
+        orders::MODULE,
+        orders::RECORDED,
+        &payload,
+        text::order_recorded(&order.tag),
+    )
+}
+
+// [impl->dsn~recorded-orders~1]
+/// Confirms a recorded order as the person who gave it; the server accepts it only from
+/// roles that give orders.
+pub fn confirm_order(core: Handle, revision: RwSignal<u64>, order: &str) -> Result<(), String> {
+    let payload = orders::OrderConfirmed {
+        order: order.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        orders::COMPARTMENT,
+        orders::MODULE,
+        orders::CONFIRMED,
+        &payload,
+        text::ORDER_CONFIRMED_SAID.to_owned(),
     )
 }
 
