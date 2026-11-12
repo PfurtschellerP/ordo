@@ -1,6 +1,6 @@
-//! The map region for every device (MAP-8, ADR-0057): an administrator chooses a centre and
-//! a radius, the server cuts the region from the open world map, the page shows the
-//! progress. Workspace *Organisation – Kartengrundlage*.
+//! The incident's map region (MAP-8, ADR-0057, ADR-0062): the incident command chooses a
+//! centre and a radius, the server cuts the region from the open world map, the page shows
+//! the progress. On the page *Vorbereitung – Einsatz*.
 
 use leptos::prelude::*;
 use ordo_sync::message::{MapRegion, MapRegionRequest, MapRegionState};
@@ -53,8 +53,8 @@ fn state_line(region: &MapRegion) -> String {
     }
 }
 
-// [impl->dsn~map-region~1]
-/// The page: the current region, and a new one cut around a centre.
+// [impl->dsn~map-region~2]
+/// The section: the incident's region, and a new one cut around a centre.
 #[component]
 pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let region = Memo::new(move |_| {

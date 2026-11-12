@@ -261,8 +261,10 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    *Administration* replaces "Organisation": access (accounts, devices, organisation
    roles renamed "Berechtigungen"), later master data. The incident command does not see
    Administration; every device used in an incident can be blocked from the incident's
-   views, the full device list stays with Administration. **A map region per incident**
-   (one organisation runs several incidents in different places).
+   views, the full device list stays with Administration (next). The menu structure is
+   done (m49). **A map region per incident** is done (m51, ADR-0062): the incident command
+   cuts it on the incident's page, and only the devices of that incident read it, with a
+   ticket from their sync connection.
 4. **Upstream login** configured in ORDO (item 4 of the list below).
 5. **Situation map:** editing on its own page with a toolbar (replaces the centre
    crosshair of ADR-0058; Terra Draw is the candidate), address search with an open

@@ -129,13 +129,19 @@ answers `vehicles`, with the list only for a user with `manage_incidents` or who
 permit `edit_units` in some incident, and an empty list for everyone else. A session
 agreed on 1.0 gets no answer.
 
-`getMapRegion` (version 1.2) asks for the state of the map region the server offers at
-`/tiles/region.pmtiles`; `cutMapRegion` asks the server to cut a new one around a centre
-with a radius of 1 to 50 km from its world map. Both are answered with `mapRegion`. The
-server MUST cut only for a user with the organisation permission `manage_map`, at most one
-region at a time, and replace the region file only once the new one is complete; it
-answers anyone else with the state `none`. A device asks again while the state is
-`running`. A session agreed on 1.0 or 1.1 gets no answer.
+`getMapRegion` (version 1.2) asks for the state of an incident's map region, which the
+server offers at `/tiles/<incident ULID>.pmtiles`; `cutMapRegion` asks the server to cut a
+new one for the incident around a centre with a radius of 1 to 50 km from its world map.
+Both are answered with `mapRegion`, which names the incident. The server MUST cut only for
+a user whose roles in that incident give the permission `manage_map`, at most one region
+at a time on the server, and replace the incident's region file only once the new one is
+complete; it answers anyone else with the state `none`. A device asks again while the
+state is `running`. `mapTicket` asks for a ticket to read the incident's region; the
+server answers `mapTicket`, with a ticket only for a user who may read the incident's
+shared compartment. The device reads the region with HTTP range requests and
+`Authorization: Bearer <ticket>`; the server MUST refuse a request without a valid ticket
+for that incident (HTTP 403). A ticket is valid for 12 hours; a device asks for one on
+every connection. A session agreed on 1.0 or 1.1 gets no answer.
 
 `getOrganisationRoles` (version 1.2) asks for the organisation roles (`admin`, `planner`)
 of all people; `setOrganisationRole` grants one, optionally until a time, or withdraws it.
@@ -225,5 +231,5 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
-| 1.2 | `getMapRegion`, `cutMapRegion` and `mapRegion` (§7) | unchanged |
+| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (§7) | `/tiles/<incident>.pmtiles` with a ticket |
 

@@ -1162,8 +1162,7 @@ pub const MAP_LOADING: &str = "Karte wird geladen …";
 pub const MAP_UNAVAILABLE: &str = "Die Karte kann auf diesem Gerät nicht angezeigt werden; die Liste unten zeigt alles, was auf ihr steht.";
 pub const MAP_FROM_DEVICE: &str = "Kartengrundlage: auf diesem Gerät gespeichert (auch ohne Netz).";
 pub const MAP_FROM_SERVER: &str = "Kartengrundlage: vom Server.";
-pub const MAP_NO_REGION: &str =
-    "Keine Kartengrundlage eingerichtet: die Objekte stehen auf neutralem Hintergrund.";
+pub const MAP_NO_REGION: &str = "Für diesen Einsatz wurde keine Kartengrundlage vorbereitet: die Objekte stehen auf neutralem Hintergrund.";
 pub const MAP_OBJECTS: &str = "Auf der Karte";
 pub const MAP_LOCATE: &str = "Zu meinem Standort";
 pub const MAP_LOCATING: &str = "Standort wird bestimmt …";
@@ -1347,13 +1346,13 @@ pub fn read_only_uhs(name: &str) -> String {
 
 // Map region from the server (MAP-8)
 pub const MAP_REGION_TITLE: &str = "Kartengrundlage";
-pub const MAP_REGION_HINT: &str = "Die Kartengrundlage, die alle Geräte für die Lagekarte nutzen: ein Umkreis aus der freien Weltkarte (OpenStreetMap über Protomaps). Geräte, die eine Offline-Karte gespeichert haben, speichern sie danach neu.";
-pub const MAP_REGION_NONE: &str = "Noch keine Kartengrundlage auf dem Server.";
+pub const MAP_REGION_HINT: &str = "Die Kartengrundlage dieses Einsatzes für die Lagekarte: ein Umkreis aus der freien Weltkarte (OpenStreetMap über Protomaps). Nur die Geräte der Einsatzkräfte dieses Einsatzes erhalten sie. Geräte, die eine Offline-Karte gespeichert haben, speichern sie danach neu.";
+pub const MAP_REGION_NONE: &str = "Für diesen Einsatz ist noch keine Kartengrundlage erstellt.";
 pub const MAP_REGION_NEW: &str = "Neue Kartengrundlage";
 pub const MAP_REGION_LAT: &str = "Breitengrad (Mitte)";
 pub const MAP_REGION_LON: &str = "Längengrad (Mitte)";
 pub const MAP_REGION_RADIUS: &str = "Umkreis (km, 1 bis 50)";
-pub const MAP_REGION_FROM_INCIDENT: &str = "Die Mitte ist der Einsatzort des geöffneten Einsatzes.";
+pub const MAP_REGION_FROM_INCIDENT: &str = "Die Mitte ist der Einsatzort.";
 pub const MAP_REGION_COORDINATES: &str = "Mitte als Dezimalgrad, z. B. 48,37 und 10,90.";
 pub const MAP_REGION_CUT: &str = "Kartengrundlage erstellen";
 pub const MAP_REGION_PROGRESS: &str = "Fortschritt";

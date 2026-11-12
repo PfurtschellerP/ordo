@@ -25,8 +25,8 @@ Environment for `serve`:
   ORDO_DATA_DIR          Data directory (default /data)
   ORDO_SEED_FILE         Users and devices (TOML, optional)
   ORDO_VEHICLES_FILE     Vehicles of the installation, offered when adding units (TOML, optional)
-  ORDO_MAP_FILE          Map region for the situation map (PMTiles; default
-                         <data dir>/map/region.pmtiles, cut by an administrator in the app)
+  ORDO_MAP_DIR           Map regions of the incidents, one PMTiles file each (default
+                         <data dir>/maps; cut by the incident command in the app)
   ORDO_MAP_SOURCE        World map regions are cut from (PMTiles URL or file; default
                          the Protomaps daily build)
   ORDO_PROTECTED         Protected compartments (default med.clinical)

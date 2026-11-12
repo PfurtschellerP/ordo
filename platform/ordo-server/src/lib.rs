@@ -241,15 +241,13 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         config.access_timeout,
         config.gravatar,
         blobs,
-        map_region::MapJob::new(config.map_file.clone(), config.map_source.clone()),
+        map_region::MapJob::new(config.map_dir.clone(), config.map_source.clone()),
         roles,
         dex_api,
         stop.clone(),
     ));
     tokio::spawn(app.clone().maintenance());
-    let router = app
-        .clone()
-        .router(config.app_dir.as_deref(), &config.map_file);
+    let router = app.clone().router(config.app_dir.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");
     let task = tokio::spawn(async move {
         axum::serve(listener, router)

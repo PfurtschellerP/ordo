@@ -190,10 +190,27 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let centre = centre.map_or(JsValue::NULL, |[lon, lat]| {
                     js_sys::Array::of2(&JsValue::from_f64(lon), &JsValue::from_f64(lat)).into()
                 });
+                // [impl->dsn~map-region~2]
+                // The incident's region, read with this connection's ticket (ADR-0062),
+                // which follows the welcome: wait for it briefly while connecting.
+                for _ in 0..30 {
+                    let offline = core.with_value(|c| c.connection == core::Connection::Offline);
+                    if offline || core::map_ticket(core).is_some() {
+                        break;
+                    }
+                    core::sleep_ms(100).await;
+                }
+                let (incident, ticket) = region_args(core);
                 let map = call_async(
                     &module,
                     "create",
-                    &[element.into(), centre, JsValue::from_str(text::MAP_LABEL)],
+                    &[
+                        element.into(),
+                        centre,
+                        JsValue::from_str(text::MAP_LABEL),
+                        incident,
+                        ticket,
+                    ],
                 )
                 .await?;
                 // The symbols first, so the objects find their images.
@@ -378,7 +395,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <PlaceForm core revision centre=Callback::new(move |()| centre()) />
                 <DrawForm core revision centre=Callback::new(move |()| centre()) draft=Callback::new(set_draft) />
             </Show>
-            <OfflineRegion state handle />
+            <OfflineRegion core state handle />
         </section>
     }
 }
@@ -515,8 +532,17 @@ fn PlaceForm(
 
 // [impl->dsn~situation-map~1]
 /// Keeping the map region on the device for use without network (MAP-2).
+/// The incident's ULID and the map ticket as arguments for the glue module (`null` when
+/// missing).
+fn region_args(core: Handle) -> (JsValue, JsValue) {
+    let incident = core::incident_ulid(core).map_or(JsValue::NULL, |i| JsValue::from_str(&i));
+    let ticket = core::map_ticket(core).map_or(JsValue::NULL, |(_, t)| JsValue::from_str(&t));
+    (incident, ticket)
+}
+
 #[component]
 fn OfflineRegion(
+    core: Handle,
     state: RwSignal<MapState>,
     handle: StoredValue<Option<(JsValue, JsValue)>, LocalStorage>,
 ) -> impl IntoView {
@@ -527,7 +553,8 @@ fn OfflineRegion(
     let refresh = move || {
         if let Some(m) = module() {
             leptos::task::spawn_local(async move {
-                if let Ok(s) = call_async(&m, "offlineState", &[]).await {
+                let (incident, ticket) = region_args(core);
+                if let Ok(s) = call_async(&m, "offlineState", &[incident, ticket]).await {
                     let server = js_sys::Reflect::get(&s, &"server".into())
                         .ok()
                         .and_then(|v| v.as_bool())
@@ -551,7 +578,8 @@ fn OfflineRegion(
         busy.set(true);
         message.set(Some(text::MAP_SAVING.to_owned()));
         leptos::task::spawn_local(async move {
-            match call_async(&m, "saveOffline", &[]).await {
+            let (incident, ticket) = region_args(core);
+            match call_async(&m, "saveOffline", &[incident, ticket]).await {
                 Ok(size) => message.set(Some(text::map_saved(size.as_f64().unwrap_or(0.0)))),
                 Err(_) => message.set(Some(text::MAP_SAVE_FAILED.to_owned())),
             }
@@ -562,7 +590,8 @@ fn OfflineRegion(
     let remove = move |_| {
         let Some(m) = module() else { return };
         leptos::task::spawn_local(async move {
-            let _ = call_async(&m, "removeOffline", &[]).await;
+            let (incident, _) = region_args(core);
+            let _ = call_async(&m, "removeOffline", &[incident]).await;
             message.set(Some(text::MAP_REMOVED.to_owned()));
             refresh();
         });

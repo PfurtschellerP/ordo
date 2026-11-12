@@ -31,7 +31,8 @@ action read, write appliesTo {
 //   edit_units: add units and set their status
 //   give_orders: give medical orders (the server still checks every `orders.given`)
 //   all_uhs: work at every on-site care unit, whatever its staff list (ADR-0056)
-action view_situation, edit_units, give_orders, all_uhs appliesTo {
+//   manage_map: cut the incident's map region (MAP-8, ADR-0062)
+action view_situation, edit_units, give_orders, all_uhs, manage_map appliesTo {
   principal: [User],
   resource: [Compartment],
   context: Request,
@@ -61,13 +62,6 @@ action manage_devices appliesTo {
 
 // Plan incidents, see all of them, and grant roles in every incident (ADR-0046).
 action manage_incidents appliesTo {
-  principal: [User],
-  resource: [Organisation],
-  context: OrganisationRequest,
-};
-
-// Cut the map region the server offers to every device (MAP-8, ADR-0057).
-action manage_map appliesTo {
   principal: [User],
   resource: [Organisation],
   context: OrganisationRequest,

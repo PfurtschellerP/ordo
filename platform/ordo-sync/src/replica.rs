@@ -567,6 +567,7 @@ impl Replica {
             | ServerMessage::People(_)
             | ServerMessage::Vehicles(_)
             | ServerMessage::MapRegion(_)
+            | ServerMessage::MapTicket(_)
             | ServerMessage::Avatars(_)
             | ServerMessage::OrganisationRoles(_)
             | ServerMessage::Accounts(_)

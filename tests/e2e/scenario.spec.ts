@@ -134,13 +134,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".views__item"), "administration: accounts, permissions, devices").toHaveText(["Konten", "Berechtigungen", "Geräte"]);
     await shot(dora, "administration", false);
     await expect(dora.locator("#incident-name"), "the header names the incident").toHaveText(INCIDENT);
-    // [itest->dsn~map-region~1]
-    // MAP-8: the administrator cuts the map region for every device on the server.
+    // [itest->dsn~map-region~2]
+    // MAP-8: the planner cuts the incident's map region (ADR-0062).
     await openWorkspace(dora, "Vorbereitung");
     // The map region is prepared with the incident, on its page.
     await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
-    await expect(region).toHaveText("Noch keine Kartengrundlage auf dem Server.");
+    await expect(region).toHaveText("Für diesen Einsatz ist noch keine Kartengrundlage erstellt.");
     await dora.locator("#region-lat").fill("48,37");
     await dora.locator("#region-lon").fill("10,9");
     await dora.locator("#region-radius").fill("10");
@@ -1178,9 +1178,11 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~organisation-roles~1]
   await test.step("an administrator grants an organisation role until a date and withdraws it", async () => {
-    // Planners prepare the map region: the incident's page offers it only with the role.
-    await openView(ben, "Einsatz");
-    const benMayPlan = async () => (await ben.locator("#map-region-title").count()) === 1;
+    // Planners plan incidents: the incident list offers it only with the role.
+    await ben.locator("#profile-button").click();
+    await ben.getByRole("button", { name: "Einsatz wechseln" }).click();
+    await expect(ben.getByRole("button", { name: `Öffnen: ${INCIDENT}` })).toBeVisible();
+    const benMayPlan = async () => (await ben.locator("#plan-name").count()) === 1;
     expect(await benMayPlan(), "Ben does not plan yet").toBe(false);
 
     await openWorkspace(dora, "Zugriff");
@@ -1206,6 +1208,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await benPlanner.getByRole("button", { name: "Einsatzplanung entziehen: ben@localhost" }).click();
     await expect(benPlanner, "withdrawn").toHaveCount(0);
     await expect.poll(benMayPlan, { message: "and no longer" }).toBe(false);
+    await openIncident(ben, INCIDENT);
   });
 
   // [itest->dsn~device-revocation~1]

@@ -10,7 +10,7 @@ https://github.com/protomaps/PMTiles (v3).
 """
 
 # [itest->dsn~situation-map~1]
-# [itest->dsn~map-region~1]
+# [itest->dsn~map-region~2]
 
 import gzip
 import json

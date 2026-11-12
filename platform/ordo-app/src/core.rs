@@ -80,8 +80,12 @@ pub struct Core {
     pub people: Vec<UserId>,
     /// The installation's vehicles, as last listed (for adding units).
     pub vehicles: Vec<ordo_sync::message::Vehicle>,
-    /// The server's map region, as last reported (MAP-8).
+    /// The incident's map region, as last reported (MAP-8).
     pub map_region: Option<ordo_sync::message::MapRegion>,
+    /// The ticket to read the incident's map region, asked on every connection (ADR-0062).
+    pub map_ticket: Option<String>,
+    /// Whether the server speaks the map region messages (protocol 1.2).
+    map_regions: bool,
     /// The organisation roles, as last reported (ORG-9; administrators only).
     pub organisation_roles: Option<Vec<ordo_sync::message::OrganisationRole>>,
     /// The local login accounts, as last reported (ORG-10; administrators only).
@@ -178,6 +182,8 @@ impl Core {
             people: Vec::new(),
             vehicles: Vec::new(),
             map_region: None,
+            map_ticket: None,
+            map_regions: false,
             organisation_roles: None,
             accounts: None,
             account_answers: 0,
@@ -392,8 +398,15 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             if let ServerMessage::Vehicles(list) = &message {
                 c.vehicles = list.clone();
             }
-            if let ServerMessage::MapRegion(region) = &message {
+            if let ServerMessage::MapRegion(region) = &message
+                && region.incident == c.incident
+            {
                 c.map_region = Some(region.clone());
+            }
+            if let ServerMessage::MapTicket(t) = &message
+                && c.incident.as_ref() == Some(&t.incident)
+            {
+                c.map_ticket.clone_from(&t.ticket);
             }
             if let ServerMessage::OrganisationRoles(list) = &message {
                 c.organisation_roles = Some(list.clone());
@@ -416,6 +429,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 c.liveness = w
                     .version
                     .is_some_and(|v| v >= ordo_sync::version::SYNC_LIVENESS);
+                c.map_regions = w
+                    .version
+                    .is_some_and(|v| v >= ordo_sync::version::SYNC_MAP_REGION);
             }
             // Deliveries confirm sent events: the next batch of the outbox may follow.
             let delivery = matches!(message, ServerMessage::Deliver(_));
@@ -435,6 +451,14 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                             c.send(&ClientMessage::GetAvatars(chunk.to_vec()));
                         }
                         c.avatars_asked.extend(known);
+                        // [impl->dsn~map-region~2]
+                        // A ticket for the incident's map region, valid for this connection's
+                        // day (ADR-0062).
+                        if c.map_regions
+                            && let Some(incident) = c.incident.clone()
+                        {
+                            c.send(&ClientMessage::MapTicket(incident));
+                        }
                         c.finish_plan();
                     }
                 }
@@ -1029,9 +1053,26 @@ pub fn list_vehicles(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::ListVehicles));
 }
 
-/// Asks for the state of the server's map region (MAP-8).
+/// Asks for the state of the incident's map region (MAP-8).
 pub fn get_map_region(core: Handle) {
-    core.with_value(|c| c.send(&ClientMessage::GetMapRegion));
+    core.with_value(|c| {
+        if let Some(incident) = c.incident.clone() {
+            c.send(&ClientMessage::GetMapRegion(incident));
+        }
+    });
+}
+
+/// The incident's ULID and the ticket to read its map region, if the server gave one.
+pub fn map_ticket(core: Handle) -> Option<(String, String)> {
+    core.with_value(|c| {
+        let incident = c.incident.as_ref()?.ulid().to_string();
+        Some((incident, c.map_ticket.clone()?))
+    })
+}
+
+/// The incident's ULID, which names its map region (also the device's offline copy).
+pub fn incident_ulid(core: Handle) -> Option<String> {
+    core.with_value(|c| c.incident.as_ref().map(|i| i.ulid().to_string()))
 }
 
 /// Asks for the organisation roles (ORG-9).
@@ -1064,9 +1105,16 @@ pub fn end_of_day_ms(date: &str) -> Option<u64> {
     local_time_ms(&format!("{date}T23:59:59.999")).map(|ms| ms + 1)
 }
 
-/// Asks the server to cut a new map region around a centre (MAP-8, ADR-0057).
+/// Asks the server to cut a new map region for the incident around a centre (MAP-8,
+/// ADR-0057, ADR-0062).
 pub fn cut_map_region(core: Handle, area: ordo_sync::message::MapRegionRequest) {
-    core.with_value(|c| c.send(&ClientMessage::CutMapRegion(area)));
+    core.with_value(|c| {
+        if let Some(incident) = c.incident.clone() {
+            c.send(&ClientMessage::CutMapRegion(
+                ordo_sync::message::MapRegionCut { incident, area },
+            ));
+        }
+    });
 }
 
 /// A text as part of an element ID: letters and digits, the rest as `-`.

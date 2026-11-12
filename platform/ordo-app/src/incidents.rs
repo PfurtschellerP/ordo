@@ -171,14 +171,14 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         revision.track();
         may_manage(core)
     });
-    // [impl->dsn~map-region~1]
+    // [impl->dsn~map-region~2]
+    // The incident command prepares the incident's map region (ADR-0062).
     let map_region = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {
-            c.replica.has_permission(MANAGE_MAP)
-                || c.incident
-                    .as_ref()
-                    .is_some_and(|i| c.replica.may(i, MANAGE_MAP))
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, MANAGE_MAP))
         })
     });
     let error = RwSignal::new(None::<String>);

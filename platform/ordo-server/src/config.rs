@@ -27,10 +27,10 @@ pub struct Config {
     pub protected: Vec<CompartmentId>,
     /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
     pub app_dir: Option<PathBuf>,
-    /// Map region for the situation map, a PMTiles file served at `/tiles/region.pmtiles`
-    /// (`ORDO_MAP_FILE`, default `map/region.pmtiles` in the data directory, ADR-0006); an
-    /// administrator cuts it from `map_source` (ADR-0057).
-    pub map_file: PathBuf,
+    /// Directory of the incidents' map regions, one PMTiles file per incident served at
+    /// `/tiles/<incident ULID>.pmtiles` (`ORDO_MAP_DIR`, default `maps` in the data
+    /// directory, ADR-0062); the incident command cuts them from `map_source` (ADR-0057).
+    pub map_dir: PathBuf,
     /// The world map regions are cut from: a PMTiles URL or file (`ORDO_MAP_SOURCE`,
     /// default the Protomaps build of the day before).
     pub map_source: Option<String>,
@@ -314,10 +314,7 @@ impl Config {
                 .to_owned(),
             }),
         };
-        let map_file = get("ORDO_MAP_FILE").map_or_else(
-            || data_dir.join("map").join("region.pmtiles"),
-            PathBuf::from,
-        );
+        let map_dir = get("ORDO_MAP_DIR").map_or_else(|| data_dir.join("maps"), PathBuf::from);
         let dex_api = match get("ORDO_DEX_API").filter(|u| !u.trim().is_empty()) {
             None => None,
             Some(url) => {
@@ -347,7 +344,7 @@ impl Config {
             vehicles,
             protected,
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
-            map_file,
+            map_dir,
             map_source: get("ORDO_MAP_SOURCE").filter(|s| !s.trim().is_empty()),
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
             oidc: match get("ORDO_OIDC_ISSUER").filter(|issuer| !issuer.trim().is_empty()) {

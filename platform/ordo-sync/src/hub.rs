@@ -322,9 +322,14 @@ impl<P: AccessPolicy> Hub<P> {
         }
     }
 
-    /// Whether `user` may cut the map region the server offers (MAP-8).
-    pub fn may_manage_map(&self, user: &UserId) -> bool {
-        self.policy.can_manage_map(user)
+    /// Whether `user`'s roles in `incident` give the incident permission `permission`
+    /// (e.g. `manage_map`: cut the incident's map region, MAP-8).
+    pub fn may_in_incident(&self, user: &UserId, incident: &IncidentId, permission: &str) -> bool {
+        let roles = self.registry.roles(user, incident);
+        self.policy
+            .incident_permissions(user, incident, &roles)
+            .iter()
+            .any(|p| p == permission)
     }
 
     /// Whether `user` may grant and withdraw organisation roles (ORG-9).
@@ -611,8 +616,9 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::GetAccounts
             | ClientMessage::ChangeAccount(_)
             | ClientMessage::BlobTicket(_)
-            | ClientMessage::GetMapRegion
-            | ClientMessage::CutMapRegion(_) => Vec::new(),
+            | ClientMessage::GetMapRegion(_)
+            | ClientMessage::CutMapRegion(_)
+            | ClientMessage::MapTicket(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),
@@ -721,7 +727,6 @@ impl<P: AccessPolicy> Hub<P> {
                     "manage_incidents",
                     self.policy.can_manage_incidents(&hello.user),
                 ),
-                ("manage_map", self.policy.can_manage_map(&hello.user)),
                 ("manage_roles", self.policy.can_manage_roles(&hello.user)),
                 (
                     "manage_accounts",

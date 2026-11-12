@@ -1,16 +1,26 @@
-//! The map region the server offers its devices (MAP-8, ADR-0057): cut from a PMTiles world
-//! map, by URL or from a file, around a centre with a radius. One cut at a time; the new
-//! file replaces the old one only when complete.
+//! The map region of each incident (MAP-8, ADR-0057, ADR-0062): cut from a PMTiles world
+//! map, by URL or from a file, around a centre with a radius, into
+//! `<map dir>/<incident ULID>.pmtiles`. One cut at a time on a server; the new file replaces
+//! the incident's old one only when complete. Devices read it with a ticket they ask for over
+//! their sync connection, so a region reaches only the people of its incident.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
+use axum::extract::{Path as UrlPath, Request, State};
+use axum::http::{StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use ordo_core::{IncidentId, Ulid};
 use ordo_sync::message::{MapRegion, MapRegionRequest, MapRegionState};
 use pmtiles::{
     AsyncBackend, AsyncPmTilesReader, Compression, HashMapCache, PmTilesWriter, TileCoord, TileId,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::app::App;
 
 /// Radius limits in metres.
 pub const RADIUS_M: std::ops::RangeInclusive<u32> = 1_000..=50_000;
@@ -18,33 +28,45 @@ pub const RADIUS_M: std::ops::RangeInclusive<u32> = 1_000..=50_000;
 const PARALLEL: usize = 16;
 /// Metres per degree of latitude.
 const M_PER_DEGREE: f64 = 111_320.0;
+/// How long a ticket to read a region is valid (asked anew on every connection).
+const TICKET_TTL: Duration = Duration::from_secs(12 * 3600);
+/// Most tickets kept at once (old ones are dropped first).
+const MAX_TICKETS: usize = 10_000;
 
-/// What the server remembers of the region next to its file.
+/// What the server remembers of a region next to its file.
 #[derive(Serialize, Deserialize)]
 struct Remembered {
     area: MapRegionRequest,
     at: u64,
 }
 
-/// The map region and the cutting of a new one.
+/// The regions of all incidents and the cutting of a new one.
 pub struct MapJob {
-    file: PathBuf,
+    dir: PathBuf,
     source: Option<String>,
-    state: Mutex<MapRegion>,
+    /// The incident (ULID) of the running or last cut, and its state.
+    current: Mutex<Option<(Ulid, MapRegion)>>,
     done: AtomicU64,
+    /// Tickets to read a region: token → incident and expiry.
+    tickets: Mutex<HashMap<String, (Ulid, Instant)>>,
 }
 
 impl MapJob {
-    /// The job for the region file `file`, cut from `source` (a URL or a path; none: the
-    /// Protomaps build of the day before).
-    pub fn new(file: PathBuf, source: Option<String>) -> Self {
-        let state = Self::on_disk(&file);
+    /// The regions in `dir`, cut from `source` (a URL or a path; none: the Protomaps build
+    /// of the day before).
+    pub fn new(dir: PathBuf, source: Option<String>) -> Self {
         Self {
-            file,
+            dir,
             source,
-            state: Mutex::new(state),
+            current: Mutex::new(None),
             done: AtomicU64::new(0),
+            tickets: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// The region file of an incident.
+    pub fn file(&self, incident: Ulid) -> PathBuf {
+        self.dir.join(format!("{incident}.pmtiles"))
     }
 
     fn sidecar(file: &Path) -> PathBuf {
@@ -68,69 +90,134 @@ impl MapJob {
         }
     }
 
-    // [impl->dsn~map-region~1]
-    /// The current state, with the progress of a running cut.
-    pub fn state(&self) -> MapRegion {
-        let mut state = self.state.lock().expect("map job lock").clone();
-        if state.state == MapRegionState::Running {
-            state.done = Some(self.done.load(Ordering::Relaxed));
-        }
+    // [impl->dsn~map-region~2]
+    /// The state of an incident's region, with the progress of a running cut.
+    pub fn state(&self, incident: &IncidentId) -> MapRegion {
+        let id = incident.ulid();
+        let current = self.current.lock().expect("map job lock").clone();
+        let mut state = match current {
+            Some((of, state)) if of == id && state.state != MapRegionState::Ready => {
+                let mut state = state;
+                if state.state == MapRegionState::Running {
+                    state.done = Some(self.done.load(Ordering::Relaxed));
+                }
+                state
+            }
+            _ => Self::on_disk(&self.file(id)),
+        };
+        state.incident = Some(incident.clone());
         state
     }
 
-    /// Starts cutting `area`, unless a cut is running; returns the state.
-    pub fn start(self: &Arc<Self>, area: MapRegionRequest, now_ms: u64) -> MapRegion {
+    // [impl->dsn~map-region~2]
+    /// Starts cutting `area` for `incident`, unless a cut is running on the server; returns
+    /// the incident's state.
+    pub fn start(
+        self: &Arc<Self>,
+        incident: &IncidentId,
+        area: MapRegionRequest,
+        now_ms: u64,
+    ) -> MapRegion {
+        let id = incident.ulid();
+        let file = self.file(id);
         {
-            let mut state = self.state.lock().expect("map job lock");
-            if state.state == MapRegionState::Running {
-                return state.clone();
+            let mut current = self.current.lock().expect("map job lock");
+            if let Some((of, state)) = current.as_ref()
+                && state.state == MapRegionState::Running
+            {
+                let same = *of == id;
+                drop(current);
+                if same {
+                    return self.state(incident);
+                }
+                return MapRegion {
+                    incident: Some(incident.clone()),
+                    state: MapRegionState::Failed,
+                    error: Some("another map region is being cut".into()),
+                    ..Self::on_disk(&file)
+                };
             }
             if !RADIUS_M.contains(&area.radius_m)
                 || !(-850_000_000..=850_000_000).contains(&area.lat_e7)
                 || !(-1_800_000_000..=1_800_000_000).contains(&area.lon_e7)
             {
-                *state = MapRegion {
+                let state = MapRegion {
                     state: MapRegionState::Failed,
                     error: Some("centre or radius out of range".into()),
-                    ..Self::on_disk(&self.file)
+                    ..Self::on_disk(&file)
                 };
-                state.state = MapRegionState::Failed;
-                return state.clone();
+                *current = Some((id, state));
+                drop(current);
+                return self.state(incident);
             }
-            *state = MapRegion {
-                state: MapRegionState::Running,
-                area: Some(area),
-                done: Some(0),
-                total: Some(0),
-                ..MapRegion::default()
-            };
+            *current = Some((
+                id,
+                MapRegion {
+                    state: MapRegionState::Running,
+                    area: Some(area),
+                    done: Some(0),
+                    total: Some(0),
+                    ..MapRegion::default()
+                },
+            ));
         }
         self.done.store(0, Ordering::Relaxed);
         let job = self.clone();
         tokio::spawn(async move {
-            let result = job.cut(area).await;
-            let mut state = job.state.lock().expect("map job lock");
-            *state = match result {
+            let result = job.cut(&file, area).await;
+            let state = match result {
                 Ok(()) => {
                     let remembered = Remembered { area, at: now_ms };
                     let _ = std::fs::write(
-                        Self::sidecar(&job.file),
+                        Self::sidecar(&file),
                         serde_json::to_vec(&remembered).unwrap_or_default(),
                     );
-                    tracing::info!(file = %job.file.display(), "map region cut");
-                    Self::on_disk(&job.file)
+                    tracing::info!(file = %file.display(), "map region cut");
+                    Self::on_disk(&file)
                 }
                 Err(error) => {
                     tracing::warn!(%error, "cutting the map region failed");
                     MapRegion {
                         state: MapRegionState::Failed,
                         error: Some(error),
-                        ..Self::on_disk(&job.file)
+                        ..Self::on_disk(&file)
                     }
                 }
             };
+            *job.current.lock().expect("map job lock") = Some((id, state));
         });
-        self.state()
+        self.state(incident)
+    }
+
+    // [impl->dsn~map-region~2]
+    /// Issues a ticket to read an incident's region; the caller has checked that the user
+    /// may read the incident.
+    pub fn issue_ticket(&self, incident: &IncidentId) -> String {
+        let mut token = [0u8; 32];
+        getrandom::fill(&mut token).expect("the operating system provides randomness");
+        let token = crate::blobs::hex(&token);
+        let now = Instant::now();
+        let mut tickets = self.tickets.lock().expect("ticket lock");
+        tickets.retain(|_, (_, expires)| *expires > now);
+        if tickets.len() >= MAX_TICKETS
+            && let Some(oldest) = tickets
+                .iter()
+                .min_by_key(|(_, (_, expires))| *expires)
+                .map(|(k, _)| k.clone())
+        {
+            tickets.remove(&oldest);
+        }
+        tickets.insert(token.clone(), (incident.ulid(), now + TICKET_TTL));
+        token
+    }
+
+    /// Whether `token` is a valid ticket for the region of `incident`.
+    fn ticket_allows(&self, token: &str, incident: Ulid) -> bool {
+        self.tickets
+            .lock()
+            .expect("ticket lock")
+            .get(token)
+            .is_some_and(|(of, expires)| *of == incident && *expires > Instant::now())
     }
 
     /// The source: as configured, else the Protomaps build of the day before.
@@ -146,7 +233,7 @@ impl MapJob {
         })
     }
 
-    async fn cut(self: &Arc<Self>, area: MapRegionRequest) -> Result<(), String> {
+    async fn cut(self: &Arc<Self>, file: &Path, area: MapRegionRequest) -> Result<(), String> {
         let source = self.source();
         if source.starts_with("http://") || source.starts_with("https://") {
             // TLS with ring, like the rest of the server.
@@ -162,19 +249,20 @@ impl MapJob {
             )
             .await
             .map_err(|e| format!("{source}: {e}"))?;
-            self.cut_from(reader, area).await
+            self.cut_from(reader, file, area).await
         } else {
             let reader =
                 AsyncPmTilesReader::new_with_path_and_cache(&source, HashMapCache::default())
                     .await
                     .map_err(|e| format!("{source}: {e}"))?;
-            self.cut_from(reader, area).await
+            self.cut_from(reader, file, area).await
         }
     }
 
     async fn cut_from<B: AsyncBackend + Send + Sync + 'static>(
         self: &Arc<Self>,
         reader: AsyncPmTilesReader<B, HashMapCache>,
+        file: &Path,
         area: MapRegionRequest,
     ) -> Result<(), String> {
         let (tile_type, tile_compression, min_zoom, max_zoom) = {
@@ -183,7 +271,9 @@ impl MapJob {
         };
         let metadata = reader.get_metadata().await.map_err(|e| e.to_string())?;
         let coords = tiles(area, min_zoom, max_zoom);
-        if let Ok(mut state) = self.state.lock() {
+        if let Ok(mut current) = self.current.lock()
+            && let Some((_, state)) = current.as_mut()
+        {
             state.total = Some(coords.len() as u64);
         }
         let reader = Arc::new(reader);
@@ -210,10 +300,10 @@ impl MapJob {
         found.sort_by_key(|(id, _, _)| *id);
 
         // Written next to the region, then moved over it: devices never get half a file.
-        if let Some(dir) = self.file.parent() {
+        if let Some(dir) = file.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        let partial = self.file.with_extension("partial");
+        let partial = file.with_extension("partial");
         let output = std::fs::File::create(&partial).map_err(|e| e.to_string())?;
         let (min_lon, min_lat, max_lon, max_lat) = bounds(area);
         let mut writer = PmTilesWriter::new(tile_type)
@@ -234,8 +324,43 @@ impl MapJob {
             writer.add_tile(*coord, tile).map_err(|e| e.to_string())?;
         }
         writer.finalize().map_err(|e| e.to_string())?;
-        std::fs::rename(&partial, &self.file).map_err(|e| e.to_string())?;
+        std::fs::rename(&partial, file).map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+// [impl->dsn~map-region~2]
+/// `GET /tiles/<incident ULID>.pmtiles`: an incident's region, with range requests, for a
+/// valid ticket (header `Authorization: Bearer <ticket>`). Not found until one is cut.
+pub async fn serve(
+    State(app): State<Arc<App>>,
+    UrlPath(name): UrlPath<String>,
+    request: Request,
+) -> Response {
+    let Some(incident) = name
+        .strip_suffix(".pmtiles")
+        .and_then(|id| id.parse::<Ulid>().ok())
+    else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let allowed = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .is_some_and(|token| app.map.ticket_allows(token, incident));
+    if !allowed {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match tower_http::services::ServeFile::new(app.map.file(incident))
+        .try_call(request)
+        .await
+    {
+        Ok(response) => response.map(axum::body::Body::new).into_response(),
+        Err(error) => {
+            tracing::warn!(%error, "reading a map region failed");
+            StatusCode::SERVICE_UNAVAILABLE.into_response()
+        }
     }
 }
 
@@ -287,7 +412,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~map-region~1]
+    // [utest->dsn~map-region~2]
     #[test]
     fn the_tiles_cover_the_circle_at_every_zoom() {
         // Augsburg, 10 km.
@@ -310,19 +435,86 @@ mod tests {
         assert_eq!(ids.len(), tiles.len());
     }
 
+    fn incident(n: u64) -> IncidentId {
+        let server: ordo_core::ServerName = "ordo.example.org".parse().unwrap();
+        IncidentId::new(Ulid::from_parts(n, u128::from(n)).unwrap(), &server)
+    }
+
+    // [utest->dsn~map-region~2]
+    #[test]
+    fn each_incident_has_its_region_and_one_is_cut_at_a_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let job = Arc::new(MapJob::new(dir.path().to_owned(), None));
+        let (a, b) = (incident(1), incident(2));
+        assert_eq!(
+            job.file(a.ulid()),
+            dir.path().join(format!("{}.pmtiles", a.ulid())),
+            "one file per incident, named by its ULID"
+        );
+        std::fs::write(job.file(a.ulid()), b"PMTiles\x03").unwrap();
+        let ready = job.state(&a);
+        assert_eq!((ready.state, ready.bytes), (MapRegionState::Ready, Some(8)));
+        assert_eq!(
+            ready.incident,
+            Some(a.clone()),
+            "the answer names the incident"
+        );
+        assert_eq!(
+            job.state(&b).state,
+            MapRegionState::None,
+            "the other has none"
+        );
+
+        // A wrong area fails for that incident only; its old region stays.
+        let failed = job.start(&a, area(48.37, 10.9, 100), 0);
+        assert_eq!(failed.state, MapRegionState::Failed);
+        assert_eq!(failed.bytes, Some(8), "the old region stays");
+        assert_eq!(job.state(&b).state, MapRegionState::None);
+
+        // While one is cut, another incident waits.
+        *job.current.lock().unwrap() = Some((
+            a.ulid(),
+            MapRegion {
+                state: MapRegionState::Running,
+                ..MapRegion::default()
+            },
+        ));
+        let busy = job.start(&b, area(48.37, 10.9, 1_000), 0);
+        assert_eq!(busy.state, MapRegionState::Failed);
+        assert_eq!(busy.incident, Some(b.clone()));
+        assert_eq!(job.state(&a).state, MapRegionState::Running);
+    }
+
+    // [utest->dsn~map-region~2]
+    #[test]
+    fn a_ticket_reads_the_region_of_its_incident_only() {
+        let job = MapJob::new(std::env::temp_dir(), None);
+        let (a, b) = (incident(1), incident(2));
+        let ticket = job.issue_ticket(&a);
+        assert_eq!(ticket.len(), 64, "32 random bytes, hex");
+        assert!(job.ticket_allows(&ticket, a.ulid()));
+        assert!(
+            !job.ticket_allows(&ticket, b.ulid()),
+            "not for another incident"
+        );
+        assert!(!job.ticket_allows("guessed", a.ulid()));
+        assert_ne!(job.issue_ticket(&a), ticket, "a new one every time");
+    }
+
     /// Cuts 1 km around Augsburg from the real Protomaps build (needs internet; run with
     /// `cargo test -p ordo-server -- --ignored protomaps`).
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "downloads from build.protomaps.com"]
     async fn cuts_a_small_region_from_the_protomaps_build() {
         let dir = std::env::temp_dir().join(format!("ordo-map-{}", std::process::id()));
-        let job = Arc::new(MapJob::new(dir.join("region.pmtiles"), None));
+        let job = Arc::new(MapJob::new(dir.clone(), None));
         let started = std::time::Instant::now();
-        job.start(area(48.37, 10.9, 1_000), 0);
-        while job.state().state == MapRegionState::Running {
+        let a = incident(1);
+        job.start(&a, area(48.37, 10.9, 1_000), 0);
+        while job.state(&a).state == MapRegionState::Running {
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
-        let state = job.state();
+        let state = job.state(&a);
         println!("{state:?} in {:?}", started.elapsed());
         assert_eq!(state.state, MapRegionState::Ready, "{state:?}");
         let _ = std::fs::remove_dir_all(dir);

@@ -1,16 +1,17 @@
 // ORDO's glue to MapLibre GL JS and PMTiles (ADR-0006, MAP-1, MAP-2).
 //
 // The Rust app imports this module only when the situation map opens. It loads the
-// vendored libraries (map/vendor), shows the map region from the device's offline copy or
-// from the server, and draws ORDO's objects, which the app passes as GeoJSON. Everything
+// vendored libraries (map/vendor), shows the incident's map region from the device's
+// offline copy or from the server (with a ticket, ADR-0062), and draws ORDO's objects, which the app passes as GeoJSON. Everything
 // the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
 // [impl->dsn~situation-map~1]
 // [impl->dsn~tactical-symbols~1]
 
-const REGION_URL = "/tiles/region.pmtiles";
-const OFFLINE_NAME = "ordo-region.pmtiles";
+// One region per incident, named by the incident's ULID; read with a ticket.
+const regionPath = (incident) => `/tiles/${incident}.pmtiles`;
+const authorised = (ticket) => new Headers({ Authorization: `Bearer ${ticket}` });
 const OBJECTS = "ordo-objects";
 // The shape being drawn (MAP-4), before it is saved.
 const DRAFT = "ordo-draft";
@@ -52,34 +53,41 @@ async function load() {
 // writable from the page in every browser (Safari cannot write OPFS files outside workers).
 const OFFLINE_CACHE = "ordo-map-region";
 
-async function offlineFile() {
+async function offlineFile(incident) {
+  if (!incident) return null;
   try {
     const cache = await caches.open(OFFLINE_CACHE);
-    const response = await cache.match(REGION_URL);
+    const response = await cache.match(regionPath(incident));
     if (!response) return null;
-    return new File([await response.blob()], OFFLINE_NAME);
+    return new File([await response.blob()], `ordo-${incident}.pmtiles`);
   } catch {
     return null;
   }
 }
 
-// Where the map region comes from: the device's copy, the server, or nowhere.
-async function region({ pmtiles, protocol }) {
-  const file = await offlineFile();
+// Whether the server has the incident's region and the ticket lets this device read it.
+async function onServer(incident, ticket) {
+  if (!incident || !ticket) return false;
+  try {
+    return (await fetch(regionPath(incident), { method: "HEAD", headers: authorised(ticket) })).ok;
+  } catch {
+    return false; // offline
+  }
+}
+
+// Where the incident's map region comes from: the device's copy, the server, or nowhere.
+async function region({ pmtiles, protocol }, incident, ticket) {
+  const file = await offlineFile(incident);
   if (file && file.size > 0) {
     const archive = new pmtiles.PMTiles(new pmtiles.FileSource(file));
     protocol.add(archive);
     return { url: `pmtiles://${file.name}`, from: "device", archive };
   }
-  try {
-    const head = await fetch(REGION_URL, { method: "HEAD" });
-    if (head.ok) {
-      const archive = new pmtiles.PMTiles(`${location.origin}${REGION_URL}`);
-      protocol.add(archive);
-      return { url: `pmtiles://${location.origin}${REGION_URL}`, from: "server", archive };
-    }
-  } catch {
-    // offline and no copy on the device
+  if (await onServer(incident, ticket)) {
+    const url = `${location.origin}${regionPath(incident)}`;
+    const archive = new pmtiles.PMTiles(new pmtiles.FetchSource(url, authorised(ticket)));
+    protocol.add(archive);
+    return { url: `pmtiles://${url}`, from: "server", archive };
   }
   return { url: null, from: "none" };
 }
@@ -88,10 +96,14 @@ function token(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Creates the map in `element`; returns a handle, or throws (e.g. no WebGL). */
-export async function create(element, centre, label) {
+/**
+ * Creates the map in `element` with the region of `incident` (its ULID), read from the
+ * server with `ticket` if the device has no copy; returns a handle, or throws (e.g. no
+ * WebGL).
+ */
+export async function create(element, centre, label, incident, ticket) {
   const l = await load();
-  const source = await region(l);
+  const source = await region(l, incident, ticket);
   const style = {
     version: 8,
     glyphs: `${location.origin}/map/glyphs/{fontstack}/{range}.pbf`,
@@ -243,29 +255,24 @@ export function regionSource(handle) {
   return handle.from;
 }
 
-/** Whether the server has a map region, and the size of the device's copy (0: none). */
-export async function offlineState() {
-  const file = await offlineFile();
-  let server = false;
-  try {
-    server = (await fetch(REGION_URL, { method: "HEAD" })).ok;
-  } catch {
-    server = false;
-  }
-  return { server, device: file ? file.size : 0 };
+/** Whether the server has the incident's region, and the size of the device's copy (0: none). */
+export async function offlineState(incident, ticket) {
+  const file = await offlineFile(incident);
+  return { server: await onServer(incident, ticket), device: file ? file.size : 0 };
 }
 
-/** Keeps the whole map region on the device (Cache Storage). */
-export async function saveOffline() {
-  const response = await fetch(REGION_URL);
+/** Keeps the incident's whole map region on the device (Cache Storage), one per incident. */
+export async function saveOffline(incident, ticket) {
+  const response = await fetch(regionPath(incident), { headers: authorised(ticket) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const cache = await caches.open(OFFLINE_CACHE);
-  await cache.put(REGION_URL, response);
-  const file = await offlineFile();
+  await cache.put(regionPath(incident), response);
+  const file = await offlineFile(incident);
   return file ? file.size : 0;
 }
 
-/** Deletes the device's copy of the map region. */
-export async function removeOffline() {
-  await caches.delete(OFFLINE_CACHE);
+/** Deletes the device's copy of the incident's map region. */
+export async function removeOffline(incident) {
+  const cache = await caches.open(OFFLINE_CACHE);
+  await cache.delete(regionPath(incident));
 }

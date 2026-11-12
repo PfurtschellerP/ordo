@@ -10,7 +10,8 @@ use ordo_core::event::{Author, EventBody, Payload, Signature, SignedEvent};
 use ordo_core::{DeviceId, EventId, Hlc, IncidentId, KeyId, ServerName, Ulid};
 use ordo_med_patients as med;
 use ordo_sync::message::{
-    ClientMessage, MapRegion, MapRegionRequest, MapRegionState, Rejection, ServerMessage,
+    ClientMessage, MapRegion, MapRegionCut, MapRegionRequest, MapRegionState, MapTicket,
+    Rejection, ServerMessage,
 };
 
 fn write(dir: &Path, target: &str, name: &str, bytes: &[u8]) {
@@ -131,8 +132,15 @@ fn main() {
     let client = [
         ("list-incidents", ClientMessage::ListIncidents),
         ("list-vehicles", ClientMessage::ListVehicles),
-        ("get-map-region", ClientMessage::GetMapRegion),
-        ("cut-map-region", ClientMessage::CutMapRegion(area)),
+        ("get-map-region", ClientMessage::GetMapRegion(incident.clone())),
+        (
+            "cut-map-region",
+            ClientMessage::CutMapRegion(MapRegionCut {
+                incident: incident.clone(),
+                area,
+            }),
+        ),
+        ("map-ticket", ClientMessage::MapTicket(incident.clone())),
         ("revoke", ClientMessage::RevokeDevice(device)),
         ("push", ClientMessage::Push(vec![event.clone()])),
     ];
@@ -150,11 +158,19 @@ fn main() {
         (
             "map-region",
             ServerMessage::MapRegion(MapRegion {
+                incident: Some(incident.clone()),
                 state: MapRegionState::Ready,
                 bytes: Some(3_553_183),
                 area: Some(area),
                 at: Some(1_800_000_000_000),
                 ..MapRegion::default()
+            }),
+        ),
+        (
+            "map-ticket",
+            ServerMessage::MapTicket(MapTicket {
+                incident: incident.clone(),
+                ticket: Some("0".repeat(64)),
             }),
         ),
     ];

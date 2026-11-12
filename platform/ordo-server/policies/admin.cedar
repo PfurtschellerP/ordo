@@ -39,21 +39,13 @@ permit (
 )
 when { context.roles.contains("planner") || context.roles.contains("admin") };
 
-// Planners and administrators prepare the map region for the installation (MAP-8).
-@id("admin.manage-map")
-permit (
-  principal,
-  action == Action::"manage_map",
-  resource == Organisation::"organisation"
-)
-when { context.roles.contains("planner") || context.roles.contains("admin") };
-
 // Planners see and edit the shared data of every incident (name, roster, units), never
-// clinical data, and use the incident command's views to prepare it.
+// clinical data, and use the incident command's views to prepare it, the map region too
+// (ADR-0062).
 @id("admin.planner-views")
 permit (
   principal,
-  action in [Action::"view_situation", Action::"edit_units"],
+  action in [Action::"view_situation", Action::"edit_units", Action::"manage_map"],
   resource == Compartment::"incident"
 )
 when { context.roles.contains("planner") || context.roles.contains("admin") };

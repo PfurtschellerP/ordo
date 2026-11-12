@@ -32,8 +32,13 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
-pub const INCIDENT_PERMISSIONS: [&str; 4] =
-    ["view_situation", "edit_units", "give_orders", "all_uhs"];
+pub const INCIDENT_PERMISSIONS: [&str; 5] = [
+    "view_situation",
+    "edit_units",
+    "give_orders",
+    "all_uhs",
+    "manage_map",
+];
 
 /// A policy file could not be used.
 #[derive(Debug, thiserror::Error)]
@@ -354,10 +359,6 @@ impl AccessPolicy for RolePolicy {
         self.allows_organisation(user, "manage_incidents")
     }
 
-    fn can_manage_map(&self, user: &UserId) -> bool {
-        self.allows_organisation(user, "manage_map")
-    }
-
     // [impl->dsn~organisation-roles~1]
     fn can_manage_roles(&self, user: &UserId) -> bool {
         self.allows_organisation(user, "manage_roles")
@@ -529,6 +530,17 @@ mod tests {
             !p.can_read(&user("dora"), &incident, &clinical, &[]),
             "planning gives no clinical data"
         );
+        // [utest->dsn~map-region~2]
+        assert!(
+            p.incident_permissions(&user("dora"), &incident, &[])
+                .contains(&"manage_map".to_owned()),
+            "planners prepare an incident's map region"
+        );
+        assert!(
+            !p.incident_permissions(&erik, &incident, &medic)
+                .contains(&"manage_map".to_owned()),
+            "the crews do not"
+        );
     }
 
     // [utest->dsn~views-by-role~1]
@@ -545,7 +557,7 @@ mod tests {
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &commander),
-            ["view_situation", "edit_units"]
+            ["view_situation", "edit_units", "manage_map"]
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &["physician".to_owned()]),

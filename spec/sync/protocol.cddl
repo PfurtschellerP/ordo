@@ -13,8 +13,9 @@ client-message = { "hello": hello }
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
                / "listVehicles"               ; vehicles of the installation (1.1)
-               / "getMapRegion"               ; state of the map region (1.2)
-               / { "cutMapRegion": map-region-request } ; with manage_map (1.2)
+               / { "getMapRegion": incident-id } ; state of the incident's map region (1.2)
+               / { "cutMapRegion": map-region-cut } ; with manage_map in the incident (1.2)
+               / { "mapTicket": incident-id } ; ticket to read the incident's map region (1.2)
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
@@ -69,6 +70,7 @@ server-message = { "challenge": challenge }
                                               ; the user may edit units somewhere
                / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
                                               ; (1.2); state "none" without manage_map
+               / { "mapTicket": map-ticket }  ; answer to mapTicket (1.2)
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
                / { "organisationRoles": [* organisation-role] } ; answer to
                                               ; getOrganisationRoles and setOrganisationRole
@@ -197,7 +199,19 @@ rejection = "malformed" / "unknownDevice" / "notAuthenticated" / "loginExpired"
           / "forbidden" / "wrongSealing" / "clockAhead" / "notConnected"
           / "duplicateId" / "unsupportedVersion"
 
-; The map region the server offers its devices (MAP-8): cut from a world map around a centre.
+; An incident's map region (MAP-8, ADR-0062): cut from a world map around a centre.
+map-region-cut = {
+  "incident": incident-id,
+  "area": map-region-request,
+}
+
+; A ticket for GET /tiles/<incident ULID>.pmtiles with "Authorization: Bearer <ticket>";
+; absent unless the user may read the incident's shared compartment. Valid 12 hours.
+map-ticket = {
+  "incident": incident-id,
+  ? "ticket": tstr,
+}
+
 map-region-request = {
   "latE7": int,                    ; centre, WGS 84, degrees × 10^7 (as in PMTiles)
   "lonE7": int,
@@ -205,6 +219,7 @@ map-region-request = {
 }
 
 map-region = {
+  ? "incident": incident-id,       ; the incident asked about
   "state": "none" / "running" / "ready" / "failed",
   ? "done": uint,                  ; tiles fetched (running)
   ? "total": uint,                 ; tiles to fetch (running)

@@ -26,10 +26,13 @@ pub enum ClientMessage {
     ListPeople,
     /// Asks for the installation's vehicles (master data, UNIT-1); protocol 1.1.
     ListVehicles,
-    /// Asks for the state of the map region (MAP-8); protocol 1.2.
-    GetMapRegion,
-    /// Asks the server to cut a new map region (permission `manage_map`); protocol 1.2.
-    CutMapRegion(MapRegionRequest),
+    /// Asks for the state of an incident's map region (MAP-8, ADR-0062); protocol 1.2.
+    GetMapRegion(IncidentId),
+    /// Asks the server to cut a new map region for an incident (incident permission
+    /// `manage_map`); protocol 1.2.
+    CutMapRegion(MapRegionCut),
+    /// Asks for a ticket to read an incident's map region; protocol 1.2.
+    MapTicket(IncidentId),
     /// Asks for the profile pictures of these people (ADR-0047).
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
@@ -66,7 +69,27 @@ pub struct MapRegionRequest {
     pub radius_m: u32,
 }
 
-/// How far the server's map region is (MAP-8).
+/// A new map region for an incident: where to cut it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MapRegionCut {
+    /// The incident.
+    pub incident: IncidentId,
+    /// Centre and radius.
+    pub area: MapRegionRequest,
+}
+
+/// The answer to `mapTicket`: a ticket for `GET /tiles/<incident ULID>.pmtiles` (header
+/// `Authorization: Bearer <ticket>`), or none if the user may not read the incident.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MapTicket {
+    /// The incident.
+    pub incident: IncidentId,
+    /// The ticket, valid for 12 hours; `None`: not allowed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
+}
+
+/// How far an incident's map region is (MAP-8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MapRegionState {
@@ -75,7 +98,7 @@ pub enum MapRegionState {
     None,
     /// Being cut.
     Running,
-    /// Ready at `/tiles/region.pmtiles`.
+    /// Ready at `/tiles/<incident ULID>.pmtiles`.
     Ready,
     /// The last cut failed; an earlier region stays.
     Failed,
@@ -85,6 +108,9 @@ pub enum MapRegionState {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapRegion {
+    /// The incident the region belongs to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub incident: Option<IncidentId>,
     /// State.
     pub state: MapRegionState,
     /// Tiles fetched (running).
@@ -409,8 +435,11 @@ pub enum ServerMessage {
     /// The installation's vehicles (answer to `listVehicles`, protocol 1.1): empty for
     /// those who may not edit units anywhere.
     Vehicles(Vec<Vehicle>),
-    /// The map region (answer to `getMapRegion` and `cutMapRegion`, protocol 1.2).
+    /// An incident's map region (answer to `getMapRegion` and `cutMapRegion`, protocol
+    /// 1.2).
     MapRegion(MapRegion),
+    /// Answer to `mapTicket` (protocol 1.2).
+    MapTicket(MapTicket),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,
