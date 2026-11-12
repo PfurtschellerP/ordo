@@ -656,7 +656,7 @@ mod tests {
             "command.leaderSet",
             &commander
         ));
-        // [utest->dsn~situation-map~2]
+        // [utest->dsn~situation-map~3]
         assert!(
             !p.can_write(&erik, &incident, &shared, "map", "map.objectPlaced", &medic),
             "the situation map is the command's"

@@ -33,10 +33,12 @@ import {
   title,
 } from "./support/app";
 import { DEX_URL, ORDO_PORT, startDex, UPSTREAM } from "./support/dex";
+import { PLACE, startGeocoder } from "./support/geocoder";
 import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
 let stopDex: () => void;
+let stopGeocoder: () => void;
 const INCIDENT = "Sanitätsdienst Stadtfest";
 let anna: Page;
 let ben: Page;
@@ -76,6 +78,9 @@ test.beforeAll(async ({ browser }, info) => {
   server = new OrdoServer(work, ORDO_PORT + info.parallelIndex);
   server.setup(); // no seed: people log in with Dex, roles come from their groups
   stopDex = await startDex();
+  const geocoder = await startGeocoder();
+  stopGeocoder = geocoder.stop;
+  server.geocoder = geocoder.url;
   await server.start();
   anna = await newDevice(browser);
   ben = await newDevice(browser);
@@ -88,6 +93,7 @@ test.beforeAll(async ({ browser }, info) => {
 test.afterAll(async () => {
   await server?.stop();
   stopDex?.();
+  stopGeocoder?.();
 });
 
 // One test with steps: later steps build on earlier ones, and soft checks (audits)
@@ -103,9 +109,10 @@ test("ORDO in the browser", async ({ browser }) => {
       })
       .toBe(true);
     await audit(dora, "Pairing page");
-    // [itest->dsn~licence-notices~1]
-    // LIC-1: every screen links to the licences and the source code.
-    await dora.getByRole("contentinfo").getByRole("link", { name: "Lizenzen und Quellcode" }).click();
+    // [itest->dsn~licence-notices~2]
+    // LIC-1: before pairing, the pairing screen links to the licences and the source code.
+    await expect(dora.getByRole("contentinfo"), "no footer under every screen").toHaveCount(0);
+    await dora.getByRole("link", { name: "Lizenzen und Quellcode" }).click();
     await expect(dora.getByRole("heading", { level: 1 })).toHaveText("Lizenzen und Quellcode");
     await expect(dora.locator(".notices__source"), "the source code of this build").toHaveAttribute("href", /^https:\/\/github\.com\/PfurtschellerP\/ordo/);
     await expect(dora.locator(".notices__part").filter({ hasText: "MapLibre GL JS" }).getByRole("link", { name: "BSD-3-Clause" })).toHaveAttribute("href", "/map/vendor/maplibre-gl.LICENSE.txt");
@@ -130,6 +137,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".summary__card", { hasText: "Einsatzmittel" }), "each with a summary").toContainText("0 Einsatzmittel, 0 Einsatzkräfte vor Ort.");
     await audit(dora, "Command overview");
     await shot(dora, "command-overview");
+    // … and once paired, under Administration – Info, for everyone.
+    await openWorkspace(dora, "Info");
+    await expect(dora.locator("#info-app"), "the app's version").toContainText("Protokolle: Abgleich");
+    await expect(dora.locator("#info-server"), "the server's, asked from it").toContainText(/0\.0\.0, (Build|lokaler Build)/);
+    await expect(dora.locator(".notices__source"), "with the source code of this build").toHaveAttribute("href", /^https:\/\/github\.com\/PfurtschellerP\/ordo/);
+    await audit(dora, "Info");
     await openWorkspace(dora, "Zugriff");
     await expect(dora.locator(".views__item"), "administration: accounts, permissions, devices, login").toHaveText(["Konten", "Berechtigungen", "Geräte", "Anmeldung"]);
     await shot(dora, "administration", false);
@@ -141,6 +154,18 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
     await expect(region).toHaveText("Für diesen Einsatz ist noch keine Kartengrundlage erstellt.");
+    // [itest->dsn~address-search~1]
+    // MAP-9: the centre from an address (ADR-0066), searched only when asked.
+    await dora.locator("#region-address").fill("Rathausplatz Augsburg");
+    await dora.getByRole("search").getByRole("button", { name: "Suchen" }).click();
+    await expect(dora.locator(".address-search__status"), "the server asked its geocoder").toHaveText("1 Ort gefunden. Bitte wählen.");
+    await expect(dora.locator(".address-search").getByText("© OpenStreetMap-Mitwirkende"), "credited").toBeVisible();
+    await dora.getByRole("button", { name: PLACE.label }).click();
+    await expect(dora.locator("#region-lat"), "the place fills the centre").toHaveValue("48.37000");
+    await expect(dora.locator("#region-lon")).toHaveValue("10.90000");
+    await dora.locator("#region-address").fill("Nirgendwo");
+    await dora.getByRole("search").getByRole("button", { name: "Suchen" }).click();
+    await expect(dora.locator(".address-search__status")).toHaveText("Nichts gefunden. Bitte anders schreiben, zum Beispiel mit dem Ort.");
     await dora.locator("#region-lat").fill("48,37");
     await dora.locator("#region-lon").fill("10,9");
     await dora.locator("#region-radius").fill("10");
@@ -541,8 +566,13 @@ test("ORDO in the browser", async ({ browser }) => {
   });
 
   await test.step("input survives being offline and a reload", async () => {
-    // [itest->dsn~offline-app-shell~1]
+    // [itest->dsn~offline-app-shell~2]
     await expect.poll(() => anna.evaluate(() => !!navigator.serviceWorker.controller), { message: "the app shell is installed for offline use" }).toBe(true);
+    await expect
+      .poll(() => anna.evaluate(async () => (await caches.keys()).filter((k) => k.startsWith("ordo-app-shell")).map((k) => /^ordo-app-shell-[0-9a-f]{16}$/.test(k))), {
+        message: "one cache, for the version of the app that runs",
+      })
+      .toEqual([true]);
     if (test.info().project.name === "chromium") {
       // Chrome offers to install the app (PWA): manifest with name, icons, start URL.
       const cdp = await anna.context().newCDPSession(anna);
@@ -624,7 +654,7 @@ test("ORDO in the browser", async ({ browser }) => {
     });
     expect(barBottom, "the bar sits at the bottom").toBe(viewportHeight);
     expect(menuInBar, "the menu is in the bar").toBe(true);
-    // [itest->dsn~header-layout~1]
+    // [itest->dsn~header-layout~2]
     await expect(anna.getByRole("button", { name: "Menü – Arbeitsbereich wechseln" }), "exactly one menu button: the one in the bar").toHaveCount(1);
     await expect(anna.locator("#launcher-button"), "the header's menu button is hidden on phones").toBeHidden();
     const menuAtEnd = () =>
@@ -743,7 +773,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#launcher-panel"), "Escape closes the menu").toBeHidden();
     await expect(ben.locator("#launcher-button"), "focus returns to the menu button").toBeFocused();
-    // [itest->dsn~header-layout~1]
+    // [itest->dsn~header-layout~2]
     const header = await ben.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
       const [menu, title, search, status, person, bar] = ["#launcher-button", ".app-header__title", "#palette-button", "#connection-button", "#profile-button", ".app-header"].map(box);
@@ -757,7 +787,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#launcher-button").click();
     await expect(ben.locator("#launcher-panel"), "the main menu lists workspaces only").not.toContainText("Gerät entkoppeln");
     await expect(ben.locator("#launcher-panel #theme")).toHaveCount(0);
-    await ben.locator("#launcher-button").click();
+    await ben.locator("#main").click({ position: { x: 5, y: 5 } });
+    await expect(ben.locator("#launcher-panel"), "a click outside closes the menu").toBeHidden();
+    await ben.locator("#connection-button").click();
+    await expect(ben.locator("#connection-panel")).toBeVisible();
+    await ben.locator(".app-header__title").click();
+    await expect(ben.locator("#connection-panel"), "so it does the connection state").toBeHidden();
+    await ben.locator("#profile-button").click();
+    await ben.locator("#profile-panel").getByText("Angemeldet als").click();
+    await expect(ben.locator("#profile-panel"), "a click inside keeps it open").toBeVisible();
+    await ben.locator("#profile-button").click();
     await ben.locator("#profile-button").click();
     await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als Ben Weber (ben@localhost)");
     // ORG-7: a person may choose their own name; clearing it returns to the provider's.
@@ -968,8 +1007,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
-  // [itest->dsn~situation-map~2]
-  await test.step("situation map: edit it on its own page, keep the map region offline", async () => {
+  // [itest->dsn~situation-map~3]
+  await test.step("situation map: read in Führung, edited in Vorbereitung, kept offline by itself", async () => {
     await openWorkspace(ben, "Führung");
     await openView(ben, "Lagekarte");
     const state = ben.locator(".situation__state");
@@ -982,13 +1021,21 @@ test("ORDO in the browser", async ({ browser }) => {
       await expect(state).toHaveText(/Die Karte kann auf diesem Gerät nicht angezeigt werden/);
       return;
     }
-    await expect(state, "the region comes from the server").toHaveText("Kartengrundlage: vom Server.");
+    // MAP-2 (ADR-0065): the region was kept on the device by itself when the map first
+    // opened, in the step before; so it now comes from the device.
+    const offline = ben.locator(".offline-region");
+    await expect(offline.locator(".offline-region__state"), "kept offline without being asked").toHaveText(/^Auf diesem Gerät gespeichert/, { timeout: 30_000 });
+    await expect(state, "so the map reads it from the device").toHaveText("Kartengrundlage: auf diesem Gerät gespeichert (auch ohne Netz).");
     await expect(ben.locator(".situation__map canvas")).toHaveCount(1);
     await expect(ben.locator(".maplibregl-ctrl-attrib"), "OpenStreetMap is credited").toContainText("OpenStreetMap");
+    await expect(ben.getByRole("link", { name: "Lagekarte bearbeiten" }), "Führung reads the map, it does not edit it").toHaveCount(0);
     // [itest->dsn~map-drawing~2]
-    // The editor page (ADR-0064): a toolbar, taps, and the keyboard at the crosshair.
-    await ben.getByRole("link", { name: "Karte bearbeiten" }).click();
-    await expect(ben.locator("#map-editor-title")).toHaveText("Karte bearbeiten");
+    // The editor page (ADR-0064), opened from Vorbereitung – Einsatz (ADR-0065): a
+    // toolbar, taps, and the keyboard at the crosshair.
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatz");
+    await ben.getByRole("link", { name: "Lagekarte bearbeiten" }).click();
+    await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
     await expect(ben.locator(".situation__map"), "the editor's map loads").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     const canvas = ben.locator(".situation__map canvas");
     const tool = (name: string) => ben.locator(".map-tools").getByRole("button", { name });
@@ -1091,7 +1138,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
     await expect(gate.locator(".uhs-on-map")).toHaveText("Auf der Lagekarte: noch nicht gesetzt");
     await gate.getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }).click();
-    await expect(ben.locator("#map-editor-title"), "the editor opens, ready to place it").toHaveText("Karte bearbeiten");
+    await expect(ben.locator("#map-editor-title"), "the editor opens, ready to place it").toHaveText("Lagekarte bearbeiten");
     await expect(tool("Symbol setzen")).toHaveAttribute("aria-pressed", "true");
     await expect(ben.locator("#place-reference")).toHaveValue(/.+/);
     await expect(ben.locator(".situation__map")).toHaveAttribute("data-map", "ready", { timeout: 30_000 });
@@ -1102,21 +1149,26 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
     await expect(gate.locator(".uhs-on-map"), "the panel shows where it is").toHaveText(/^Auf der Lagekarte: 48\.\d{5}, 10\.\d{5}$/);
     await ben.goForward();
-    await expect(ben.locator("#map-editor-title")).toHaveText("Karte bearbeiten");
-    await ben.getByRole("link", { name: "Zur Lagekarte" }).click();
+    await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
+    await ben.getByRole("link", { name: "Zur Seite Einsatz" }).click();
+    await expect(ben.locator("#map-edit-title"), "back on Vorbereitung – Einsatz").toHaveText("Lagekarte");
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Lagekarte");
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
     await audit(ben, "Situation map");
     await shot(ben, "situation-map");
-    // MAP-2: the region is kept on the device.
-    const offline = ben.locator(".offline-region");
+    // MAP-2: deleted by hand, the copy is not saved again by itself; saved by hand, it is back.
+    await offline.getByRole("button", { name: "Offline-Karte löschen" }).click();
     await expect(offline.locator(".offline-region__state")).toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");
+    await openView(ben, "Disposition");
+    await openView(ben, "Lagekarte");
+    await expect(ben.locator(".situation__map")).toHaveAttribute("data-map", "ready", { timeout: 30_000 });
+    await expect(offline.locator(".offline-region__state"), "the person's choice stands").toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");
     await offline.getByRole("button", { name: "Karte offline speichern" }).click();
     await expect(offline.locator("[role=status]"), "saved on the device").toHaveText(/^Karte gespeichert/);
     await expect(offline.locator(".offline-region__state")).toHaveText(/^Auf diesem Gerät gespeichert/);
-    await offline.getByRole("button", { name: "Offline-Karte löschen" }).click();
-    await expect(offline.locator(".offline-region__state")).toHaveText("Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.");
   });
 
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {

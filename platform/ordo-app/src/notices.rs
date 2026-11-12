@@ -1,5 +1,6 @@
-//! Licence notices and source code (LIC-1, ADR-0055): the footer under every screen and the
-//! page it links to. The page shows ORDO's licence and source, the parts the app ships that
+//! Licence notices and source code (LIC-1, ADR-0055): *Administration – Info* for everyone
+//! who uses the app, and a page of their own linked from the pairing screen, before anyone
+//! has logged in. The page shows ORDO's licence and source, the parts the app ships that
 //! are not Rust crates, and the crates' notices, which `cargo-about` writes at build time
 //! (`tools/notices`) and the page loads only when it opens.
 
@@ -37,7 +38,7 @@ pub struct Part {
     pub text: &'static str,
 }
 
-// [impl->dsn~licence-notices~1]
+// [impl->dsn~licence-notices~2]
 /// The non-Rust parts. Keep in step with `vendor-map.sh`, `vendor-fonts.sh`, `design/assets/icons`,
 /// `tools/symbols` and the storage worker's SQLite.
 pub const PARTS: &[Part] = &[
@@ -120,13 +121,13 @@ pub const PARTS: &[Part] = &[
     },
 ];
 
-/// Every screen's footer: the way to the licences and the source code.
+/// The way to the licences and the source code on the pairing screen, before any menu.
 #[component]
-pub fn SiteFooter() -> impl IntoView {
+pub fn NoticesLink() -> impl IntoView {
     view! {
-        <footer class="site-footer">
+        <p class="notices-link">
             <a href=PATH>{text::NOTICES_TITLE}</a>
-        </footer>
+        </p>
     }
 }
 
@@ -150,53 +151,124 @@ async fn crates() -> Option<String> {
     (!body.trim().is_empty() && !body.contains("<html")).then_some(body)
 }
 
-/// The page "Lizenzen und Quellcode"; `back` is the screen the person came from.
+/// The page "Lizenzen und Quellcode" before pairing; `back` is the screen the person came
+/// from.
 #[component]
 pub fn NoticesPage(back: String) -> impl IntoView {
-    let fragment = LocalResource::new(crates);
-    let source = source_url();
     view! {
         <main id="main" class="page page--narrow notices" tabindex="-1">
             <h1>{text::NOTICES_TITLE}</h1>
             <p><a href=back>{text::NOTICES_BACK}</a></p>
-            <section class="card" aria-labelledby="notices-ordo">
-                <h2 id="notices-ordo">{text::APP_NAME}</h2>
-                <p>{text::NOTICES_ORDO_LICENCE} " "
-                    <a href="/LICENSES/AGPL-3.0-or-later.txt">{text::NOTICES_LICENCE_TEXT}</a>
-                </p>
-                <p>{text::NOTICES_SOURCE} " " <a class="notices__source" href=source.clone()>{source.clone()}</a></p>
-            </section>
-            <section class="card" aria-labelledby="notices-parts">
-                <h2 id="notices-parts">{text::NOTICES_PARTS}</h2>
-                <ul class="notices__parts">
-                    {PARTS
-                        .iter()
-                        .map(|p| view! {
-                            <li class="notices__part">
-                                <strong>{p.name}</strong> " – " {p.used_for}
-                                <br />{p.copyright} " · "
-                                <a href=p.text>{p.licence}</a>
-                            </li>
-                        })
-                        .collect_view()}
-                </ul>
-            </section>
-            <section class="card" aria-labelledby="notices-crates">
-                <h2 id="notices-crates">{text::NOTICES_CRATES}</h2>
-                <Suspense fallback=|| view! { <p>{text::NOTICES_LOADING}</p> }>
-                    {move || {
-                        fragment.get().map(|body| match body {
-                            Some(html) => view! {
-                                <p class="hint">{text::NOTICES_CRATES_HINT}</p>
-                                <div class="notices__crates" inner_html=html></div>
-                            }
-                            .into_any(),
-                            None => view! { <p>{text::NOTICES_CRATES_MISSING}</p> }.into_any(),
-                        })
-                    }}
-                </Suspense>
-            </section>
+            <Notices />
         </main>
+    }
+}
+
+// [impl->dsn~licence-notices~2]
+/// *Administration – Info*: the versions of app and server, then the notices.
+#[component]
+pub fn InfoView() -> impl IntoView {
+    let server = LocalResource::new(|| async {
+        crate::core::fetch_json("GET", "/.well-known/ordo", None)
+            .await
+            .ok()
+    });
+    let app = text::info_build(env!("CARGO_PKG_VERSION"), commit());
+    let app_protocols = text::info_protocols(
+        &range(&serde_json::to_value(ordo_sync::version::SYNC).unwrap_or_default()),
+        &range(&serde_json::to_value(ordo_sync::version::HTTP).unwrap_or_default()),
+    );
+    view! {
+        <div class="info notices">
+            <section class="card" aria-labelledby="info-version">
+                <h2 id="info-version">{text::INFO_VERSION}</h2>
+                <dl class="facts">
+                    <dt>{text::INFO_APP}</dt>
+                    <dd id="info-app">{app} <br /> {app_protocols}</dd>
+                    <dt>{text::INFO_SERVER}</dt>
+                    <dd id="info-server">
+                        <Suspense fallback=|| text::INFO_LOADING>
+                            {move || server.get().map(|answer| match answer {
+                                Some(v) => {
+                                    let build = text::info_build(
+                                        v["build"]["version"].as_str().unwrap_or("?"),
+                                        v["build"]["commit"].as_str().filter(|c| !c.is_empty()),
+                                    );
+                                    let protocols = text::info_protocols(&range(&v["sync"]), &range(&v["http"]));
+                                    view! { {build} <br /> {protocols} }.into_any()
+                                }
+                                None => text::INFO_SERVER_OFFLINE.into_any(),
+                            })}
+                        </Suspense>
+                    </dd>
+                </dl>
+            </section>
+            <Notices />
+        </div>
+    }
+}
+
+/// The commit this app was built from, if CI or the container build named it.
+fn commit() -> Option<&'static str> {
+    option_env!("ORDO_COMMIT").filter(|c| !c.is_empty())
+}
+
+/// "1.0–1.2" from `{"min": "1.0", "max": "1.2"}`, or just "1.0" when both are the same.
+fn range(v: &serde_json::Value) -> String {
+    let (min, max) = (
+        v["min"].as_str().unwrap_or("?"),
+        v["max"].as_str().unwrap_or("?"),
+    );
+    if min == max {
+        min.to_owned()
+    } else {
+        format!("{min}–{max}")
+    }
+}
+
+/// ORDO's licence and source, the parts the app ships, and the crates' notices.
+#[component]
+fn Notices() -> impl IntoView {
+    let fragment = LocalResource::new(crates);
+    let source = source_url();
+    view! {
+        <section class="card" aria-labelledby="notices-ordo">
+            <h2 id="notices-ordo">{text::APP_NAME}</h2>
+            <p>{text::NOTICES_ORDO_LICENCE} " "
+                <a href="/LICENSES/AGPL-3.0-or-later.txt">{text::NOTICES_LICENCE_TEXT}</a>
+            </p>
+            <p>{text::NOTICES_SOURCE} " " <a class="notices__source" href=source.clone()>{source.clone()}</a></p>
+        </section>
+        <section class="card" aria-labelledby="notices-parts">
+            <h2 id="notices-parts">{text::NOTICES_PARTS}</h2>
+            <ul class="notices__parts">
+                {PARTS
+                    .iter()
+                    .map(|p| view! {
+                        <li class="notices__part">
+                            <strong>{p.name}</strong> " – " {p.used_for}
+                            <br />{p.copyright} " · "
+                            <a href=p.text>{p.licence}</a>
+                        </li>
+                    })
+                    .collect_view()}
+            </ul>
+        </section>
+        <section class="card" aria-labelledby="notices-crates">
+            <h2 id="notices-crates">{text::NOTICES_CRATES}</h2>
+            <Suspense fallback=|| view! { <p>{text::NOTICES_LOADING}</p> }>
+                {move || {
+                    fragment.get().map(|body| match body {
+                        Some(html) => view! {
+                            <p class="hint">{text::NOTICES_CRATES_HINT}</p>
+                            <div class="notices__crates" inner_html=html></div>
+                        }
+                        .into_any(),
+                        None => view! { <p>{text::NOTICES_CRATES_MISSING}</p> }.into_any(),
+                    })
+                }}
+            </Suspense>
+        </section>
     }
 }
 
@@ -204,7 +276,7 @@ pub fn NoticesPage(back: String) -> impl IntoView {
 mod tests {
     use super::*;
 
-    // [utest->dsn~licence-notices~1]
+    // [utest->dsn~licence-notices~2]
     #[test]
     fn every_part_has_its_licence_text() {
         let app = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));

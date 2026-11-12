@@ -19,6 +19,8 @@ client-message = { "hello": hello }
                / { "getMapRegion": incident-id } ; state of the incident's map region (1.2)
                / { "cutMapRegion": map-region-cut } ; with manage_map in the incident (1.2)
                / { "mapTicket": incident-id } ; ticket to read the incident's map region (1.2)
+               / { "geocode": geocode-request } ; address search, with manage_map or
+                                              ; edit_units in the incident (1.2)
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
@@ -80,6 +82,7 @@ server-message = { "challenge": challenge }
                / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
                                               ; (1.2); state "none" without manage_map
                / { "mapTicket": map-ticket }  ; answer to mapTicket (1.2)
+               / { "geocoded": geocoded }     ; answer to geocode (1.2)
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
                / { "organisationRoles": [* organisation-role] } ; answer to
                                               ; getOrganisationRoles and setOrganisationRole
@@ -271,6 +274,25 @@ map-region-cut = {
 map-ticket = {
   "incident": incident-id,
   ? "ticket": tstr,
+}
+
+; An address search for an incident's map (ADR-0066). The server asks its geocoder
+; (default: OpenStreetMap's Nominatim, at most one request per second, answers cached).
+geocode-request = {
+  "incident": incident-id,
+  "query": tstr .size (1..200),    ; as typed
+}
+
+geocoded = {
+  "query": tstr,                   ; the query as sent
+  ? "status": "found" / "off" / "refused" / "failed", ; default "found"
+  ? "places": [* geocoded-place],  ; best first, at most 5
+}
+
+geocoded-place = {
+  "label": tstr,                   ; as the geocoder names the place
+  "latE7": int,                    ; WGS 84, degrees × 10^7
+  "lonE7": int,
 }
 
 map-region-request = {

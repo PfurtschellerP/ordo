@@ -84,6 +84,8 @@ pub struct Core {
     pub map_region: Option<ordo_sync::message::MapRegion>,
     /// The ticket to read the incident's map region, asked on every connection (ADR-0062).
     pub map_ticket: Option<String>,
+    /// The last answer to an address search (ADR-0066).
+    pub geocoded: Option<ordo_sync::message::Geocoded>,
     /// Whether the server speaks the map region messages (protocol 1.2).
     map_regions: bool,
     /// The organisation roles, as last reported (ORG-9; administrators only).
@@ -189,6 +191,7 @@ impl Core {
             vehicles: Vec::new(),
             map_region: None,
             map_ticket: None,
+            geocoded: None,
             map_regions: false,
             organisation_roles: None,
             accounts: None,
@@ -416,6 +419,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 && c.incident.as_ref() == Some(&t.incident)
             {
                 c.map_ticket.clone_from(&t.ticket);
+            }
+            if let ServerMessage::Geocoded(answer) = &message {
+                c.geocoded = Some(answer.clone());
             }
             if let ServerMessage::OrganisationRoles(list) = &message {
                 c.organisation_roles = Some(list.clone());
@@ -955,7 +961,7 @@ pub fn command_event(
     )
 }
 
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 /// Records an event of the situation map: an object placed or removed (MAP-1).
 pub fn map_event(
     core: Handle,
@@ -1172,6 +1178,27 @@ pub fn cut_map_region(core: Handle, area: ordo_sync::message::MapRegionRequest) 
             ));
         }
     });
+}
+
+// [impl->dsn~address-search~1]
+/// Searches an address for the incident's map (ADR-0066); `false` without connection.
+/// The answer arrives as [`Core::geocoded`].
+pub fn geocode(core: Handle, query: &str) -> bool {
+    core.with_value(|c| {
+        let Some(incident) = c.incident.clone() else {
+            return false;
+        };
+        if c.connection != Connection::Online {
+            return false;
+        }
+        c.send(&ClientMessage::Geocode(
+            ordo_sync::message::GeocodeRequest {
+                incident,
+                query: query.to_owned(),
+            },
+        ));
+        true
+    })
 }
 
 /// A text as part of an element ID: letters and digits, the rest as `-`.

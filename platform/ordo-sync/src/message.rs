@@ -39,6 +39,9 @@ pub enum ClientMessage {
     CutMapRegion(MapRegionCut),
     /// Asks for a ticket to read an incident's map region; protocol 1.2.
     MapTicket(IncidentId),
+    /// Searches an address for an incident's map (incident permission `manage_map` or
+    /// `edit_units`; ADR-0066); protocol 1.2.
+    Geocode(GeocodeRequest),
     /// Asks for the profile pictures of these people (ADR-0047).
     GetAvatars(Vec<UserId>),
     /// Sets (or, without image, removes) the user's own profile picture in ORDO.
@@ -83,6 +86,59 @@ pub struct MapRegionRequest {
     pub lon_e7: i32,
     /// Radius in metres (1,000 to 50,000).
     pub radius_m: u32,
+}
+
+/// An address search for an incident's map (ADR-0066): free text, as typed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeocodeRequest {
+    /// The incident whose map the place is for (decides who may search).
+    pub incident: IncidentId,
+    /// What was typed, e.g. "Marktplatz 1, Augsburg" (1 to 200 characters).
+    pub query: String,
+}
+
+/// The longest query the server passes on.
+pub const GEOCODE_QUERY_MAX: usize = 200;
+
+/// A place found by an address search.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeocodedPlace {
+    /// The place as the geocoder names it, e.g. "Marktplatz 1, 86150 Augsburg".
+    pub label: String,
+    /// Latitude, degrees × 10⁷ (as the map region request).
+    #[serde(rename = "latE7")]
+    pub lat_e7: i32,
+    /// Longitude, degrees × 10⁷.
+    #[serde(rename = "lonE7")]
+    pub lon_e7: i32,
+}
+
+/// How an address search went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GeocodeStatus {
+    /// Searched; the places (maybe none) are the answer.
+    #[default]
+    Found,
+    /// This server has no address search.
+    Off,
+    /// Not allowed for this incident, or the query was empty or too long.
+    Refused,
+    /// The geocoder did not answer or answered with an error; try again later.
+    Failed,
+}
+
+/// The answer to `geocode`: the places found for the query, best first (at most five).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Geocoded {
+    /// The query as sent, so an answer is matched to its question.
+    pub query: String,
+    /// How it went.
+    #[serde(default)]
+    pub status: GeocodeStatus,
+    /// The places, best first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub places: Vec<GeocodedPlace>,
 }
 
 /// A new map region for an incident: where to cut it.
@@ -596,6 +652,8 @@ pub enum ServerMessage {
     MapRegion(MapRegion),
     /// Answer to `mapTicket` (protocol 1.2).
     MapTicket(MapTicket),
+    /// Answer to `geocode` (protocol 1.2, ADR-0066).
+    Geocoded(Geocoded),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,
@@ -762,6 +820,48 @@ mod tests {
         assert_eq!(
             decode::<ClientMessage>(&encode(&set).unwrap()).unwrap(),
             set
+        );
+    }
+
+    // [utest->dsn~address-search~1]
+    #[test]
+    fn address_search_messages_round_trip() {
+        let incident = IncidentId::new(
+            Ulid::from_parts(5, 6).unwrap(),
+            &"ordo.example.org".parse().unwrap(),
+        );
+        let ask = ClientMessage::Geocode(GeocodeRequest {
+            incident,
+            query: "Rathausplatz Augsburg".into(),
+        });
+        assert_eq!(
+            decode::<ClientMessage>(&encode(&ask).unwrap()).unwrap(),
+            ask
+        );
+        let found = ServerMessage::Geocoded(Geocoded {
+            query: "Rathausplatz Augsburg".into(),
+            status: GeocodeStatus::Found,
+            places: vec![GeocodedPlace {
+                label: "Rathausplatz, 86150 Augsburg".into(),
+                lat_e7: 483_689_000,
+                lon_e7: 108_978_000,
+            }],
+        });
+        assert_eq!(
+            decode::<ServerMessage>(&encode(&found).unwrap()).unwrap(),
+            found
+        );
+        // Fields as the schema names them: "latE7", "lonE7", status in camelCase.
+        let off = Geocoded {
+            query: "x".into(),
+            status: GeocodeStatus::Off,
+            places: Vec::new(),
+        };
+        let bytes = encode(&off).unwrap();
+        assert!(bytes.windows(3).any(|w| w == b"off"));
+        assert!(
+            !bytes.windows(6).any(|w| w == b"places"),
+            "no empty list sent"
         );
     }
 

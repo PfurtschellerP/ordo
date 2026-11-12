@@ -445,10 +445,14 @@ Needs: itest
 Tags: must, m41
 
 #### Licence notices
-`dsn~licence-notices~1`
+`dsn~licence-notices~2`
 
-Every screen ends with a footer linking to *Lizenzen und Quellcode* (`/notices`). The page
-shows ORDO's licence (AGPL-3.0-or-later) and the source code address of the build: the
+A paired device has the notices under *Administration – Info*, a workspace everyone may
+open whatever their roles; the launcher lists it like any other. Above the notices it shows
+the version and build of the app and of the server (`/.well-known/ordo`) and the protocol
+versions each supports. Before pairing there is no menu, so the pairing screen links to
+the same notices on a page of their own (`/notices`). There is no footer on every screen.
+The notices show ORDO's licence (AGPL-3.0-or-later) and the source code address of the build: the
 workspace's `repository` field, so whoever changes ORDO and builds it points to their own
 source. Below come the notices of the third-party parts, in two groups:
 
@@ -465,11 +469,11 @@ The page loads the notices only when it opens, so the app does not grow.
 
 Covers:
 
-* [req~lic-1~1](../requirements/08-constraints.md#lic-1--licence-notices-and-source-code)
+* [req~lic-1~2](../requirements/08-constraints.md#lic-1--licence-notices-and-source-code)
 
 Needs: impl, utest, itest
 
-Tags: must, m35
+Tags: must, m35, m55
 
 #### Device proof
 `dsn~device-proof~1`

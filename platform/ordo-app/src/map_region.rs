@@ -139,8 +139,14 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     }
                 })
             }}
+            <h3>{text::MAP_REGION_NEW}</h3>
+            // [impl->dsn~address-search~1]
+            <crate::address::AddressSearch core revision id="region"
+                on_choose=Callback::new(move |([lo, la], _): crate::address::Chosen| {
+                    lat.set(format!("{la:.5}"));
+                    lon.set(format!("{lo:.5}"));
+                }) />
             <form class="form" novalidate on:submit=submit>
-                <h3>{text::MAP_REGION_NEW}</h3>
                 <div class="form--inline">
                     <div class="field">
                         <label for="region-lat">{text::MAP_REGION_LAT}</label>

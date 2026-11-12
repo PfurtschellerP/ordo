@@ -220,7 +220,7 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
     }
 }
 
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 /// Creates the map in `node` once it is in the page, keeps it showing the objects, and
 /// removes it with the view.
 fn mount_map(
@@ -352,7 +352,7 @@ fn MapFrame(
     }
 }
 
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 /// The device's own position, only when asked: the map moves there.
 #[component]
 fn LocateButton(handle: MapHandle, state: RwSignal<MapState>) -> impl IntoView {
@@ -488,26 +488,20 @@ fn remove(core: Handle, revision: RwSignal<u64>, object: &str) {
     );
 }
 
-// [impl->dsn~situation-map~2]
-/// *Lagekarte*: the map with ORDO's objects, the list of them and the offline copy; those
-/// who may edit open the editor page from here.
+// [impl->dsn~situation-map~3]
+/// *Führung – Lagekarte*: the map with ORDO's objects, the list of them and the offline
+/// copy. Editing happens in *Vorbereitung* (ADR-0065).
 #[component]
 pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s);
-    let edit = Route::record("command.lead", "map", EDIT);
     view! {
         <section class="card situation" aria-labelledby="situation-title">
             <h2 id="situation-title">{text::MAP_TITLE}</h2>
             <MapStateLine state />
             <MapFrame node state />
             <div class="row">
-                <Show when=move || s.editable.get()>
-                    <a id="map-edit" class="button" href=edit.to_path() on:click=crate::views::follow_route(edit.clone())>
-                        <Icon name="pencil" />{text::MAP_EDIT}
-                    </a>
-                </Show>
                 <LocateButton handle state />
             </div>
             <ObjectList core revision s handle />
@@ -516,14 +510,39 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-/// The record of the route `command.lead/map/<EDIT>`: the editor page.
-pub const EDIT: &str = "edit";
-/// The record that opens the editor page to place one object: `place:<kind>:<ID>`.
-const PLACE: &str = "place:";
+// [impl->dsn~situation-map~3]
+/// On *Vorbereitung – Einsatz*: the way to the editor page, for those who may edit.
+#[component]
+pub fn MapEditCard(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let s = situation(core, revision);
+    let edit = editor_route(EDIT);
+    view! {
+        <Show when=move || s.editable.get()>
+            <section class="card" aria-labelledby="map-edit-title">
+                <h2 id="map-edit-title">{text::MAP_TITLE}</h2>
+                <p class="hint">{text::MAP_EDIT_HINT}</p>
+                <p class="hint">{move || text::summary_map(s.map.with(|m| m.objects.len()))}</p>
+                <a id="map-edit" class="button" href=edit.to_path() on:click=crate::views::follow_route(edit.clone())>
+                    <Icon name="pencil" />{text::MAP_EDIT}
+                </a>
+            </section>
+        </Show>
+    }
+}
 
-/// Whether a record of the map view opens the editor page.
+/// The record of the editor page on *Vorbereitung – Einsatz* (`command.prepare/incident/map`).
+pub const EDIT: &str = "map";
+/// The record that opens the editor page to place one object: `map:<kind>:<ID>`.
+const PLACE: &str = "map:";
+
+/// The route of the editor page with `record` ([`EDIT`] or a [`place_record`]).
+pub fn editor_route(record: &str) -> Route {
+    Route::record("command.prepare", "incident", record)
+}
+
+/// Whether a record of *Vorbereitung – Einsatz* opens the editor page.
 pub fn is_editor(record: &str) -> bool {
-    record == EDIT || record.starts_with(PLACE)
+    record == EDIT || preset(record).is_some()
 }
 
 /// The record that opens the editor page to place `reference` of `kind`, e.g. a UHS.
@@ -624,7 +643,7 @@ fn draft(corners: &[[f64; 2]], shape: ordo_map::Shape) -> Vec<serde_json::Value>
     features
 }
 
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 // [impl->dsn~map-drawing~2]
 /// *Karte bearbeiten* (ADR-0064): the map as large as the page allows, a toolbar above it,
 /// the tool's panel and the list below. Every tap sets what the tool sets; the button
@@ -640,7 +659,7 @@ pub fn MapEditor(
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s);
-    let back = Route::view("command.lead", "map");
+    let back = Route::view("command.prepare", "incident");
     let tool = RwSignal::new(if preset.is_some() {
         Tool::Place
     } else {
@@ -1089,6 +1108,11 @@ pub fn MapEditor(
                 </div>
             </Show>
             <div class="row"><LocateButton handle state /></div>
+            // [impl->dsn~address-search~1]
+            <Show when=move || s.editable.get()>
+                <crate::address::AddressSearch core revision id="editor"
+                    on_choose=Callback::new(move |(at, _): crate::address::Chosen| show_at(handle, at)) />
+            </Show>
             <ObjectList core revision s handle edit=Some(choose) />
         </section>
     }
@@ -1122,7 +1146,7 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
     }
 }
 
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 /// Keeping the map region on the device for use without network (MAP-2).
 /// The incident's ULID and the map ticket as arguments for the glue module (`null` when
 /// missing).
@@ -1132,56 +1156,106 @@ fn region_args(core: Handle) -> (JsValue, JsValue) {
     (incident, ticket)
 }
 
+/// Asks the glue whether the server has the region and how much of it the device keeps;
+/// with `auto_save`, saves it when the server has it and the device does not.
+fn refresh_state(
+    core: Handle,
+    module: JsValue,
+    status: RwSignal<Option<(bool, f64)>>,
+    auto_save: Option<Callback<()>>,
+) {
+    leptos::task::spawn_local(async move {
+        let (incident, ticket) = region_args(core);
+        if let Ok(s) = call_async(&module, "offlineState", &[incident, ticket]).await {
+            let server = js_sys::Reflect::get(&s, &"server".into())
+                .ok()
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let device = js_sys::Reflect::get(&s, &"device".into())
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let _ = status.try_set(Some((server, device)));
+            if server
+                && device <= 0.0
+                && let Some(f) = auto_save
+            {
+                f.run(());
+            }
+        }
+    });
+}
+
+/// Where the device remembers that its person deleted the offline copy of an incident's
+/// map, so it is not saved again by itself: `ordo.map-offline-declined.<incident ULID>`.
+fn declined_key(core: Handle) -> Option<String> {
+    core::incident_ulid(core).map(|i| format!("ordo.map-offline-declined.{i}"))
+}
+
+// [impl->dsn~situation-map~3]
+/// The offline copy of the incident's map region (MAP-2): saved by itself the first time
+/// the map opens and the server has a region the device does not keep yet, unless the
+/// person deleted it on this device before. It can be saved again and deleted by hand.
 #[component]
 fn OfflineRegion(core: Handle, state: RwSignal<MapState>, handle: MapHandle) -> impl IntoView {
     let status = RwSignal::new(None::<(bool, f64)>);
     let message = RwSignal::new(None::<String>);
     let busy = RwSignal::new(false);
+    // Saved by itself at most once per opening, so a failure does not repeat endlessly.
+    let tried = StoredValue::new(false);
     let module = move || handle.with_value(|h| h.as_ref().map(|(m, _)| m.clone()));
-    let refresh = move || {
-        if let Some(m) = module() {
-            leptos::task::spawn_local(async move {
-                let (incident, ticket) = region_args(core);
-                if let Ok(s) = call_async(&m, "offlineState", &[incident, ticket]).await {
-                    let server = js_sys::Reflect::get(&s, &"server".into())
-                        .ok()
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    let device = js_sys::Reflect::get(&s, &"device".into())
-                        .ok()
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0);
-                    status.set(Some((server, device)));
-                }
-            });
-        }
-    };
-    Effect::new(move || {
-        if matches!(state.get(), MapState::Ready(_)) {
-            refresh();
-        }
-    });
-    let save = move |_| {
+    let start_save = move || {
         let Some(m) = module() else { return };
+        if busy.get_untracked() {
+            return;
+        }
         busy.set(true);
         message.set(Some(text::MAP_SAVING.to_owned()));
         leptos::task::spawn_local(async move {
             let (incident, ticket) = region_args(core);
             match call_async(&m, "saveOffline", &[incident, ticket]).await {
-                Ok(size) => message.set(Some(text::map_saved(size.as_f64().unwrap_or(0.0)))),
-                Err(_) => message.set(Some(text::MAP_SAVE_FAILED.to_owned())),
+                Ok(size) => {
+                    if let Some(key) = declined_key(core) {
+                        core::set_preference(&key, None);
+                    }
+                    let _ = message.try_set(Some(text::map_saved(size.as_f64().unwrap_or(0.0))));
+                }
+                Err(_) => {
+                    let _ = message.try_set(Some(text::MAP_SAVE_FAILED.to_owned()));
+                }
             }
-            busy.set(false);
-            refresh();
+            let _ = busy.try_set(false);
+            let _ = status.try_set(None);
+            refresh_state(core, m, status, None);
         });
     };
+    let auto_save = Callback::new(move |()| {
+        let declined = declined_key(core)
+            .and_then(|k| core::preference(&k))
+            .is_some();
+        if !tried.get_value() && !declined {
+            tried.set_value(true);
+            start_save();
+        }
+    });
+    Effect::new(move || {
+        if matches!(state.get(), MapState::Ready(_))
+            && let Some(m) = module()
+        {
+            refresh_state(core, m, status, Some(auto_save));
+        }
+    });
+    let save = move |_| start_save();
     let remove = move |_| {
         let Some(m) = module() else { return };
         leptos::task::spawn_local(async move {
             let (incident, _) = region_args(core);
             let _ = call_async(&m, "removeOffline", &[incident]).await;
-            message.set(Some(text::MAP_REMOVED.to_owned()));
-            refresh();
+            if let Some(key) = declined_key(core) {
+                core::set_preference(&key, Some("1"));
+            }
+            let _ = message.try_set(Some(text::MAP_REMOVED.to_owned()));
+            refresh_state(core, m, status, None);
         });
     };
     view! {

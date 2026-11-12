@@ -271,12 +271,13 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 4. **Upstream login** configured in ORDO is done (m52,
    [ADR-0063](adr/0063-upstream-login-configured-in-ordo.md)): administrators add
    OpenID Connect providers in *Administration – Zugriff – Anmeldung*, after a test login.
-5. **Situation map:** editing on its own page with a toolbar is done (m54,
-   [ADR-0064](adr/0064-map-editor-with-terra-draw.md)): symbols placed and corners set by a
-   tap or at the crosshair, drawings reshaped by dragging with Terra Draw. Next: address
-   search with an open geocoder at planning time (online, like the map download), other
-   map types (aerial images per German state in the profiles, basemap.de), the UHS placed
-   on the map instead of a location field. ADRs for geocoding and map types.
+5. **Situation map** is done (m54, m55): edited on its own page with a toolbar
+   ([ADR-0064](adr/0064-map-editor-with-terra-draw.md)), opened from *Vorbereitung –
+   Einsatz* and kept offline by itself
+   ([ADR-0065](adr/0065-map-editing-in-preparation.md)); a UHS's place is its symbol; an
+   address search through the server's Nominatim
+   ([ADR-0066](adr/0066-address-search-with-nominatim.md)). Other map types (basemap.de,
+   aerial images per state) are deferred by the product owner (2026-11-12).
 6. **UHS and units:** unit master data with templates (usual strength, no crew) in
    Administration (ORG-1); a UHS is a unit, so it counts in the forces on scene (ADR);
    UHS capacity per triage category and a plan of its places; strength after the 2024

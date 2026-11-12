@@ -1,6 +1,7 @@
 //! ORDO web app (prototype). Build with Trunk, see Trunk.toml.
 
 mod accounts;
+mod address;
 mod attachments;
 mod command;
 mod core;

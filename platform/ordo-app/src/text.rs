@@ -61,6 +61,7 @@ pub const WS_PREPARE: &str = "Vorbereitung";
 pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
 pub const WS_ACCESS: &str = "Zugriff";
+pub const WS_INFO: &str = "Info";
 pub const INCIDENT_PAGE: &str = "Einsatz";
 
 pub const DEVICES: &str = "Geräte";
@@ -1225,9 +1226,36 @@ pub fn map_remove_label(label: &str) -> String {
     format!("{label} von der Karte entfernen")
 }
 
+// Address search (ADR-0066)
+pub const ADDRESS_LABEL: &str = "Adresse suchen";
+pub const ADDRESS_SUBMIT: &str = "Suchen";
+pub const ADDRESS_SEARCHING: &str = "Suche läuft …";
+pub const ADDRESS_EMPTY: &str = "Bitte eine Adresse eingeben.";
+pub const ADDRESS_TOO_LONG: &str = "Bitte höchstens 200 Zeichen eingeben.";
+pub const ADDRESS_OFFLINE: &str = "Die Adresssuche braucht eine Verbindung zum Server.";
+pub const ADDRESS_NOT_FOUND: &str =
+    "Nichts gefunden. Bitte anders schreiben, zum Beispiel mit dem Ort.";
+pub const ADDRESS_OFF: &str = "Auf diesem Server ist keine Adresssuche eingerichtet.";
+pub const ADDRESS_REFUSED: &str = "Die Adresssuche ist für die Einsatzleitung.";
+pub const ADDRESS_FAILED: &str =
+    "Die Adresssuche antwortet gerade nicht. Bitte später erneut versuchen.";
+pub const ADDRESS_PLACES: &str = "Gefundene Orte";
+pub const ADDRESS_ATTRIBUTION: &str =
+    "Adressen aus OpenStreetMap, © OpenStreetMap-Mitwirkende (ODbL).";
+pub fn address_found(n: usize) -> String {
+    match n {
+        1 => "1 Ort gefunden. Bitte wählen.".to_owned(),
+        n => format!("{n} Orte gefunden. Bitte wählen."),
+    }
+}
+pub fn address_chosen(label: &str) -> String {
+    format!("Gewählt: {label}")
+}
+
 // The map editor (ADR-0064)
-pub const MAP_EDIT: &str = "Karte bearbeiten";
-pub const MAP_EDIT_BACK: &str = "Zur Lagekarte";
+pub const MAP_EDIT: &str = "Lagekarte bearbeiten";
+pub const MAP_EDIT_HINT: &str = "Einsatzstelle, Einsatzmittel, UHS und Funktionen auf der Karte setzen, Flächen und Linien zeichnen. Die Führung sieht die Karte unter Führung – Lagekarte.";
+pub const MAP_EDIT_BACK: &str = "Zur Seite Einsatz";
 pub const MAP_EDIT_NOT_ALLOWED: &str =
     "Die Karte bearbeitet die Einsatzleitung; hier ist sie nur zu sehen.";
 pub const MAP_EDIT_OBJECT: &str = "Bearbeiten";
@@ -1305,6 +1333,23 @@ pub const NOTICES_PARTS: &str = "Weitere Bestandteile";
 pub const NOTICES_CRATES: &str = "Rust-Bibliotheken";
 pub const NOTICES_CRATES_HINT: &str = "Die Lizenztexte, wie sie den Bibliotheken von Server und App beiliegen, je Text mit den Bibliotheken, für die er gilt.";
 pub const NOTICES_CRATES_MISSING: &str = "Die Lizenzhinweise der Rust-Bibliotheken sind in diesem Build nicht enthalten. Welche Bibliotheken in welcher Version genutzt werden, steht im Quellcode (Cargo.lock); offizielle Builds zeigen hier ihre Lizenzhinweise.";
+pub const INFO_VERSION: &str = "Version";
+pub const INFO_APP: &str = "App";
+pub const INFO_SERVER: &str = "Server";
+pub const INFO_BUILD_LOCAL: &str = "lokaler Build";
+pub const INFO_SERVER_OFFLINE: &str = "Der Server ist gerade nicht erreichbar.";
+pub const INFO_LOADING: &str = "Wird abgefragt …";
+/// "0.0.0, Build 1a2b3c4"
+pub fn info_build(version: &str, commit: Option<&str>) -> String {
+    match commit {
+        Some(c) => format!("{version}, Build {}", &c[..c.len().min(7)]),
+        None => format!("{version}, {INFO_BUILD_LOCAL}"),
+    }
+}
+/// "Protokolle: Abgleich 1.0–1.2, HTTP 1.0"
+pub fn info_protocols(sync: &str, http: &str) -> String {
+    format!("Protokolle: Abgleich {sync}, HTTP {http}")
+}
 pub const NOTICES_LOADING: &str = "Lizenzhinweise werden geladen …";
 pub const NOTICES_USED_MAP: &str = "Lagekarte";
 pub const NOTICES_USED_MAP_FONT: &str = "Schrift der Kartenbeschriftung";

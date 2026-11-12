@@ -23,13 +23,14 @@
 ### 6.1 Licence notices
 
 #### LIC-1 — Licence notices and source code
-`req~lic-1~1`
+`req~lic-1~2`
 
-ORDO shall link from every screen of the app to a page that shows ORDO's licence, a link
-to the source code of the running version, and the licence and copyright notices of every
-third-party part it ships (libraries, fonts, icons, tactical symbols, map data), because
-the AGPL (section 13) and those parts' licences require them.
+ORDO shall offer every person who uses the app, from the pairing screen and from the main
+menu, a page that shows ORDO's licence, a link to the source code of the running version,
+and the licence and copyright notices of every third-party part it ships (libraries,
+fonts, icons, tactical symbols, map data), because the AGPL (section 13) and those parts'
+licences require them.
 
 Needs: dsn
 
-Tags: must, m35
+Tags: must, m35, m55

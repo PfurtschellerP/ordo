@@ -99,6 +99,9 @@ pub const SYNC_VEHICLES: Version = Version::new(1, 1);
 /// Sync protocol 1.2: `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (MAP-8).
 pub const SYNC_MAP_REGION: Version = Version::new(1, 2);
 
+/// Sync protocol 1.2: `geocode` and `geocoded`, the address search (ADR-0066).
+pub const SYNC_GEOCODE: Version = Version::new(1, 2);
+
 /// Sync protocol 1.2: `ping` and `pong`, to notice a vanished network.
 pub const SYNC_LIVENESS: Version = Version::new(1, 2);
 

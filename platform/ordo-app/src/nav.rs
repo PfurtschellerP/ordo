@@ -205,6 +205,23 @@ pub const WORKSPACES: &[Workspace] = &[
         ],
         hidden: false,
     },
+    // [impl->dsn~licence-notices~2]
+    // Version, licences and source code, for everyone (LIC-1): no permission needed.
+    Workspace {
+        id: "admin.info",
+        package: text::TAB_ADMIN,
+        label: text::WS_INFO,
+        requires: &[],
+        permission: None,
+        or_organisation: &[],
+        views: &[view(
+            "info",
+            text::WS_INFO,
+            "info about version licences licenses source code notices",
+            "info",
+        )],
+        hidden: false,
+    },
     // The person's own devices, for everyone (SEC-4): opened from the person's menu.
     Workspace {
         id: "person.devices",

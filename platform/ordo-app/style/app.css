@@ -434,9 +434,6 @@
      sheet; the content keeps space free below, so the bar never covers it. */
   @media (max-width: 48rem) {
     .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
-    /* The footer comes last, so it keeps the space free for the bar instead. */
-    body:has(.site-footer) .layout { padding-bottom: 0; }
-    body:has(.layout) .site-footer { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
     .navigation__inner { display: contents; }
     .navigation {
       position: fixed; left: 0; right: 0; bottom: 0; top: auto;
@@ -690,6 +687,13 @@
     font-weight: var(--ordo-font-weight-bold);
   }
   .map-panel { display: grid; gap: var(--ordo-space-3); }
+  /* Address search (ADR-0066): field and button in one row, the places below. */
+  .address-search { display: grid; gap: var(--ordo-space-2); }
+  .address-search__form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ordo-space-3); }
+  .address-search__form .field { flex: 1 1 16rem; min-width: 0; }
+  .address-search__places { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .address-search__place { width: 100%; justify-content: flex-start; text-align: start; white-space: normal; }
+  .address-search__status:empty { display: none; }
   .map-panel .draw-form { display: grid; gap: var(--ordo-space-3); }
   @media (forced-colors: active) {
     .map-tool[aria-pressed="true"] { outline: 3px solid Highlight; }
@@ -713,13 +717,10 @@
   .log-entry__pending { font-weight: var(--ordo-font-weight-bold); }
   .log-entry__corrects { color: var(--ordo-color-text-link); }
   .log-entry:target { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
-  /* Footer under every screen and the licence page (LIC-1). */
-  .site-footer {
-    padding: var(--ordo-space-4) var(--ordo-space-5);
-    border-top: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
-    font-size: var(--ordo-font-size-1); text-align: center;
-  }
-  .site-footer a { display: inline-flex; align-items: center; min-height: var(--ordo-size-touch-target); color: var(--ordo-color-text-link); }
+  /* The way to the licences on the pairing screen (LIC-1). */
+  .notices-link { font-size: var(--ordo-font-size-1); }
+  .notices-link a { display: inline-flex; align-items: center; min-height: var(--ordo-size-touch-target); color: var(--ordo-color-text-link); }
+  .info { display: grid; gap: var(--ordo-space-5); }
   .notices a { overflow-wrap: anywhere; color: var(--ordo-color-text-link); }
   .notices__parts { margin: 0; padding-inline-start: var(--ordo-space-5); display: grid; gap: var(--ordo-space-3); }
   .notices__crates { display: grid; gap: var(--ordo-space-2); }

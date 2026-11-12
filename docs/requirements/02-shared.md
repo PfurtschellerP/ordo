@@ -215,16 +215,18 @@ Needs: dsn
 
 Map centred on the incident, with units, sectors, UHS and drawn objects
 
-Tags: must, shared, m33, m54
+Tags: must, shared, m33, m54, m55
 
 Needs: dsn
 
 #### MAP-2 — Offline map
-`req~map-2~1`
+`req~map-2~2`
 
-Map works offline: regions can be downloaded in advance
+When a device opens the situation map of an incident whose map region is prepared and
+not yet kept on the device, ORDO shall store the whole region on the device without being
+asked, so the map works offline.
 
-Tags: must, shared, m33
+Tags: must, shared, m33, m55
 
 Needs: dsn
 
@@ -279,6 +281,17 @@ Needs: dsn
 When the incident command chooses a centre and a radius for an incident, ORDO shall cut that region from an open world map on the server, show the progress, and offer the region only to the devices of the people in that incident, for offline use as well.
 
 Tags: must, shared, m38, m51
+
+Needs: dsn
+
+#### MAP-9 — Address search
+`req~map-9~1`
+
+When the incident command enters an address and asks to search it, ORDO shall show the
+places an open geocoder finds for it and, for the place chosen, use its coordinates as
+the centre of the map region or move the map there.
+
+Tags: should, shared, m55
 
 Needs: dsn
 

@@ -43,6 +43,8 @@ pub struct App {
     pub(crate) blobs: Blobs,
     /// The incidents' map regions and their cutting (ADR-0057, ADR-0062).
     pub(crate) map: Arc<crate::map_region::MapJob>,
+    /// Address search for the incident's map (ADR-0066).
+    pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
     /// Organisation roles (ORG-9), shared with the access policy.
     roles: crate::authz::Roles,
     /// Dex's API for local accounts (ORG-10), if configured.
@@ -83,6 +85,7 @@ impl App {
         gravatar: bool,
         blobs: Blobs,
         map: crate::map_region::MapJob,
+        geocoder: crate::geocode::Geocoder,
         roles: crate::authz::Roles,
         dex_api: Option<crate::dex_api::DexApi>,
         stop: watch::Sender<bool>,
@@ -97,6 +100,7 @@ impl App {
             gravatar,
             blobs,
             map: Arc::new(map),
+            geocoder: Arc::new(geocoder),
             roles,
             dex_api,
             login_tests: crate::providers::Tests::default(),
@@ -306,7 +310,7 @@ impl App {
             .route("/readyz", get(readyz))
             .route("/metrics", get(metrics))
             .route("/.well-known/ordo", get(well_known))
-            // [impl->dsn~situation-map~2]
+            // [impl->dsn~situation-map~3]
             // An incident's map region (ADR-0006, ADR-0062), with range requests and a
             // ticket. Not found until one is cut.
             .route("/tiles/{name}", get(crate::map_region::serve))
@@ -378,6 +382,10 @@ impl App {
         | ClientMessage::MapTicket(_) = message
         {
             return self.map_region(session, message).await;
+        }
+        if let ClientMessage::Geocode(request) = message {
+            self.geocode(session, request).await;
+            return Ok(());
         }
         let mut hub = self.hub.lock().await;
         // [impl->dsn~incident-devices~1]
@@ -524,6 +532,53 @@ impl App {
             let _ = sender.send(answer);
         }
         Ok(())
+    }
+
+    // [impl->dsn~address-search~1]
+    /// Answers `geocode` (protocol 1.2, ADR-0066) for those who may prepare or edit the
+    /// incident's map (`manage_map` or `edit_units`). The search runs apart, so a request
+    /// waiting for the geocoder's pace holds up nothing else of the connection. The query
+    /// is not logged: it may name where people are.
+    async fn geocode(&self, session: SessionId, request: ordo_sync::message::GeocodeRequest) {
+        use ordo_sync::message::{GeocodeStatus, Geocoded};
+        let (may, version) = {
+            let hub = self.hub.lock().await;
+            let Some(user) = hub.session_user(session) else {
+                return; // not authenticated: nothing
+            };
+            let may = hub.may_in_incident(&user, &request.incident, "manage_map")
+                || hub.may_in_incident(&user, &request.incident, "edit_units");
+            (may, hub.session_version(session))
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_GEOCODE) {
+            return;
+        }
+        let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+            .cloned()
+        else {
+            return;
+        };
+        if !may {
+            let _ = sender.send(ServerMessage::Geocoded(Geocoded {
+                query: request.query,
+                status: GeocodeStatus::Refused,
+                places: Vec::new(),
+            }));
+            return;
+        }
+        let geocoder = self.geocoder.clone();
+        tokio::spawn(async move {
+            let (status, places) = geocoder.search(&request.query).await;
+            let _ = sender.send(ServerMessage::Geocoded(Geocoded {
+                query: request.query,
+                status,
+                places,
+            }));
+        });
     }
 
     // [impl->dsn~organisation-roles~1]
@@ -1288,11 +1343,16 @@ async fn api_version(
 }
 
 // [impl->dsn~protocol-versions~1]
-/// `/.well-known/ordo`: the versions of each specification this server supports.
+/// `/.well-known/ordo`: the versions of each specification this server supports, and the
+/// server's own build (shown under *Administration – Info*).
 async fn well_known() -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({
         "sync": ordo_sync::version::SYNC,
         "http": HTTP,
+        "build": {
+            "version": env!("CARGO_PKG_VERSION"),
+            "commit": option_env!("ORDO_COMMIT").unwrap_or_default(),
+        },
     }))
 }
 

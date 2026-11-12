@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its Page part superseded by ADR-0065
 date: 2026-11-12
 ---
 
@@ -33,7 +33,8 @@ and it has no way to set a corner by keyboard. Dragging corners, inserting corne
 between two others and moving a whole shape are the hard parts. Terra Draw's select mode
 does these well.
 
-* **Page:** *Führung – Lagekarte* shows the map, the list of objects (A11Y-5) and, for
+* **Page** (superseded by [ADR-0065](0065-map-editing-in-preparation.md): the editor now
+  opens from *Vorbereitung – Einsatz*): *Führung – Lagekarte* shows the map, the list of objects (A11Y-5) and, for
   those who may edit, "Karte bearbeiten". The editor is its own page (route
   `command.lead/map/edit`, so the back button works), with the map as large as the
   screen allows, a toolbar above it and the list below it.

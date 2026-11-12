@@ -21,6 +21,8 @@ services:
       ORDO_ACCESS_TIMEOUT_HOURS: ${ORDO_ACCESS_TIMEOUT_HOURS:-48}
       ORDO_ADMINS: ${ORDO_ADMINS:?set ORDO_ADMINS in .env}
       ORDO_GRAVATAR: ${ORDO_GRAVATAR:-on}
+      ORDO_GEOCODER: ${ORDO_GEOCODER:-https://nominatim.openstreetmap.org}
+      ORDO_GEOCODER_COUNTRIES: ${ORDO_GEOCODER_COUNTRIES:-}
       ORDO_MAX_BLOB_MB: ${ORDO_MAX_BLOB_MB:-20}
       # Local accounts, managed in ORDO through Dex's API (ADR-0060); certificates from
       # `ordo generate-dex-certs`, see README.md.

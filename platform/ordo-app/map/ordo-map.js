@@ -6,7 +6,7 @@
 // the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
-// [impl->dsn~situation-map~2]
+// [impl->dsn~situation-map~3]
 // [impl->dsn~tactical-symbols~1]
 // [impl->dsn~map-drawing~2]
 
@@ -394,6 +394,10 @@ export async function offlineState(incident, ticket) {
 
 /** Keeps the incident's whole map region on the device (Cache Storage), one per incident. */
 export async function saveOffline(incident, ticket) {
+  // A few hundred MB the device must not drop when space runs low: ask for persistent
+  // storage. Not awaited: a browser may ask the person and wait for the answer, and nothing
+  // breaks if it says no.
+  navigator.storage?.persist?.().catch(() => false);
   const response = await fetch(regionPath(incident), { headers: authorised(ticket) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const cache = await caches.open(OFFLINE_CACHE);

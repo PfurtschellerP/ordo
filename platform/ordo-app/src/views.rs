@@ -123,9 +123,9 @@ fn Start() -> impl IntoView {
     }
 }
 
-// [impl->dsn~licence-notices~1]
-/// The screen for the URL: the licence notices, pairing or the paired device; under each,
-/// the footer with the way to the licences and the source code (LIC-1).
+// [impl->dsn~licence-notices~2]
+/// The screen for the URL: the licence notices, pairing or the paired device. Pairing links
+/// to the notices; a paired device has them under *Administration – Info* (LIC-1).
 #[component]
 fn Screens(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> impl IntoView {
     let location = use_location();
@@ -150,7 +150,6 @@ fn Screens(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> i
                 Some(p) => view! { <Device pairing=p paired=pairing on_unpair=move || pairing.set(None) /> }.into_any(),
             }
         }}
-        <crate::notices::SiteFooter />
     }
 }
 
@@ -328,6 +327,7 @@ fn PairingForm(
                 }
                 .into_any()
             }}
+            <crate::notices::NoticesLink />
         </main>
     }
 }
@@ -444,7 +444,7 @@ pub(crate) fn apply_theme(theme: &str) {
     apply_setting("data-theme", THEME_KEY, theme);
 }
 
-// [impl->dsn~header-layout~1]
+// [impl->dsn~header-layout~2]
 /// Applies the handedness (`""` = right, `"left"`) and remembers it on this device: the
 /// bottom bar puts the menu at the end the thumb reaches.
 pub(crate) fn apply_hand(hand: &str) {
@@ -784,6 +784,11 @@ fn Workspace(
         }
     });
     on_cleanup(move || keys.remove());
+    // [impl->dsn~header-layout~2]
+    crate::ui::close_on_click_outside(
+        open,
+        "#launcher-button, #launcher-bar-button, #launcher-panel".to_owned(),
+    );
     let theme = RwSignal::new(core::preference(THEME_KEY).unwrap_or_default());
     let hand = RwSignal::new(core::preference(HAND_KEY).unwrap_or_default());
     let close_profile = Callback::new(move |()| profile_open.set(false));
@@ -976,10 +981,6 @@ fn Workspace(
                     }
                     // [impl->dsn~workspaces-by-phase~1]
                     // [impl->dsn~map-drawing~2]
-                    // The editor page, also opened to place one object (`place:<kind>:<ID>`).
-                    (Some("command.lead"), Some("map")) if record.get().is_some_and(|r| crate::situation::is_editor(&r)) => view! {
-                        <crate::situation::MapEditor core revision preset=record.get_untracked().and_then(|r| crate::situation::preset(&r)) />
-                    }.into_any(),
                     (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
@@ -993,12 +994,18 @@ fn Workspace(
                         <crate::devices::IncidentDevicesView core revision />
                     }.into_any(),
                     (Some("command.prepare"), Some("structure")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
+                    // The editor page on Vorbereitung – Einsatz (ADR-0065), also opened to place
+                    // one object (`map:<kind>:<ID>`).
+                    (Some("command.prepare"), Some("incident")) if record.get().is_some_and(|r| crate::situation::is_editor(&r)) => view! {
+                        <crate::situation::MapEditor core revision preset=record.get_untracked().and_then(|r| crate::situation::preset(&r)) />
+                    }.into_any(),
                     (Some("command.prepare"), _) => view! { <crate::incidents::IncidentPage core revision /> }.into_any(),
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
                     (Some("admin.access"), Some("permissions")) => view! { <crate::roles::RolesView core revision /> }.into_any(),
                     (Some("admin.access"), Some("devices")) => view! { <devices::DevicesView core revision /> }.into_any(),
                     (Some("admin.access"), Some("login")) => view! { <crate::login_providers::LoginProvidersView core revision /> }.into_any(),
                     (Some("admin.access"), _) => view! { <crate::accounts::AccountsView core revision /> }.into_any(),
+                    (Some("admin.info"), _) => view! { <crate::notices::InfoView /> }.into_any(),
                     (Some("person.devices"), _) => view! { <devices::DevicesView core revision mine_only=true /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
@@ -1278,11 +1285,10 @@ fn UhsOnMap(
             })
         })
     });
-    let place = nav::Route::record(
-        "command.lead",
-        "map",
-        &crate::situation::place_record(ordo_map::ObjectKind::Uhs, &id),
-    );
+    let place = crate::situation::editor_route(&crate::situation::place_record(
+        ordo_map::ObjectKind::Uhs,
+        &id,
+    ));
     let name = StoredValue::new(name);
     let visible = move || {
         if at.get().is_some() {

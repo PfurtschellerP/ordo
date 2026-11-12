@@ -211,6 +211,28 @@ impl Client {
         }
     }
 
+    /// Searches an address for the incident's map and waits for the answer.
+    async fn geocode(&mut self, query: &str) -> message::Geocoded {
+        self.send(ClientMessage::Geocode(message::GeocodeRequest {
+            incident: incident(),
+            query: query.to_owned(),
+        }))
+        .await;
+        loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), self.socket.next())
+                .await
+                .expect("timed out waiting for the address search")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                match message::decode::<ServerMessage>(&bytes).unwrap() {
+                    ServerMessage::Geocoded(answer) => return answer,
+                    other => self.replica.receive(other, now()).unwrap(),
+                }
+            }
+        }
+    }
+
     /// Asks for a ticket to read the incident's map region and waits for the answer.
     async fn map_ticket(&mut self) -> Option<String> {
         self.send(ClientMessage::MapTicket(incident())).await;
@@ -484,6 +506,7 @@ async fn sync_over_websocket_survives_a_restart() {
     .unwrap();
     assert_eq!(announced["sync"]["min"], "1.0");
     assert_eq!(announced["http"]["max"], "1.0");
+    assert_eq!(announced["build"]["version"], env!("CARGO_PKG_VERSION"));
     let version_of = |r: &reqwest::Response| {
         r.headers()
             .get("ORDO-API-Version")
@@ -515,7 +538,7 @@ async fn sync_over_websocket_survives_a_restart() {
         assert_eq!(range["http"]["min"], "1.0", "the answer names the range");
     }
 
-    // [itest->dsn~situation-map~2]
+    // [itest->dsn~situation-map~3]
     // [itest->dsn~map-region~2]
     // The incident's map region is read in parts (range requests), as PMTiles does, with a
     // ticket for that incident.
@@ -785,6 +808,97 @@ impl Client {
         }
         self.receive_until(|r| r.outbox_len() == 0).await;
     }
+}
+
+// [itest->dsn~address-search~1]
+#[tokio::test(flavor = "multi_thread")]
+async fn the_incident_command_searches_an_address_through_the_geocoder() {
+    use std::sync::{Arc, Mutex};
+    // A stand-in for Nominatim that records what it was asked and by whom.
+    let asked: Arc<Mutex<Vec<(String, String, std::time::Instant)>>> = Arc::default();
+    let seen = asked.clone();
+    let geocoder = axum::Router::new().route(
+        "/search",
+        axum::routing::get(
+            move |headers: axum::http::HeaderMap,
+                  axum::extract::RawQuery(query): axum::extract::RawQuery| {
+                let seen = seen.clone();
+                async move {
+                    let agent = headers
+                        .get("user-agent")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or_default()
+                        .to_owned();
+                    seen.lock().unwrap().push((
+                        query.unwrap_or_default(),
+                        agent,
+                        std::time::Instant::now(),
+                    ));
+                    r#"[{"display_name": "Rathausplatz, 86150 Augsburg", "lat": "48.3689", "lon": "10.8978"}]"#
+                }
+            },
+        ),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, geocoder).await.unwrap() });
+
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [8; 32]);
+    let running = start_server_with(
+        dir.path(),
+        &[
+            ("ORDO_GEOCODER", url),
+            ("ORDO_GEOCODER_COUNTRIES", "de".to_owned()),
+        ],
+    )
+    .await
+    .unwrap();
+    let addr = running.addr;
+
+    // A medic does not prepare the map: refused, and the geocoder is not asked.
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    let refused = anna.geocode("Rathausplatz Augsburg").await;
+    assert_eq!(refused.status, message::GeocodeStatus::Refused);
+    assert!(asked.lock().unwrap().is_empty());
+
+    // The incident command finds the place.
+    let mut ben = Client::connect(addr, replica("ben")).await;
+    let found = ben.geocode("Rathausplatz  Augsburg").await;
+    assert_eq!(found.status, message::GeocodeStatus::Found);
+    assert_eq!(
+        found.query, "Rathausplatz  Augsburg",
+        "matched to its question"
+    );
+    assert_eq!(
+        found.places,
+        vec![message::GeocodedPlace {
+            label: "Rathausplatz, 86150 Augsburg".into(),
+            lat_e7: 483_689_000,
+            lon_e7: 108_978_000,
+        }]
+    );
+    // The same question again comes from the cache; a new one waits for the pace.
+    let again = ben.geocode("rathausplatz augsburg").await;
+    assert_eq!(again.places, found.places);
+    ben.geocode("Hauptbahnhof Augsburg").await;
+    let asked = asked.lock().unwrap().clone();
+    assert_eq!(asked.len(), 2, "one request per distinct question");
+    let (query, agent, first) = &asked[0];
+    assert!(query.contains("q=rathausplatz+augsburg"), "{query}");
+    assert!(
+        query.contains("format=jsonv2") && query.contains("countrycodes=de"),
+        "{query}"
+    );
+    assert!(
+        agent.starts_with("ORDO/"),
+        "the application identifies itself: {agent}"
+    );
+    assert!(
+        asked[1].2.duration_since(*first) >= Duration::from_millis(990),
+        "at most one request per second"
+    );
+    running.stop().await.unwrap();
 }
 
 // [itest->dsn~order-permission~1]

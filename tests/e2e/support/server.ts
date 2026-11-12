@@ -12,6 +12,9 @@ export type DeviceKey = { id: string; public_key: string; private_key: string };
 
 export class OrdoServer {
   private proc?: ChildProcess;
+  /** The address search's geocoder (ADR-0066); off unless a test starts a stand-in, so
+   *  the tests never ask the public Nominatim. */
+  geocoder = "off";
 
   constructor(readonly work: string, readonly port: number) {}
 
@@ -61,6 +64,7 @@ export class OrdoServer {
         // map" in the app (MAP-8, ADR-0062; made by make_region.py).
         ORDO_MAP_DIR: path.join(this.work, "maps"),
         ORDO_MAP_SOURCE: path.join(__dirname, "world.pmtiles"),
+        ORDO_GEOCODER: this.geocoder,
         ORDO_APP_DIR: DIST,
         // Login with Dex (support/dex.yaml).
         ORDO_OIDC_ISSUER: DEX_URL,

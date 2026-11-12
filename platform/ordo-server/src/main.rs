@@ -29,6 +29,10 @@ Environment for `serve`:
                          <data dir>/maps; cut by the incident command in the app)
   ORDO_MAP_SOURCE        World map regions are cut from (PMTiles URL or file; default
                          the Protomaps daily build)
+  ORDO_GEOCODER          Address search for the incident map: a Nominatim-compatible API
+                         (default https://nominatim.openstreetmap.org, the public
+                         Nominatim, max. 1 search per second; off switches it off)
+  ORDO_GEOCODER_COUNTRIES  Limit the search to these countries, e.g. de (optional)
   ORDO_PROTECTED         Protected compartments (default med.clinical)
   ORDO_APP_DIR           Built web app, served at / (optional)
   ORDO_POLICY_DIR        Own roles and permissions as Cedar policies, *.cedar (optional)

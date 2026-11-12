@@ -655,7 +655,8 @@ impl<P: AccessPolicy> Hub<P> {
                 }
             }
             // Answered by the server outside the hub: profile pictures, names, attachments
-            // (access checked with `can_access`), organisation roles, local accounts and the map region.
+            // (access checked with `can_access`), organisation roles, local accounts, the map region
+            // and the address search.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
             | ClientMessage::SetName(_)
@@ -670,7 +671,8 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::BlobTicket(_)
             | ClientMessage::GetMapRegion(_)
             | ClientMessage::CutMapRegion(_)
-            | ClientMessage::MapTicket(_) => Vec::new(),
+            | ClientMessage::MapTicket(_)
+            | ClientMessage::Geocode(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),

@@ -29,6 +29,7 @@ fn svg(name: &str) -> &'static str {
         "ellipsis",
         "flag",
         "id-card",
+        "info",
         "key-round",
         "layout-grid",
         "log-in",
@@ -94,6 +95,29 @@ pub fn DisclosureButton(
     }
 }
 
+// [impl->dsn~header-layout~2]
+/// Closes a menu when the person clicks or taps anywhere outside the elements matching
+/// `inside` (its buttons and panel), as menus do elsewhere. The focus stays where the click
+/// put it. A click on an element that left the page meanwhile (the panel re-rendered)
+/// does not count as outside.
+pub fn close_on_click_outside(open: RwSignal<bool>, inside: String) {
+    let clicks = window_event_listener(leptos::ev::click, move |ev| {
+        if !open.get_untracked() {
+            return;
+        }
+        let Some(target) = ev
+            .target()
+            .and_then(|t| wasm_bindgen::JsCast::dyn_into::<web_sys::Element>(t).ok())
+        else {
+            return;
+        };
+        if target.is_connected() && matches!(target.closest(&inside), Ok(None)) {
+            open.set(false);
+        }
+    });
+    on_cleanup(move || clicks.remove());
+}
+
 /// A disclosure: a button and its panel. Escape closes it wherever the focus is and
 /// returns the focus to the button. IDs: `{id}-button`, `{id}-panel`.
 #[component]
@@ -120,6 +144,7 @@ pub fn Disclosure(
         }
     });
     on_cleanup(move || keys.remove());
+    close_on_click_outside(open, format!("#{button_id}, #{panel_id}"));
     view! {
         <div class=move || class.get()>
             <DisclosureButton id=button_id controls=panel_id.clone() open class=button_class on_open label>

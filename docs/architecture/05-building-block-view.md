@@ -346,7 +346,7 @@ Tags: must, m32
 ### 5.5.1c Shared module `map`
 
 #### Situation map
-`dsn~situation-map~2`
+`dsn~situation-map~3`
 
 Crate `ordo-map`, module `map`, in the shared `incident` compartment
 ([ADR-0006](../adr/0006-maplibre-pmtiles.md)). `map.objectPlaced` puts an object on the
@@ -357,8 +357,10 @@ off. The latest event of an object counts (hybrid logical clock). Drawn objects 
 areas, MAP-4) use the same events with their own IDs.
 
 The view *Führung – Lagekarte* shows the map with the objects and, below it, the list of
-objects (A11Y-5). Those who may edit open *Karte bearbeiten*, the editor page
-(`command.lead/map/edit`, [ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
+objects (A11Y-5); it does not edit. Those who may edit find *Lagekarte bearbeiten* on
+*Vorbereitung – Einsatz* ([ADR-0065](../adr/0065-map-editing-in-preparation.md)). It opens
+the editor page (`command.prepare/incident/map`,
+[ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
 fills the page, a toolbar above it offers *Auswählen*, *Symbol setzen*, *Fläche* and
 *Linie*, and the list stays below. *Symbol setzen* takes the incident location, a unit, a
 UHS or a position and places it where the next tap is, or at the map's centre (the
@@ -371,20 +373,52 @@ position (browser geolocation, only when asked). Only the command writes the mod
 
 Offline (MAP-2): the server serves each incident's PMTiles region file at
 `/tiles/<incident ULID>.pmtiles` with range requests and a ticket (*Map region from the
-server*); *Karte offline speichern* keeps the incident's whole file in the device's Cache
-Storage (private to ORDO's origin; Safari cannot write OPFS files from the page), one per
-incident, and the map reads from there when it is present. Map code, fonts and glue are
+server*). The first time a device opens the map of an incident whose region the server
+has and the device does not keep, it saves the incident's whole file in the device's
+Cache Storage by itself (private to ORDO's origin; Safari cannot write OPFS files from the
+page), one per incident, and asks the browser for persistent storage; the map reads from
+there when it is present. *Karte offline speichern* saves it again; *Offline-Karte
+löschen* deletes it, and the device then remembers not to save it by itself for that
+incident ([ADR-0065](../adr/0065-map-editing-in-preparation.md)). Map code, fonts and glue are
 cached with the app shell; without a region file, the objects are shown on a plain
 background and the view says that no map region was prepared.
 
 Covers:
 
 * [req~map-1~1](../requirements/02-shared.md#map-1--situation-map)
-* [req~map-2~1](../requirements/02-shared.md#map-2--offline-map)
+* [req~map-2~2](../requirements/02-shared.md#map-2--offline-map)
 
 Needs: impl, utest, itest
 
-Tags: must, m33, m54
+Tags: must, m33, m54, m55
+
+#### Address search
+`dsn~address-search~1`
+
+On *Vorbereitung – Einsatz*, above the centre of a new map region, and on the map editor
+page, a search form (`role="search"`) takes an address. Only "Suchen" starts the search,
+never typing. The app sends `geocode` with the incident and the query over the sync
+connection (protocol 1.2); the server checks `manage_map` or `edit_units` in the
+incident (else `refused`) and asks its geocoder, a Nominatim-compatible API
+(`ORDO_GEOCODER`, default the OpenStreetMap Foundation's public Nominatim; `off`: answer
+`off`), with `format=jsonv2`, `limit=5` and, if set, `countrycodes`
+(`ORDO_GEOCODER_COUNTRIES`). Requests queue so that at most one per second leaves the
+server; each names ORDO, its version and the installation's address in the User-Agent.
+Answers are kept for 24 hours (up to 1,000 queries, folded to lower case and single
+spaces), so the same question is not asked twice. The query is not logged. The answer
+`geocoded` carries the query, a status (`found`, `off`, `refused`, `failed`) and up to
+five places (name, degrees × 10⁷). The app lists them as buttons, credited to
+OpenStreetMap; a chosen place fills the region's centre or moves the editor's map there
+([ADR-0066](../adr/0066-address-search-with-nominatim.md)). Without connection the form
+says the search needs the server.
+
+Covers:
+
+* [req~map-9~1](../requirements/02-shared.md#map-9--address-search)
+
+Needs: impl, utest, itest
+
+Tags: should, m55
 
 #### Drawing on the map
 `dsn~map-drawing~2`
@@ -704,12 +738,16 @@ Needs: impl, itest
 Tags: must, m3
 
 #### Offline app shell
-`dsn~offline-app-shell~1`
+`dsn~offline-app-shell~2`
 
-A service worker keeps the app shell on the device: on installation it stores
-`index.html` and every file it references (Trunk's content-hashed assets). Page loads go
-to the network first and fall back to the stored shell; hashed assets come from the store
-first. So ORDO starts and shows the locally stored data even when the server is
+A service worker keeps the app shell on the device: on installation and after each page
+load it stores `index.html`, every file it references (Trunk's content-hashed assets) and
+the storage worker, map and font files, in one cache per version of the app (named after
+its `index.html`). A version's cache is complete only once all its files are in; then the
+caches of other versions are removed. Page loads go to the network first and fall back to
+the stored shell. Hashed files come from the store first. Every other file comes from the
+network first and from the store only when the network fails or takes longer than four
+seconds, so after a server update an old stored file never runs with the new app. So ORDO starts and shows the locally stored data even when the server is
 unreachable, e.g. after the browser was restarted at the scene. Sync traffic (WebSocket)
 and health endpoints are not intercepted. A web app manifest makes the app installable.
 
@@ -719,7 +757,7 @@ Covers:
 
 Needs: impl, itest
 
-Tags: must, m3
+Tags: must, m3, m55
 
 #### Workspace navigation
 `dsn~workspace-navigation~3`
@@ -746,7 +784,7 @@ Needs: impl, itest
 Tags: must, m5
 
 #### Header and profile menu
-`dsn~header-layout~1`
+`dsn~header-layout~2`
 
 The header is a grid of three columns: menu button, page heading and incident on the left,
 the search in the middle column, connection state and the person's button on the right;
@@ -756,8 +794,9 @@ second; the menu button of the header is hidden and the one in the bottom bar sh
 buttons control the same panel (`aria-controls`, `aria-expanded`), and only the visible
 one is in the accessibility tree. The person's button (picture and name, disclosure)
 opens the profile menu with who is signed in, profile picture, appearance, handedness,
-change incident and unpair; Escape closes either menu and returns the focus to its
-button. Handedness ("right" by default, or "left") is kept on the device like the theme
+change incident and unpair. Escape closes either menu and returns the focus to its
+button; a click or tap anywhere outside a menu, its buttons and its panel closes it too and
+leaves the focus where the click put it. The connection state's menu behaves the same. Handedness ("right" by default, or "left") is kept on the device like the theme
 and set as `data-hand` on `<html>`; with "left", the bottom bar puts the menu first.
 
 Covers:
@@ -766,7 +805,7 @@ Covers:
 
 Needs: impl, itest
 
-Tags: should, m16
+Tags: should, m16, m55
 
 #### Compact navigation
 `dsn~compact-navigation~2`

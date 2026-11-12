@@ -34,6 +34,13 @@ pub struct Config {
     /// The world map regions are cut from: a PMTiles URL or file (`ORDO_MAP_SOURCE`,
     /// default the Protomaps build of the day before).
     pub map_source: Option<String>,
+    /// Address search for the incident's map (ADR-0066): base URL of a Nominatim-compatible
+    /// API (`ORDO_GEOCODER`, default the OpenStreetMap Foundation's public Nominatim; `off`
+    /// switches the search off).
+    pub geocoder: Option<String>,
+    /// Countries the address search is limited to, ISO 3166-1 alpha-2 codes,
+    /// comma-separated, e.g. `de` (`ORDO_GEOCODER_COUNTRIES`, optional).
+    pub geocoder_countries: Option<String>,
     /// Directory with the organisation's own Cedar policies, `*.cedar`
     /// (`ORDO_POLICY_DIR`, optional, ADR-0035).
     pub policy_dir: Option<PathBuf>,
@@ -346,6 +353,44 @@ impl Config {
             app_dir: get("ORDO_APP_DIR").map(PathBuf::from),
             map_dir,
             map_source: get("ORDO_MAP_SOURCE").filter(|s| !s.trim().is_empty()),
+            geocoder: match get("ORDO_GEOCODER").as_deref().map(str::trim) {
+                None | Some("") => Some(crate::geocode::DEFAULT_URL.to_owned()),
+                Some("off") => None,
+                Some(url) if url.starts_with("https://") || url.starts_with("http://") => {
+                    Some(url.to_owned())
+                }
+                Some(_) => {
+                    return Err(ConfigError::invalid(
+                        "ORDO_GEOCODER",
+                        "an http(s) URL or off".to_owned(),
+                    ));
+                }
+            },
+            geocoder_countries: match get("ORDO_GEOCODER_COUNTRIES")
+                .map(|c| c.trim().to_ascii_lowercase())
+                .filter(|c| !c.is_empty())
+            {
+                None => None,
+                Some(codes)
+                    if codes.split(',').all(|c| {
+                        c.trim().len() == 2 && c.trim().bytes().all(|b| b.is_ascii_lowercase())
+                    }) =>
+                {
+                    Some(
+                        codes
+                            .split(',')
+                            .map(str::trim)
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    )
+                }
+                Some(_) => {
+                    return Err(ConfigError::invalid(
+                        "ORDO_GEOCODER_COUNTRIES",
+                        "two-letter country codes, comma-separated".to_owned(),
+                    ));
+                }
+            },
             policy_dir: get("ORDO_POLICY_DIR").map(PathBuf::from),
             oidc: match get("ORDO_OIDC_ISSUER").filter(|issuer| !issuer.trim().is_empty()) {
                 None => None,

@@ -68,6 +68,8 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted | 2026-11-11 |
 | [0062](0062-map-region-per-incident.md) | A map region per incident | accepted | 2026-11-11 |
 | [0063](0063-upstream-login-configured-in-ordo.md) | Upstream logins are configured in ORDO, through Dex's connector API, after a test login | accepted | 2026-11-12 |
-| [0064](0064-map-editor-with-terra-draw.md) | The map is edited on its own page, with a toolbar, taps and Terra Draw | accepted | 2026-11-12 |
+| [0064](0064-map-editor-with-terra-draw.md) | The map is edited on its own page, with a toolbar, taps and Terra Draw | accepted; Page part superseded by 0065 | 2026-11-12 |
+| [0065](0065-map-editing-in-preparation.md) | The map is edited in *Vorbereitung*, and kept offline by default | accepted | 2026-11-13 |
+| [0066](0066-address-search-with-nominatim.md) | Addresses are searched with Nominatim, through the ORDO server | accepted | 2026-11-13 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

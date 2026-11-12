@@ -9,6 +9,7 @@ pub mod authz;
 mod blobs;
 pub mod config;
 pub mod dex_api;
+mod geocode;
 mod login;
 mod map_region;
 mod providers;
@@ -243,6 +244,14 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         config.gravatar,
         blobs,
         map_region::MapJob::new(config.map_dir.clone(), config.map_source.clone()),
+        geocode::Geocoder::new(
+            config.geocoder.clone(),
+            config.geocoder_countries.clone(),
+            config
+                .oidc
+                .as_ref()
+                .map_or(env!("CARGO_PKG_REPOSITORY"), |o| o.public_url.as_str()),
+        ),
         roles,
         dex_api,
         stop.clone(),

@@ -160,7 +160,7 @@ pub fn may_manage(core: Handle) -> bool {
 
 // [impl->dsn~workspaces-by-phase~1]
 /// The incident itself (*Vorbereitung – Einsatz*): name and state, which its command
-/// starts and closes, and the map region of its area.
+/// starts and closes, the map region of its area, and the way to edit its map.
 #[component]
 pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let info = Memo::new(move |_| {
@@ -219,6 +219,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         <Show when=move || map_region.get()>
             <crate::map_region::MapRegionView core revision />
         </Show>
+        <crate::situation::MapEditCard core revision />
     }
 }
 

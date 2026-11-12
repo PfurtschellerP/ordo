@@ -244,12 +244,14 @@ clients raises `major`.
   range (`{"http": {"min": "1.0", "max": "1.0"}}`), and MUST name the version it answers
   in on every other response in the same header.
 - **Discovery:** `GET /.well-known/ordo` returns the supported range of each
-  specification as JSON, e.g. `{"sync": {"min": "1.0", "max": "1.0"}, "http": {…}}`.
+  specification as JSON, e.g. `{"sync": {"min": "1.0", "max": "1.0"}, "http": {…}}`, and
+  MAY add the server's build as `"build": {"version": "…", "commit": "…"}` (for display
+  only; clients MUST NOT decide anything on it).
 - Event payloads are versioned apart, by `schema_version` per event type ([`event.md`](event.md)).
 
 | Version | Sync protocol | HTTP API |
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
-| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
+| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 

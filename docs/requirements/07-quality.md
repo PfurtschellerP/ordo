@@ -47,7 +47,7 @@ Needs: dsn
 
 No data entry is lost when the app is closed, the device sleeps or the network drops
 
-Tags: must, quality, m3
+Tags: must, quality, m3, m55
 
 Needs: dsn
 
@@ -101,7 +101,7 @@ Needs: dsn
 
 ORDO shall show, on wide screens, the menu, the page heading, the search in the middle, the connection state and the signed-in person in the header from left to right, with the person's settings in a menu of their own; when a person chooses left-handed use on a device, ORDO shall put the menu of the bottom bar at its left end on that device.
 
-Tags: should, quality, m16
+Tags: should, quality, m16, m55
 
 Needs: dsn
 
