@@ -286,8 +286,9 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    no crew) in *Administration – Stammdaten* (ORG-14,
    [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS counts as a unit in the
    forces on scene, with organisation, service and strength (UHS-12,
-   [ADR-0069](adr/0069-uhs-counts-as-a-unit.md)). Next: UHS capacity per triage category and
-   a plan of its places; strength after the 2024 DV 102 recommendation as an option
+   [ADR-0069](adr/0069-uhs-counts-as-a-unit.md)); a UHS's capacity per triage category with
+   places kept for each, and a plan of its places with the patient on each (UHS-13,
+   UHS-14). Next: strength after the 2024 DV 102 recommendation as an option
    (physicians, respirator wearers, unit and platoon leaders apart; notation to be checked
    in the BBK document); the command structure as a generated org chart.
 

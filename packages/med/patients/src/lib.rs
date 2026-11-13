@@ -82,6 +82,45 @@ pub struct Place {
     pub id: String,
     /// Label, e.g. "Platz 3" (chosen by the app or the person, never by this package).
     pub label: String,
+    /// The triage category the place is kept for, e.g. a place of the red area
+    /// (`uhs.placesSet` schema version 2; none: any).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<TriageCategory>,
+}
+
+/// Payload schema of `uhs.placesSet`: 2 adds the category of each place.
+pub const UHS_PLACES_SCHEMA: u32 = 2;
+
+// [impl->dsn~uhs-capacity-by-category~1]
+/// Treatment places for a capacity per triage category: `n` places per category, in the
+/// order of the categories, with IDs like `immediate-1`. A place with the same ID in
+/// `existing` keeps its label, so patients keep their places; `label` names new ones (the
+/// app's words, never this package's).
+pub fn places_by_category(
+    capacities: &BTreeMap<TriageCategory, u32>,
+    existing: &[Place],
+    label: impl Fn(TriageCategory, u32) -> String,
+) -> Vec<Place> {
+    capacities
+        .iter()
+        .flat_map(|(&category, &n)| (1..=n).map(move |k| (category, k)))
+        .map(|(category, k)| {
+            let key = serde_json::to_value(category)
+                .ok()
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_default();
+            let id = format!("{key}-{k}");
+            let label = existing
+                .iter()
+                .find(|p| p.id == id)
+                .map_or_else(|| label(category, k), |p| p.label.clone());
+            Place {
+                id,
+                label,
+                category: Some(category),
+            }
+        })
+        .collect()
 }
 
 /// Payload of `uhs.placesSet`: the treatment places of one unit, replacing earlier lists.
@@ -139,8 +178,8 @@ pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> 
 /// Event type: an on-site care unit's name, location, capacity or staff changed (UHS-1).
 pub const UHS_UPDATED: &str = "uhs.updated";
 /// Payload schema of `uhs.updated`: 2 adds the name, 3 the organisation, service and
-/// strength of the UHS as a unit (ADR-0069).
-pub const UHS_UPDATED_SCHEMA: u32 = 3;
+/// strength of the UHS as a unit (ADR-0069), 4 the capacity per triage category.
+pub const UHS_UPDATED_SCHEMA: u32 = 4;
 
 /// Payload of `uhs.updated`: the fields given replace earlier values; a field left out
 /// keeps its value.
@@ -174,6 +213,10 @@ pub struct UhsUpdated {
         deserialize_with = "present"
     )]
     pub strength: Option<Option<[u32; 3]>>,
+    /// Patients it can take per triage category, the whole map (schema version 4); an
+    /// empty map clears it. `capacity` is then their sum.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacities: Option<BTreeMap<TriageCategory, u32>>,
 }
 
 /// A field that is there, even as null, is `Some`; a missing one stays `None` (default).
@@ -206,6 +249,8 @@ pub struct UhsDetails {
     pub service: Option<String>,
     /// Its reported strength.
     pub strength: Option<ordo_units::Strength>,
+    /// Patients it can take per triage category (empty: only a total capacity).
+    pub capacities: BTreeMap<TriageCategory, u32>,
 }
 
 impl UhsDetails {
@@ -322,6 +367,9 @@ pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDeta
         }
         if let Some(strength) = u.strength {
             d.strength = strength.map(ordo_units::Strength::from);
+        }
+        if let Some(capacities) = u.capacities {
+            d.capacities = capacities.into_iter().filter(|(_, n)| *n > 0).collect();
         }
     }
     details
@@ -1101,6 +1149,57 @@ mod tests {
         let d = &uhs_details(&events)["uhs-1"];
         assert_eq!(d.location.as_deref(), Some("Zelt 2"));
         assert_eq!(d.staff, ["anna"], "a field left out keeps its value");
+    }
+
+    // [utest->dsn~uhs-capacity-by-category~1]
+    #[test]
+    fn a_capacity_per_category_gives_places_per_category_and_keeps_existing_ones() {
+        use TriageCategory::{Immediate, Minor, Urgent};
+        let capacities = BTreeMap::from([(Minor, 2), (Immediate, 1), (Urgent, 0)]);
+        let label = |c: TriageCategory, k: u32| format!("{c:?} {k}");
+        let places = places_by_category(&capacities, &[], label);
+        assert_eq!(
+            places
+                .iter()
+                .map(|p| (p.id.as_str(), p.category))
+                .collect::<Vec<_>>(),
+            [
+                ("immediate-1", Some(Immediate)),
+                ("minor-1", Some(Minor)),
+                ("minor-2", Some(Minor)),
+            ],
+            "in the order of the categories, none for a zero"
+        );
+        let renamed = vec![Place {
+            id: "minor-1".into(),
+            label: "Liege grün".into(),
+            category: Some(Minor),
+        }];
+        let again = places_by_category(&capacities, &renamed, label);
+        assert_eq!(
+            again[1].label, "Liege grün",
+            "an existing place keeps its label"
+        );
+
+        // The capacities are kept per field; zeros are left out; places of version 1 decode.
+        let shared = |n: u64, event_type: &str, payload: Vec<u8>| {
+            testing::event(n, "dora", UHS_MODULE, UHS_COMPARTMENT, event_type, payload)
+        };
+        let update = UhsUpdated {
+            id: "nord".into(),
+            capacities: Some(capacities.clone()),
+            ..Default::default()
+        };
+        let events = vec![shared(1, UHS_UPDATED, update.encode().unwrap())];
+        assert_eq!(
+            uhs_details(&events)["nord"].capacities,
+            BTreeMap::from([(Immediate, 1), (Minor, 2)])
+        );
+        let v1: Place = codec::from_cbor(
+            &codec::to_cbor(&serde_json::json!({"id": "p1", "label": "Platz 1"})).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(v1.category, None);
     }
 
     // [utest->dsn~uhs-as-unit~1]

@@ -1007,6 +1007,7 @@ fn patients_are_assigned_to_treatment_places() {
             .map(|i| patients::Place {
                 id: format!("p{i}"),
                 label: format!("Platz {i}"),
+                category: None,
             })
             .collect(),
     }

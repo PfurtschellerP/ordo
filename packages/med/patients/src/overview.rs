@@ -206,6 +206,7 @@ mod tests {
                 .map(|i| Place {
                     id: format!("p{i}"),
                     label: format!("Platz {i}"),
+                    category: None,
                 })
                 .collect(),
         };

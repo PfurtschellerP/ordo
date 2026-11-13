@@ -289,6 +289,17 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~treatment-places~1]
     await anna.locator("#place").selectOption({ label: "Platz 2" });
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__meta"), "the list shows the treatment place").toContainText("Platz 2");
+    // [itest->dsn~place-plan~1]
+    // UHS-14: working at one UHS, the plan shows who lies where.
+    await anna.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
+    const plan = anna.locator(".place-plan");
+    await expect(plan.locator("#place-plan-title")).toHaveText("Platzplan – UHS Eingang");
+    await expect(plan.locator(".place-tile[data-place='p2']"), "the patient on their place").toContainText("Platz 2DE-0044");
+    await expect(plan.locator(".place-tile--free"), "the others are free").toHaveCount(4);
+    await expect(plan.locator(".place-plan__free")).toHaveText("4 von 5 frei");
+    await audit(anna, "Place plan");
+    await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
+    await expect(plan, "only for one UHS").toHaveCount(0);
 
     // [itest->dsn~patient-care-record~1]
     await anna.locator("#edit-identity").click();
@@ -1019,7 +1030,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await uhsCard.getByLabel("Führer", { exact: true }).fill("0");
     await uhsCard.getByLabel("Unterführer", { exact: true }).fill("1");
     await uhsCard.getByLabel("Mannschaft", { exact: true }).fill("3");
+    // [itest->dsn~uhs-capacity-by-category~1]
+    // UHS-13: a capacity per triage category, which also sets its places.
+    await uhsCard.getByLabel("SK I", { exact: true }).fill("1");
+    await uhsCard.getByLabel("SK II", { exact: true }).fill("1");
+    await uhsCard.getByLabel("SK III", { exact: true }).fill("2");
     await uhsCard.getByRole("button", { name: "Speichern" }).click();
+    await expect(uhsCard.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
     await audit(ben, "Resources workspace");
@@ -1346,8 +1363,8 @@ test("ORDO in the browser", async ({ browser }) => {
 
     await openView(ben, "Lagekarte");
     await expect
-      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient" })
-      .toBe("Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 1");
+      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient, against the capacity by category" })
+      .toBe("Gesamt: 1 · Belegung: 1 / 4 · Entlassen: 1");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked

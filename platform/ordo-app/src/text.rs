@@ -592,6 +592,22 @@ pub fn place_label(n: u32) -> String {
     format!("Platz {n}")
 }
 
+/// A place kept for a triage category, e.g. "SK I – Platz 2" (UHS-13).
+pub fn category_place_label(category: TriageCategory, n: u32) -> String {
+    format!("{} – Platz {n}", label(category))
+}
+
+// The plan of a UHS's places (UHS-14)
+pub const PLACE_FREE: &str = "frei";
+
+pub fn place_plan_title(uhs: &str) -> String {
+    format!("Platzplan – {uhs}")
+}
+
+// Capacity per triage category (UHS-13)
+pub const UHS_CAPACITIES_LEGEND: &str = "Kapazität nach Sichtungskategorie (optional)";
+pub const UHS_CAPACITIES_HINT: &str = "Mit Zahlen hier ist die Kapazität ihre Summe, und die UHS bekommt ihre Behandlungsplätze je Sichtungskategorie.";
+
 pub fn places_set(n: u32) -> String {
     format!("{n} Behandlungsplätze")
 }

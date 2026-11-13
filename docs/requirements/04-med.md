@@ -216,6 +216,28 @@ Tags: must, med, m57
 
 Needs: dsn
 
+#### UHS-13 — Capacity per triage category
+`req~uhs-13~1`
+
+When the incident command gives an on-site care unit a capacity per triage category, ORDO
+shall keep it, give the unit treatment places kept for each category, and show its patients
+per category against that capacity.
+
+Tags: should, med, m57
+
+Needs: dsn
+
+#### UHS-14 — Place plan
+`req~uhs-14~1`
+
+When a person works at one on-site care unit with treatment places, ORDO shall show a plan
+of its places, grouped by the triage category they are kept for, with the patient lying on
+each taken place and the free places marked.
+
+Tags: should, med, m57
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

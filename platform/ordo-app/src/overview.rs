@@ -27,8 +27,8 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             .map(|u| {
                 let mut s = summaries.get(&u.id).cloned().unwrap_or_default();
                 s.counts.uhs.clone_from(&u.id);
-                let location = details.get(&u.id).and_then(|d| d.location.clone());
-                (u.name, u.capacity, s, location)
+                let d = details.get(&u.id).cloned().unwrap_or_default();
+                (u.name, u.capacity, s, (d.location, d.capacities))
             })
             .collect::<Vec<_>>()
     });
@@ -43,15 +43,15 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 // The whole incident first (MANV).
                 let all = overview::total(list.iter().map(|(_, _, s, _)| s));
                 let capacity: u32 = list.iter().map(|(_, c, _, _)| c).sum();
-                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all, None)).chain(list);
+                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all, (None, Default::default()))).chain(list);
                 view! {
                     <ul class="count-list">
                         {list
                             .into_iter()
-                            .map(|(name, capacity, s, location)| {
+                            .map(|(name, capacity, s, (location, capacities))| {
                                 let places = s.places.map(|(free, total)| text::places_free(free, total));
                                 view! {
-                                    <CountCard name capacity counts=s.counts.clone()>
+                                    <CountCard name capacity counts=s.counts.clone() capacities>
                                         // [impl->dsn~uhs-details~3]
                                         {location.map(|l| view! { <p class="count-card__location">{text::UHS_LOCATION} ": " {l}</p> })}
                                         <p class="count-card__more">

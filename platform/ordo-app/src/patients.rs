@@ -183,6 +183,7 @@ pub fn PatientsView(
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
+                <PlacePlan core revision nav register working selected=record />
                 <RegisterForm core revision nav />
                 <PatientList core revision nav register records selected=record />
             </div>
@@ -259,6 +260,128 @@ fn UhsChooser(core: Handle, revision: RwSignal<u64>, working: WorkingUhs) -> imp
                 }).collect_view()}
             </select>
         </div>
+    }
+}
+
+/// The places of one triage category (none: any), each with the patient on it (tag and
+/// category).
+type Zone = (
+    Option<TriageCategory>,
+    Vec<(med::Place, Option<(String, TriageCategory)>)>,
+);
+
+// [impl->dsn~place-plan~1]
+/// The plan of the working UHS's treatment places (UHS-14): grouped by the triage category
+/// they are kept for, each taken place with its patient (a link to the record), the free
+/// ones marked. Shown when one UHS with places is chosen.
+#[component]
+fn PlacePlan(
+    core: Handle,
+    revision: RwSignal<u64>,
+    nav: Nav,
+    register: Memo<PatientRegister>,
+    working: WorkingUhs,
+    selected: Signal<Option<String>>,
+) -> impl IntoView {
+    let plan = Memo::new(move |_| {
+        revision.track();
+        let uhs = working.0.get();
+        if uhs.is_empty() {
+            return None;
+        }
+        let places = core
+            .with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)))
+            .remove(&uhs)
+            .filter(|p| !p.is_empty())?;
+        let name = uhs_list(core)
+            .into_iter()
+            .find(|u| u.id == uhs)
+            .map(|u| u.name)
+            .unwrap_or_default();
+        let lying: HashMap<String, (String, TriageCategory)> = register.with(|r| {
+            r.patients()
+                .filter(|p| p.uhs == uhs && p.is_present())
+                .filter_map(|p| {
+                    p.place
+                        .clone()
+                        .map(|place| (place, (p.tag.clone(), p.category())))
+                })
+                .collect()
+        });
+        // Zones in the order of the categories, places without one last.
+        let mut zones: Vec<Zone> = Vec::new();
+        for place in places {
+            let patient = lying.get(&place.id).cloned();
+            match zones.iter_mut().find(|(c, _)| *c == place.category) {
+                Some((_, list)) => list.push((place, patient)),
+                None => zones.push((place.category, vec![(place, patient)])),
+            }
+        }
+        zones.sort_by_key(|(c, _)| (c.is_none(), *c));
+        Some((name, zones))
+    });
+    move || {
+        plan.get().map(|(name, zones)| {
+            view! {
+                <section class="card place-plan" aria-labelledby="place-plan-title">
+                    <h2 id="place-plan-title">{text::place_plan_title(&name)}</h2>
+                    {zones
+                        .into_iter()
+                        .map(|(category, places)| {
+                            let free = places.iter().filter(|(_, p)| p.is_none()).count();
+                            view! {
+                                <div class="place-plan__zone">
+                                    <h3 class="place-plan__zone-title">
+                                        {match category {
+                                            Some(c) => view! { <TriageBadge category=c /> }.into_any(),
+                                            None => view! { <span>{text::PLACES}</span> }.into_any(),
+                                        }}
+                                        <span class="place-plan__free">{text::places_free(free, places.len())}</span>
+                                    </h3>
+                                    <ul class="place-plan__places">
+                                        {places
+                                            .into_iter()
+                                            .map(|(place, patient)| match patient {
+                                                Some((tag, category)) => {
+                                                    let route = record_route(&tag);
+                                                    let current = {
+                                                        let tag = tag.clone();
+                                                        move || (selected.get().as_deref() == Some(tag.as_str())).then_some("page")
+                                                    };
+                                                    view! {
+                                                        <li class="place-tile place-tile--taken" data-place=place.id.clone()>
+                                                            <a href=route.to_path() aria-current=current on:click=move |ev| {
+                                                                ev.prevent_default();
+                                                                nav.go(route.clone());
+                                                                after_render(|| focus("record-title"));
+                                                            }>
+                                                                <span class="place-tile__label">{place.label.clone()}</span>
+                                                                <span class="place-tile__patient">
+                                                                    <span class="code">{tag.clone()}</span>
+                                                                    <TriageBadge category />
+                                                                </span>
+                                                            </a>
+                                                        </li>
+                                                    }
+                                                    .into_any()
+                                                }
+                                                None => view! {
+                                                    <li class="place-tile place-tile--free" data-place=place.id.clone()>
+                                                        <span class="place-tile__label">{place.label.clone()}</span>
+                                                        <span class="place-tile__patient">{text::PLACE_FREE}</span>
+                                                    </li>
+                                                }
+                                                .into_any(),
+                                            })
+                                            .collect_view()}
+                                    </ul>
+                                </div>
+                            }
+                        })
+                        .collect_view()}
+                </section>
+            }
+        })
     }
 }
 

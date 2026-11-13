@@ -1247,6 +1247,45 @@ Needs: impl, itest
 
 Tags: must, m12
 
+#### UHS capacity by category
+`dsn~uhs-capacity-by-category~1`
+
+`uhs.updated` schema version 4 carries a unit's capacity per triage category (the whole
+map; zeros left out, an empty map clears it), set in the UHS details panel for every
+category but the deceased. With a map, the unit's `capacity` is its sum. `uhs.placesSet`
+schema version 2 gives each place an optional category; the Med package makes the places
+for a map (`places_by_category`: per category in its order, IDs like `immediate-1`, an
+existing place keeping its label, so patients keep their places), and the app sets them
+when the map changes, labelled "SK I – Platz 1". The Med overview shows each category's
+patients against its capacity ("1 / 2").
+
+Covers:
+
+* [req~uhs-13~1](../requirements/04-med.md#uhs-13--capacity-per-triage-category)
+
+Needs: impl, utest, itest
+
+Tags: should, m57
+
+#### Place plan
+`dsn~place-plan~1`
+
+The view *Patienten* of the Med workspace shows, when one UHS is chosen as the working UHS
+and it has places, a card *Platzplan* above the registration: one zone per triage category
+the places are kept for (places without one last), headed by the triage badge and the free
+places, and a tile per place. A taken tile names the place, the patient's tag and triage
+badge and links to the record; a free tile says "frei" with a dashed outline, never colour
+alone. It is computed from the places (shared) and the assignments (clinical), so only those
+who read clinical data see it.
+
+Covers:
+
+* [req~uhs-14~1](../requirements/04-med.md#uhs-14--place-plan)
+
+Needs: impl, itest
+
+Tags: should, m57
+
 #### Patient pathway
 `dsn~patient-pathway~1`
 

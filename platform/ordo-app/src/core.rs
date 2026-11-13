@@ -262,6 +262,7 @@ impl Core {
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
+            (patients::UHS_MODULE, patients::UHS_PLACES) => patients::UHS_PLACES_SCHEMA,
             (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
             (record::MODULE, record::ENTRY_RECORDED) => record::ENTRY_SCHEMA,
             _ => 1,
@@ -815,9 +816,45 @@ pub fn set_places(
                 .unwrap_or(patients::Place {
                     label: text::place_label(i),
                     id,
+                    category: None,
                 })
         })
         .collect();
+    let payload = patients::PlacesSet {
+        uhs: uhs.to_owned(),
+        places,
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::UHS_COMPARTMENT,
+        patients::UHS_MODULE,
+        patients::UHS_PLACES,
+        &payload,
+        text::places_set(count),
+    )
+}
+
+// [impl->dsn~uhs-capacity-by-category~1]
+/// Sets a unit's treatment places from its capacity per triage category (UHS-13): places
+/// kept for each category; existing ones keep their labels and patients.
+pub fn set_category_places(
+    core: Handle,
+    revision: RwSignal<u64>,
+    uhs: &str,
+    capacities: &std::collections::BTreeMap<ordo_contracts::TriageCategory, u32>,
+) -> Result<(), String> {
+    let existing = core
+        .with_value(|c| patients::places(&c.events(patients::UHS_COMPARTMENT)))
+        .remove(uhs)
+        .unwrap_or_default();
+    let places = patients::places_by_category(capacities, &existing, text::category_place_label);
+    if places == existing {
+        return Ok(());
+    }
+    let count = u32::try_from(places.len()).unwrap_or(u32::MAX);
     let payload = patients::PlacesSet {
         uhs: uhs.to_owned(),
         places,

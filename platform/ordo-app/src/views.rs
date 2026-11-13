@@ -1116,7 +1116,13 @@ struct UhsDraft {
     service: RwSignal<String>,
     /// Leaders, sub-leaders, crew.
     strength: [RwSignal<String>; 3],
+    /// Capacity per category, in the order of [`CAPACITY_CATEGORIES`].
+    capacities: [RwSignal<String>; 5],
 }
+
+/// The triage categories a UHS can keep capacity and places for (UHS-13): all but the
+/// deceased, who take no treatment place.
+const CAPACITY_CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Uninjured];
 
 impl UhsDraft {
     /// The draft of the unit `id`, created under `owner` the first time, filled with its
@@ -1142,6 +1148,15 @@ impl UhsDraft {
                     service: RwSignal::new(details.service.clone().unwrap_or_default()),
                     strength: [0, 1, 2].map(|i| {
                         RwSignal::new(reported.map(|r| r[i].to_string()).unwrap_or_default())
+                    }),
+                    capacities: CAPACITY_CATEGORIES.map(|c| {
+                        RwSignal::new(
+                            details
+                                .capacities
+                                .get(&c)
+                                .map(ToString::to_string)
+                                .unwrap_or_default(),
+                        )
                     }),
                 })
             });
@@ -1171,6 +1186,7 @@ fn UhsDetailsPanel(
         organisation,
         service,
         strength,
+        capacities,
     } = draft;
     let slug = core::slug(&id);
     let staff = details.staff.clone();
@@ -1183,9 +1199,35 @@ fn UhsDetailsPanel(
         let (id, current_name) = (id.clone(), name.clone());
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
-            let Ok(capacity) = cap.get_untracked().trim().parse::<u32>() else {
-                error.set(Some(text::UHS_CAPACITY_NUMBER));
-                return;
+            // [impl->dsn~uhs-capacity-by-category~1]
+            // A capacity per category, if given, makes the total.
+            let mut by_category = std::collections::BTreeMap::new();
+            for (category, value) in CAPACITY_CATEGORIES.into_iter().zip(capacities) {
+                let value = value.get_untracked();
+                if value.trim().is_empty() {
+                    continue;
+                }
+                match value.trim().parse::<u32>() {
+                    Ok(0) => {}
+                    Ok(n) => {
+                        by_category.insert(category, n);
+                    }
+                    Err(_) => {
+                        error.set(Some(text::UHS_CAPACITY_NUMBER));
+                        return;
+                    }
+                }
+            }
+            let capacity = if by_category.is_empty() {
+                let Ok(capacity) = cap.get_untracked().trim().parse::<u32>() else {
+                    error.set(Some(text::UHS_CAPACITY_NUMBER));
+                    return;
+                };
+                capacity
+            } else {
+                let sum = by_category.values().sum::<u32>();
+                cap.set(sum.to_string());
+                sum
             };
             let chosen = new_name.get_untracked().trim().to_owned();
             if chosen.is_empty() {
@@ -1226,9 +1268,13 @@ fn UhsDetailsPanel(
                 organisation: (now.0 != was.0).then(|| now.0.clone()),
                 service: (now.1 != was.1).then(|| now.1.clone()),
                 strength: (now.2 != was.2).then_some(now.2),
+                capacities: (by_category != details.capacities).then(|| by_category.clone()),
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 error.set(None);
+                if update.capacities.is_some() && !by_category.is_empty() {
+                    let _ = core::set_category_places(core, revision, &id, &by_category);
+                }
             }
         }
     };
@@ -1329,6 +1375,24 @@ fn UhsDetailsPanel(
                         .collect_view()}
                 </fieldset>
                 <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
+                <fieldset class="choices strength-input" aria-describedby=format!("uhs-capacities-hint-{slug}")>
+                    <legend>{text::UHS_CAPACITIES_LEGEND}</legend>
+                    {CAPACITY_CATEGORIES
+                        .into_iter()
+                        .zip(capacities)
+                        .map(|(category, value)| {
+                            let id = format!("uhs-capacity-{}-{slug}", core::slug(text::label(category)));
+                            view! {
+                                <div class="field field--small">
+                                    <label for=id.clone()>{text::label(category)}</label>
+                                    <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value
+                                        title=text::description(category) />
+                                </div>
+                            }
+                        })
+                        .collect_view()}
+                </fieldset>
+                <p id=format!("uhs-capacities-hint-{slug}") class="hint">{text::UHS_CAPACITIES_HINT}</p>
                 <button type="submit" class="button button--small">{text::UHS_SAVE}</button>
             </form>
             <p role="alert" class="error">{move || error.get()}</p>
@@ -1613,6 +1677,9 @@ pub fn CountCard(
     name: String,
     capacity: u32,
     counts: ordo_contracts::PatientCountsV1,
+    /// Capacity per triage category, shown next to the count (UHS-13).
+    #[prop(optional)]
+    capacities: std::collections::BTreeMap<TriageCategory, u32>,
     #[prop(optional)] children: Option<Children>,
 ) -> impl IntoView {
     let c = counts;
@@ -1623,7 +1690,11 @@ pub fn CountCard(
             <ul class="count-card__counts">
                 {CATEGORIES
                     .into_iter()
-                    .map(|k| view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}</span></li> })
+                    .map(|k| {
+                        // [impl->dsn~uhs-capacity-by-category~1]
+                        let of = capacities.get(&k).map(|n| format!(" / {n}"));
+                        view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}{of}</span></li> }
+                    })
                     .collect_view()}
             </ul>
             <p>

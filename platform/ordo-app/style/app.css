@@ -509,6 +509,36 @@
   .roster__roles { list-style: none; margin: 0; padding: 0; flex: 1 1 14rem; display: grid; gap: var(--ordo-space-1); }
   .roster__role { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); color: var(--ordo-color-text-secondary); }
   .roster__role .button { margin-inline-start: auto; }
+  /* The plan of a UHS's places (UHS-14): zones by triage category, a tile per place. */
+  .place-plan__zone { margin-block: var(--ordo-space-3); }
+  .place-plan__zone-title {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2);
+    font-size: var(--ordo-font-size-2); margin-block: 0 var(--ordo-space-2);
+  }
+  .place-plan__free { color: var(--ordo-color-text-secondary); font-weight: var(--ordo-font-weight-regular); }
+  .place-plan__places {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: var(--ordo-space-2);
+    grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+  }
+  .place-tile > a, .place-tile--free {
+    display: grid; gap: var(--ordo-space-1); block-size: 100%;
+    padding: var(--ordo-space-2) var(--ordo-space-3);
+    border-radius: var(--ordo-radius-medium);
+  }
+  .place-tile > a {
+    color: var(--ordo-color-text-primary); text-decoration: none;
+    background: var(--ordo-color-surface-default);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+  }
+  .place-tile > a:hover, .place-tile > a[aria-current] { border-color: var(--ordo-color-text-link); }
+  /* Free places: a dashed outline and the word "frei", never colour alone. */
+  .place-tile--free {
+    color: var(--ordo-color-text-secondary);
+    border: var(--ordo-size-border-thin) dashed var(--ordo-color-border-strong);
+  }
+  .place-tile__label { font-weight: var(--ordo-font-weight-bold); }
+  .place-tile__patient { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
   /* A vehicle of the master data: its actions at the end of the line (ORG-14). */
   .vehicle-list__actions { margin-inline-start: auto; }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
