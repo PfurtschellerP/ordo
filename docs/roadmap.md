@@ -278,6 +278,10 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    address search through the server's Nominatim
    ([ADR-0066](adr/0066-address-search-with-nominatim.md)). Other map types (basemap.de,
    aerial images per state) are deferred by the product owner (2026-11-12).
+   Since m56 ([ADR-0067](adr/0067-command-overview-tiles-and-map-preparation.md)): the
+   map is prepared on *Vorbereitung – Lagekarte* (region and editor on one page), the
+   *Führung* overview is a grid of tiles, and an incident has a description, planned times
+   and a pause.
 6. **UHS and units:** unit master data with templates (usual strength, no crew) in
    Administration (ORG-1); a UHS is a unit, so it counts in the forces on scene (ADR);
    UHS capacity per triage category and a plan of its places; strength after the 2024

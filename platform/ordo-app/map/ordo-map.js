@@ -6,7 +6,7 @@
 // the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
-// [impl->dsn~situation-map~3]
+// [impl->dsn~situation-map~4]
 // [impl->dsn~tactical-symbols~1]
 // [impl->dsn~map-drawing~2]
 
@@ -110,7 +110,7 @@ function token(name) {
  * server with `ticket` if the device has no copy; returns a handle, or throws (e.g. no
  * WebGL).
  */
-export async function create(element, centre, label, incident, ticket) {
+export async function create(element, centre, label, incident, ticket, interactive = true) {
   const l = await load();
   const source = await region(l, incident, ticket);
   const style = {
@@ -133,9 +133,11 @@ export async function create(element, centre, label, incident, ticket) {
     center: centre ?? START.center,
     zoom: centre ? 15 : START.zoom,
     attributionControl: { compact: false },
+    // A preview (the overview's tile) only shows; the page scrolls over it.
+    interactive,
   });
   map.getCanvas().setAttribute("aria-label", label);
-  map.addControl(new l.maplibre.NavigationControl({ showCompass: false }));
+  if (interactive) map.addControl(new l.maplibre.NavigationControl({ showCompass: false }));
   await new Promise((resolve) => map.once("load", resolve));
   // Nothing placed yet: open on the map region, the incident's area, not on all Germany.
   if (!centre && source.archive) {
@@ -197,8 +199,10 @@ export async function create(element, centre, label, incident, ticket) {
   map.on("click", (e) => {
     if (!handle.tap || handle.hidden) return;
     const box = [[e.point.x - HIT_SLOP, e.point.y - HIT_SLOP], [e.point.x + HIT_SLOP, e.point.y + HIT_SLOP]];
-    const hit = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
-    handle.tap(e.lngLat.lng, e.lngLat.lat, hit[0]?.properties?.object ?? null);
+    const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
+    // A symbol under the finger wins over a drawing it lies on.
+    const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
+    handle.tap(e.lngLat.lng, e.lngLat.lat, hit?.properties?.object ?? null, hit?.geometry?.type === "Point");
   });
   return handle;
 }
@@ -268,8 +272,8 @@ function showObjects(handle) {
   handle.map.getSource(OBJECTS)?.setData({ ...handle.objects, features });
 }
 
-/** Calls `callback(longitude, latitude, object ID or null)` for each tap on the map; `null`
- *  stops it. */
+/** Calls `callback(longitude, latitude, object ID or null, whether the object is a symbol)`
+ *  for each tap on the map; `null` stops it. */
 export function onTap(handle, callback) {
   handle.tap = callback;
 }
@@ -406,8 +410,3 @@ export async function saveOffline(incident, ticket) {
   return file ? file.size : 0;
 }
 
-/** Deletes the device's copy of the incident's map region. */
-export async function removeOffline(incident) {
-  const cache = await caches.open(OFFLINE_CACHE);
-  await cache.delete(regionPath(incident));
-}

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its workspace table and overview rule superseded by ADR-0067
 date: 2026-11-11
 ---
 

@@ -1402,7 +1402,7 @@ fn the_command_structure_reaches_every_device_the_same() {
     assert_eq!(sanel.units, ["RTW 1"]);
 }
 
-// [itest->dsn~situation-map~3]
+// [itest->dsn~situation-map~4]
 /// The command places the incident and a unit on the map, moves the unit, and every device
 /// shows the same objects; a medic's device may read but not write them.
 #[test]

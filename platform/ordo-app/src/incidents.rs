@@ -11,7 +11,7 @@ use crate::views::{after_render, focus};
 /// Permission to plan incidents and grant roles in all of them.
 const MANAGE_INCIDENTS: &str = "manage_incidents";
 /// Permission to prepare the map region (ADR-0057, ADR-0062).
-const MANAGE_MAP: &str = "manage_map";
+pub const MANAGE_MAP: &str = "manage_map";
 
 // [impl->dsn~incident-roles~1]
 /// The incidents the user may open, and — for planners — planning a new one.
@@ -103,7 +103,7 @@ pub fn IncidentPicker(
                                         <li class="incident-card">
                                             <h2>{i.name.clone()}</h2>
                                             <p>
-                                                <span class="incident-card__state">{text::state_label(i.state)}</span>
+                                                <span class="incident-card__state">{text::incident_state(i.state, i.paused)}</span>
                                                 " · " {text::MY_ROLES} ": " {roles}
                                             </p>
                                             <button type="button" class="button button--primary" aria-label=label
@@ -158,9 +158,10 @@ pub fn may_manage(core: Handle) -> bool {
     })
 }
 
-// [impl->dsn~workspaces-by-phase~1]
-/// The incident itself (*Vorbereitung – Einsatz*): name and state, which its command
-/// starts and closes, the map region of its area, and the way to edit its map.
+// [impl->dsn~workspaces-by-phase~2]
+// [impl->dsn~incident-details~1]
+/// The incident itself (*Vorbereitung – Einsatz*): name and state, its description and
+/// planned times, and starting, pausing, resuming and closing it.
 #[component]
 pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let info = Memo::new(move |_| {
@@ -171,55 +172,142 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         revision.track();
         may_manage(core)
     });
-    // [impl->dsn~map-region~2]
-    // The incident command prepares the incident's map region (ADR-0062).
-    let map_region = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, MANAGE_MAP))
-        })
-    });
     let error = RwSignal::new(None::<String>);
     let set_state = move |state: IncidentState| {
         if let Err(e) = core::set_incident_state(core, revision, state) {
             error.set(Some(e));
         }
     };
+    let set_paused = move |paused: bool| {
+        if let Err(e) = core::set_incident_paused(core, revision, paused) {
+            error.set(Some(e));
+        }
+    };
+    // The form starts with what is stored.
+    let stored = info.get_untracked().map(|i| i.details).unwrap_or_default();
+    let description = RwSignal::new(stored.description.clone());
+    let starts = RwSignal::new(
+        stored
+            .starts_at
+            .map(core::local_input_time)
+            .unwrap_or_default(),
+    );
+    let ends = RwSignal::new(
+        stored
+            .ends_at
+            .map(core::local_input_time)
+            .unwrap_or_default(),
+    );
+    let details_status = RwSignal::new(None::<String>);
+    let save_details = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let time = |v: String| -> Result<Option<u64>, ()> {
+            if v.trim().is_empty() {
+                Ok(None)
+            } else {
+                core::local_time_ms(v.trim()).map(Some).ok_or(())
+            }
+        };
+        let (Ok(starts_at), Ok(ends_at)) =
+            (time(starts.get_untracked()), time(ends.get_untracked()))
+        else {
+            details_status.set(Some(text::INCIDENT_TIMES_INVALID.to_owned()));
+            return;
+        };
+        let details = ordo_sync::incidents::Details {
+            description: description.get_untracked().trim().to_owned(),
+            starts_at,
+            ends_at,
+        };
+        details_status.set(Some(
+            match core::set_incident_details(core, revision, &details) {
+                Ok(()) => text::INCIDENT_DETAILS_SAVED.to_owned(),
+                Err(e) => e,
+            },
+        ));
+    };
     view! {
         <section aria-labelledby="incident-title" class="card">
             <h2 id="incident-title">{text::INCIDENT_PAGE_TITLE}</h2>
-            {move || info.get().map(|i| view! {
-                <p>
-                    <strong>{i.name.clone()}</strong> " · " {text::INCIDENT_STATE} ": "
-                    <span id="incident-state">{text::state_label(i.state)}</span>
-                </p>
+            {move || info.get().map(|i| {
+                let times = text::incident_times(
+                    i.details.starts_at.map(core::date_time).as_deref(),
+                    i.details.ends_at.map(core::date_time).as_deref(),
+                );
+                view! {
+                    <p>
+                        <strong>{i.name.clone()}</strong> " · " {text::INCIDENT_STATE} ": "
+                        <span id="incident-state">{text::incident_state(i.state, i.paused)}</span>
+                    </p>
+                    {times.map(|t| view! { <p id="incident-times">{t}</p> })}
+                }
             })}
             <p class="hint">{text::INCIDENT_PREPARE}</p>
             <Show when=move || manage.get()>
                 <div class="row">
-                    {move || info.get().map(|i| match i.state {
-                        IncidentState::Planned => view! {
+                    {move || info.get().map(|i| match (i.state, i.paused) {
+                        (IncidentState::Planned, _) => view! {
                             <button type="button" class="button button--primary" on:click=move |_| set_state(IncidentState::Active)>
                                 {text::START_INCIDENT}
                             </button>
                         }.into_any(),
-                        IncidentState::Active => view! {
+                        (IncidentState::Active, paused) => view! {
+                            {if paused {
+                                view! {
+                                    <button type="button" class="button button--primary" on:click=move |_| set_paused(false)>
+                                        {text::RESUME_INCIDENT}
+                                    </button>
+                                }.into_any()
+                            } else {
+                                view! {
+                                    <button type="button" class="button" on:click=move |_| set_paused(true)>
+                                        {text::PAUSE_INCIDENT}
+                                    </button>
+                                }.into_any()
+                            }}
                             <button type="button" class="button" on:click=move |_| set_state(IncidentState::Closed)>
                                 {text::CLOSE_INCIDENT}
                             </button>
                         }.into_any(),
-                        IncidentState::Closed => ().into_any(),
+                        (IncidentState::Closed, _) => ().into_any(),
                     })}
                 </div>
+                <Show when=move || info.get().is_some_and(|i| i.state == IncidentState::Active)>
+                    <p class="hint">{text::INCIDENT_PAUSE_HINT}</p>
+                </Show>
             </Show>
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
-        <Show when=move || map_region.get()>
-            <crate::map_region::MapRegionView core revision />
-        </Show>
-        <crate::situation::MapEditCard core revision />
+        <section aria-labelledby="incident-details-title" class="card">
+            <h2 id="incident-details-title">{text::INCIDENT_DETAILS}</h2>
+            <form class="form" novalidate on:submit=save_details>
+                <div class="field">
+                    <label for="incident-description">{text::INCIDENT_DESCRIPTION}</label>
+                    <textarea id="incident-description" rows="4" aria-describedby="incident-description-hint"
+                        maxlength=ordo_sync::incidents::DESCRIPTION_MAX.to_string()
+                        disabled=move || !manage.get()
+                        prop:value=move || description.get()
+                        on:input=move |ev| description.set(event_target_value(&ev))></textarea>
+                    <p id="incident-description-hint" class="hint">{text::INCIDENT_DESCRIPTION_HINT}</p>
+                </div>
+                <div class="form--inline">
+                    <div class="field">
+                        <label for="incident-starts">{text::INCIDENT_STARTS}</label>
+                        <input id="incident-starts" type="datetime-local" disabled=move || !manage.get() bind:value=starts />
+                    </div>
+                    <div class="field">
+                        <label for="incident-ends">{text::INCIDENT_ENDS}</label>
+                        <input id="incident-ends" type="datetime-local" disabled=move || !manage.get() bind:value=ends />
+                    </div>
+                </div>
+                <Show when=move || manage.get()>
+                    <div class="row">
+                        <button type="submit" class="button">{text::INCIDENT_DETAILS_SAVE}</button>
+                    </div>
+                </Show>
+                <p role="status">{move || details_status.get()}</p>
+            </form>
+        </section>
     }
 }
 

@@ -346,7 +346,7 @@ Tags: must, m32
 ### 5.5.1c Shared module `map`
 
 #### Situation map
-`dsn~situation-map~3`
+`dsn~situation-map~4`
 
 Crate `ordo-map`, module `map`, in the shared `incident` compartment
 ([ADR-0006](../adr/0006-maplibre-pmtiles.md)). `map.objectPlaced` puts an object on the
@@ -357,10 +357,10 @@ off. The latest event of an object counts (hybrid logical clock). Drawn objects 
 areas, MAP-4) use the same events with their own IDs.
 
 The view *Führung – Lagekarte* shows the map with the objects and, below it, the list of
-objects (A11Y-5); it does not edit. Those who may edit find *Lagekarte bearbeiten* on
-*Vorbereitung – Einsatz* ([ADR-0065](../adr/0065-map-editing-in-preparation.md)). It opens
-the editor page (`command.prepare/incident/map`,
-[ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
+objects (A11Y-5); it does not edit. The overview's map tile shows the same map, which does
+not move. Those who may edit prepare the map on *Vorbereitung – Lagekarte*
+(`command.prepare/map`, [ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)):
+the map region on top, then the editor ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
 fills the page, a toolbar above it offers *Auswählen*, *Symbol setzen*, *Fläche* and
 *Linie*, and the list stays below. *Symbol setzen* takes the incident location, a unit, a
 UHS or a position and places it where the next tap is, or at the map's centre (the
@@ -377,9 +377,10 @@ server*). The first time a device opens the map of an incident whose region the 
 has and the device does not keep, it saves the incident's whole file in the device's
 Cache Storage by itself (private to ORDO's origin; Safari cannot write OPFS files from the
 page), one per incident, and asks the browser for persistent storage; the map reads from
-there when it is present. *Karte offline speichern* saves it again; *Offline-Karte
-löschen* deletes it, and the device then remembers not to save it by itself for that
-incident ([ADR-0065](../adr/0065-map-editing-in-preparation.md)). Map code, fonts and glue are
+there when it is present. There is nothing to press: a line says while it is saved or if
+saving failed, and the map's state line says where the region comes from
+([ADR-0065](../adr/0065-map-editing-in-preparation.md),
+[ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)). Map code, fonts and glue are
 cached with the app shell; without a region file, the objects are shown on a plain
 background and the view says that no map region was prepared.
 
@@ -390,7 +391,7 @@ Covers:
 
 Needs: impl, utest, itest
 
-Tags: must, m33, m54, m55
+Tags: must, m33, m54, m55, m56
 
 #### Address search
 `dsn~address-search~1`

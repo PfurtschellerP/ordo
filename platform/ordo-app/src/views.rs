@@ -979,7 +979,7 @@ fn Workspace(
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
-                    // [impl->dsn~workspaces-by-phase~1]
+                    // [impl->dsn~workspaces-by-phase~2]
                     // [impl->dsn~map-drawing~2]
                     (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />
@@ -989,15 +989,17 @@ fn Workspace(
                     (Some("command.lead"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
                     (Some("command.lead"), _) => view! { <crate::summary::CommandOverview core revision /> }.into_any(),
                     (Some("command.prepare"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),
-                    (Some("command.prepare"), Some("people")) => view! {
+                    // The command structure is prepared with the people (ADR-0067); old
+                    // links to its own view land here.
+                    (Some("command.prepare"), Some("people" | "structure")) => view! {
                         <crate::incidents::RosterView core revision />
                         <crate::devices::IncidentDevicesView core revision />
+                        <crate::command::LeadershipView core revision />
                     }.into_any(),
-                    (Some("command.prepare"), Some("structure")) => view! { <crate::command::LeadershipView core revision /> }.into_any(),
-                    // The editor page on Vorbereitung – Einsatz (ADR-0065), also opened to place
-                    // one object (`map:<kind>:<ID>`).
-                    (Some("command.prepare"), Some("incident")) if record.get().is_some_and(|r| crate::situation::is_editor(&r)) => view! {
-                        <crate::situation::MapEditor core revision preset=record.get_untracked().and_then(|r| crate::situation::preset(&r)) />
+                    // The situation map prepared on one page: its region, then the editor,
+                    // also opened to place one object (`place:<kind>:<ID>`).
+                    (Some("command.prepare"), Some("map")) => view! {
+                        <crate::situation::MapPreparation core revision preset=record.get_untracked().and_then(|r| crate::situation::preset(&r)) />
                     }.into_any(),
                     (Some("command.prepare"), _) => view! { <crate::incidents::IncidentPage core revision /> }.into_any(),
                     (Some("incident.log"), _) => view! { <crate::log::LogView core revision /> }.into_any(),
@@ -1285,10 +1287,10 @@ fn UhsOnMap(
             })
         })
     });
-    let place = crate::situation::editor_route(&crate::situation::place_record(
+    let place = crate::situation::editor_route(Some(&crate::situation::place_record(
         ordo_map::ObjectKind::Uhs,
         &id,
-    ));
+    )));
     let name = StoredValue::new(name);
     let visible = move || {
         if at.get().is_some() {

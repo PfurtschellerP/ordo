@@ -852,7 +852,8 @@ Tags: must, m10
 `dsn~incident-roles~1`
 
 Incidents and rosters are events in the incident's `incident` compartment (module
-`incidents`: `planned`, `stateChanged`, `roleGranted`, `roleWithdrawn`); the hub and the
+`incidents`: `planned`, `stateChanged`, `detailsChanged`, `pauseChanged`, `roleGranted`,
+`roleWithdrawn`); the hub and the
 devices compute the same registry from them. Access decisions pass the person's roles in
 the incident to the policy, which adds the organisation roles (administrators from
 `ORDO_ADMINS`) and asks Cedar. Only planners (`manage_incidents`) plan incidents; planners
@@ -1285,17 +1286,21 @@ Needs: impl, utest, itest
 Tags: must, m11
 
 #### Workspaces by phase
-`dsn~workspaces-by-phase~1`
+`dsn~workspaces-by-phase~2`
 
 The incident command's pages are grouped by phase in the package *Einsatzleitung*
-([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md)): *Führung*, the
-running incident (overview, situation map, dispatch with the orders, transports),
-*Vorbereitung*, what is set up before and adjusted during it (the incident with its
-location, map region, start and close; units; people with their roles; the command
-structure), and the incident log, which everyone in the incident opens. The overview, the
-first view of *Führung*, has one card per page with a short summary (e.g. units and persons on scene, open
-and due orders), a link to the page and quick actions (start the incident). Every
-main function is so at most two taps from it (UX-1).
+([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md),
+[ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)): *Führung*, the
+running incident (overview, situation map to read, dispatch with the orders,
+transports), *Vorbereitung*, what is set up before and adjusted during it (the incident
+with its details, start, pause and close; the situation map with its region and editor;
+units; people with their roles, devices and the command structure), and the incident
+log, which everyone in the incident opens. The overview, the first view of *Führung*, is a
+grid of tiles under the incident's name and state: the map (shown, not editable),
+*Disposition* (open orders, follow-ups due, the next three), *Personal* (persons and units
+on scene, strength), the UHS (load against capacity, patients per triage category, open
+transports, the total) and quick links. Each tile links to its page; on phones the tiles
+stack. Every main function is so at most two taps from it (UX-1).
 
 *Administration* is apart from the incident: its workspace *Zugriff* (accounts,
 permissions, all devices) opens only with organisation permissions, never with a role in
@@ -1310,7 +1315,28 @@ Covers:
 
 Needs: impl, itest
 
-Tags: must, m49
+Tags: must, m49, m56
+
+#### Incident details and pause
+`dsn~incident-details~1`
+
+*Vorbereitung – Einsatz* shows the incident's name and state and a form for its
+description (up to 4,000 characters) and planned start and end (date and time, the
+device's local time, stored as UTC ms). Saving records `incidents.detailsChanged`; the
+latest counts, an end before the start is refused. While the incident runs, "Einsatz
+unterbrechen" records `incidents.pauseChanged` (`paused: true`) and "Einsatz fortsetzen"
+resumes it; the state then reads "Laufend – unterbrochen" everywhere (header of the
+overview, incident list). Closing ends a pause. Nothing is locked while paused. Who may
+change the state may do both; the hub accepts the new event types like the other incident
+events ([ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)).
+
+Covers:
+
+* [req~org-13~1](../requirements/02-shared.md#org-13--incident-details-and-pause)
+
+Needs: impl, utest, itest
+
+Tags: should, m56
 
 ## 8.6 Design system and accessibility
 

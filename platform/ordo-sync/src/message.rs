@@ -288,6 +288,12 @@ pub struct IncidentSummary {
     pub name: String,
     /// Planned, active or closed.
     pub state: crate::incidents::IncidentState,
+    /// Whether the running incident is paused (protocol 1.2).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub paused: bool,
+    /// Planned start, ms since the Unix epoch (protocol 1.2).
+    #[serde(default, rename = "startsAt", skip_serializing_if = "Option::is_none")]
+    pub starts_at: Option<u64>,
     /// The person's roles in it.
     pub roles: Vec<String>,
     /// Whether the person may grant roles and change the state.

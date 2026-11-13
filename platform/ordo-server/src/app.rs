@@ -310,7 +310,7 @@ impl App {
             .route("/readyz", get(readyz))
             .route("/metrics", get(metrics))
             .route("/.well-known/ordo", get(well_known))
-            // [impl->dsn~situation-map~3]
+            // [impl->dsn~situation-map~4]
             // An incident's map region (ADR-0006, ADR-0062), with range requests and a
             // ticket. Not found until one is cut.
             .route("/tiles/{name}", get(crate::map_region::serve))

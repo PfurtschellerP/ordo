@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its Page part superseded by ADR-0067
 date: 2026-11-13
 ---
 

@@ -215,7 +215,7 @@ Needs: dsn
 
 Map centred on the incident, with units, sectors, UHS and drawn objects
 
-Tags: must, shared, m33, m54, m55
+Tags: must, shared, m33, m54, m55, m56
 
 Needs: dsn
 
@@ -226,7 +226,7 @@ When a device opens the situation map of an incident whose map region is prepare
 not yet kept on the device, ORDO shall store the whole region on the device without being
 asked, so the map works offline.
 
-Tags: must, shared, m33, m55
+Tags: must, shared, m33, m55, m56
 
 Needs: dsn
 
@@ -407,7 +407,7 @@ ORDO shall give that person's devices what the role permits in that incident; wh
 role is withdrawn, ORDO shall take it away and delete that data from the devices. Roles
 shall not come from groups of the identity provider.
 
-Tags: must, shared, m11
+Tags: must, shared, m11, m56
 
 Needs: dsn
 
@@ -466,5 +466,16 @@ Needs: dsn
 When the incident command opens the people of its incident, ORDO shall list the devices of everyone with a role in the incident, with their person and whether they are connected, and shall let it block (revoke) any of them; it shall not show the organisation's other devices.
 
 Tags: should, shared, m53
+
+Needs: dsn
+
+#### ORG-13 — Incident details and pause
+`req~org-13~1`
+
+When the incident command describes an incident, ORDO shall keep its description and
+planned start and end with the incident, and while an incident runs, ORDO shall let the
+command pause and resume it, e.g. overnight at a festival over several days.
+
+Tags: should, shared, m56
 
 Needs: dsn

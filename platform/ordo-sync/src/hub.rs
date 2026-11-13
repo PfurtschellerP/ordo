@@ -385,6 +385,8 @@ impl<P: AccessPolicy> Hub<P> {
                     incident: id.clone(),
                     name: incident.name.clone(),
                     state: incident.state,
+                    paused: incident.paused,
+                    starts_at: incident.details.starts_at,
                     manage: planner || self.policy.can_assign_roles(user, id, &roles),
                     roles,
                 })

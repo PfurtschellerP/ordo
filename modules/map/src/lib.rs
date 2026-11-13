@@ -166,7 +166,7 @@ pub struct SituationMap {
 }
 
 impl SituationMap {
-    // [impl->dsn~situation-map~3]
+    // [impl->dsn~situation-map~4]
     /// Computes the map. The result doesn't depend on the order of `events`: the latest
     /// event of each object counts, so placing moves it and removing takes it off until it
     /// is placed again. Placements with invalid coordinates are ignored.
@@ -263,7 +263,7 @@ mod tests {
         event(n, PLACED, p.encode().unwrap())
     }
 
-    // [utest->dsn~situation-map~3]
+    // [utest->dsn~situation-map~4]
     #[test]
     fn the_latest_placement_counts_and_removing_takes_an_object_off() {
         let mut events = vec![
@@ -302,7 +302,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~situation-map~3]
+    // [utest->dsn~situation-map~4]
     #[test]
     fn geometries_are_geojson_and_checked() {
         let point = Geometry::Point([10.9, 48.4]);

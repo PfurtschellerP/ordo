@@ -228,6 +228,8 @@ incident-summary = {
   "incident": incident-id,
   "name": tstr,
   "state": "planned" / "active" / "closed",
+  ? "paused": bool,                ; a running incident paused (1.2), default false
+  ? "startsAt": uint,              ; planned start, ms since the Unix epoch (1.2)
   "roles": [* tstr],               ; the person's roles in it
   "manage": bool,                  ; may grant roles and change the state
 }

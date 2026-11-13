@@ -21,6 +21,10 @@ pub const COMPARTMENT: &str = "incident";
 pub const PLANNED: &str = "incidents.planned";
 /// The incident's state changed.
 pub const STATE_CHANGED: &str = "incidents.stateChanged";
+/// The incident's description and planned times were set (the latest counts).
+pub const DETAILS_CHANGED: &str = "incidents.detailsChanged";
+/// A running incident was paused or resumed, e.g. overnight at a festival.
+pub const PAUSE_CHANGED: &str = "incidents.pauseChanged";
 /// A person got a role in the incident.
 pub const ROLE_GRANTED: &str = "incidents.roleGranted";
 /// A person lost a role in the incident.
@@ -53,6 +57,42 @@ pub struct StateChanged {
     pub state: IncidentState,
 }
 
+/// The longest description of an incident, in characters.
+pub const DESCRIPTION_MAX: usize = 4000;
+
+/// Payload of [`DETAILS_CHANGED`]: what the incident is and when it is planned.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Details {
+    /// Free text, e.g. place, organiser, expected visitors.
+    #[serde(default)]
+    pub description: String,
+    /// Planned start, ms since the Unix epoch (UTC).
+    #[serde(default, rename = "startsAt", skip_serializing_if = "Option::is_none")]
+    pub starts_at: Option<u64>,
+    /// Planned end, ms since the Unix epoch (UTC); not before the start.
+    #[serde(default, rename = "endsAt", skip_serializing_if = "Option::is_none")]
+    pub ends_at: Option<u64>,
+}
+
+impl Details {
+    /// Whether the details can be stored: a bounded description, an end not before the
+    /// start.
+    pub fn check(&self) -> bool {
+        self.description.chars().count() <= DESCRIPTION_MAX
+            && match (self.starts_at, self.ends_at) {
+                (Some(start), Some(end)) => end >= start,
+                _ => true,
+            }
+    }
+}
+
+/// Payload of [`PAUSE_CHANGED`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PauseChange {
+    /// `true`: paused; `false`: resumed.
+    pub paused: bool,
+}
+
 /// Payload of [`ROLE_GRANTED`] and [`ROLE_WITHDRAWN`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleChange {
@@ -72,13 +112,15 @@ macro_rules! encode {
         }
     )*};
 }
-encode!(Planned, StateChanged, RoleChange);
+encode!(Planned, StateChanged, RoleChange, Details, PauseChange);
 
 /// Whether `payload` is a valid payload of the incident event type `event_type`.
 pub fn is_valid(event_type: &str, payload: &[u8]) -> bool {
     match event_type {
         PLANNED => codec::from_cbor::<Planned>(payload).is_ok_and(|p| !p.name.trim().is_empty()),
         STATE_CHANGED => codec::from_cbor::<StateChanged>(payload).is_ok(),
+        DETAILS_CHANGED => codec::from_cbor::<Details>(payload).is_ok_and(|d| d.check()),
+        PAUSE_CHANGED => codec::from_cbor::<PauseChange>(payload).is_ok(),
         ROLE_GRANTED | ROLE_WITHDRAWN => {
             codec::from_cbor::<RoleChange>(payload).is_ok_and(|c| !c.role.trim().is_empty())
         }
@@ -93,6 +135,10 @@ pub struct Incident {
     pub name: String,
     /// State.
     pub state: IncidentState,
+    /// Whether a running incident is paused (e.g. overnight); ends when it is closed.
+    pub paused: bool,
+    /// Description and planned times.
+    pub details: Details,
     /// Roles per person.
     pub roster: BTreeMap<UserId, BTreeSet<String>>,
 }
@@ -157,6 +203,37 @@ impl Registry {
                     return Effect::None;
                 };
                 i.state = s.state;
+                if s.state != IncidentState::Active {
+                    i.paused = false;
+                }
+                Effect::Incident
+            }
+            // [impl->dsn~incident-details~1]
+            DETAILS_CHANGED => {
+                let (Ok(d), Some(i)) = (
+                    codec::from_cbor::<Details>(&event.payload),
+                    self.incidents.get_mut(incident),
+                ) else {
+                    return Effect::None;
+                };
+                if !d.check() {
+                    return Effect::None;
+                }
+                i.details = d;
+                Effect::Incident
+            }
+            // Only a running incident pauses.
+            PAUSE_CHANGED => {
+                let (Ok(p), Some(i)) = (
+                    codec::from_cbor::<PauseChange>(&event.payload),
+                    self.incidents.get_mut(incident),
+                ) else {
+                    return Effect::None;
+                };
+                if i.state != IncidentState::Active || i.paused == p.paused {
+                    return Effect::None;
+                }
+                i.paused = p.paused;
                 Effect::Incident
             }
             ROLE_GRANTED | ROLE_WITHDRAWN => {
@@ -288,5 +365,61 @@ mod tests {
         );
         assert!(r.roles(&anna, &incident).is_empty());
         assert!(r.get(&incident).unwrap().roster.is_empty());
+    }
+
+    // [utest->dsn~incident-details~1]
+    #[test]
+    fn details_are_kept_and_a_running_incident_pauses() {
+        let server: ServerName = "ordo.example.org".parse().unwrap();
+        let incident = IncidentId::new(Ulid::from_parts(6, 6).unwrap(), &server);
+        let mut r = Registry::default();
+        let planned = Planned {
+            name: "Festival".into(),
+        };
+        r.apply(&event(&incident, PLANNED, planned.encode().unwrap()));
+        let details = Details {
+            description: "Drei Tage, 20 000 Gäste".into(),
+            starts_at: Some(1_000),
+            ends_at: Some(2_000),
+        };
+        assert!(is_valid(DETAILS_CHANGED, &details.encode().unwrap()));
+        r.apply(&event(
+            &incident,
+            DETAILS_CHANGED,
+            details.encode().unwrap(),
+        ));
+        assert_eq!(r.get(&incident).unwrap().details, details);
+        let backwards = Details {
+            ends_at: Some(500),
+            ..details.clone()
+        };
+        assert!(!is_valid(DETAILS_CHANGED, &backwards.encode().unwrap()));
+
+        let pause = |paused| PauseChange { paused }.encode().unwrap();
+        assert_eq!(
+            r.apply(&event(&incident, PAUSE_CHANGED, pause(true))),
+            Effect::None,
+            "a planned incident does not pause"
+        );
+        let state = |state| StateChanged { state }.encode().unwrap();
+        r.apply(&event(
+            &incident,
+            STATE_CHANGED,
+            state(IncidentState::Active),
+        ));
+        assert_eq!(
+            r.apply(&event(&incident, PAUSE_CHANGED, pause(true))),
+            Effect::Incident
+        );
+        assert!(r.get(&incident).unwrap().paused);
+        r.apply(&event(&incident, PAUSE_CHANGED, pause(false)));
+        assert!(!r.get(&incident).unwrap().paused, "resumed");
+        r.apply(&event(&incident, PAUSE_CHANGED, pause(true)));
+        r.apply(&event(
+            &incident,
+            STATE_CHANGED,
+            state(IncidentState::Closed),
+        ));
+        assert!(!r.get(&incident).unwrap().paused, "closing ends the pause");
     }
 }

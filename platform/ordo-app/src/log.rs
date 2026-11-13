@@ -153,6 +153,13 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
             inc::STATE_CHANGED => {
                 text::incident_state_changed(decode::<inc::StateChanged>(e)?.state).into()
             }
+            inc::DETAILS_CHANGED => {
+                decode::<inc::Details>(e)?;
+                text::INCIDENT_DETAILS_SAVED.to_owned().into()
+            }
+            inc::PAUSE_CHANGED => text::incident_paused(decode::<inc::PauseChange>(e)?.paused)
+                .to_owned()
+                .into(),
             inc::ROLE_GRANTED => {
                 let p = decode::<inc::RoleChange>(e)?;
                 text::role_granted(&name(p.user.as_str()), &p.role).into()

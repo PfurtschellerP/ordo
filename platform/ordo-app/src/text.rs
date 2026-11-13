@@ -403,19 +403,60 @@ pub const GRANT: &str = "Rolle vergeben";
 pub const WITHDRAW: &str = "Entziehen";
 pub const INCIDENT_STATE: &str = "Status";
 pub const INCIDENT_PAGE_TITLE: &str = "Einsatz";
-pub const INCIDENT_PREPARE: &str = "Vorbereiten: Kartengrundlage, Einsatzmittel und Personal mit Rollen. Beginnen Sie den Einsatz, wenn er läuft.";
-pub const SUMMARY_LOG: &str = "Alles, was im Einsatz geschieht, mit Zeit und Person.";
-
-/// Link of an overview card.
-pub fn summary_open(page: &str) -> String {
-    format!("Zu {page}")
-}
-pub fn summary_incident(name: &str, state: Option<&str>) -> String {
-    match state {
-        Some(state) => format!("{name} · {state}"),
-        None => name.to_owned(),
+pub const INCIDENT_PREPARE: &str = "Vorbereiten: Lagekarte, Einsatzmittel und Personal mit Rollen und Führungsstruktur. Beginnen Sie den Einsatz, wenn er läuft.";
+// The command's overview (ADR-0067)
+pub const OPEN_MAP: &str = "Lagekarte öffnen";
+pub const OPEN_DISPATCH: &str = "Zur Disposition";
+pub const OPEN_UNITS: &str = "Zu den Einsatzmitteln";
+pub const OPEN_COUNTS: &str = "Patienten je UHS";
+pub const OPEN_LABEL: &str = "offen";
+pub const NO_OPEN_TASKS: &str = "Keine offenen Aufträge.";
+pub const PERSONS_ON_SCENE: &str = "Einsatzkräfte vor Ort";
+pub const UNITS_ON_SCENE: &str = "Einsatzmittel vor Ort";
+pub const UHS_TILE: &str = "UHS";
+pub const QUICK_LINKS: &str = "Schnellzugriff";
+pub const BY_CATEGORY: &str = "Nach Sichtungskategorie";
+pub fn follow_ups_due(n: usize) -> String {
+    match n {
+        1 => "1 Nachfrage fällig".to_owned(),
+        n => format!("{n} Nachfragen fällig"),
     }
 }
+pub fn task_for(assignee: &str) -> String {
+    format!("Für: {assignee}")
+}
+pub fn unreported_strength(n: u32) -> String {
+    match n {
+        0 => "Alle Einsatzmittel haben ihre Stärke gemeldet.".to_owned(),
+        1 => "1 Einsatzmittel ohne Stärkemeldung.".to_owned(),
+        n => format!("{n} Einsatzmittel ohne Stärkemeldung."),
+    }
+}
+/// "7 von 10 belegt · 3 frei", or "Patienten" without a capacity.
+pub fn uhs_load(patients: u32, capacity: u32) -> String {
+    if capacity == 0 {
+        if patients == 1 {
+            "Patient".to_owned()
+        } else {
+            "Patienten".to_owned()
+        }
+    } else {
+        format!(
+            "von {capacity} belegt · {} frei",
+            capacity.saturating_sub(patients)
+        )
+    }
+}
+pub fn transports_open(n: usize) -> String {
+    match n {
+        0 => "Transporte: keine offen".to_owned(),
+        n => format!("Transporte: {n} offen"),
+    }
+}
+pub fn discharged_count(n: u32) -> String {
+    format!("{n} entlassen")
+}
+
 pub fn summary_map(objects: usize) -> String {
     match objects {
         0 => "Noch nichts auf der Karte.".to_owned(),
@@ -423,44 +464,12 @@ pub fn summary_map(objects: usize) -> String {
         n => format!("{n} Objekte auf der Karte."),
     }
 }
-pub fn summary_patients(patients: u32, uhs: usize) -> String {
-    format!("{patients} Patienten in {uhs} UHS.")
-}
 /// The open tasks in short (the strip above the command's views).
 pub fn tasks_strip(open: usize, due: usize) -> String {
     match (open, due) {
         (0, _) => "Aufträge: keine offenen".to_owned(),
         (n, 0) => format!("Aufträge: {n} offen"),
         (n, d) => format!("Aufträge: {n} offen, davon {d} fällig"),
-    }
-}
-pub fn summary_tasks(open: usize, due: usize) -> String {
-    match (open, due) {
-        (0, _) => "Keine offenen Aufträge.".to_owned(),
-        (n, 0) => format!("{n} offen."),
-        (n, d) => format!("{n} offen, davon {d} fällig."),
-    }
-}
-pub fn summary_transports(n: usize) -> String {
-    match n {
-        0 => "Keine offenen Transporte.".to_owned(),
-        n => format!("{n} offen."),
-    }
-}
-pub fn summary_units(units: u32, persons: u32) -> String {
-    format!("{units} Einsatzmittel, {persons} Einsatzkräfte vor Ort.")
-}
-pub fn summary_people(n: usize) -> String {
-    match n {
-        1 => "1 Person mit Rolle.".to_owned(),
-        n => format!("{n} Personen mit Rollen."),
-    }
-}
-pub fn summary_positions(n: usize) -> String {
-    match n {
-        0 => "Noch keine Funktionen.".to_owned(),
-        1 => "1 Funktion besetzt oder offen.".to_owned(),
-        n => format!("{n} Funktionen."),
     }
 }
 pub const START_INCIDENT: &str = "Einsatz beginnen";
@@ -479,6 +488,45 @@ pub fn role_label(role: &str) -> String {
         .iter()
         .find(|(id, _)| *id == role)
         .map_or_else(|| role.to_owned(), |(_, label)| (*label).to_owned())
+}
+
+/// The state as people read it, with a pause: "Laufend – unterbrochen".
+pub fn incident_state(state: ordo_sync::incidents::IncidentState, paused: bool) -> String {
+    if paused && state == ordo_sync::incidents::IncidentState::Active {
+        format!("{} – {}", state_label(state), INCIDENT_PAUSED_LABEL)
+    } else {
+        state_label(state).to_owned()
+    }
+}
+pub const INCIDENT_PAUSED_LABEL: &str = "unterbrochen";
+pub const PAUSE_INCIDENT: &str = "Einsatz unterbrechen";
+pub const RESUME_INCIDENT: &str = "Einsatz fortsetzen";
+pub const INCIDENT_PAUSE_HINT: &str = "Für Einsätze über mehrere Tage, etwa nachts bei einem Festival. Unterbrochen bleibt alles nutzbar; Lage und Einsatztagebuch laufen weiter.";
+pub fn incident_paused(paused: bool) -> &'static str {
+    if paused {
+        "Einsatz unterbrochen"
+    } else {
+        "Einsatz fortgesetzt"
+    }
+}
+pub const INCIDENT_DETAILS: &str = "Angaben zum Einsatz";
+pub const INCIDENT_DESCRIPTION: &str = "Beschreibung";
+pub const INCIDENT_DESCRIPTION_HINT: &str =
+    "Zum Beispiel Ort, Veranstalter, erwartete Besucher, Besonderheiten.";
+pub const INCIDENT_STARTS: &str = "Geplanter Beginn";
+pub const INCIDENT_ENDS: &str = "Geplantes Ende";
+pub const INCIDENT_DETAILS_SAVE: &str = "Angaben speichern";
+pub const INCIDENT_DETAILS_SAVED: &str = "Angaben zum Einsatz gespeichert.";
+pub const INCIDENT_TIMES_INVALID: &str =
+    "Das Ende liegt vor dem Beginn, oder ein Datum ist unvollständig.";
+/// "13.11.2026, 18:00 bis 15.11.2026, 23:00"
+pub fn incident_times(starts: Option<&str>, ends: Option<&str>) -> Option<String> {
+    match (starts, ends) {
+        (Some(s), Some(e)) => Some(format!("{s} bis {e}")),
+        (Some(s), None) => Some(format!("ab {s}")),
+        (None, Some(e)) => Some(format!("bis {e}")),
+        (None, None) => None,
+    }
 }
 
 pub fn state_label(state: ordo_sync::incidents::IncidentState) -> &'static str {
@@ -1199,13 +1247,9 @@ pub const MAP_PLACE_LABEL: &str = "Bezeichnung";
 pub const MAP_PLACE_SUBMIT: &str = "In der Kartenmitte platzieren";
 pub const MAP_PLACE_MISSING: &str = "Bitte auswählen, was platziert werden soll.";
 pub const INCIDENT_LOCATION: &str = "Einsatzort";
-pub const MAP_OFFLINE: &str = "Karte ohne Netz";
-pub const MAP_NOT_ON_DEVICE: &str = "Die Kartengrundlage ist nicht auf diesem Gerät gespeichert.";
-pub const MAP_SAVE: &str = "Karte offline speichern";
-pub const MAP_SAVING: &str = "Karte wird gespeichert …";
+pub const MAP_SAVING: &str =
+    "Die Kartengrundlage wird für die Nutzung ohne Netz auf diesem Gerät gespeichert …";
 pub const MAP_SAVE_FAILED: &str = "Die Karte konnte nicht gespeichert werden.";
-pub const MAP_REMOVE_OFFLINE: &str = "Offline-Karte löschen";
-pub const MAP_REMOVED: &str = "Offline-Karte gelöscht.";
 
 pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
     use ordo_map::ObjectKind as K;
@@ -1255,7 +1299,6 @@ pub fn address_chosen(label: &str) -> String {
 // The map editor (ADR-0064)
 pub const MAP_EDIT: &str = "Lagekarte bearbeiten";
 pub const MAP_EDIT_HINT: &str = "Einsatzstelle, Einsatzmittel, UHS und Funktionen auf der Karte setzen, Flächen und Linien zeichnen. Die Führung sieht die Karte unter Führung – Lagekarte.";
-pub const MAP_EDIT_BACK: &str = "Zur Seite Einsatz";
 pub const MAP_EDIT_NOT_ALLOWED: &str =
     "Die Karte bearbeitet die Einsatzleitung; hier ist sie nur zu sehen.";
 pub const MAP_EDIT_OBJECT: &str = "Bearbeiten";
@@ -1313,12 +1356,8 @@ fn megabytes(bytes: f64) -> String {
 }
 
 pub fn map_saved(bytes: f64) -> String {
-    format!("Karte gespeichert ({} MB).", megabytes(bytes))
-}
-
-pub fn map_on_device(bytes: f64) -> String {
     format!(
-        "Auf diesem Gerät gespeichert: {} MB, auch ohne Netz nutzbar.",
+        "Kartengrundlage auf diesem Gerät gespeichert ({} MB), auch ohne Netz nutzbar.",
         megabytes(bytes)
     )
 }

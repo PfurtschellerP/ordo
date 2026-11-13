@@ -116,7 +116,10 @@ above, and answers the new `incidentDevices`; otherwise the server MUST refuse i
 Incidents and their rosters are events of the module `incidents` in the incident's
 `incident` compartment ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
 `incidents.planned` (`name`), `incidents.stateChanged` (`state`: planned, active, closed),
-`incidents.roleGranted` and `incidents.roleWithdrawn` (`user`, `role`). The server MUST:
+`incidents.detailsChanged` (`description` up to 4,000 characters, optional `startsAt` and
+`endsAt` in ms since the Unix epoch, the end not before the start; the latest counts),
+`incidents.pauseChanged` (`paused`: a running incident paused or resumed; closing it ends
+a pause), `incidents.roleGranted` and `incidents.roleWithdrawn` (`user`, `role`). The server MUST:
 
 - accept `incidents.planned` only from a user with the permission `manage_incidents`, and
   only as the first one of that incident;

@@ -26,7 +26,7 @@ pub fn task_list(core: Handle) -> TaskList {
 }
 
 /// Who a task is for: the unit's call sign, or the position's title.
-fn assignee(task: &Task, structure: &ordo_command::CommandStructure) -> String {
+pub(crate) fn assignee(task: &Task, structure: &ordo_command::CommandStructure) -> String {
     match (&task.given.unit, &task.given.sector) {
         (Some(unit), _) => unit.clone(),
         (None, Some(id)) => structure

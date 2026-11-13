@@ -961,7 +961,7 @@ pub fn command_event(
     )
 }
 
-// [impl->dsn~situation-map~3]
+// [impl->dsn~situation-map~4]
 /// Records an event of the situation map: an object placed or removed (MAP-1).
 pub fn map_event(
     core: Handle,
@@ -1657,6 +1657,61 @@ pub fn set_incident_state(
         incidents::STATE_CHANGED,
         &payload,
         text::incident_state_changed(state),
+    )
+}
+
+// [impl->dsn~incident-details~1]
+/// Records the incident's description and planned times.
+pub fn set_incident_details(
+    core: Handle,
+    revision: RwSignal<u64>,
+    details: &incidents::Details,
+) -> Result<(), String> {
+    if !details.check() {
+        return Err(text::INCIDENT_TIMES_INVALID.to_owned());
+    }
+    let payload = details.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        incidents::COMPARTMENT,
+        incidents::MODULE,
+        incidents::DETAILS_CHANGED,
+        &payload,
+        text::INCIDENT_DETAILS_SAVED.to_owned(),
+    )
+}
+
+/// Pauses or resumes the running incident.
+pub fn set_incident_paused(
+    core: Handle,
+    revision: RwSignal<u64>,
+    paused: bool,
+) -> Result<(), String> {
+    let payload = incidents::PauseChange { paused }
+        .encode()
+        .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        incidents::COMPARTMENT,
+        incidents::MODULE,
+        incidents::PAUSE_CHANGED,
+        &payload,
+        text::incident_paused(paused).to_owned(),
+    )
+}
+
+/// The local date and time of a timestamp as a `datetime-local` input takes it,
+/// `YYYY-MM-DDTHH:MM`.
+pub fn local_input_time(ms: u64) -> String {
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
+    format!(
+        "{}-{:02}-{:02}T{}",
+        date.get_full_year(),
+        date.get_month() + 1,
+        date.get_date(),
+        clock(ms)
     )
 }
 
