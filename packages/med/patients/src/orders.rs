@@ -1,4 +1,4 @@
-//! Module `med.orders`: medical orders (*Anordnungen*) given by physicians and paramedics
+//! Module `med.orders`: medical orders (*Anordnungen*) given by physicians
 //! and carried out by the crew (ORDER-1, ORDER-2, ORDER-4), and orders given by voice,
 //! radio or phone, recorded by the crew and confirmed later by their giver (ORDER-6).
 //!

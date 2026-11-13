@@ -60,6 +60,6 @@ Implemented with the login work (roadmap item 1). Sources: [Cedar](https://githu
 
 * Write checks pass the event type next to the module (context `event_type`), so a
   policy can allow a module but restrict one kind of event in it: medical orders
-  (`orders.given`) only from physicians and paramedics, acknowledging and completing them
-  from the whole crew (architecture 8, "Order permission"). Reading and the view
-  permissions pass an empty event type.
+  (`orders.given`) only from physicians and paramedics (physicians only since ADR-0053),
+  acknowledging and completing them from the whole crew (architecture 8, "Order
+  permission"). Reading and the view permissions pass an empty event type.

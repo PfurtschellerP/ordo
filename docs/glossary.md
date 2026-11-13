@@ -31,7 +31,7 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | crew strength | (taktische) Stärke | Written in tactical notation, e.g. 1/8/**9**: 1 leader, 8 crew, 9 in total |
 | unit status | Status (FMS/TMS 1–9) | Operational state of a unit; codes from the profile, mapped to core meanings |
 | task | Auftrag | Order given to a unit or sector, with status |
-| medical order | Anordnung (ärztlich, durch Notfallsanitäter) | Medication or measure for a patient, given by a physician or paramedic, carried out by the crew |
+| medical order | Anordnung (ärztlich) | Medication or measure for a patient, given by a physician, carried out by the crew |
 | incident log | Einsatztagebuch | Append-only record of everything that happened |
 | radio message | Funkspruch | Logged with sender, receiver and direction |
 | situation map | Lagekarte | Map of the incident with units, sectors and drawings |

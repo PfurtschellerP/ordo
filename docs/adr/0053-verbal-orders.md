@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-12
+status: accepted
+date: 2026-11-13
 ---
 
 # Orders given by voice or radio are recorded by the crew and confirmed later
@@ -8,7 +8,7 @@ date: 2026-11-12
 ## Context and Problem Statement
 
 [ORDER-1 to ORDER-4](../requirements/04-med.md#4111-med-package-medical-orders) let
-physicians and paramedics give orders on the patient record; the server accepts
+physicians and paramedics give orders on the patient record; the server accepted
 `orders.given` only from these roles ([ORDER-3](../requirements/04-med.md#order-3--only-permitted-roles-give-orders),
 design item *Order permission*). In practice many orders are spoken: the emergency physician at
 the stretcher with gloves on, the medical lead (LNA) or a tele-emergency physician by
@@ -28,9 +28,11 @@ decides on the author's roles and the event type only.
 
 ## Decision Outcome
 
-Proposed option: the second one, chosen on 2026-11-12 with the product owner after a
-practitioner's test of the demo, implemented, and to be accepted after the legal check below: anyone documenting a medication could type any physician
-as "Angeordnet durch", so documented orders did not show who really gave them.
+Chosen option: the second one, chosen on 2026-11-12 with the product owner after a
+practitioner's test of the demo, where anyone documenting a medication could type any
+physician as "Angeordnet durch", so documented orders did not show who really gave them.
+Accepted on 2026-11-13, after the legal check below, with the product owner's answers to
+its two open points (*Decisions on the open points*).
 
 * **`orders.recorded`** (module `med.orders`, compartment `med.clinical`): the same
   content as `orders.given` (what, for which patient, note) plus `ordered_by` (a person
@@ -42,13 +44,13 @@ as "Angeordnet durch", so documented orders did not show who really gave them.
   with the open orders, and can be taken into the documentation (ORDER-5). The app shows
   it apart: "mündlich angeordnet von … · dokumentiert von …", with the channel.
 * **Confirmation:** `orders.confirmed` (order ID) may be written only by roles that give
-  orders (Cedar, like `orders.given`). The app offers it to the person named in
+  orders (Cedar, like `orders.given`; by default physicians, see below). The app offers it to the person named in
   `ordered_by` when that person uses ORDO; the record shows who confirmed and when.
   Unconfirmed recorded orders stay marked, and the lead's overview counts them. The
   server cannot check that the confirmer is the person named, since it cannot read the
   payload; the record shows both names, so a mismatch is visible.
-* `orders.given` and its rule stay unchanged: giving an order in ORDO yourself still needs
-  the role.
+* `orders.given` keeps its event and its rule: giving an order in ORDO yourself still
+  needs a role that gives orders.
 * **Who ordered a documented medication** comes only from an order, given or recorded: the
   entry keeps the order's ID, and the form's field for who ordered is read-only
   ([ORDER-7](../requirements/04-med.md#order-7--who-ordered-comes-from-the-order)).
@@ -98,15 +100,34 @@ Findings:
 * **Narcotics:** the narcotics register (stock and use, §§ 13–14 BtMVV) is kept by the
   physician appointed for the rescue service. ORDO's patient record does not replace it.
 
-Still to do with practitioners and an ÄLRD: the open points above, the fields and the
-confirmation step, and the state law of the first users.
+### Decisions on the open points (2026-11-13)
+
+Decided by the product owner:
+
+* **Only physicians give and confirm orders** by default. The Med policies accept
+  `orders.given` and `orders.confirmed` only from the role `physician`; paramedics, like
+  the rest of the crew, record spoken orders (`orders.recorded`), acknowledge and carry
+  out orders. This follows federal law: a physician delegates medical measures, a
+  paramedic does not. Orders that are not medical measures (transport, positioning) are
+  not split off as their own kind for now. An organisation whose state law or ÄLRD allows
+  more changes its own policy files ([ADR-0035](0035-authorization-with-cedar.md)); ORDO
+  has no setting per kind of order.
+* **No SOP catalogue.** Keeping every area's SOPs in ORDO, with who may do what, when and
+  where, is not worth it. A measure under an SOP or on the paramedic's own responsibility
+  is documented without an order, as before; the record does not name its ground, and the
+  note can.
+
+Still to do with practitioners and an ÄLRD: the fields and the confirmation step, and the
+state law of the first users.
 
 ### Consequences
 
 * Good, because spoken orders are documented when they happen, with who gave them, how,
   and whether they were read back.
-* Good, because the rule that only physicians and paramedics give orders in ORDO stays
-  intact, and confirmation uses the same rule.
+* Good, because one rule decides who gives orders in ORDO (physicians, by default), and
+  confirmation uses the same rule.
+* Bad, because a paramedic can no longer give an order in ORDO for a non-medical step
+  (e.g. transport); they tell the crew directly, or the organisation widens its policy.
 * Bad, because there are two ways an order comes into ORDO, which the app and the
   overview must show apart.
 

@@ -1595,7 +1595,7 @@ pub const ORG_ROLE_LAPSED: &str = "abgelaufen";
 pub fn org_role(role: &str) -> &str {
     match role {
         "admin" => "Administration",
-        "planner" => "Einsatzplanung",
+        "planner" => "Einsatzplanung (alle Einsätze)",
         other => other,
     }
 }

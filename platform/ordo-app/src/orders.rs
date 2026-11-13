@@ -1,4 +1,4 @@
-//! Medical orders (ORDER-1…4): given on the patient record by physicians and paramedics,
+//! Medical orders (ORDER-1…4): given on the patient record by physicians,
 //! carried out by the crew, and listed across every UHS in the view *Anordnungen*. Orders
 //! given by voice, radio or phone are recorded by the crew and confirmed later by their
 //! giver (ORDER-6). ORDO records orders; it never proposes, checks or calculates them

@@ -50,27 +50,28 @@ when {
   context.roles.contains("paramedic")
 };
 
-// Medical orders are given only by physicians and paramedics (ORDER-3); the whole crew
-// acknowledges and completes them (orders.updated).
-@id("med.orders-given-by-physicians-and-paramedics")
+// Medical orders are given only by physicians (ORDER-3, ADR-0053): under federal law a
+// paramedic does not delegate medical measures. The whole crew acknowledges and completes
+// them (orders.updated). An organisation whose rules differ changes this in its own policies.
+@id("med.orders-given-by-physicians")
 forbid (
   principal,
   action == Action::"write",
   resource == Compartment::"med.clinical"
 )
 when { context.event_type == "orders.given" }
-unless { context.roles.contains("physician") || context.roles.contains("paramedic") };
+unless { context.roles.contains("physician") };
 
 // A spoken order recorded by the crew (orders.recorded) is confirmed only by those who give
 // orders (ORDER-6); every crew role records one.
-@id("med.orders-confirmed-by-physicians-and-paramedics")
+@id("med.orders-confirmed-by-physicians")
 forbid (
   principal,
   action == Action::"write",
   resource == Compartment::"med.clinical"
 )
 when { context.event_type == "orders.confirmed" }
-unless { context.roles.contains("physician") || context.roles.contains("paramedic") };
+unless { context.roles.contains("physician") };
 
 // The app offers the order form to them.
 @id("med.give-orders")
@@ -79,7 +80,7 @@ permit (
   action == Action::"give_orders",
   resource == Compartment::"incident"
 )
-when { context.roles.contains("physician") || context.roles.contains("paramedic") };
+when { context.roles.contains("physician") };
 
 // Physicians work at every UHS, whatever its staff list (ADR-0056); everyone else writes the
 // patients of a UHS with a staff list only when on it.

@@ -387,7 +387,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#record-title")).toHaveText("Patient DE-0044");
 
     // [itest->dsn~medical-orders~2]
-    // [itest->dsn~order-permission~1]
+    // [itest->dsn~order-permission~2]
     // [itest->dsn~recorded-orders~1]
     const annaOrderForm = anna.locator(".order-form");
     await expect(annaOrderForm.getByRole("button", { name: "Anordnen", exact: true }), "a medic gives no orders").toHaveCount(0);
@@ -1347,16 +1347,16 @@ test("ORDO in the browser", async ({ browser }) => {
     const tomorrow = new Date(Date.now() + 24 * 3600_000);
     const day = (n: number) => String(n).padStart(2, "0");
     await dora.getByLabel("Person (Benutzerkennung)").fill("ben@localhost");
-    await dora.getByLabel("Rolle", { exact: true }).selectOption({ label: "Einsatzplanung" });
+    await dora.getByLabel("Rolle", { exact: true }).selectOption({ label: "Einsatzplanung (alle Einsätze)" });
     await dora.getByLabel("Gültig bis (optional)").fill(`${tomorrow.getFullYear()}-${day(tomorrow.getMonth() + 1)}-${day(tomorrow.getDate())}`);
     await dora.getByRole("button", { name: "Vergeben" }).click();
     const benPlanner = dora.locator(".role-list [data-user='ben@localhost'] [data-role='planner']");
-    await expect(benPlanner, "granted, with its end, shown by name").toHaveText(`Einsatzplanung · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}Entziehen`);
+    await expect(benPlanner, "granted, with its end, shown by name").toHaveText(`Einsatzplanung (alle Einsätze) · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}Entziehen`);
     await expect(dora.locator(".role-list [data-user='ben@localhost'] .roster__person")).toHaveText("Ben Weber");
     await audit(dora, "Organisation roles");
     await expect.poll(benMayPlan, { message: "Ben's devices may plan at once" }).toBe(true);
 
-    await benPlanner.getByRole("button", { name: "Einsatzplanung entziehen: ben@localhost" }).click();
+    await benPlanner.getByRole("button", { name: "Einsatzplanung (alle Einsätze) entziehen: ben@localhost" }).click();
     await expect(benPlanner, "withdrawn").toHaveCount(0);
     await expect.poll(benMayPlan, { message: "and no longer" }).toBe(false);
     await openIncident(ben, INCIDENT);

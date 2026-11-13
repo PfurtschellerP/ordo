@@ -220,10 +220,10 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   organisation and imported (InEK site ID; HL7 FHIR or EDXL-HAVE) instead of entered per
   incident.
 - **Orders, next steps:** substances from the medication catalogue (below). Spoken
-  orders ([ADR-0053](adr/0053-verbal-orders.md), proposed) are checked against federal
-  law; open are who gives and confirms orders (physicians only, or paramedics for some
-  kinds), recording an ÄLRD SOP as the ground of a measure, and a check of the fields and
-  state law with practitioners and a medical director (ÄLRD).
+  orders ([ADR-0053](adr/0053-verbal-orders.md)) are accepted: only physicians give
+  and confirm orders, and ORDO keeps no SOP catalogue (2026-11-13). Open is a check of the
+  fields and of the first users' state law with practitioners and a medical director
+  (ÄLRD).
 - **Triage references, next step:** a local copy of the official charts for offline use,
   once the rights are clear (open question 9).
 - **Medication catalogue:** fields for substances suggest from a catalogue of substances

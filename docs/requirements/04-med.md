@@ -298,14 +298,14 @@ Needs: dsn
 
 ### 4.11.1 Med package: medical orders
 
-Orders (*Anordnungen*) are given by physicians and paramedics and carried out by the crew
+Orders (*Anordnungen*) are given by physicians and carried out by the crew
 of the on-site care unit. ORDO records them; it never proposes, checks or calculates a
 medication, dose or measure ([EPCR-9](#epcr-9--no-clinical-decision-support)).
 
 #### ORDER-1 — Give orders
 `req~order-1~1`
 
-When a physician or a paramedic gives an order for a patient — a medication with substance, dose and route, or a measure — ORDO shall record it in the patient record with the person and the time, and show it to the crew of the patient's on-site care unit as an open order.
+When a person whose roles permit giving orders ([ORDER-3](#order-3--only-permitted-roles-give-orders)) gives an order for a patient — a medication with substance, dose and route, or a measure — ORDO shall record it in the patient record with the person and the time, and show it to the crew of the patient's on-site care unit as an open order.
 
 Tags: must, med, m15
 
@@ -321,9 +321,9 @@ Tags: must, med, m15
 Needs: dsn
 
 #### ORDER-3 — Only permitted roles give orders
-`req~order-3~1`
+`req~order-3~2`
 
-ORDO shall accept a new order only from a person whose roles in the incident permit giving orders (by default physicians and paramedics); the server checks this for every order.
+When a person gives a new order or confirms a recorded one, ORDO shall accept it only if the person's roles in the incident permit giving orders (by default physicians only, [ADR-0053](../adr/0053-verbal-orders.md)); the server checks this for every order.
 
 Tags: must, med, m15
 

@@ -1024,15 +1024,15 @@ Tags: must, m18
 #### Medical orders
 `dsn~medical-orders~2`
 
-Module `med.orders`, in `med.clinical`. A physician or paramedic gives an order on the
-patient's record: a medication (substance and dose as free text, route from the profile
+Module `med.orders`, in `med.clinical`. Whoever may give orders (by default a physician,
+*Order permission*) gives an order on the patient's record: a medication (substance and dose as free text, route from the profile
 file `med/orders.toml`) or a measure (free text), with an optional note. The device writes
 `orders.given` with a new order ID (ULID) and the triage tag number. The crew moves it on
 with `orders.updated`: acknowledged, done, or withdrawn; the status of an order is its
 latest update by hybrid logical clock, and every update stays in its history with who and
 when. Reporting an order done names who carried it out, the reporting person unless
-another one is chosen (`performedBy`, schema version 2): a physician's order given by a
-paramedic and documented by a third person keeps all three apart. Steps only go forward: given → acknowledged → done; withdrawn ends an order that is
+another one is chosen (`performedBy`, schema version 2): a physician's order carried out
+by a paramedic and documented by a third person keeps all three apart. Steps only go forward: given → acknowledged → done; withdrawn ends an order that is
 not done. The record lists the patient's orders, open ones first; the Med workspace has a
 view *Anordnungen* with the open orders of every UHS the person may read, oldest first,
 with tag number and UHS. ORDO shows what was ordered and by whom; it checks no dose and
@@ -1091,7 +1091,8 @@ An order given by voice, radio, phone or telemedicine is recorded by the crew as
 `readBack` (repeated back and confirmed). Every role that writes `med.clinical` may write
 it; its author is the person who recorded it. It then follows the same steps as a given
 order and is listed with the open orders. `orders.confirmed` (order ID) confirms it; the
-Med policies accept it only from `physician` or `paramedic`, like `orders.given`. The first
+Med policies accept it only from roles that give orders, like `orders.given` (*Order
+permission*). The first
 confirmation after the order counts; confirmations of given orders are ignored. The record's
 order form offers "Mündlich, per Funk oder Telefon angeordnet" next to "Ich ordne an" to
 those who give orders, and only the first to the rest of the crew. The order card shows who
@@ -1111,19 +1112,20 @@ Needs: impl, utest, itest
 Tags: must, m50
 
 #### Order permission
-`dsn~order-permission~1`
+`dsn~order-permission~2`
 
 The server's write check passes the event type to the policy next to the module (Cedar
 context `event_type`, [ADR-0035](../adr/0035-authorization-with-cedar.md)). The Med
 policies let roles `medic`, `physician` and `paramedic` read and write `med.clinical`, but
-`orders.given` only with `physician` or `paramedic`; organisations change this in their own
-policy files. The incident permission `give_orders` tells the app whether to offer the
+`orders.given` and `orders.confirmed` only with `physician`
+([ADR-0053](../adr/0053-verbal-orders.md)); organisations whose rules differ (e.g. a
+state that lets paramedics order some measures) change this in their own policy files. The incident permission `give_orders` tells the app whether to offer the
 order form; the server's check is what counts, so a device that writes an order anyway is
 rejected.
 
 Covers:
 
-* [req~order-3~1](../requirements/04-med.md#order-3--only-permitted-roles-give-orders)
+* [req~order-3~2](../requirements/04-med.md#order-3--only-permitted-roles-give-orders)
 
 Needs: impl, utest, itest
 

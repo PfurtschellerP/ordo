@@ -276,7 +276,7 @@ impl RolePolicy {
         )
     }
 
-    // [impl->dsn~order-permission~1]
+    // [impl->dsn~order-permission~2]
     /// Like [`Self::allows`], for writing an event of `(module, event type)`, e.g.
     /// `("med.orders", "orders.given")`.
     pub fn allows_write(
@@ -704,9 +704,9 @@ mod tests {
         assert!(policy(&[("broken.cedar".to_owned(), "permit (".to_owned())]).is_err());
     }
 
-    // [utest->dsn~order-permission~1]
+    // [utest->dsn~order-permission~2]
     #[test]
-    fn only_physicians_and_paramedics_give_orders_the_crew_carries_them_out() {
+    fn only_physicians_give_orders_the_crew_carries_them_out() {
         let p = policy(&[]).expect("valid");
         let (incident, clinical) = (incident(), compartment("med.clinical"));
         let erik = user("erik");
@@ -722,11 +722,9 @@ mod tests {
             )
         };
         assert!(write(&["physician"], "orders.given"));
-        assert!(write(&["paramedic"], "orders.given"));
-        assert!(
-            !write(&["medic"], "orders.given"),
-            "a medic gives no orders"
-        );
+        for role in ["medic", "paramedic"] {
+            assert!(!write(&[role], "orders.given"), "a {role} gives no orders");
+        }
         assert!(
             write(&["medic"], "orders.updated"),
             "but acknowledges and completes them"
@@ -777,7 +775,10 @@ mod tests {
             "a medic confirms none"
         );
         assert!(write(&["physician"], "orders.confirmed"));
-        assert!(write(&["paramedic"], "orders.confirmed"));
+        assert!(
+            !write(&["paramedic"], "orders.confirmed"),
+            "nor does a paramedic"
+        );
         assert!(!write(&[], "orders.recorded"));
     }
 

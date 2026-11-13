@@ -901,7 +901,7 @@ async fn the_incident_command_searches_an_address_through_the_geocoder() {
     running.stop().await.unwrap();
 }
 
-// [itest->dsn~order-permission~1]
+// [itest->dsn~order-permission~2]
 // [itest->dsn~medical-orders~2]
 #[tokio::test(flavor = "multi_thread")]
 async fn only_a_physician_gives_orders_and_the_crew_carries_them_out() {
