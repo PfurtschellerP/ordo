@@ -327,7 +327,7 @@ position, or takes it out; the latest assignment counts. Everything is ordered b
 logical clock, so every device computes the same tree.
 
 The command workspace's view *Führung* shows the tree as nested lists with the leader,
-units and UHS of each position, and the roster below; it points out a position with more
+units and UHS of each position (drawn as an org chart, *Org chart*), and the roster below; it points out a position with more
 than five direct subordinates (span of control) without enforcing anything. Each unit
 card offers its position in one choice (two taps, CMD-2); tasks can go to a position.
 Only the command writes the module (Cedar). Positions giving roles, and so access, follow
@@ -343,6 +343,26 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m32
+
+#### Org chart
+`dsn~org-chart~1`
+
+The command structure is drawn as an org chart from the same nested lists, by CSS alone:
+where the card is at least 40rem wide (container query), positions under one stand side by
+side below it, joined by lines in the border colour; each position is a compact card
+(title, leader, units, UHS, the handovers collapsed). A wide chart scrolls within its own
+region, which takes keyboard focus. Where the card is narrower, the chart falls back to the
+indented tree. The lists stay the semantics, so screen readers hear a nested list, as
+before. Org chart libraries (d3-org-chart, OrgChart.js) were not needed: they draw from
+JSON with scripts and add nothing a list does not already give.
+
+Covers:
+
+* [req~cmd-3~1](../requirements/02-shared.md#cmd-3--command-structure-view)
+
+Needs: impl, itest
+
+Tags: must, m57
 
 ### 5.5.1c Shared module `map`
 

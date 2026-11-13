@@ -1098,7 +1098,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#assign-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
     await ben.getByRole("button", { name: "UHS zuordnen" }).click();
     await expect(sanel.locator(".position__uhs")).toHaveText("UHS: UHS Eingang");
+    // [itest->dsn~org-chart~1]
+    // CMD-3: an org chart on wide screens: the positions under one side by side, below it.
+    await create("Einsatzabschnitt", "Nord", "Einsatzleitung Stadtfest");
+    const card = async (title: string) => (await ben.locator(".position__card", { hasText: title }).boundingBox())!;
+    const [top, left, right] = [await card("Einsatzleitung Stadtfest"), await card("Sanitätseinsatzleitung SanEL"), await card("Einsatzabschnitt Nord")];
+    expect(Math.abs(left.y - right.y), "subordinates side by side").toBeLessThan(2);
+    expect(left.y, "below their leading position").toBeGreaterThan(top.y + top.height);
+    expect(left.x + left.width, "left of each other").toBeLessThanOrEqual(right.x);
+    await expect(ben.getByRole("region", { name: "Führungsstruktur als Organigramm" }), "a wide chart scrolls by keyboard").toHaveAttribute("tabindex", "0");
     await audit(ben, "Command structure");
+    await shot(ben, "command-structure");
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     await ben.getByLabel("Funktion von RTW 83/1").selectOption({ label: "Sanitätseinsatzleitung SanEL" });

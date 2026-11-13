@@ -282,7 +282,7 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    map is prepared on *Vorbereitung – Lagekarte* (region and editor on one page), the
    *Führung* overview is a grid of tiles, and an incident has a description, planned times
    and a pause.
-6. **UHS and units:** done so far (m57): unit master data with templates (usual strength,
+6. **UHS and units** is done (m57): unit master data with templates (usual strength,
    no crew) in *Administration – Stammdaten* (ORG-14,
    [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS counts as a unit in the
    forces on scene, with organisation, service and strength (UHS-12,
@@ -290,8 +290,8 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    places kept for each, and a plan of its places with the patient on each (UHS-13,
    UHS-14); the detailed strength after the 2024 BBK recommendation for DV 102 as an option
    per incident (UNIT-7: leaders of formations and platoon leaders apart, special
-   functions such as physicians and respirator wearers after it). Next: the command
-   structure as a generated org chart.
+   functions such as physicians and respirator wearers after it); the command structure
+   drawn as an org chart (CMD-3).
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 

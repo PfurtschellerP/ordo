@@ -767,6 +767,47 @@
   .position-tree .position-tree { border-inline-start: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); margin-block-start: var(--ordo-space-2); }
   .position { display: grid; gap: var(--ordo-space-1); hyphens: auto; overflow-wrap: break-word; min-width: 0; }
   .position p { margin: 0; }
+  .position__card {
+    display: grid; gap: var(--ordo-space-1);
+    padding: var(--ordo-space-2) var(--ordo-space-3);
+    background: var(--ordo-color-surface-default);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+  }
+  /* CMD-3: an org chart where the card has room. Each position draws half of the bar above
+     it and the stub down to it; each list of subordinates the line down from its parent.
+     Lines in the border colour, the cards carry the names: nothing is said by colour. */
+  @container card (min-width: 40rem) {
+    .org-chart { overflow-x: auto; padding-block-end: var(--ordo-space-2); }
+    .org-chart .position-tree {
+      display: flex; justify-content: center; gap: 0; position: relative;
+      padding: var(--ordo-space-4) 0 0; margin: 0; border: 0;
+    }
+    .org-chart .position-tree--root { padding-block-start: 0; }
+    .org-chart .position {
+      display: flex; flex-direction: column; align-items: center; position: relative;
+      padding: var(--ordo-space-4) var(--ordo-space-2) 0;
+    }
+    .org-chart .position-tree--root > .position { padding-block-start: 0; }
+    .org-chart .position__card { inline-size: max-content; max-inline-size: 16rem; }
+    .org-chart .position::before, .org-chart .position::after {
+      content: ""; position: absolute; inset-block-start: 0; inline-size: 50%;
+      block-size: var(--ordo-space-4);
+      border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    }
+    .org-chart .position::before { inset-inline-end: 50%; }
+    .org-chart .position::after {
+      inset-inline-start: 50%;
+      border-inline-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    }
+    .org-chart .position:first-child::before, .org-chart .position:last-child::after { border-block-start: 0; }
+    .org-chart .position-tree--root > .position::before, .org-chart .position-tree--root > .position::after { display: none; }
+    .org-chart .position-tree .position-tree::before {
+      content: ""; position: absolute; inset-block-start: 0; inset-inline-start: 50%;
+      block-size: var(--ordo-space-4);
+      border-inline-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    }
+  }
   .command-form { margin-block-start: var(--ordo-space-4); }
   /* Situation map (MAP-1): the canvas, and the list of what is on it (A11Y-5). */
   .situation { display: grid; gap: var(--ordo-space-3); margin-block-end: var(--ordo-space-4); }

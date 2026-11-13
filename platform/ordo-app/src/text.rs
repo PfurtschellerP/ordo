@@ -1065,6 +1065,7 @@ pub fn strength_legend(title: &str, detailed: bool) -> String {
 }
 
 pub const UNIT_LEADERS: &str = "Führer von Verbänden";
+pub const ORG_CHART: &str = "Führungsstruktur als Organigramm";
 pub const SPECIAL_FUNCTIONS_LEGEND: &str = "Davon mit besonderen Funktionen";
 pub const STRENGTH_DETAILED: &str = "Stärke ausführlich angeben: Führer von Verbänden und Zugführer getrennt, besondere Funktionen wie Ärzte und Atemschutzgeräteträger gesondert (DV 102, 2024)";
 

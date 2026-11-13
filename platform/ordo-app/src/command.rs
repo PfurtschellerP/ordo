@@ -115,13 +115,15 @@ fn position_item(
         .collect();
     view! {
         <li class="position" data-position=id.to_owned()>
-            <p class="position__title"><strong>{title.clone()}</strong></p>
-            <p class="position__leader">{leader}</p>
-            {units.map(|u| view! { <p class="position__units">{u}</p> })}
-            {uhs.map(|u| view! { <p class="position__uhs">{u}</p> })}
-            {span.map(|s| view! { <p class="notice position__span">{s}</p> })}
-            {(!p.leaders.is_empty()).then(|| view! { <History entries=handovers /> })}
-            {close.map(|actions| view! { <Actions actions /> })}
+            <div class="position__card">
+                <p class="position__title"><strong>{title.clone()}</strong></p>
+                <p class="position__leader">{leader}</p>
+                {units.map(|u| view! { <p class="position__units">{u}</p> })}
+                {uhs.map(|u| view! { <p class="position__uhs">{u}</p> })}
+                {span.map(|s| view! { <p class="notice position__span">{s}</p> })}
+                {(!p.leaders.is_empty()).then(|| view! { <History entries=handovers /> })}
+                {close.map(|actions| view! { <Actions actions /> })}
+            </div>
             {(!children.is_empty()).then(|| view! { <ul class="position-tree">{children}</ul> })}
         </li>
     }
@@ -167,7 +169,15 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .iter()
                     .map(|id| position_item(core, revision, &s, id, &names, editable))
                     .collect();
-                view! { <ul class="position-tree position-tree--root">{items}</ul> }.into_any()
+                // [impl->dsn~org-chart~1]
+                // An org chart where the card is wide enough, else an indented tree; a wide
+                // chart scrolls within its own region, reachable by keyboard.
+                view! {
+                    <div class="org-chart" role="region" tabindex="0" aria-label=text::ORG_CHART>
+                        <ul class="position-tree position-tree--root">{items}</ul>
+                    </div>
+                }
+                .into_any()
             }}
             <Show when=move || editable.get()>
                 <CommandForms core revision tree uhs_names />
