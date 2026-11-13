@@ -55,9 +55,12 @@ struct Overview {
 fn overview(core: Handle) -> Overview {
     let now = core::now_ms();
     let info = core.with_value(|c| c.incident_info());
-    let units = core
-        .with_value(|c| ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)));
-    let on_scene = units.strength_on_scene();
+    let on_scene = core.with_value(|c| {
+        let events = c.events(ordo_units::COMPARTMENT);
+        let units = ordo_units::UnitRegister::from_events(&events);
+        // [impl->dsn~uhs-as-unit~1]
+        med::strength_on_scene(&units, &events)
+    });
     let tasks = crate::tasks::task_list(core);
     let open = tasks.open(now);
     let structure = crate::command::structure(core);

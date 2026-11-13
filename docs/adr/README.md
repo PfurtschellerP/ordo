@@ -73,5 +73,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0066](0066-address-search-with-nominatim.md) | Addresses are searched with Nominatim, through the ORDO server | accepted | 2026-11-13 |
 | [0067](0067-command-overview-tiles-and-map-preparation.md) | The command's overview is a grid of tiles, and *Vorbereitung* has its own *Lagekarte* | accepted | 2026-11-13 |
 | [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server, managed in *Administration* | accepted | 2026-11-13 |
+| [0069](0069-uhs-counts-as-a-unit.md) | A UHS counts as a unit on scene, without a second record | accepted | 2026-11-13 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

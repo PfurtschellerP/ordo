@@ -1112,6 +1112,43 @@ struct UhsDraft {
     name: RwSignal<String>,
     capacity: RwSignal<String>,
     person: RwSignal<String>,
+    organisation: RwSignal<String>,
+    service: RwSignal<String>,
+    /// Leaders, sub-leaders, crew.
+    strength: [RwSignal<String>; 3],
+}
+
+impl UhsDraft {
+    /// The draft of the unit `id`, created under `owner` the first time, filled with its
+    /// current values.
+    fn kept(
+        drafts: StoredValue<std::collections::HashMap<String, UhsDraft>>,
+        owner: &Owner,
+        id: &str,
+        name: &str,
+        capacity: u32,
+        details: &med::UhsDetails,
+    ) -> Self {
+        let mut out = None;
+        drafts.update_value(|m| {
+            let d = *m.entry(id.to_owned()).or_insert_with(|| {
+                let reported = details.strength.map(|s| [s.leaders, s.sub_leaders, s.crew]);
+                owner.with(|| UhsDraft {
+                    open: RwSignal::new(false),
+                    name: RwSignal::new(name.to_owned()),
+                    capacity: RwSignal::new(capacity.to_string()),
+                    person: RwSignal::new(String::new()),
+                    organisation: RwSignal::new(details.organisation.clone().unwrap_or_default()),
+                    service: RwSignal::new(details.service.clone().unwrap_or_default()),
+                    strength: [0, 1, 2].map(|i| {
+                        RwSignal::new(reported.map(|r| r[i].to_string()).unwrap_or_default())
+                    }),
+                })
+            });
+            out = Some(d);
+        });
+        out.expect("inserted")
+    }
 }
 
 // [impl->dsn~uhs-details~3]
@@ -1131,6 +1168,9 @@ fn UhsDetailsPanel(
         name: new_name,
         capacity: cap,
         person,
+        organisation,
+        service,
+        strength,
     } = draft;
     let slug = core::slug(&id);
     let staff = details.staff.clone();
@@ -1152,6 +1192,27 @@ fn UhsDetailsPanel(
                 error.set(Some(text::UHS_NAME_NEEDED));
                 return;
             }
+            // [impl->dsn~uhs-as-unit~1]
+            // Its strength as a unit: all three numbers, or none.
+            let parts = strength.map(|s| s.get_untracked().trim().to_owned());
+            let reported = match parts.each_ref().map(|p| p.parse::<u32>().ok()) {
+                [Some(a), Some(b), Some(c)] => Some([a, b, c]),
+                _ if parts.iter().all(String::is_empty) => None,
+                _ => {
+                    error.set(Some(text::STRENGTH_NUMBERS));
+                    return;
+                }
+            };
+            let was = (
+                details.organisation.clone().unwrap_or_default(),
+                details.service.clone().unwrap_or_default(),
+                details.strength.map(|s| [s.leaders, s.sub_leaders, s.crew]),
+            );
+            let now = (
+                organisation.get_untracked().trim().to_owned(),
+                service.get_untracked(),
+                reported,
+            );
             let update = med::UhsUpdated {
                 id: id.clone(),
                 // Only a changed name is sent: the log then shows the renaming.
@@ -1161,6 +1222,10 @@ fn UhsDetailsPanel(
                 location: None,
                 capacity: Some(capacity),
                 staff: None,
+                // Only what changed is sent, as for the name.
+                organisation: (now.0 != was.0).then(|| now.0.clone()),
+                service: (now.1 != was.1).then(|| now.1.clone()),
+                strength: (now.2 != was.2).then_some(now.2),
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 error.set(None);
@@ -1236,6 +1301,34 @@ fn UhsDetailsPanel(
                     <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
                     <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
                 </div>
+                <div class="field">
+                    <label for=format!("uhs-organisation-{slug}")>{text::UNIT_ORGANISATION}</label>
+                    <input id=format!("uhs-organisation-{slug}") type="text" autocomplete="off" bind:value=organisation />
+                </div>
+                <div class="field">
+                    <label for=format!("uhs-service-{slug}")>{text::UNIT_SERVICE}</label>
+                    <select id=format!("uhs-service-{slug}") prop:value=move || service.get() on:change=move |ev| service.set(event_target_value(&ev))>
+                        <option value="">{text::NO_SERVICE}</option>
+                        {crate::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
+                    </select>
+                </div>
+                <fieldset class="choices strength-input">
+                    <legend>{text::UHS_STRENGTH_LEGEND}</legend>
+                    {strength
+                        .into_iter()
+                        .zip([("leaders", text::LEADERS), ("sub-leaders", text::SUB_LEADERS), ("crew", text::CREW_COUNT)])
+                        .map(|(value, (part, label))| {
+                            let id = format!("uhs-{part}-{slug}");
+                            view! {
+                                <div class="field field--small">
+                                    <label for=id.clone()>{label}</label>
+                                    <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value />
+                                </div>
+                            }
+                        })
+                        .collect_view()}
+                </fieldset>
+                <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
                 <button type="submit" class="button button--small">{text::UHS_SAVE}</button>
             </form>
             <p role="alert" class="error">{move || error.get()}</p>
@@ -1342,20 +1435,8 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
     // Drafts of the panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, capacity: u32| {
-        let mut out = None;
-        drafts.update_value(|m| {
-            let d = *m.entry(id.to_owned()).or_insert_with(|| {
-                owner.with(|| UhsDraft {
-                    open: RwSignal::new(false),
-                    name: RwSignal::new(name.to_owned()),
-                    capacity: RwSignal::new(capacity.to_string()),
-                    person: RwSignal::new(String::new()),
-                })
-            });
-            out = Some(d);
-        });
-        out.expect("inserted")
+    let draft = move |id: &str, name: &str, capacity: u32, details: &med::UhsDetails| {
+        UhsDraft::kept(drafts, &owner, id, name, capacity, details)
     };
     view! {
         <section aria-labelledby="uhs-resources-title" class="card">
@@ -1376,7 +1457,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                         <h3>{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
                                         <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                            draft=draft(&id, &name, capacity) />
+                                            draft=draft(&id, &name, capacity, &details) />
                                     </li>
                                 }
                             })
@@ -1450,20 +1531,8 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     // Drafts of the details panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, capacity: u32| {
-        let mut out = None;
-        drafts.update_value(|m| {
-            let d = *m.entry(id.to_owned()).or_insert_with(|| {
-                owner.with(|| UhsDraft {
-                    open: RwSignal::new(false),
-                    name: RwSignal::new(name.to_owned()),
-                    capacity: RwSignal::new(capacity.to_string()),
-                    person: RwSignal::new(String::new()),
-                })
-            });
-            out = Some(d);
-        });
-        out.expect("inserted")
+    let draft = move |id: &str, name: &str, capacity: u32, details: &med::UhsDetails| {
+        UhsDraft::kept(drafts, &owner, id, name, capacity, details)
     };
     view! {
         <section aria-labelledby="uhs-title" class="card">
@@ -1481,7 +1550,7 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .map(|(i, (id, name, n, cap, total, free, details))| {
                                 let editor = view! {
                                     <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                        draft=draft(&id, &name, cap) />
+                                        draft=draft(&id, &name, cap, &details) />
                                 };
                                 // [impl->dsn~treatment-places~1]
                                 let count = RwSignal::new(total.to_string());

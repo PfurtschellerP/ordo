@@ -204,6 +204,18 @@ Tags: must, med, m39
 
 Needs: dsn
 
+#### UHS-12 — UHS count as units on scene
+`req~uhs-12~1`
+
+When ORDO shows the strength on scene, it shall count every on-site care unit as one unit,
+with the organisation, service and strength the incident command gave it, or without a
+strength with the people on its staff list, so that the forces on scene include the UHS
+and their people.
+
+Tags: must, med, m57
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

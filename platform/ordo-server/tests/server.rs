@@ -628,6 +628,7 @@ async fn only_a_uhs_staff_registers_its_patients_once_it_has_a_staff_list() {
         location: None,
         capacity: None,
         staff: Some(vec![format!("anna@{SERVER}")]),
+        ..Default::default()
     }
     .encode()
     .unwrap();

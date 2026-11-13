@@ -282,12 +282,14 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    map is prepared on *Vorbereitung – Lagekarte* (region and editor on one page), the
    *Führung* overview is a grid of tiles, and an incident has a description, planned times
    and a pause.
-6. **UHS and units:** unit master data with templates (usual strength, no crew) in
-   Administration is done (m57, ORG-14, [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS is a unit, so it counts in the forces on scene (ADR);
-   UHS capacity per triage category and a plan of its places; strength after the 2024
-   DV 102 recommendation as an option (physicians, respirator wearers, unit and platoon
-   leaders apart; notation to be checked in the BBK document); the command structure as
-   a generated org chart.
+6. **UHS and units:** done so far (m57): unit master data with templates (usual strength,
+   no crew) in *Administration – Stammdaten* (ORG-14,
+   [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS counts as a unit in the
+   forces on scene, with organisation, service and strength (UHS-12,
+   [ADR-0069](adr/0069-uhs-counts-as-a-unit.md)). Next: UHS capacity per triage category and
+   a plan of its places; strength after the 2024 DV 102 recommendation as an option
+   (physicians, respirator wearers, unit and platoon leaders apart; notation to be checked
+   in the BBK document); the command structure as a generated org chart.
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 

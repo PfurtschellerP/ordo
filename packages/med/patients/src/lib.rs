@@ -138,8 +138,9 @@ pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> 
 
 /// Event type: an on-site care unit's name, location, capacity or staff changed (UHS-1).
 pub const UHS_UPDATED: &str = "uhs.updated";
-/// Payload schema of `uhs.updated`: 2 adds the name.
-pub const UHS_UPDATED_SCHEMA: u32 = 2;
+/// Payload schema of `uhs.updated`: 2 adds the name, 3 the organisation, service and
+/// strength of the UHS as a unit (ADR-0069).
+pub const UHS_UPDATED_SCHEMA: u32 = 3;
 
 /// Payload of `uhs.updated`: the fields given replace earlier values; a field left out
 /// keeps its value.
@@ -159,6 +160,29 @@ pub struct UhsUpdated {
     /// Assigned staff (names or user IDs), the whole list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub staff: Option<Vec<String>>,
+    /// The organisation that runs it, as for a unit (schema version 3; empty: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organisation: Option<String>,
+    /// Its service from the profile (schema version 3; empty: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    /// Its strength: leaders, sub-leaders, crew (schema version 3); `Some(None)`, sent as
+    /// null, clears it.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present"
+    )]
+    pub strength: Option<Option<[u32; 3]>>,
+}
+
+/// A field that is there, even as null, is `Some`; a missing one stays `None` (default).
+fn present<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 impl UhsUpdated {
@@ -168,13 +192,56 @@ impl UhsUpdated {
     }
 }
 
-/// Location and assigned staff of an on-site care unit (UHS-1).
+/// Location, assigned staff and what it counts as among the units of an on-site care unit
+/// (UHS-1, UHS-12).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UhsDetails {
     /// Where it is.
     pub location: Option<String>,
     /// Assigned staff.
     pub staff: Vec<String>,
+    /// The organisation that runs it, if given.
+    pub organisation: Option<String>,
+    /// Its service ID, if given.
+    pub service: Option<String>,
+    /// Its reported strength.
+    pub strength: Option<ordo_units::Strength>,
+}
+
+impl UhsDetails {
+    // [impl->dsn~uhs-as-unit~1]
+    /// The strength it counts with on scene: the reported one, else its staff list as crew
+    /// (none if both are missing).
+    pub fn strength_on_scene(&self) -> Option<ordo_units::Strength> {
+        self.strength.or_else(|| {
+            let staff = u32::try_from(self.staff.len()).unwrap_or(u32::MAX);
+            (staff > 0).then_some(ordo_units::Strength {
+                crew: staff,
+                ..Default::default()
+            })
+        })
+    }
+}
+
+// [impl->dsn~uhs-as-unit~1]
+/// Units and persons on scene with every on-site care unit counted as a unit (UHS-12, UNIT-4):
+/// the units present of `units`, then each UHS with its organisation, service and
+/// strength. Its people are not counted twice as long as they are not also a unit.
+pub fn strength_on_scene(
+    units: &ordo_units::UnitRegister,
+    incident_events: &[AppliedEvent],
+) -> ordo_units::StrengthOnScene {
+    let mut s = units.strength_on_scene();
+    let details = uhs_details(incident_events);
+    for u in uhs_list(incident_events) {
+        let d = details.get(&u.id).cloned().unwrap_or_default();
+        s.count(
+            d.organisation.as_deref().unwrap_or_default(),
+            d.service.as_deref().unwrap_or_default(),
+            d.strength_on_scene(),
+        );
+    }
+    s
 }
 
 // [impl->dsn~uhs-registry~1]
@@ -245,6 +312,16 @@ pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDeta
         }
         if let Some(staff) = u.staff {
             d.staff = staff;
+        }
+        let text = |s: String| (!s.trim().is_empty()).then(|| s.trim().to_owned());
+        if let Some(organisation) = u.organisation {
+            d.organisation = text(organisation);
+        }
+        if let Some(service) = u.service {
+            d.service = text(service);
+        }
+        if let Some(strength) = u.strength {
+            d.strength = strength.map(ordo_units::Strength::from);
         }
     }
     details
@@ -985,6 +1062,7 @@ mod tests {
                 location: location.map(Into::into),
                 capacity,
                 staff: staff.map(|s| s.iter().map(|x| (*x).to_owned()).collect()),
+                ..Default::default()
             };
         let mut events = vec![
             shared(1, UHS_CREATED, created.encode().unwrap()),
@@ -1023,6 +1101,97 @@ mod tests {
         let d = &uhs_details(&events)["uhs-1"];
         assert_eq!(d.location.as_deref(), Some("Zelt 2"));
         assert_eq!(d.staff, ["anna"], "a field left out keeps its value");
+    }
+
+    // [utest->dsn~uhs-as-unit~1]
+    #[test]
+    fn a_uhs_counts_as_a_unit_on_scene_with_its_strength_or_its_staff() {
+        let shared = |n: u64, module: &str, event_type: &str, payload: Vec<u8>| {
+            testing::event(n, "dora", module, UHS_COMPARTMENT, event_type, payload)
+        };
+        let uhs = |id: &str| UhsCreated {
+            id: id.into(),
+            name: id.into(),
+            kind: UhsKind::Uhs,
+            capacity: 10,
+        };
+        let rtw = ordo_units::UnitAdded {
+            unit: "RTW 1".into(),
+            unit_type: "RTW".into(),
+            organisation: "DRK".into(),
+            service: Some("rescue".into()),
+            strength: Some([0, 1, 1].into()),
+        };
+        let events = vec![
+            shared(
+                1,
+                ordo_units::MODULE,
+                ordo_units::ADDED,
+                rtw.encode().unwrap(),
+            ),
+            shared(2, UHS_MODULE, UHS_CREATED, uhs("nord").encode().unwrap()),
+            shared(3, UHS_MODULE, UHS_CREATED, uhs("sued").encode().unwrap()),
+            shared(4, UHS_MODULE, UHS_CREATED, uhs("west").encode().unwrap()),
+            shared(
+                5,
+                UHS_MODULE,
+                UHS_UPDATED,
+                UhsUpdated {
+                    id: "nord".into(),
+                    organisation: Some("DRK".into()),
+                    service: Some("medical".into()),
+                    strength: Some(Some([0, 1, 5])),
+                    staff: Some(vec!["anna".into()]),
+                    ..Default::default()
+                }
+                .encode()
+                .unwrap(),
+            ),
+            shared(
+                6,
+                UHS_MODULE,
+                UHS_UPDATED,
+                UhsUpdated {
+                    id: "sued".into(),
+                    staff: Some(vec!["ben".into(), "clara".into()]),
+                    ..Default::default()
+                }
+                .encode()
+                .unwrap(),
+            ),
+        ];
+        let units = ordo_units::UnitRegister::from_events(&events);
+        let s = strength_on_scene(&units, &events);
+        assert_eq!(s.units, 4, "the RTW and three UHS");
+        assert_eq!(s.unreported, 1, "the UHS without strength and staff");
+        assert_eq!(
+            s.total.total(),
+            2 + 6 + 2,
+            "the reported strength counts, else the staff"
+        );
+        assert_eq!(s.by_organisation["DRK"], (2, [0, 2, 6].into()));
+        assert_eq!(s.by_service["medical"].0, 1);
+        assert_eq!(s.by_service[""], (2, [0, 0, 2].into()));
+        // A strength set and cleared falls back to the staff list.
+        let cleared = UhsUpdated {
+            id: "nord".into(),
+            strength: Some(None),
+            ..Default::default()
+        };
+        let mut later = events.clone();
+        later.push(shared(
+            7,
+            UHS_MODULE,
+            UHS_UPDATED,
+            cleared.encode().unwrap(),
+        ));
+        assert_eq!(
+            uhs_details(&later)["nord"].strength_on_scene(),
+            Some(ordo_units::Strength {
+                crew: 1,
+                ..Default::default()
+            })
+        );
     }
 
     // [utest->dsn~patient-pathway~1]

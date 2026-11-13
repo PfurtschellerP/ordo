@@ -582,6 +582,27 @@ Needs: impl, itest
 
 Tags: must, m39
 
+#### UHS as a unit
+`dsn~uhs-as-unit~1`
+
+A UHS counts as a unit on scene ([ADR-0069](../adr/0069-uhs-counts-as-a-unit.md)).
+`uhs.updated` schema version 3 adds its organisation, its service from the profile and its
+strength (Führer, Unterführer, Mannschaft; null clears it), set in the same details panel as
+name and capacity; only changed fields are sent. The Med package adds every UHS to the
+strength on scene of the units register (`strength_on_scene`): one unit with its
+organisation and service, counted with its strength, or without one with its staff list
+as Mannschaft, or as unreported if both are missing. *Einsatzmittel* and the command's
+overview show this sum. A UHS is not also written as `units.added`, so it has one place
+in the data and its people are counted once, as long as they are not added as a unit too.
+
+Covers:
+
+* [req~uhs-12~1](../requirements/04-med.md#uhs-12--uhs-count-as-units-on-scene)
+
+Needs: impl, utest, itest
+
+Tags: must, m57
+
 #### UHS registry
 `dsn~uhs-registry~1`
 
@@ -605,7 +626,8 @@ Tags: must, m4
 
 A unit is set up with name, kind and capacity (`uhs.created`). `uhs.updated` (module
 `med.uhs`, shared `incident` compartment, no clinical data) changes its name (schema
-version 2; the log shows the renaming), its capacity and its assigned staff (names or user
+version 2; the log shows the renaming), its organisation, service and strength (schema
+version 3, *UHS as a unit*), its capacity and its assigned staff (names or user
 IDs, the whole list); a field left out keeps its value, and the latest change of each field
 counts (hybrid logical clock). *UHS verwalten* shows place and staff per unit and changes
 them in a details panel, with the incident's people suggested; the overview and the

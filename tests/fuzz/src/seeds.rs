@@ -49,6 +49,7 @@ fn main() {
                 location: Some("Bühne Nord".into()),
                 capacity: Some(10),
                 staff: Some(vec!["anna@ordo.example.org".into()]),
+                ..Default::default()
             })
             .expect("encodes"),
         ),

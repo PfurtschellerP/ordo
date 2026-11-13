@@ -939,7 +939,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(card, "a unit is added and its status is set").toContainText("Status: 3 – Einsatz übernommen");
     await expect(card).toContainText("RTW · DRK Musterstadt");
     await expect(card, "with service and strength").toContainText("Rettungsdienst · Stärke 0/1/1/2");
-    await expect(ben.locator(".strength-on-scene__total"), "strength on scene").toHaveText("1 Einsatzmittel · Stärke 0/1/1/2");
+    // [itest->dsn~uhs-as-unit~1]
+    // UHS-12: both UHS count as units, UHS Eingang with its staff (Anna), Bühne Nord unreported.
+    await expect(ben.locator(".strength-on-scene__total"), "strength on scene").toHaveText("3 Einsatzmittel · Stärke 0/1/2/3 · ohne Stärkemeldung: 1");
     await ben.getByRole("button", { name: "Besatzung von RTW 83/1 (0)" }).click();
     await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
     await card.getByLabel("Notfallsanitäter/in").check();
@@ -993,7 +995,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await closePalette(ben);
     // Released units leave the strength and stay in the history; they can come back.
     await ben.getByRole("button", { name: "RTW 83/1 aus dem Einsatz entlassen" }).click();
-    await expect(ben.locator(".strength-on-scene__total")).toHaveText("0 Einsatzmittel · Stärke 0/0/0/0");
+    await expect(ben.locator(".strength-on-scene__total")).toHaveText("2 Einsatzmittel · Stärke 0/0/1/1 · ohne Stärkemeldung: 1");
     await ben.locator(".released-list summary").click();
     await expect(ben.locator(".released-list summary")).toHaveText("Entlassene Einsatzmittel (1)");
     await ben.getByRole("button", { name: "RTW 83/1 wieder im Einsatz" }).click();
@@ -1009,6 +1011,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(ben), { message: "the staff list is sent" }).toContain("Alles gesendet");
     await settle(ben);
     await expect(uhsCard.locator(".uhs-card__staff"), "and accepted by the server for the command").toHaveText("Personal: 2 Personen");
+    await expect(ben.locator(".strength-on-scene__total"), "its staff count").toHaveText("3 Einsatzmittel · Stärke 0/1/3/4 · ohne Stärkemeldung: 1");
+    // [itest->dsn~uhs-as-unit~1]
+    // The UHS as a unit: its organisation, service and strength, counted instead of its staff.
+    await uhsCard.getByLabel("Organisation", { exact: true }).fill("DRK Musterstadt");
+    await uhsCard.getByLabel("Dienst", { exact: true }).selectOption("medical");
+    await uhsCard.getByLabel("Führer", { exact: true }).fill("0");
+    await uhsCard.getByLabel("Unterführer", { exact: true }).fill("1");
+    await uhsCard.getByLabel("Mannschaft", { exact: true }).fill("3");
+    await uhsCard.getByRole("button", { name: "Speichern" }).click();
+    await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
+    await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));

@@ -193,6 +193,27 @@ pub struct StrengthOnScene {
     pub by_service: BTreeMap<String, (u32, Strength)>,
 }
 
+impl StrengthOnScene {
+    /// Counts one unit present, of `organisation` and `service` (`""`: none given), with
+    /// its strength if reported. Packages count their own units this way, e.g. a UHS.
+    pub fn count(&mut self, organisation: &str, service: &str, strength: Option<Strength>) {
+        self.units += 1;
+        if strength.is_none() {
+            self.unreported += 1;
+        }
+        let strength = strength.unwrap_or_default();
+        self.total.add(strength);
+        for (map, key) in [
+            (&mut self.by_organisation, organisation),
+            (&mut self.by_service, service),
+        ] {
+            let entry = map.entry(key.to_owned()).or_default();
+            entry.0 += 1;
+            entry.1.add(strength);
+        }
+    }
+}
+
 /// All units of an incident with their status, computed from events.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UnitRegister {
@@ -296,20 +317,11 @@ impl UnitRegister {
     pub fn strength_on_scene(&self) -> StrengthOnScene {
         let mut s = StrengthOnScene::default();
         for u in self.present() {
-            let strength = u.strength.unwrap_or_default();
-            s.units += 1;
-            if u.strength.is_none() {
-                s.unreported += 1;
-            }
-            s.total.add(strength);
-            for (map, key) in [
-                (&mut s.by_organisation, u.organisation.clone()),
-                (&mut s.by_service, u.service.clone().unwrap_or_default()),
-            ] {
-                let entry = map.entry(key).or_default();
-                entry.0 += 1;
-                entry.1.add(strength);
-            }
+            s.count(
+                &u.organisation,
+                u.service.as_deref().unwrap_or_default(),
+                u.strength,
+            );
         }
         s
     }

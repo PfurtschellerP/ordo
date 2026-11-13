@@ -182,6 +182,7 @@ mod tests {
                     .map(|p| format!("{p}@ordo.example.org"))
                     .collect(),
             ),
+            ..Default::default()
         };
         event(
             n,

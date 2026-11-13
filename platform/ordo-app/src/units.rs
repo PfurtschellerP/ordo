@@ -56,10 +56,20 @@ fn details(u: &Unit) -> String {
 }
 
 // [impl->dsn~unit-register~2]
-/// Units and persons on scene, in total, per organisation and per service (UNIT-4).
+// [impl->dsn~uhs-as-unit~1]
+/// Units and persons on scene, in total, per organisation and per service (UNIT-4), every
+/// UHS counted as a unit (UHS-12).
 #[component]
-fn StrengthOnScene(register: Memo<UnitRegister>) -> impl IntoView {
-    let summary = Memo::new(move |_| register.with(UnitRegister::strength_on_scene));
+fn StrengthOnScene(
+    core: Handle,
+    revision: RwSignal<u64>,
+    register: Memo<UnitRegister>,
+) -> impl IntoView {
+    let summary = Memo::new(move |_| {
+        revision.track();
+        let events = core.with_value(|c| c.events(ordo_med_patients::UHS_COMPARTMENT));
+        register.with(|r| ordo_med_patients::strength_on_scene(r, &events))
+    });
     view! {
         <section class="strength-on-scene" aria-labelledby="strength-title">
             <h3 id="strength-title">{text::STRENGTH_TITLE}</h3>
@@ -393,7 +403,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .map(|l| view! { <p class="notice notice--warning">{text::lost_update(&l.unit, &l.overwritten, &l.kept)}</p> })
                     .collect_view()
             }}
-            <StrengthOnScene register />
+            <StrengthOnScene core revision register />
             {move || {
                 let units = present.get();
                 let editable = can_edit.get();

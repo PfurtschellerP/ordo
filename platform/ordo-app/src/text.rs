@@ -63,6 +63,9 @@ pub const PEOPLE: &str = "Personal";
 pub const WS_ACCESS: &str = "Zugriff";
 pub const WS_INFO: &str = "Info";
 pub const WS_MASTER_DATA: &str = "Stammdaten";
+/// The UHS as a unit (UHS-12).
+pub const UHS_STRENGTH_LEGEND: &str = "Stärke der UHS (Führer / Unterführer / Mannschaft)";
+pub const UHS_STRENGTH_HINT: &str = "Die UHS zählt bei den Kräften vor Ort als Einsatzmittel: mit dieser Stärke, sonst mit ihrem Personal.";
 pub const INCIDENT_PAGE: &str = "Einsatz";
 
 pub const DEVICES: &str = "Geräte";
