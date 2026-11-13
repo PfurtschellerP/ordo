@@ -152,6 +152,9 @@ pub struct Incident {
     pub details: Details,
     /// Roles per person.
     pub roster: BTreeMap<UserId, BTreeSet<String>>,
+    /// When it was closed (wall time of the clock, ms since the Unix epoch), while it is;
+    /// retention periods count from here (HELP-4).
+    pub closed_at: Option<u64>,
 }
 
 /// What an event changed.
@@ -217,6 +220,7 @@ impl Registry {
                 if s.state != IncidentState::Active {
                     i.paused = false;
                 }
+                i.closed_at = (s.state == IncidentState::Closed).then_some(body.hlc.wall_ms);
                 Effect::Incident
             }
             // [impl->dsn~incident-details~1]

@@ -608,6 +608,32 @@ Needs: impl, utest, itest
 
 Tags: should, m59
 
+#### Retention of helpers' data
+`dsn~helper-retention~1`
+
+The helpers' data is deleted as a whole stream once its retention period has passed since
+the incident was closed ([ADR-0071](../adr/0071-helper-register-in-its-own-compartment.md)):
+90 days by default, `ORDO_PEOPLE_RETENTION_DAYS` per installation. The incident registry
+keeps when an incident was closed (the clock of its `incidents.stateChanged`; reopened, it
+counts again from the next close). Every hour the server asks the hub for expired streams
+(`HubConfig::retention`, per compartment) and deletes them: the events, the data key and
+attachment records go from the database (crypto-shredding for backups), a row in
+`deleted_streams` (migration 0007) stays. The hub stores this before it ends every
+connection reading the stream with `refused: rolesChanged`; from then on it lists the
+stream as `denied`, so devices delete their copy and key, and rejects writes to it as
+`forbidden`, so an offline outbox cannot create it again
+([protocol](../../spec/sync/protocol.md)). This is retention per compartment as planned in
+[8.2](08-concepts.md#82-data-compartments), not a change of history: crews in `incident`
+keep the names under that compartment's retention.
+
+Covers:
+
+* [req~help-4~1](../requirements/02-shared.md#help-4--helpers-data-deleted-after-the-incident)
+
+Needs: impl, utest, itest
+
+Tags: should, m59
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff

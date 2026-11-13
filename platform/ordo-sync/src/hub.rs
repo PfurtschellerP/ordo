@@ -60,6 +60,11 @@ pub enum Change {
         /// The device.
         device: DeviceId,
     },
+    /// A stream was deleted at the end of its retention period, with its key (HELP-4).
+    Deleted {
+        /// The stream.
+        stream: StreamKey,
+    },
 }
 
 /// Stored data could not be restored.
@@ -96,6 +101,9 @@ pub struct HubConfig {
     pub max_clock_ahead_ms: u64,
     /// The installation's vehicles (master data, UNIT-1).
     pub vehicles: Vec<crate::message::Vehicle>,
+    /// Compartments deleted a time (ms) after their incident was closed, e.g. `people`
+    /// (HELP-4); the others are kept.
+    pub retention: Vec<(CompartmentId, u64)>,
 }
 
 struct RegisteredDevice {
@@ -149,6 +157,9 @@ pub struct Hub<P> {
     revoked: HashSet<DeviceId>,
     /// Incidents and their rosters, from incident events (ADR-0046).
     registry: Registry,
+    /// Streams deleted at the end of their retention period: never written again, and
+    /// devices that ask for them are told to delete them (HELP-4).
+    deleted: HashSet<StreamKey>,
     derivers: Vec<Box<dyn Deriver>>,
     guards: Vec<Box<dyn WriteGuard>>,
     changes: Vec<Change>,
@@ -177,6 +188,7 @@ impl<P: AccessPolicy> Hub<P> {
             challenges: HashMap::new(),
             revoked: HashSet::new(),
             registry: Registry::default(),
+            deleted: HashSet::new(),
             derivers: Vec::new(),
             guards: Vec::new(),
             changes: Vec::new(),
@@ -187,6 +199,60 @@ impl<P: AccessPolicy> Hub<P> {
     /// returned by [`Hub::handle`]; if storing fails, it must not send them.
     pub fn take_changes(&mut self) -> Vec<Change> {
         std::mem::take(&mut self.changes)
+    }
+
+    /// Restores a stream deleted at the end of its retention period (HELP-4).
+    pub fn restore_deleted(&mut self, stream: StreamKey) {
+        self.deleted.insert(stream);
+    }
+
+    // [impl->dsn~helper-retention~1]
+    /// The streams whose retention period ([`HubConfig::retention`]) has passed since their
+    /// incident was closed, and that are not deleted yet.
+    pub fn expired(&self, now_ms: u64) -> Vec<StreamKey> {
+        let mut out = Vec::new();
+        for (compartment, retention_ms) in &self.config.retention {
+            for (id, incident) in self.registry.iter() {
+                let key = (id.clone(), compartment.clone());
+                let due = incident
+                    .closed_at
+                    .is_some_and(|at| at.saturating_add(*retention_ms) <= now_ms);
+                if due && !self.deleted.contains(&key) {
+                    out.push(key);
+                }
+            }
+        }
+        out
+    }
+
+    // [impl->dsn~helper-retention~1]
+    /// Deletes a stream at the end of its retention period: its events and data key go,
+    /// the stream is never written again, and the connections that read it are cut, so
+    /// their devices reconnect and delete their copy (HELP-4). The server stores
+    /// [`Change::Deleted`] before it sends the returned messages.
+    pub fn delete_stream(&mut self, stream: &StreamKey) -> Vec<Outgoing> {
+        self.streams.remove(stream);
+        self.keys.remove(stream);
+        self.deleted.insert(stream.clone());
+        self.changes.push(Change::Deleted {
+            stream: stream.clone(),
+        });
+        let cut: Vec<SessionId> = self
+            .sessions
+            .iter()
+            .filter(|(_, s)| s.streams.contains(stream))
+            .map(|(id, _)| *id)
+            .collect();
+        cut.into_iter()
+            .map(|sid| {
+                self.sessions.remove(&sid);
+                Outgoing {
+                    session: sid,
+                    // What the device may read changed: it reconnects (as for roles).
+                    message: ServerMessage::Refused(Rejection::RolesChanged),
+                }
+            })
+            .collect()
     }
 
     /// Restores a stored data key (before restoring events).
@@ -858,9 +924,12 @@ impl<P: AccessPolicy> Hub<P> {
         for sub in hello.subscriptions {
             let key = (sub.incident.clone(), sub.compartment.clone());
             let roles = self.registry.roles(&hello.user, &sub.incident);
-            if !self
-                .policy
-                .can_read(&hello.user, &sub.incident, &sub.compartment, &roles)
+            // [impl->dsn~helper-retention~1]
+            // A deleted stream is denied: the device deletes its copy and key.
+            if self.deleted.contains(&key)
+                || !self
+                    .policy
+                    .can_read(&hello.user, &sub.incident, &sub.compartment, &roles)
             {
                 welcome.denied.push(StreamRef {
                     incident: sub.incident,
@@ -1039,10 +1108,11 @@ impl<P: AccessPolicy> Hub<P> {
                 &roles,
             )
         };
-        if !allowed {
+        let key = (body.incident.clone(), body.compartment.clone());
+        // Nothing is written to a stream deleted at the end of its retention (HELP-4).
+        if !allowed || self.deleted.contains(&key) {
             return Err(reject(Rejection::Forbidden));
         }
-        let key = (body.incident.clone(), body.compartment.clone());
         if let Some(known) = self.streams.get(&key).and_then(|s| s.ids.get(&id)) {
             return if *known == ordo_crypto::event_hash(&event) {
                 Ok(None) // the same event sent again

@@ -102,6 +102,30 @@ impl Store {
                         .execute(&mut *tx)
                         .await?;
                 }
+                // [impl->dsn~helper-retention~1]
+                // The stream's events, key and attachment records go; a note stays.
+                Change::Deleted { stream } => {
+                    for statement in [
+                        "DELETE FROM events WHERE incident = ? AND compartment = ?",
+                        "DELETE FROM data_keys WHERE incident = ? AND compartment = ?",
+                        "DELETE FROM blobs WHERE incident = ? AND compartment = ?",
+                    ] {
+                        sqlx::query(statement)
+                            .bind(stream.0.as_str())
+                            .bind(stream.1.as_str())
+                            .execute(&mut *tx)
+                            .await?;
+                    }
+                    sqlx::query(
+                        "INSERT OR IGNORE INTO deleted_streams (incident, compartment, deleted_ms)
+                         VALUES (?, ?, ?)",
+                    )
+                    .bind(stream.0.as_str())
+                    .bind(stream.1.as_str())
+                    .bind(ms(crate::app::now_ms()))
+                    .execute(&mut *tx)
+                    .await?;
+                }
                 // [impl->dsn~device-revocation~1]
                 Change::Revoked { device } => {
                     // Devices paired by hand (seed) have no row; they stay revoked in the
@@ -119,6 +143,27 @@ impl Store {
     }
 
     // [impl->dsn~wrapped-keys-at-rest~1]
+    /// The streams deleted at the end of their retention period (HELP-4).
+    pub async fn load_deleted(&self) -> Result<Vec<StreamKey>, StoreError> {
+        let rows = sqlx::query("SELECT incident, compartment FROM deleted_streams")
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|r| {
+                let incident: String = r.get("incident");
+                let compartment: String = r.get("compartment");
+                Ok((
+                    incident
+                        .parse()
+                        .map_err(|e: ordo_core::IdError| StoreError::Invalid(e.to_string()))?,
+                    compartment
+                        .parse()
+                        .map_err(|e: ordo_core::IdError| StoreError::Invalid(e.to_string()))?,
+                ))
+            })
+            .collect()
+    }
+
     /// All data keys, unwrapped.
     pub async fn load_keys(
         &self,
@@ -755,7 +800,11 @@ mod tests {
                 .fetch_all(&store.pool)
                 .await
                 .unwrap();
-            assert_eq!(applied, [1, 2, 3, 4, 5, 6], "each migration, applied once");
+            assert_eq!(
+                applied,
+                [1, 2, 3, 4, 5, 6, 7],
+                "each migration, applied once"
+            );
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
                 .fetch_one(&store.pool)
                 .await
@@ -766,6 +815,39 @@ mod tests {
     }
 
     // [utest->dsn~organisation-roles~1]
+    // [utest->dsn~helper-retention~1]
+    #[tokio::test]
+    async fn a_deleted_stream_loses_its_key_and_is_remembered() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let master = DataKey::from_bytes([7; 32]);
+        let server: ordo_core::ServerName = "ordo.example.org".parse().unwrap();
+        let incident =
+            ordo_core::IncidentId::new(ordo_core::Ulid::from_parts(9, 9).unwrap(), &server);
+        let stream: StreamKey = (incident, "people".parse().unwrap());
+        let key = Change::Key {
+            stream: stream.clone(),
+            key_id: KeyId::new("people-1", &server).unwrap(),
+            key: DataKey::from_bytes([1; 32]),
+        };
+        store.save(&[key], &master).await.unwrap();
+        assert_eq!(store.load_keys(&master).await.unwrap().len(), 1);
+        let deleted = Change::Deleted {
+            stream: stream.clone(),
+        };
+        store
+            .save(std::slice::from_ref(&deleted), &master)
+            .await
+            .unwrap();
+        store.save(&[deleted], &master).await.unwrap(); // once is enough, twice does no harm
+        assert!(
+            store.load_keys(&master).await.unwrap().is_empty(),
+            "the key goes"
+        );
+        assert!(store.load_events().await.unwrap().is_empty());
+        assert_eq!(store.load_deleted().await.unwrap(), [stream]);
+    }
+
     #[tokio::test]
     async fn organisation_roles_are_stored_replaced_and_withdrawn() {
         let dir = tempfile::tempdir().unwrap();

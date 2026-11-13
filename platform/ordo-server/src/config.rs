@@ -46,6 +46,9 @@ pub struct Config {
     pub policy_dir: Option<PathBuf>,
     /// Login with OpenID Connect (optional, ADR-0038).
     pub oidc: Option<OidcConfig>,
+    /// Days after an incident is closed until its helpers' data (compartment `people`) is
+    /// deleted (`ORDO_PEOPLE_RETENTION_DAYS`, default 90, from 1 to 3650; HELP-4, ADR-0071).
+    pub people_retention_days: u64,
     /// How long a device's login lasts without re-verification (`ORDO_ACCESS_TIMEOUT_HOURS`,
     /// default 48, from 24 to 720 hours, i.e. 1 to 30 days; ADR-0040).
     pub access_timeout: std::time::Duration,
@@ -96,6 +99,8 @@ impl std::fmt::Debug for S3Config {
 
 /// Default access timeout in hours (ADR-0040).
 pub const ACCESS_TIMEOUT_HOURS: u64 = 48;
+/// Default days until the helpers' data of a closed incident is deleted (HELP-4).
+pub const PEOPLE_RETENTION_DAYS: u64 = 90;
 /// Allowed access timeouts in hours: 1 to 30 days.
 pub const ACCESS_TIMEOUT_RANGE: std::ops::RangeInclusive<u64> = 24..=720;
 
@@ -278,6 +283,20 @@ impl Config {
                     )
                 })?,
         };
+        let people_retention_days = match get("ORDO_PEOPLE_RETENTION_DAYS") {
+            None => PEOPLE_RETENTION_DAYS,
+            Some(text) => text
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|d| (1..=3650).contains(d))
+                .ok_or_else(|| {
+                    ConfigError::invalid(
+                        "ORDO_PEOPLE_RETENTION_DAYS",
+                        "expected days from 1 to 3650",
+                    )
+                })?,
+        };
         let admins = get("ORDO_ADMINS")
             .unwrap_or_default()
             .split(',')
@@ -343,6 +362,7 @@ impl Config {
             gravatar,
             admins,
             access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),
+            people_retention_days,
             server_name,
             listen,
             data_dir,

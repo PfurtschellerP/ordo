@@ -39,6 +39,7 @@ async fn run(total: usize, batch: usize) -> f64 {
             protected: vec![],
             max_clock_ahead_ms: u64::MAX,
             vehicles: Vec::new(),
+            retention: Vec::new(),
         },
         StaticPolicy::default().allow(&user, &["incident"]),
         EventSigner::new(

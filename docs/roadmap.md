@@ -297,8 +297,9 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 
-7. **Orders only by those who give them** is built (m50; ADR-0053 proposed until the open
-   legal points are decided): the crew records an order given by voice, radio or phone
+7. **Orders only by those who give them** is built (m50; ADR-0053 accepted on 2026-11-13:
+   only physicians give and confirm orders, no SOP catalogue): the crew records an order
+   given by voice, radio or phone
    with who gave it, how and whether it was read back;
    its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
    documented medication keeps its order, and "Angeordnet durch" is filled only from it.
@@ -310,11 +311,12 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    not, size and reaction to light per side, consensual reaction (EPCR-13).
 9. **Helper register** (*Vorbereitung – Personal*,
    [ADR-0071](adr/0071-helper-register-in-its-own-compartment.md)): parts 1 and 2 are
-   done (m59): helpers with name, organisation, phone, address, date of birth,
+   done (m59), and part 3 too: helpers with name, organisation, phone, address, date of birth,
    qualifications, duty and ORDO account in the sealed compartment `people`, which only the
    incident command reads (HELP-1, HELP-2); crews taken from the register, double bookings
-   matched by helper and account (HELP-3). Next: deleting the helpers' data 90 days after
-   the incident is closed (HELP-4, confirmed by the product owner).
+   matched by helper and account (HELP-3); the helpers' data deleted on the server and on
+   every device 90 days after the incident is closed (HELP-4, confirmed by the product
+   owner), the first deletion by retention in ORDO.
    The Meldekarte waits for its QR format.
 10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
     and patient cases (place, short description, no clinical data) and assigns them to a

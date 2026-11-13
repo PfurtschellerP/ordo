@@ -419,7 +419,7 @@ When the retention period for helpers' data has passed after the incident was cl
 (90 days unless the installation sets another), ORDO shall delete the helpers' personal
 data on the server and on every device; the crews keep the names.
 
-Tags: should, shared
+Tags: should, shared, m59
 
 Needs: dsn
 

@@ -256,11 +256,37 @@ impl App {
         }
     }
 
+    // [impl->dsn~helper-retention~1]
+    /// Deletes the streams whose retention period has passed since their incident was
+    /// closed, e.g. the helpers' data after 90 days (HELP-4): stored first, then the
+    /// connections that read them are cut, so their devices delete their copy.
+    pub(crate) async fn delete_expired(&self, now: u64) -> Result<(), StoreError> {
+        let mut hub = self.hub.lock().await;
+        let expired = hub.expired(now);
+        if expired.is_empty() {
+            return Ok(());
+        }
+        let mut out = Vec::new();
+        for stream in &expired {
+            out.extend(hub.delete_stream(stream));
+        }
+        let changes = hub.take_changes();
+        self.store.save(&changes, &self.master).await?;
+        drop(hub);
+        for (incident, compartment) in &expired {
+            tracing::info!(%incident, %compartment, "stream deleted after its retention period");
+        }
+        self.send_refusals(out);
+        Ok(())
+    }
+
     /// Regular work: cut expired connections every minute; re-verify logins in the
-    /// background every 15 minutes (ADR-0040).
+    /// background every 15 minutes (ADR-0040); delete streams past their retention every
+    /// hour (HELP-4).
     pub(crate) async fn maintenance(self: Arc<Self>) {
         let mut minute = tokio::time::interval(std::time::Duration::from_secs(60));
         let mut quarter = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
+        let mut hour = tokio::time::interval(std::time::Duration::from_secs(3600));
         let stop = stopped(self.shutdown.clone());
         tokio::pin!(stop);
         loop {
@@ -272,6 +298,11 @@ impl App {
                     self.clean_login_tests().await;
                 }
                 _ = quarter.tick() => login::reverify(&self).await,
+                _ = hour.tick() => {
+                    if let Err(e) = self.delete_expired(now_ms()).await {
+                        tracing::error!(error = %e, "deleting streams after their retention failed");
+                    }
+                }
                 () = &mut stop => return,
             }
         }

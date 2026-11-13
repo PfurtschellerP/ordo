@@ -164,6 +164,12 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             protected: config.protected.clone(),
             max_clock_ahead_ms: 60_000,
             vehicles: config.vehicles.clone(),
+            retention: vec![(
+                ordo_helpers::COMPARTMENT
+                    .parse()
+                    .expect("valid compartment"),
+                config.people_retention_days * 24 * 3_600_000,
+            )],
         },
         policy,
         signer,
@@ -197,6 +203,9 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     hub.add_deriver(PatientCountsDeriver::default());
     hub.add_guard(ordo_med_patients::staff::UhsStaffGuard::default());
 
+    for stream in store.load_deleted().await? {
+        hub.restore_deleted(stream);
+    }
     // Restore keys first, then events in sequence order.
     for (stream, key_id, key) in store.load_keys(&master).await? {
         hub.restore_key(stream, key_id, key);

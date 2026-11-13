@@ -67,7 +67,7 @@ Every record carries an `organisation_id` from day one (multi-tenancy).
 #### Environment configuration
 `dsn~environment-configuration~1`
 
-`ordo serve` reads all settings from environment variables (`ORDO_SERVER_NAME`, `ORDO_LISTEN`, `ORDO_DATA_DIR`, `ORDO_MASTER_KEY_FILE`, `ORDO_SEED_FILE`, `ORDO_PROTECTED`, `ORDO_APP_DIR`, `ORDO_POLICY_DIR`, `ORDO_OIDC_ISSUER`, `ORDO_OIDC_CLIENT_ID`, `ORDO_OIDC_CLIENT_SECRET_FILE`, `ORDO_PUBLIC_URL`, `ORDO_ACCESS_TIMEOUT_HOURS`, `ORDO_ADMINS`, `ORDO_GRAVATAR`, `ORDO_GEOCODER`, `ORDO_GEOCODER_COUNTRIES`, `ORDO_MAX_BLOB_MB`, `ORDO_S3_BUCKET`, `ORDO_S3_ENDPOINT`, `ORDO_S3_REGION`, `ORDO_S3_ACCESS_KEY_ID`, `ORDO_S3_SECRET_ACCESS_KEY_FILE`, `ORDO_LOG_FORMAT`); secrets are read from files so they can be mounted as container secrets. Nothing is baked into the image.
+`ordo serve` reads all settings from environment variables (`ORDO_SERVER_NAME`, `ORDO_LISTEN`, `ORDO_DATA_DIR`, `ORDO_MASTER_KEY_FILE`, `ORDO_SEED_FILE`, `ORDO_PROTECTED`, `ORDO_APP_DIR`, `ORDO_POLICY_DIR`, `ORDO_OIDC_ISSUER`, `ORDO_OIDC_CLIENT_ID`, `ORDO_OIDC_CLIENT_SECRET_FILE`, `ORDO_PUBLIC_URL`, `ORDO_ACCESS_TIMEOUT_HOURS`, `ORDO_PEOPLE_RETENTION_DAYS`, `ORDO_ADMINS`, `ORDO_GRAVATAR`, `ORDO_GEOCODER`, `ORDO_GEOCODER_COUNTRIES`, `ORDO_MAX_BLOB_MB`, `ORDO_S3_BUCKET`, `ORDO_S3_ENDPOINT`, `ORDO_S3_REGION`, `ORDO_S3_ACCESS_KEY_ID`, `ORDO_S3_SECRET_ACCESS_KEY_FILE`, `ORDO_LOG_FORMAT`); secrets are read from files so they can be mounted as container secrets. Nothing is baked into the image.
 
 Covers:
 

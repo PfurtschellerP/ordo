@@ -42,6 +42,8 @@ Environment for `serve`:
   ORDO_PUBLIC_URL        Address of ORDO, e.g. https://ordo.example.org
   ORDO_ACCESS_TIMEOUT_HOURS  How long a device login lasts without re-verification
                          (default 48, from 24 to 720 = 1 to 30 days)
+  ORDO_PEOPLE_RETENTION_DAYS  Days after an incident is closed until the helpers'
+                         personal data is deleted (default 90, from 1 to 3650)
   ORDO_ADMINS            Administrators by user name, comma-separated, e.g. dora
                          (plan incidents, grant roles)
   ORDO_GRAVATAR          Profile pictures from Gravatar: on (default) or off

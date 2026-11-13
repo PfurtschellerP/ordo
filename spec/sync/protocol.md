@@ -132,7 +132,13 @@ a pause), `incidents.roleGranted` and `incidents.roleWithdrawn` (`user`, `role`)
 - end every connection of a user whose roles changed with `refused: rolesChanged`.
 
 A device receiving `rolesChanged` reconnects; for every stream listed as `denied` in the
-new welcome it MUST delete that stream's events and key. `listIncidents` returns the
+new welcome it MUST delete that stream's events and key.
+
+A server that deletes a stream at the end of its retention period (e.g. the helpers'
+data, `people`, a set time after the incident was closed) MUST delete its events and key,
+end every connection that reads it with `refused: rolesChanged`, list it as `denied` from
+then on, and reject every event written to it as `forbidden`. No new message is needed: a
+device deletes the stream as for a withdrawn role. `listIncidents` returns the
 incidents in which the user has a role, or all of them for `manage_incidents`.
 
 `listVehicles` (version 1.1) asks for the installation's vehicles (master data: call sign,
