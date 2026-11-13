@@ -45,6 +45,9 @@ pub struct CardFormat {
     /// Organisation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organisation: Option<Rule>,
+    /// Diet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diet: Option<Rule>,
     /// Start of duty (date and time).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duty_start: Option<Rule>,
@@ -78,6 +81,8 @@ pub struct CardFields {
     pub phone: Option<String>,
     /// Organisation.
     pub organisation: Option<String>,
+    /// Diet.
+    pub diet: Option<String>,
     /// Start of duty, local.
     pub duty_start: Option<String>,
     /// End of duty, local.
@@ -174,10 +179,20 @@ fn tidy(text: &str) -> String {
         .to_owned()
 }
 
+/// Whether a value read from a card can be taken as it is: not longer than the register
+/// keeps, no control characters.
+fn plausible(value: &str) -> bool {
+    value.chars().count() <= crate::TEXT_MAX && !value.chars().any(char::is_control)
+}
+
 impl CardFormat {
-    /// The value of `rule` on a card with `fields`; `None` if all its fields are empty or a
-    /// date does not fit.
+    /// The value of `rule` on a card with `fields`; `None` if all its fields are empty, a
+    /// date does not fit or the value is not [plausible].
     fn value(rule: &Rule, fields: &[&str]) -> Option<String> {
+        Self::raw_value(rule, fields).filter(|v| plausible(v))
+    }
+
+    fn raw_value(rule: &Rule, fields: &[&str]) -> Option<String> {
         let field = |n: usize| fields.get(n.wrapping_sub(1)).map_or("", |f| f.trim());
         match rule {
             Rule::Template(t) => {
@@ -201,8 +216,11 @@ impl CardFormat {
         }
     }
 
-    // [impl->dsn~registration-card~1]
-    /// Reads a card's text; `None` if it is not of this format or gives no name.
+    // [impl->dsn~registration-card~2]
+    /// Reads a card's text, conservatively: `None` if it is not of this format (another
+    /// number of fields, say because a field holds the separator) or gives no name with a
+    /// letter in it. A single value that does not fit (a date in another form, too long,
+    /// control characters) is left out; the rest is taken.
     pub fn read(&self, text: &str) -> Option<CardFields> {
         let fields: Vec<&str> = text
             .trim_end_matches(['\r', '\n'])
@@ -214,11 +232,13 @@ impl CardFormat {
         let get = |rule: &Option<Rule>| rule.as_ref().and_then(|r| Self::value(r, &fields));
         Some(CardFields {
             card: self.id.clone(),
-            name: Self::value(&self.name, &fields).filter(|n| !n.is_empty())?,
+            name: Self::value(&self.name, &fields)
+                .filter(|n| n.chars().any(char::is_alphabetic))?,
             birth_date: get(&self.birth_date),
             address: get(&self.address),
             phone: get(&self.phone),
             organisation: get(&self.organisation),
+            diet: get(&self.diet),
             duty_start: get(&self.duty_start),
             duty_end: get(&self.duty_end),
         })
@@ -251,6 +271,7 @@ impl CardCatalogue {
                 f.address.as_ref(),
                 f.phone.as_ref(),
                 f.organisation.as_ref(),
+                f.diet.as_ref(),
                 f.duty_start.as_ref(),
                 f.duty_end.as_ref(),
             ];
@@ -289,7 +310,7 @@ mod tests {
         toml::from_str(&text).expect("valid catalogue")
     }
 
-    // [utest->dsn~registration-card~1]
+    // [utest->dsn~registration-card~2]
     #[test]
     fn a_meldekarte_gives_what_the_register_keeps() {
         let c = catalogue();
@@ -307,6 +328,7 @@ mod tests {
                 address: Some("Musterstraße 1, 12345 Testendorf".into()),
                 phone: Some("+4915112312285".into()),
                 organisation: Some("Malteser Testgruppe, Testverband".into()),
+                diet: Some("Ernährung ohne Einschränkung".into()),
                 duty_start: Some("2027-01-01T18:00".into()),
                 duty_end: None,
             })
@@ -318,10 +340,33 @@ mod tests {
         assert_eq!(read.organisation.as_deref(), Some("Wasserwacht"));
         assert_eq!(read.birth_date, None);
         assert_eq!(read.phone, None);
+        // Without incident data, as cards often come.
+        let plain = "Muster;Erika;01.02.1990;w;12345;Testendorf;deutsch;Hauptstr. 2;\
+                     +49170000000;Testverband;Testgruppe;;;;;vegetarische Ernährung";
+        let read = c.read(plain).expect("read");
+        assert_eq!((read.duty_start, read.duty_end), (None, None));
+        assert_eq!(read.diet.as_deref(), Some("vegetarische Ernährung"));
+        // Conservative: a value that does not fit is left out, the rest is taken.
+        let long = plain.replace("Hauptstr. 2", &"x".repeat(crate::TEXT_MAX + 1));
+        let read = c.read(&long).expect("read");
+        assert_eq!(read.address, None, "too long");
+        assert_eq!(read.phone.as_deref(), Some("+49170000000"));
+        let control = plain.replace("+49170000000", "+49\u{7}170");
+        assert_eq!(
+            c.read(&control).expect("read").phone,
+            None,
+            "control character"
+        );
         // Other texts are not cards.
         assert_eq!(c.read("https://example.org"), None);
         assert_eq!(c.read(";;;;;;;;;;;;;;;"), None, "no name");
+        assert_eq!(c.read("1;2;;;;;;;;;;;;;;"), None, "a name needs a letter");
         assert_eq!(c.read(&format!("{card};zu viel")), None);
+        assert_eq!(
+            c.read(&plain.replace("Hauptstr. 2", "Hauptstr. 2; Hinterhaus")),
+            None,
+            "a separator inside a field shifts the rest: not taken at all"
+        );
     }
 
     #[test]

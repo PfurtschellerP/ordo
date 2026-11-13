@@ -107,7 +107,7 @@ fn main() {
         "drawings.toml",
         DrawingCatalogue::check,
     );
-    // [impl->dsn~registration-card~1]
+    // [impl->dsn~registration-card~2]
     embed(
         &profile.join("helpers"),
         "registration-cards.toml",

@@ -8,8 +8,12 @@
 # QR code holds, in this order: 1 family name, 2 given name, 3 date of birth, 4 gender,
 # 5 postcode, 6 town, 7 nationality, 8 street, 9 mobile number, 10 district branch
 # (Kreisverband), 11 organisation and unit, 12 place of action, 13 formation, 14 start
-# and 15 end of action, 16 diet. Gender, nationality, place, formation and diet are not
-# taken (data minimisation; a diet can be health data).
+# and 15 end of action, 16 diet. Gender, nationality, place and formation are not taken
+# (data minimisation). The diet is taken for catering on site (ADR-0073).
+#
+# The format is not published and may change; a card that does not fit is reported as not
+# recognised. A ";" inside a field cannot be told from a separator: such a card has more
+# fields and is not taken.
 [[card]]
 id = "meldekarte"
 label = "Meldekarte"
@@ -20,5 +24,6 @@ birth_date = { field = 3, pattern = "DD.MM.YYYY" }
 address = "{8}, {5} {6}"
 phone = "{9}"
 organisation = "{11}, {10}"
+diet = "{16}"
 duty_start = { field = 14, pattern = "DD.MM.YYYY - hh:mm" }
 duty_end = { field = 15, pattern = "DD.MM.YYYY - hh:mm" }

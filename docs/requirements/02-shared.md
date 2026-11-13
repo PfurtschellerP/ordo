@@ -380,11 +380,11 @@ Needs: dsn
 ### 4.6a Shared: helpers in an incident
 
 #### HELP-1 — Helper register
-`req~help-1~1`
+`req~help-1~2`
 
 When the incident command registers a helper of its incident, ORDO shall record the name,
 and where given the date of birth, address, phone, organisation, qualifications from the
-profile and the start and end of duty, in a compartment of their own that only the
+profile, diet and the start and end of duty, in a compartment of their own that only the
 incident command reads.
 
 Tags: should, shared, m59

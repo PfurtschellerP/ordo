@@ -563,7 +563,7 @@ Tags: must, m36
 ### 5.5.1d Shared module `helpers`
 
 #### Helper register
-`dsn~helper-register~1`
+`dsn~helper-register~2`
 
 The helpers of an incident are events of the module `helpers` in the compartment `people`
 ([ADR-0071](../adr/0071-helper-register-in-its-own-compartment.md)), sealed and read only by
@@ -571,17 +571,20 @@ the incident command (`commander` in `command.cedar`).
 
 * **Register** (`helpers.registered`): a new helper ID (ULID) and the name; where given,
   date of birth, address, phone, organisation, qualifications from the profile
-  (`units/catalogue.toml`), start and end of duty, and the ORDO account.
+  (`units/catalogue.toml`), diet, start and end of duty, and the ORDO account. Schema
+  version 2 adds the diet; version 1 decodes without it.
 * **Change** (`helpers.updated`): the helper ID and only the changed fields; an empty
   field clears it. The latest value per field counts, by hybrid logical clock, whatever
   order the events arrive in.
 * **Page:** *Vorbereitung – Personal* lists the helpers by name with organisation,
   qualifications and duty, and a form to register one or change one. On duty means:
-  started and not ended. The name is required; everything else may come later.
+  started and not ended. The name is required; everything else may come later. For
+  catering, a line above the list counts the diets of those whose duty has not ended
+  (spelling as first seen, without case), and those without one.
 
 Covers:
 
-* [req~help-1~1](../requirements/02-shared.md#help-1--helper-register)
+* [req~help-1~2](../requirements/02-shared.md#help-1--helper-register)
 * [req~help-2~1](../requirements/02-shared.md#help-2--helpers-linked-to-accounts)
 
 Needs: impl, utest, itest
@@ -637,21 +640,31 @@ Needs: impl, utest, itest
 Tags: should, m59
 
 #### Registration cards
-`dsn~registration-card~1`
+`dsn~registration-card~2`
 
 A helper's registration card is read from a photo
-([ADR-0072](../adr/0072-registration-cards-read-with-rqrr.md)). The profile's
+([ADR-0072](../adr/0072-registration-cards-read-with-rqrr.md),
+[ADR-0073](../adr/0073-registration-cards-read-in-attempts-diet-kept.md)). The profile's
 `helpers/registration-cards.toml` lists card formats: an ID, a label, the separator, the
 number of fields, and for each field of the register a template (`{n}` is field n,
 counted from 1 as on the card) or a field with a date pattern (`DD`, `MM`, `YYYY`, `hh`,
-`mm`). The module `helpers` reads a text with any of them: the first format whose field
-count matches and that gives a name wins. Templates whose fields are all empty give
-nothing; separators left over are trimmed. Dates become `YYYY-MM-DD`, dates with time
-local `YYYY-MM-DDThh:mm`. The app checks the catalogue at build time. On *Vorbereitung –
-Personal*, "Karte fotografieren" opens the camera (a file input with `capture`); the photo
-is drawn on a canvas at most 1600 pixels wide, made grey and read by rqrr. The result
-fills the empty form, or says the card was not recognised; the command checks and saves.
-The photo is neither stored nor sent.
+`mm`). The module `helpers` reads a text with any of them, conservatively: the first
+format whose field count matches and that gives a name with a letter wins; a card with
+another count (a field holding the separator, a changed format) is not taken at all.
+Templates whose fields are all empty give nothing; separators left over are trimmed. A
+single value that does not fit is left out and the rest taken: a date in another form, a
+value longer than the register keeps, control characters. Dates become `YYYY-MM-DD`,
+dates with time local `YYYY-MM-DDThh:mm`. The app checks the catalogue at build time.
+
+On *Vorbereitung – Personal*, "Karte fotografieren" opens the camera (a file input with
+`capture`). The app takes the photo from a canvas at full size, a strip of rows at a time
+(within any browser's canvas limits), and averages blocks of k × k pixels into grey
+values, k the smallest whole number that brings the longer edge to at most 3000 pixels: a
+browser shrinking the photo itself samples pixels and turns a screen's pixel grid into
+moiré. rqrr then reads it in up to five attempts, each at another size (averaged when
+smaller, interpolated when larger) and blur (a box blur against the pixel grid), until one
+finds a code; the page stays responsive between them. The result fills the empty form, or says the card was not recognised; the command
+checks and saves. The photo is neither stored nor sent.
 
 Covers:
 

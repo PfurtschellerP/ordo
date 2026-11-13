@@ -311,13 +311,16 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
 9. **Helper register** (*Vorbereitung – Personal*,
    [ADR-0071](adr/0071-helper-register-in-its-own-compartment.md)): parts 1 and 2 are
    done (m59), and part 3 too: helpers with name, organisation, phone, address, date of birth,
-   qualifications, duty and ORDO account in the sealed compartment `people`, which only the
+   qualifications, diet (for catering), duty and ORDO account in the sealed compartment `people`, which only the
    incident command reads (HELP-1, HELP-2); crews taken from the register, double bookings
    matched by helper and account (HELP-3); the helpers' data deleted on the server and on
    every device 90 days after the incident is closed (HELP-4, confirmed by the product
    owner), the first deletion by retention in ORDO; helpers registered from a photo of
    their Meldekarte, read on the device (HELP-5,
-   [ADR-0072](adr/0072-registration-cards-read-with-rqrr.md); format from a sample card).
+   [ADR-0072](adr/0072-registration-cards-read-with-rqrr.md); format from a sample card;
+   read in attempts since photos of a screen failed, diet kept,
+   [ADR-0073](adr/0073-registration-cards-read-in-attempts-diet-kept.md)). A card is a
+   convenience: one that does not fit is not taken, and the helper is typed in.
 10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
     and patient cases (place, short description, no clinical data) and assigns them to a
     unit, which turns them into a patient (ADR).
@@ -333,16 +336,24 @@ Blocked or later: units and status from Rescuetrack and BOS digital radio (vendo
 
 Then:
 
-1. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
+1. **Dependency analysis** (the product owner, 2026-11-13; before the first release, with
+   the architecture review): for every dependency of the server, the app and the build,
+   whether ORDO needs it (fewer is better: smaller app, smaller attack surface), how
+   actively it is maintained (releases, open advisories, number of maintainers, response
+   to issues) and what replaces it if it is abandoned. `cargo deny` already refuses known
+   advisories and unmaintained crates; this adds the judgement before they get there
+   (e.g. rxing was not taken for registration cards because it pulls in the unmaintained
+   `encoding`, ADR-0073). Recorded per dependency, reviewed each release.
+2. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
    the first release (signed image, provenance, bills of materials: the release workflow
    is ready, ADR-0043; images for amd64 and arm64 since 2026-11-11); later the device lock with
    WebAuthn PRF or PIN (SEC-13).
-2. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)) is done: device
+3. Login, step 3 ([ADR-0038](adr/0038-login-and-device-pairing.md)) is done: device
    names (ORG-8), display names (ORG-7), organisation roles with "valid until" (ORG-9)
    and Dex's local accounts managed in ORDO (ORG-10, ADR-0060). Later: people change
    their own password (needs the link from an ORDO user to their Dex account; Dex can check the old password with `VerifyPassword`).
-3. Field-near test is done (m47, `tests/e2e/field/`, weekly in CI): the Compose bundle
+4. Field-near test is done (m47, `tests/e2e/field/`, weekly in CI): the Compose bundle
    with an Android tablet and an iPad, network cut and server restart, budgets for download
    and memory. It found that the image lacked the web app, that the bundle did not start
    with current Compose, and that a vanished network went unnoticed (now: ping and
@@ -351,13 +362,13 @@ Then:
    It found that a change then takes 1.5–2.1 s to reach the other tablet (80 ms in a
    small incident) and that the app's memory grows to about 50 MB: next are incremental
    projections on the device (see "Scaling" below). Later: the test on real tablets.
-4. Upstream login configured in ORDO is done (m52, ADR-0063). Later: LDAP and SAML
+5. Upstream login configured in ORDO is done (m52, ADR-0063). Later: LDAP and SAML
    providers in the app; a permission of its own instead of `manage_accounts`.
-5. Master data in an admin view instead of a file (ORG-1); no organisation-wide vehicle
+6. Master data in an admin view instead of a file (ORG-1); no organisation-wide vehicle
    master data (product owner, 2026-11-13, ADR-0070).
-6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
+7. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
-7. Command structure, next steps (ADR-0031): positions give roles and so access (a
+8. Command structure, next steps (ADR-0031): positions give roles and so access (a
    treatment-area lead reads its UHS), one tree per organisation linked by joint command,
    drag and drop on tablets, sectors on the map.
 

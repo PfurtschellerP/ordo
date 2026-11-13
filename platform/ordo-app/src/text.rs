@@ -1884,6 +1884,18 @@ pub const HELPER_NAME: &str = "Name";
 pub const HELPER_PHONE: &str = "Telefon";
 pub const HELPER_ADDRESS: &str = "Anschrift";
 pub const HELPER_BIRTH_DATE_LABEL: &str = "Geburtsdatum";
+pub const HELPER_DIET: &str = "Ernährung";
+pub const DIET_NONE: &str = "ohne Angabe";
+/// The diets of the helpers still expected or on duty, for catering: "Ernährung (ohne
+/// beendeten Dienst): 2 × vegetarisch · 5 × ohne Angabe".
+pub fn diet_counts(counts: &[(String, usize)]) -> String {
+    let list = counts
+        .iter()
+        .map(|(diet, n)| format!("{n} × {diet}"))
+        .collect::<Vec<_>>()
+        .join(" · ");
+    format!("Ernährung (ohne beendeten Dienst): {list}")
+}
 pub const HELPER_DUTY_START: &str = "Dienstbeginn";
 pub const HELPER_DUTY_END: &str = "Dienstende";
 pub const HELPER_ACCOUNT_LABEL: &str = "ORDO-Konto (falls vorhanden)";

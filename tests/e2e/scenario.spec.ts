@@ -4,6 +4,7 @@
 // registration with reload and resend, command sees counts but no patient data, phone
 // layout with bottom navigation, login timeout, revoking a lost device. Every view is
 // audited (support/audit.ts).
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Browser, expect, Locator, Page, test } from "@playwright/test";
@@ -34,6 +35,7 @@ import {
 } from "./support/app";
 import { DEX_URL, ORDO_PORT, startDex, UPSTREAM } from "./support/dex";
 import { PLACE, startGeocoder } from "./support/geocoder";
+import { screenPhoto } from "./support/screen-photo";
 import { OrdoServer } from "./support/server";
 
 let server: OrdoServer;
@@ -138,6 +140,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
     await expect(dora.locator("#overview-persons"), "counts only").toHaveText("0");
     await expect(dora.locator(".tile--dispatch"), "Disposition keeps its name").toContainText("Keine offenen Aufträge.");
+    await expect(
+      dora.locator(".tile--map .maplibregl-cooperative-gestures"),
+      "the map tile moves with two fingers; one scrolls the page",
+    ).toHaveCount(1);
     await audit(dora, "Command overview");
     await shot(dora, "command-overview");
     await expect(
@@ -1127,7 +1133,7 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~command-structure~1]
   await test.step("helper register: personal data only the incident command reads", async () => {
-    // [itest->dsn~helper-register~1]
+    // [itest->dsn~helper-register~2]
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
     const helpers = ben.locator(".helpers");
@@ -1155,10 +1161,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
     await expect(ben.locator("#helper-phone"), "changed").toHaveValue("0170 1111111");
     await form.getByRole("button", { name: "Abbrechen" }).click();
-    // [itest->dsn~registration-card~1]
-    // HELP-5: a photo of a Meldekarte fills the form; the command checks and saves.
+    // [itest->dsn~registration-card~2]
+    // HELP-5: a photo of a Meldekarte fills the form; the command checks and saves. The card
+    // is photographed on a screen, with its pixel grid and moiré (ADR-0073).
     const photo = ben.locator("#helper-card-photo");
-    await photo.setInputFiles(path.join(__dirname, "fixtures", "registration-card.png"));
+    const card = await screenPhoto(ben, fs.readFileSync(path.join(__dirname, "fixtures", "registration-card.png")));
+    await photo.setInputFiles({ name: "karte.jpg", mimeType: "image/jpeg", buffer: card });
     await expect(form.locator(".helper-card [role=status]")).toHaveText("Meldekarte von Jonas Sommer gelesen. Bitte prüfen und erfassen.");
     await expect(ben.locator("#helper-name")).toHaveValue("Jonas Sommer");
     await expect(ben.locator("#helper-birth-date")).toHaveValue("1995-03-14");
@@ -1166,9 +1174,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#helper-phone")).toHaveValue("+491701234567");
     await expect(ben.locator("#helper-organisation")).toHaveValue("BRK Bereitschaft Mitte, Augsburg-Stadt");
     await expect(ben.locator("#helper-duty-start")).toHaveValue("2027-06-20T08:30");
+    await expect(ben.locator("#helper-diet")).toHaveValue("vegetarische Ernährung");
     await audit(ben, "Registration card read");
     await form.getByRole("button", { name: "Erfassen", exact: true }).click();
     await expect(helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" })).toContainText("BRK Bereitschaft Mitte, Augsburg-Stadt");
+    // [itest->dsn~helper-register~2]
+    await expect(helpers.locator(".helper-diets"), "diets counted for catering").toContainText("1 × vegetarische Ernährung");
     await photo.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: patientPhoto });
     await expect(form.locator(".helper-card [role=status]"), "a photo without a card").toHaveText(/^Keine Karte erkannt\./);
     await expect(ben.locator("#helper-name"), "the form stays as it was").toHaveValue("");

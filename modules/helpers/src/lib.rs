@@ -2,7 +2,7 @@
 //! compartment `people`, which only the incident command reads (ADR-0071).
 //!
 //! A helper is registered with a name and, where known, date of birth, address, phone,
-//! organisation, qualifications, duty and ORDO account. Changes carry only the changed
+//! organisation, qualifications, diet, duty and ORDO account. Changes carry only the changed
 //! fields; the latest value per field counts by hybrid logical clock, so the register does
 //! not depend on the order in which events arrive.
 
@@ -23,8 +23,9 @@ pub const COMPARTMENT: &str = "people";
 pub const REGISTERED: &str = "helpers.registered";
 /// Event type: fields of a helper changed.
 pub const UPDATED: &str = "helpers.updated";
-/// Schema version of both event types.
-pub const SCHEMA: u32 = 1;
+/// Schema version of both event types. Version 2 adds the diet; version 1 decodes without
+/// it.
+pub const SCHEMA: u32 = 2;
 /// Longest text of a field, in characters.
 pub const TEXT_MAX: usize = 200;
 
@@ -50,6 +51,10 @@ pub struct Fields {
     /// Qualification IDs from the profile (`units/catalogue.toml`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub qualifications: Option<Vec<String>>,
+    /// Diet, for catering on site, e.g. "vegetarisch" (schema version 2). Can say something
+    /// about health; it stays in `people` like everything else here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diet: Option<String>,
     /// Start of duty (ms since the Unix epoch).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duty_start: Option<u64>,
@@ -114,6 +119,7 @@ impl HelperChange {
             &f.address,
             &f.phone,
             &f.organisation,
+            &f.diet,
         ];
         let long = texts
             .iter()
@@ -178,6 +184,7 @@ fn apply(into: &mut Fields, change: Fields) {
     take(&mut into.address, trimmed(change.address), text);
     take(&mut into.phone, trimmed(change.phone), text);
     take(&mut into.organisation, trimmed(change.organisation), text);
+    take(&mut into.diet, trimmed(change.diet), text);
     take(
         &mut into.qualifications,
         change.qualifications,
@@ -196,7 +203,7 @@ pub struct HelperRegister {
 }
 
 impl HelperRegister {
-    // [impl->dsn~helper-register~1]
+    // [impl->dsn~helper-register~2]
     /// Computes the register; the result does not depend on the order of `events`. A
     /// helper exists once registered; changes apply in clock order, also those made before
     /// the registration arrived.
@@ -300,7 +307,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~helper-register~1]
+    // [utest->dsn~helper-register~2]
     #[test]
     fn helpers_are_registered_and_changed_field_by_field_in_any_order() {
         let anna = change(
@@ -309,6 +316,7 @@ mod tests {
                 name: Some(" Anna Schmidt ".into()),
                 phone: Some("0170 123".into()),
                 qualifications: Some(vec!["paramedic".into()]),
+                diet: Some("vegetarisch".into()),
                 duty_start: Some(5000),
                 ..Fields::default()
             },
@@ -340,6 +348,7 @@ mod tests {
         assert_eq!(a.fields.phone, None, "an empty field clears it");
         assert_eq!(a.fields.address.as_deref(), Some("Hauptstr. 1"));
         assert_eq!(a.fields.qualifications, Some(vec!["paramedic".to_owned()]));
+        assert_eq!(a.fields.diet.as_deref(), Some("vegetarisch"));
         assert!(a.on_duty(6000) && !a.on_duty(4000));
         assert_eq!(
             register
@@ -412,6 +421,14 @@ mod tests {
         assert_eq!(
             named(Fields {
                 address: Some("x".repeat(TEXT_MAX + 1)),
+                ..Fields::default()
+            })
+            .check(true),
+            Err(FieldError::TooLong)
+        );
+        assert_eq!(
+            named(Fields {
+                diet: Some("x".repeat(TEXT_MAX + 1)),
                 ..Fields::default()
             })
             .check(true),

@@ -1002,7 +1002,7 @@ pub fn command_event(
     )
 }
 
-// [impl->dsn~helper-register~1]
+// [impl->dsn~helper-register~2]
 /// Registers a helper or changes their fields (HELP-1), in the compartment `people`.
 pub fn helper_event(
     core: Handle,

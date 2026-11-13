@@ -68,11 +68,15 @@ pub fn data_url(bytes: &[u8]) -> String {
     format!("data:{mime};base64,{}", BASE64.encode(bytes))
 }
 
-// [impl->dsn~registration-card~1]
-/// The texts of the QR codes in a photo (ADR-0072): drawn at most 1600 pixels wide, made
-/// grey and read with rqrr, on the device. The photo is neither kept nor sent.
+// [impl->dsn~registration-card~2]
+/// The texts of the QR codes in a photo (ADR-0072, ADR-0073). The photo is taken from a
+/// canvas at full size, a strip of rows at a time (small enough for any browser's canvas),
+/// and averaged in Rust to at most [`qr::EDGE`](crate::qr::EDGE) pixels: a browser
+/// shrinking it would sample pixels and turn a screen's pixel grid into moiré. Then rqrr
+/// reads it in the [attempts](crate::qr::ATTEMPTS), between which the page stays
+/// responsive. On the device; the photo is neither kept nor sent.
 pub async fn read_qr(file: &web_sys::File) -> Result<Vec<String>, &'static str> {
-    const EDGE: f64 = 1600.0;
+    use crate::qr::{self, Grey};
     let window = web_sys::window().ok_or(text::PHOTO_FAILED)?;
     let promise = window
         .create_image_bitmap_with_blob(file)
@@ -82,39 +86,50 @@ pub async fn read_qr(file: &web_sys::File) -> Result<Vec<String>, &'static str> 
         .map_err(|_| text::PHOTO_FAILED)?
         .dyn_into()
         .map_err(|_| text::PHOTO_FAILED)?;
-    let (width, height) = (f64::from(bitmap.width()), f64::from(bitmap.height()));
-    let scale = (EDGE / width.max(height)).min(1.0);
-    let (w, h) = ((width * scale).round(), (height * scale).round());
+    let (width, height) = (bitmap.width() as usize, bitmap.height() as usize);
+    let k = qr::block(width, height);
+    let (w, h) = (width / k, height / k);
+    // Rows per strip: whole blocks, about a million pixels.
+    let strip = ((1 << 20) / width.max(1) / k * k).max(k);
     let pixels = (|| {
         let document = window.document()?;
         let canvas: web_sys::HtmlCanvasElement =
             document.create_element("canvas").ok()?.dyn_into().ok()?;
-        canvas.set_width(w as u32);
-        canvas.set_height(h as u32);
+        canvas.set_width(width as u32);
+        canvas.set_height(strip as u32);
         let context: web_sys::CanvasRenderingContext2d =
             canvas.get_context("2d").ok()??.dyn_into().ok()?;
-        context
-            .draw_image_with_image_bitmap_and_dw_and_dh(&bitmap, 0.0, 0.0, w, h)
-            .ok()?;
-        Some(context.get_image_data(0.0, 0.0, w, h).ok()?.data().0)
+        let mut grey = Vec::with_capacity(w * h);
+        let mut top = 0;
+        while top < h * k {
+            let rows = strip.min(h * k - top);
+            let (fw, fr) = (width as f64, rows as f64);
+            context
+                .draw_image_with_image_bitmap_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                    &bitmap, 0.0, top as f64, fw, fr, 0.0, 0.0, fw, fr,
+                )
+                .ok()?;
+            let rgba = context.get_image_data(0.0, 0.0, fw, fr).ok()?.data().0;
+            grey.extend(qr::grey_blocks(&rgba, width, k));
+            top += rows;
+        }
+        Some(grey)
     })();
     bitmap.close();
-    let rgba = pixels.ok_or(text::PHOTO_FAILED)?;
-    let (w, h) = (w as usize, h as usize);
-    // Grey value per pixel (ITU-R BT.601 weights).
-    let grey: Vec<u8> = rgba
-        .chunks_exact(4)
-        .map(|p| {
-            ((299 * u32::from(p[0]) + 587 * u32::from(p[1]) + 114 * u32::from(p[2])) / 1000) as u8
-        })
-        .collect();
-    if grey.len() != w * h {
-        return Err(text::PHOTO_FAILED);
+    let pixels = pixels
+        .filter(|p| w > 0 && p.len() == w * h)
+        .ok_or(text::PHOTO_FAILED)?;
+    let grey = Grey {
+        pixels,
+        width: w,
+        height: h,
+    };
+    for &attempt in qr::ATTEMPTS {
+        let texts = qr::attempt(&grey, attempt);
+        if !texts.is_empty() {
+            return Ok(texts);
+        }
+        crate::core::sleep_ms(0).await; // lets the page answer between attempts
     }
-    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(w, h, |x, y| grey[y * w + x]);
-    Ok(prepared
-        .detect_grids()
-        .iter()
-        .filter_map(|g| g.decode().ok().map(|(_, text)| text))
-        .collect())
+    Ok(Vec::new())
 }

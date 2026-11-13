@@ -59,7 +59,39 @@ fn details(h: &Helper, now: u64) -> String {
         .join(" · ")
 }
 
-// [impl->dsn~helper-register~1]
+/// The diets of the helpers whose duty has not ended, most frequent first, those without
+/// one last; spelling as first seen, counted without case. Empty if nobody gave one.
+fn diet_counts(helpers: &[Helper], now: u64) -> Vec<(String, usize)> {
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    let mut none = 0;
+    for h in helpers
+        .iter()
+        .filter(|h| h.fields.duty_end.is_none_or(|e| e > now))
+    {
+        match h.fields.diet.as_deref().map(str::trim) {
+            Some(d) if !d.is_empty() => {
+                match counts
+                    .iter_mut()
+                    .find(|(k, _)| k.to_lowercase() == d.to_lowercase())
+                {
+                    Some((_, n)) => *n += 1,
+                    None => counts.push((d.to_owned(), 1)),
+                }
+            }
+            _ => none += 1,
+        }
+    }
+    if counts.is_empty() {
+        return counts;
+    }
+    counts.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    if none > 0 {
+        counts.push((text::DIET_NONE.to_owned(), none));
+    }
+    counts
+}
+
+// [impl->dsn~helper-register~2]
 /// The incident's helpers by name and the form to register or change one. Shown only to
 /// those who may read the register.
 #[component]
@@ -83,7 +115,9 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     if list.is_empty() {
                         return view! { <p>{text::HELPERS_EMPTY}</p> }.into_any();
                     }
+                    let diets = diet_counts(&list, now);
                     view! {
+                        {(!diets.is_empty()).then(|| view! { <p class="helper-diets">{text::diet_counts(&diets)}</p> })}
                         <ul class="roster helper-list" data-keys="list">
                             {list
                                 .into_iter()
@@ -175,6 +209,7 @@ fn HelperForm(
     let phone = RwSignal::new(shown(before.phone.as_ref()));
     let address = RwSignal::new(shown(before.address.as_ref()));
     let birth_date = RwSignal::new(shown(before.birth_date.as_ref()));
+    let diet = RwSignal::new(shown(before.diet.as_ref()));
     let account = RwSignal::new(shown(before.account.as_ref()));
     let time = |ms: Option<u64>| RwSignal::new(ms.map(core::local_input_time).unwrap_or_default());
     let (start, end) = (time(before.duty_start), time(before.duty_end));
@@ -228,6 +263,7 @@ fn HelperForm(
                 phone: given(phone),
                 address: given(address),
                 birth_date: given(birth_date),
+                diet: given(diet),
                 account: given(account),
                 qualifications: (!quals.is_empty()).then_some(quals),
                 duty_start,
@@ -244,6 +280,7 @@ fn HelperForm(
                 phone: changed(phone.get_untracked(), before.phone.as_ref()),
                 address: changed(address.get_untracked(), before.address.as_ref()),
                 birth_date: changed(birth_date.get_untracked(), before.birth_date.as_ref()),
+                diet: changed(diet.get_untracked(), before.diet.as_ref()),
                 account: changed(account.get_untracked(), before.account.as_ref()),
                 qualifications: (quals != was_quals).then_some(quals),
                 duty_start: time_changed(duty_start, before.duty_start),
@@ -290,6 +327,7 @@ fn HelperForm(
                 phone,
                 address,
                 birth_date,
+                diet,
                 account,
                 start,
                 end,
@@ -300,7 +338,7 @@ fn HelperForm(
             crate::views::focus("helper-name");
         }
     };
-    // [impl->dsn~registration-card~1]
+    // [impl->dsn~registration-card~2]
     // A registration card photographed fills the form of a new helper (HELP-5).
     let card_status = RwSignal::new(None::<String>);
     let read_card = move |ev: leptos::ev::Event| {
@@ -336,6 +374,7 @@ fn HelperForm(
                 (address, card.address),
                 (phone, card.phone),
                 (organisation, card.organisation),
+                (diet, card.diet),
                 (start, card.duty_start),
                 (end, card.duty_end),
             ] {
@@ -383,7 +422,10 @@ fn HelperForm(
                     <input id="helper-birth-date" type="date" bind:value=birth_date />
                 </div>
             </div>
-            {text_field("helper-address", text::HELPER_ADDRESS, address, "off")}
+            <div class="form--inline">
+                {text_field("helper-address", text::HELPER_ADDRESS, address, "off")}
+                {text_field("helper-diet", text::HELPER_DIET, diet, "off")}
+            </div>
             <CheckChips legend=text::CREW_QUALIFICATIONS options value=qualifications />
             <div class="form--inline">
                 <div class="field">
@@ -410,5 +452,56 @@ fn HelperForm(
                 })}
             </div>
         </form>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ordo_core::{DeviceId, Hlc, Ulid};
+
+    fn helper(id: &str, diet: Option<&str>, duty_end: Option<u64>) -> Helper {
+        let node = DeviceId(Ulid::from_parts(1, 1).expect("valid"));
+        Helper {
+            id: id.into(),
+            fields: Fields {
+                name: Some(id.into()),
+                diet: diet.map(Into::into),
+                duty_end,
+                ..Fields::default()
+            },
+            registered: (
+                Hlc {
+                    wall_ms: 1,
+                    counter: 0,
+                    node,
+                },
+                "ben@ordo.example.org".parse().expect("valid user"),
+            ),
+        }
+    }
+
+    // [utest->dsn~helper-register~2]
+    #[test]
+    fn diets_are_counted_for_those_still_on_duty() {
+        let helpers = [
+            helper("a", Some("vegetarisch"), None),
+            helper("b", Some("Vegetarisch "), Some(9_000)),
+            helper("c", Some("vegan"), None),
+            helper("d", None, None),
+            helper("e", Some("halal"), Some(1_000)), // duty ended
+        ];
+        assert_eq!(
+            diet_counts(&helpers, 5_000),
+            [
+                ("vegetarisch".to_owned(), 2),
+                ("vegan".to_owned(), 1),
+                (text::DIET_NONE.to_owned(), 1)
+            ]
+        );
+        assert!(
+            diet_counts(&[helper("d", None, None)], 5_000).is_empty(),
+            "nothing to show without diets"
+        );
     }
 }
