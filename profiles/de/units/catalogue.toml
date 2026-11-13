@@ -63,3 +63,26 @@ label = "Maschinist/in"
 [[qualification]]
 id = "breathing-apparatus"
 label = "Atemschutzgeräteträger/in"
+
+# Special functions (UNIT-7): counted apart in the detailed strength after the BBK
+# recommendation "Taktische Zeichen im Bevölkerungsschutz" (2024, section 5.3), e.g.
+# "(davon 2 × Ärzte)". Labels are short, as shown after the strength.
+[[special_function]]
+id = "physician"
+label = "Ärzte"
+
+[[special_function]]
+id = "respirator"
+label = "AGT"
+
+[[special_function]]
+id = "paramedic"
+label = "NotSan"
+
+[[special_function]]
+id = "chemical-suit"
+label = "CSA-Träger"
+
+[[special_function]]
+id = "diver"
+label = "Taucher"

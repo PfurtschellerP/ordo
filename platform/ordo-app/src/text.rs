@@ -64,7 +64,7 @@ pub const WS_ACCESS: &str = "Zugriff";
 pub const WS_INFO: &str = "Info";
 pub const WS_MASTER_DATA: &str = "Stammdaten";
 /// The UHS as a unit (UHS-12).
-pub const UHS_STRENGTH_LEGEND: &str = "Stärke der UHS (Führer / Unterführer / Mannschaft)";
+pub const UHS_STRENGTH: &str = "Stärke der UHS";
 pub const UHS_STRENGTH_HINT: &str = "Die UHS zählt bei den Kräften vor Ort als Einsatzmittel: mit dieser Stärke, sonst mit ihrem Personal.";
 pub const INCIDENT_PAGE: &str = "Einsatz";
 
@@ -1016,10 +1016,61 @@ pub const RELEASE: &str = "Aus dem Einsatz entlassen";
 pub const BACK_IN: &str = "Wieder im Einsatz";
 
 /// "0/1/8/9" read out: "Stärke: 0 Führer, 1 Unterführer, 8 Mannschaft, 9 gesamt".
-pub fn strength_label(leaders: u32, sub_leaders: u32, crew: u32, total: u32) -> String {
-    format!(
-        "{STRENGTH}: {leaders} {LEADERS}, {sub_leaders} {SUB_LEADERS}, {crew} {CREW_COUNT}, {total} gesamt"
-    )
+/// The strength read out: each number with its function, the total, the special functions.
+pub fn strength_label(s: &ordo_units::Strength, detailed: bool, special: Option<&str>) -> String {
+    let parts = s.parts(detailed);
+    let n = parts.len() - 1;
+    let named: Vec<String> = parts[..n]
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            format!(
+                "{v} {}",
+                strength_part(if detailed { i } else { i + 1 }, detailed)
+            )
+        })
+        .collect();
+    let mut out = format!("{STRENGTH}: {}, {} gesamt", named.join(", "), parts[n]);
+    if let Some(special) = special {
+        out.push_str(&format!(", {special}"));
+    }
+    out
+}
+
+// [impl->dsn~detailed-strength~1]
+/// The name of a strength's part: 0 leaders of formations, 1 leaders, 2 sub-leaders,
+/// 3 crew; the detailed notation (UNIT-7) says Zugführer and Einsatzkräfte.
+pub fn strength_part(part: usize, detailed: bool) -> &'static str {
+    match (part, detailed) {
+        (0, _) => UNIT_LEADERS,
+        (1, true) => "Zugführer",
+        (1, false) => LEADERS,
+        (2, _) => SUB_LEADERS,
+        (_, true) => "Einsatzkräfte",
+        (_, false) => CREW_COUNT,
+    }
+}
+
+/// A strength's legend, e.g. "Stärke (Führer / Unterführer / Mannschaft)".
+pub fn strength_legend(title: &str, detailed: bool) -> String {
+    let parts: Vec<&str> = if detailed {
+        (0..4).collect::<Vec<_>>()
+    } else {
+        (1..4).collect()
+    }
+    .into_iter()
+    .map(|p| strength_part(p, detailed))
+    .collect();
+    format!("{title} ({})", parts.join(" / "))
+}
+
+pub const UNIT_LEADERS: &str = "Führer von Verbänden";
+pub const SPECIAL_FUNCTIONS_LEGEND: &str = "Davon mit besonderen Funktionen";
+pub const STRENGTH_DETAILED: &str = "Stärke ausführlich angeben: Führer von Verbänden und Zugführer getrennt, besondere Funktionen wie Ärzte und Atemschutzgeräteträger gesondert (DV 102, 2024)";
+
+/// "davon 2 × Ärzte, 6 × AGT".
+pub fn special_functions(listed: &str) -> String {
+    format!("davon {listed}")
 }
 
 pub fn units_count(n: u32) -> String {

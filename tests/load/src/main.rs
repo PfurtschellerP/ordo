@@ -386,11 +386,8 @@ async fn fill(w: &mut Writer, o: &Options) -> Result<(), Error> {
                 unit_type: "RTW".into(),
                 organisation: "Lasttest".into(),
                 service: None,
-                strength: Some(ordo_units::Strength {
-                    leaders: 0,
-                    sub_leaders: 1,
-                    crew: 2,
-                }),
+                strength: Some(ordo_units::Strength::from([0, 1, 2])),
+                special: Default::default(),
             },
         )
         .await?;

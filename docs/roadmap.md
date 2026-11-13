@@ -288,9 +288,10 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    forces on scene, with organisation, service and strength (UHS-12,
    [ADR-0069](adr/0069-uhs-counts-as-a-unit.md)); a UHS's capacity per triage category with
    places kept for each, and a plan of its places with the patient on each (UHS-13,
-   UHS-14). Next: strength after the 2024 DV 102 recommendation as an option
-   (physicians, respirator wearers, unit and platoon leaders apart; notation to be checked
-   in the BBK document); the command structure as a generated org chart.
+   UHS-14); the detailed strength after the 2024 BBK recommendation for DV 102 as an option
+   per incident (UNIT-7: leaders of formations and platoon leaders apart, special
+   functions such as physicians and respirator wearers after it). Next: the command
+   structure as a generated org chart.
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 

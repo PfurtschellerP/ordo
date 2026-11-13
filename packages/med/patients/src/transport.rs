@@ -664,6 +664,7 @@ mod tests {
                     organisation: "DRK".into(),
                     service: None,
                     strength: None,
+                    special: Default::default(),
                     status: status.map(|s| ordo_units::UnitStatus {
                         status: s.into(),
                         since: at,

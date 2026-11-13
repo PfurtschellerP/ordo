@@ -263,6 +263,7 @@ impl Core {
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_PLACES) => patients::UHS_PLACES_SCHEMA,
+            (incidents::MODULE, incidents::DETAILS_CHANGED) => incidents::DETAILS_SCHEMA,
             (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
             (record::MODULE, record::ENTRY_RECORDED) => record::ENTRY_SCHEMA,
             _ => 1,

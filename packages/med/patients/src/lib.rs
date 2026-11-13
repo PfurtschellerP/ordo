@@ -178,8 +178,9 @@ pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> 
 /// Event type: an on-site care unit's name, location, capacity or staff changed (UHS-1).
 pub const UHS_UPDATED: &str = "uhs.updated";
 /// Payload schema of `uhs.updated`: 2 adds the name, 3 the organisation, service and
-/// strength of the UHS as a unit (ADR-0069), 4 the capacity per triage category.
-pub const UHS_UPDATED_SCHEMA: u32 = 4;
+/// strength of the UHS as a unit (ADR-0069), 4 the capacity per triage category, 5 its
+/// leaders of formations and special functions (UNIT-7).
+pub const UHS_UPDATED_SCHEMA: u32 = 5;
 
 /// Payload of `uhs.updated`: the fields given replace earlier values; a field left out
 /// keeps its value.
@@ -217,6 +218,12 @@ pub struct UhsUpdated {
     /// empty map clears it. `capacity` is then their sum.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capacities: Option<BTreeMap<TriageCategory, u32>>,
+    /// Its leaders of formations, next to `strength` (schema version 5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_leaders: Option<u32>,
+    /// Special functions of its people, the whole map (schema version 5; empty clears it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub special: Option<ordo_units::Special>,
 }
 
 /// A field that is there, even as null, is `Some`; a missing one stays `None` (default).
@@ -251,6 +258,8 @@ pub struct UhsDetails {
     pub strength: Option<ordo_units::Strength>,
     /// Patients it can take per triage category (empty: only a total capacity).
     pub capacities: BTreeMap<TriageCategory, u32>,
+    /// Special functions of its people.
+    pub special: ordo_units::Special,
 }
 
 impl UhsDetails {
@@ -284,6 +293,7 @@ pub fn strength_on_scene(
             d.organisation.as_deref().unwrap_or_default(),
             d.service.as_deref().unwrap_or_default(),
             d.strength_on_scene(),
+            &d.special,
         );
     }
     s
@@ -350,7 +360,11 @@ fn uhs_updates(incident_events: &[AppliedEvent]) -> Vec<UhsUpdated> {
 /// Location and staff per unit ID: the latest value of each field.
 pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDetails> {
     let mut details: BTreeMap<String, UhsDetails> = BTreeMap::new();
+    let mut unit_leaders: BTreeMap<String, u32> = BTreeMap::new();
     for u in uhs_updates(incident_events) {
+        if let Some(n) = u.unit_leaders {
+            unit_leaders.insert(u.id.clone(), n);
+        }
         let d = details.entry(u.id).or_default();
         if let Some(location) = u.location {
             d.location = (!location.trim().is_empty()).then_some(location);
@@ -370,6 +384,14 @@ pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDeta
         }
         if let Some(capacities) = u.capacities {
             d.capacities = capacities.into_iter().filter(|(_, n)| *n > 0).collect();
+        }
+        if let Some(special) = u.special {
+            d.special = special.into_iter().filter(|(_, n)| *n > 0).collect();
+        }
+    }
+    for (id, n) in unit_leaders {
+        if let Some(s) = details.get_mut(&id).and_then(|d| d.strength.as_mut()) {
+            s.unit_leaders = n;
         }
     }
     details
@@ -1220,6 +1242,7 @@ mod tests {
             organisation: "DRK".into(),
             service: Some("rescue".into()),
             strength: Some([0, 1, 1].into()),
+            special: ordo_units::Special::new(),
         };
         let events = vec![
             shared(

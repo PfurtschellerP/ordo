@@ -123,6 +123,19 @@ Tags: should, shared, m29
 
 Needs: dsn
 
+#### UNIT-7 — Detailed strength as an option
+`req~unit-7~1`
+
+Where the incident command chooses the detailed notation for its incident, ORDO shall
+give strengths in five numbers (leaders of formations, platoon leaders, sub-leaders,
+other forces, total) and name the special functions of the people (e.g. physicians,
+respirator wearers) after it, as in the 2024 recommendation for DV 102; otherwise ORDO
+shall keep the four-number notation.
+
+Tags: should, shared, m57
+
+Needs: dsn
+
 #### UNIT-6 — Release units
 `req~unit-6~1`
 

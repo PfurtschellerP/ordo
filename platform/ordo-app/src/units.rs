@@ -1,12 +1,12 @@
 //! Units (UNIT-1…6): the view *Einsatzmittel* of the incident command, and the profile's
 //! status codes, services and qualifications (checked at build time, see `build.rs`).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
 
 use leptos::prelude::*;
 use ordo_units::{
-    CrewMember, StatusCatalogue, Strength, Unit, UnitAdded, UnitCatalogue, UnitRegister,
+    CrewMember, Special, StatusCatalogue, Strength, Unit, UnitAdded, UnitCatalogue, UnitRegister,
 };
 
 use crate::core::{self, Handle};
@@ -25,15 +25,201 @@ pub static CATALOGUE: LazyLock<UnitCatalogue> = LazyLock::new(|| {
         .expect("unit catalogue was checked at build time")
 });
 
-/// Crew strength in tactical notation: 0/1/8/9, the total underlined.
+// [impl->dsn~detailed-strength~1]
+/// Crew strength in tactical notation, the total underlined: 0/1/8/9, or in the detailed
+/// notation 0/0/1/8/9 with the special functions after it, "(davon 2 × Ärzte)" (UNIT-7).
 #[component]
-pub(crate) fn StrengthText(strength: Strength) -> impl IntoView {
-    let s = strength;
+pub(crate) fn StrengthText(
+    strength: Strength,
+    #[prop(optional)] special: Special,
+    #[prop(optional)] detailed: bool,
+) -> impl IntoView {
+    let parts = strength.parts(detailed);
+    let (total, rest) = parts.split_last().map_or((0, &[][..]), |(t, r)| (*t, r));
+    let leading: String = rest.iter().map(|n| format!("{n}/")).collect();
+    let special = if detailed {
+        special_text(&special)
+    } else {
+        None
+    };
     view! {
-        <span class="strength" aria-label=text::strength_label(s.leaders, s.sub_leaders, s.crew, s.total())>
-            {format!("{}/{}/{}/", s.leaders, s.sub_leaders, s.crew)}
-            <span class="strength__total">{s.total()}</span>
+        <span class="strength" aria-label=text::strength_label(&strength, detailed, special.as_deref())>
+            {leading}
+            <span class="strength__total">{total}</span>
+            {special.clone().map(|s| format!(" ({s})"))}
         </span>
+    }
+}
+
+/// "davon 2 × Ärzte, 6 × AGT", with the profile's labels; none without special functions.
+pub(crate) fn special_text(special: &Special) -> Option<String> {
+    let listed: Vec<String> = CATALOGUE
+        .special_functions
+        .iter()
+        .filter_map(|f| {
+            special
+                .get(&f.id)
+                .filter(|n| **n > 0)
+                .map(|n| format!("{n} × {}", f.label))
+        })
+        .collect();
+    (!listed.is_empty()).then(|| text::special_functions(&listed.join(", ")))
+}
+
+/// Whether the chosen incident shows strengths in the detailed notation (UNIT-7).
+pub(crate) fn detailed(core: Handle) -> bool {
+    core.with_value(|c| {
+        c.incident_info()
+            .is_some_and(|i| i.details.strength_detailed)
+    })
+}
+
+/// What someone types as a strength: leaders of formations, leaders, sub-leaders, crew,
+/// and the special functions by ID.
+#[derive(Clone, Copy)]
+pub(crate) struct StrengthDraft {
+    pub parts: [RwSignal<String>; 4],
+    pub special: RwSignal<BTreeMap<String, String>>,
+}
+
+impl StrengthDraft {
+    /// A draft filled with `strength` and `special`.
+    pub fn new(strength: Option<Strength>, special: &Special) -> Self {
+        let parts = strength.map(|s| [s.unit_leaders, s.leaders, s.sub_leaders, s.crew]);
+        Self {
+            parts: [0, 1, 2, 3]
+                .map(|i| RwSignal::new(parts.map(|p| p[i].to_string()).unwrap_or_default())),
+            special: RwSignal::new(
+                special
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.to_string()))
+                    .collect(),
+            ),
+        }
+    }
+
+    /// Fills the three-part strength of a template.
+    pub fn fill(&self, [leaders, sub_leaders, crew]: [u32; 3]) {
+        for (signal, n) in self.parts.iter().zip([0, leaders, sub_leaders, crew]) {
+            signal.set(n.to_string());
+        }
+    }
+
+    /// Empties it.
+    pub fn clear(&self) {
+        for s in self.parts {
+            s.set(String::new());
+        }
+        self.special.set(BTreeMap::new());
+    }
+
+    /// The strength (none if all its fields are empty; a missing leader of formations
+    /// counts as 0) and the special functions, or the error to show.
+    pub fn read(&self) -> Result<(Option<Strength>, Special), &'static str> {
+        let texts = self.parts.map(|s| s.get_untracked().trim().to_owned());
+        let number = |t: &str| t.parse::<u32>().ok().filter(|n| *n < 1000);
+        let strength = if texts.iter().all(String::is_empty) {
+            None
+        } else {
+            let unit_leaders = if texts[0].is_empty() {
+                Some(0)
+            } else {
+                number(&texts[0])
+            };
+            match [
+                unit_leaders,
+                number(&texts[1]),
+                number(&texts[2]),
+                number(&texts[3]),
+            ] {
+                [
+                    Some(unit_leaders),
+                    Some(leaders),
+                    Some(sub_leaders),
+                    Some(crew),
+                ] => Some(Strength {
+                    unit_leaders,
+                    leaders,
+                    sub_leaders,
+                    crew,
+                }),
+                _ => return Err(text::STRENGTH_NUMBERS),
+            }
+        };
+        let mut special = Special::new();
+        for (id, value) in self.special.get_untracked() {
+            match value.trim() {
+                "" => {}
+                v => match number(v) {
+                    Some(0) => {}
+                    Some(n) => {
+                        special.insert(id, n);
+                    }
+                    None => return Err(text::STRENGTH_NUMBERS),
+                },
+            }
+        }
+        Ok((strength, special))
+    }
+}
+
+// [impl->dsn~detailed-strength~1]
+/// The fields of a strength: leaders of formations and special functions only in the
+/// detailed notation (UNIT-7).
+#[component]
+pub(crate) fn StrengthFields(
+    draft: StrengthDraft,
+    /// Prefix of the fields' IDs, e.g. `unit` for `unit-leaders`.
+    prefix: String,
+    /// What the strength is of, e.g. "Stärke" or "Stärke der UHS".
+    title: &'static str,
+    detailed: Signal<bool>,
+) -> impl IntoView {
+    // Labels follow the notation: the detailed one names Zugführer and Einsatzkräfte.
+    let field = move |value: RwSignal<String>, id: String, part: usize| {
+        view! {
+            <div class="field field--small">
+                <label for=id.clone()>{move || text::strength_part(part, detailed.get())}</label>
+                <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value />
+            </div>
+        }
+    };
+    let [unit_leaders, leaders, sub_leaders, crew] = draft.parts;
+    let p = prefix.clone();
+    view! {
+        <fieldset class="choices strength-input">
+            <legend>{move || text::strength_legend(title, detailed.get())}</legend>
+            {move || detailed.get().then(|| field(unit_leaders, format!("{p}-unit-leaders"), 0))}
+            {field(leaders, format!("{prefix}-leaders"), 1)}
+            {field(sub_leaders, format!("{prefix}-sub-leaders"), 2)}
+            {field(crew, format!("{prefix}-crew"), 3)}
+        </fieldset>
+        {move || (detailed.get() && !CATALOGUE.special_functions.is_empty()).then(|| {
+            let prefix = prefix.clone();
+            view! {
+                <fieldset class="choices strength-input">
+                    <legend>{text::SPECIAL_FUNCTIONS_LEGEND}</legend>
+                    {CATALOGUE.special_functions.iter().map(|f| {
+                        let id = format!("{prefix}-special-{}", f.id);
+                        let key = f.id.clone();
+                        let current = {
+                            let key = key.clone();
+                            move || draft.special.with(|m| m.get(&key).cloned().unwrap_or_default())
+                        };
+                        view! {
+                            <div class="field field--small">
+                                <label for=id.clone()>{f.label.clone()}</label>
+                                <input id=id type="text" inputmode="numeric" autocomplete="off" prop:value=current
+                                    on:input=move |ev| {
+                                        let value = event_target_value(&ev);
+                                        draft.special.update(|m| { m.insert(key.clone(), value); });
+                                    } />
+                            </div>
+                        }
+                    }).collect_view()}
+                </fieldset>
+            }
+        })}
     }
 }
 
@@ -81,13 +267,13 @@ fn StrengthOnScene(
                             let name = if service {
                                 if key.is_empty() { text::NO_SERVICE.to_owned() } else { UnitCatalogue::label(&CATALOGUE.services, &key).to_owned() }
                             } else if key.is_empty() { text::NO_ORGANISATION.to_owned() } else { key };
-                            view! { <li>{name} ": " {text::units_count(units)} " · " <StrengthText strength /></li> }
+                            view! { <li>{name} ": " {text::units_count(units)} " · " <StrengthText strength detailed=detailed(core) /></li> }
                         })
                         .collect_view()
                 };
                 view! {
                     <p class="strength-on-scene__total">
-                        <strong>{text::units_count(s.units)}</strong> " · " {text::STRENGTH} " " <StrengthText strength=s.total />
+                        <strong>{text::units_count(s.units)}</strong> " · " {text::STRENGTH} " " <StrengthText strength=s.total special=s.special.clone() detailed=detailed(core) />
                         {(s.unreported > 0).then(|| format!(" · {}", text::unreported(s.unreported)))}
                     </p>
                     <div class="strength-on-scene__groups">
@@ -272,7 +458,7 @@ fn UnitCard(
             <h3 class="unit-card__name">{name.clone()}</h3>
             <p class="unit-card__details">
                 {details(&u)}
-                {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength /> })}
+                {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength special=u.special.clone() detailed=detailed(core) /> })}
             </p>
             <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
             // [impl->dsn~tasks~2]
@@ -451,6 +637,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         organisation: u.organisation.clone(),
                                         service: u.service.clone(),
                                         strength: u.strength,
+                                        special: u.special.clone(),
                                     };
                                     vec![Action {
                                         text: text::BACK_IN,
@@ -490,11 +677,11 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let unit_type = RwSignal::new(String::new());
     let organisation = RwSignal::new(String::new());
     let service = RwSignal::new(String::new());
-    let (leaders, sub_leaders, crew) = (
-        RwSignal::new(String::new()),
-        RwSignal::new(String::new()),
-        RwSignal::new(String::new()),
-    );
+    let strength = StrengthDraft::new(None, &Special::new());
+    let detailed = Signal::derive(move || {
+        revision.track();
+        detailed(core)
+    });
     let error = RwSignal::new(None::<&'static str>);
     let vehicles = Memo::new(move |_| {
         revision.track();
@@ -548,11 +735,8 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             unit_type.set(v.unit_type);
             organisation.set(v.organisation);
             service.set(v.service.unwrap_or_default());
-            let [a, b, c] = v.strength.unwrap_or_default();
-            if v.strength.is_some() {
-                leaders.set(a.to_string());
-                sub_leaders.set(b.to_string());
-                crew.set(c.to_string());
+            if let Some(parts) = v.strength {
+                strength.fill(parts);
             }
         }
         call_sign.set(value);
@@ -567,16 +751,10 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             error.set(Some(text::UNIT_MISSING));
             return;
         }
-        let number = |s: RwSignal<String>| s.get_untracked().trim().parse::<u32>().ok();
-        let parts = [number(leaders), number(sub_leaders), number(crew)];
-        let given = [leaders, sub_leaders, crew]
-            .iter()
-            .any(|s| !s.get_untracked().trim().is_empty());
-        let strength = match parts {
-            [Some(a), Some(b), Some(c)] => Some(Strength::from([a, b, c])),
-            _ if !given => None,
-            _ => {
-                error.set(Some(text::STRENGTH_NUMBERS));
+        let (reported, special) = match strength.read() {
+            Ok(read) => read,
+            Err(e) => {
+                error.set(Some(e));
                 return;
             }
         };
@@ -586,19 +764,14 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             unit_type: t,
             organisation: organisation.get_untracked().trim().to_owned(),
             service: (!service.is_empty()).then_some(service),
-            strength,
+            strength: reported,
+            special,
         };
         if core::add_unit(core, revision, unit).is_ok() {
-            for s in [
-                call_sign,
-                unit_type,
-                organisation,
-                leaders,
-                sub_leaders,
-                crew,
-            ] {
+            for s in [call_sign, unit_type, organisation] {
                 s.set(String::new());
             }
+            strength.clear();
             error.set(None);
         }
     };
@@ -630,18 +803,7 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     </select>
                 </div>
             </div>
-            <fieldset class="choices strength-input">
-                <legend>{text::STRENGTH_LEGEND}</legend>
-                {[(leaders, "unit-leaders", text::LEADERS), (sub_leaders, "unit-sub-leaders", text::SUB_LEADERS), (crew, "unit-crew", text::CREW_COUNT)]
-                    .into_iter()
-                    .map(|(value, id, label)| view! {
-                        <div class="field field--small">
-                            <label for=id>{label}</label>
-                            <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value />
-                        </div>
-                    })
-                    .collect_view()}
-            </fieldset>
+            <StrengthFields draft=strength prefix="unit".to_owned() title=text::STRENGTH detailed />
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
                 <button type="submit" class="button">{text::UNIT_SUBMIT}</button>
@@ -662,6 +824,7 @@ mod tests {
             organisation: "DRK".into(),
             service: Some("rescue".into()),
             strength: None,
+            special: Special::new(),
             status: None,
             crew: Vec::new(),
             presence: Vec::new(),

@@ -1114,8 +1114,8 @@ struct UhsDraft {
     person: RwSignal<String>,
     organisation: RwSignal<String>,
     service: RwSignal<String>,
-    /// Leaders, sub-leaders, crew.
-    strength: [RwSignal<String>; 3],
+    /// Its strength as a unit.
+    strength: crate::units::StrengthDraft,
     /// Capacity per category, in the order of [`CAPACITY_CATEGORIES`].
     capacities: [RwSignal<String>; 5],
 }
@@ -1138,7 +1138,6 @@ impl UhsDraft {
         let mut out = None;
         drafts.update_value(|m| {
             let d = *m.entry(id.to_owned()).or_insert_with(|| {
-                let reported = details.strength.map(|s| [s.leaders, s.sub_leaders, s.crew]);
                 owner.with(|| UhsDraft {
                     open: RwSignal::new(false),
                     name: RwSignal::new(name.to_owned()),
@@ -1146,9 +1145,7 @@ impl UhsDraft {
                     person: RwSignal::new(String::new()),
                     organisation: RwSignal::new(details.organisation.clone().unwrap_or_default()),
                     service: RwSignal::new(details.service.clone().unwrap_or_default()),
-                    strength: [0, 1, 2].map(|i| {
-                        RwSignal::new(reported.map(|r| r[i].to_string()).unwrap_or_default())
-                    }),
+                    strength: crate::units::StrengthDraft::new(details.strength, &details.special),
                     capacities: CAPACITY_CATEGORIES.map(|c| {
                         RwSignal::new(
                             details
@@ -1235,20 +1232,18 @@ fn UhsDetailsPanel(
                 return;
             }
             // [impl->dsn~uhs-as-unit~1]
-            // Its strength as a unit: all three numbers, or none.
-            let parts = strength.map(|s| s.get_untracked().trim().to_owned());
-            let reported = match parts.each_ref().map(|p| p.parse::<u32>().ok()) {
-                [Some(a), Some(b), Some(c)] => Some([a, b, c]),
-                _ if parts.iter().all(String::is_empty) => None,
-                _ => {
-                    error.set(Some(text::STRENGTH_NUMBERS));
+            // Its strength as a unit, or none, and its special functions.
+            let (reported, special) = match strength.read() {
+                Ok(read) => read,
+                Err(e) => {
+                    error.set(Some(e));
                     return;
                 }
             };
             let was = (
                 details.organisation.clone().unwrap_or_default(),
                 details.service.clone().unwrap_or_default(),
-                details.strength.map(|s| [s.leaders, s.sub_leaders, s.crew]),
+                details.strength,
             );
             let now = (
                 organisation.get_untracked().trim().to_owned(),
@@ -1267,7 +1262,12 @@ fn UhsDetailsPanel(
                 // Only what changed is sent, as for the name.
                 organisation: (now.0 != was.0).then(|| now.0.clone()),
                 service: (now.1 != was.1).then(|| now.1.clone()),
-                strength: (now.2 != was.2).then_some(now.2),
+                strength: (now.2 != was.2)
+                    .then_some(now.2.map(|s| [s.leaders, s.sub_leaders, s.crew])),
+                // [impl->dsn~detailed-strength~1]
+                unit_leaders: (now.2.map(|s| s.unit_leaders) != was.2.map(|s| s.unit_leaders))
+                    .then(|| now.2.map_or(0, |s| s.unit_leaders)),
+                special: (special != details.special).then(|| special.clone()),
                 capacities: (by_category != details.capacities).then(|| by_category.clone()),
             };
             if core::update_uhs(core, revision, &update).is_ok() {
@@ -1358,22 +1358,8 @@ fn UhsDetailsPanel(
                         {crate::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
                     </select>
                 </div>
-                <fieldset class="choices strength-input">
-                    <legend>{text::UHS_STRENGTH_LEGEND}</legend>
-                    {strength
-                        .into_iter()
-                        .zip([("leaders", text::LEADERS), ("sub-leaders", text::SUB_LEADERS), ("crew", text::CREW_COUNT)])
-                        .map(|(value, (part, label))| {
-                            let id = format!("uhs-{part}-{slug}");
-                            view! {
-                                <div class="field field--small">
-                                    <label for=id.clone()>{label}</label>
-                                    <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value />
-                                </div>
-                            }
-                        })
-                        .collect_view()}
-                </fieldset>
+                <crate::units::StrengthFields draft=strength prefix=format!("uhs-{slug}") title=text::UHS_STRENGTH
+                    detailed=Signal::derive(move || { revision.track(); crate::units::detailed(core) }) />
                 <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
                 <fieldset class="choices strength-input" aria-describedby=format!("uhs-capacities-hint-{slug}")>
                     <legend>{text::UHS_CAPACITIES_LEGEND}</legend>

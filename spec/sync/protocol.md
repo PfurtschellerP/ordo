@@ -117,7 +117,8 @@ Incidents and their rosters are events of the module `incidents` in the incident
 `incident` compartment ([ADR-0046](../../docs/adr/0046-roles-granted-per-incident.md)):
 `incidents.planned` (`name`), `incidents.stateChanged` (`state`: planned, active, closed),
 `incidents.detailsChanged` (`description` up to 4,000 characters, optional `startsAt` and
-`endsAt` in ms since the Unix epoch, the end not before the start; the latest counts),
+`endsAt` in ms since the Unix epoch, the end not before the start; schema version 2 adds
+`strengthDetailed`, the notation of strengths; the latest counts),
 `incidents.pauseChanged` (`paused`: a running incident paused or resumed; closing it ends
 a pause), `incidents.roleGranted` and `incidents.roleWithdrawn` (`user`, `role`). The server MUST:
 

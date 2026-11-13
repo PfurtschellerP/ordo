@@ -721,6 +721,7 @@ fn several_uhs_and_units_in_one_incident() {
             organisation: "DRK Musterstadt".into(),
             service: None,
             strength: None,
+            special: Default::default(),
         }
         .encode()
         .unwrap();
@@ -1223,6 +1224,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
             organisation: org.into(),
             service: Some(service.into()),
             strength: Some(units::Strength::from(strength)),
+            special: Default::default(),
         }
         .encode()
         .unwrap();

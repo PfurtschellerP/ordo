@@ -20,19 +20,25 @@ pub const COMPARTMENT: &str = "incident";
 pub const STATUS_CHANGED: &str = "units.statusChanged";
 /// Event type: a unit (vehicle, team or other resource) joined the incident.
 pub const ADDED: &str = "units.added";
-/// Schema version of `units.added`: 2 since it carries service and strength; version 1
-/// payloads decode without them.
-pub const ADDED_SCHEMA: u32 = 2;
+/// Schema version of `units.added`: 2 since it carries service and strength, 3 since the
+/// strength may name leaders of formations and special functions; older payloads decode
+/// without them.
+pub const ADDED_SCHEMA: u32 = 3;
 /// Event type: a unit left the incident (UNIT-6); it stays in the history.
 pub const RELEASED: &str = "units.released";
 /// Event type: the crew of a unit was set (UNIT-5), the whole list.
 pub const CREW_SET: &str = "units.crewSet";
 
 /// Crew strength in tactical notation (UNIT-2): leaders (*Führer*), sub-leaders
-/// (*Unterführer*) and crew (*Mannschaft*); the total is computed.
+/// (*Unterführer*) and crew (*Mannschaft*); the total is computed. Leaders of formations
+/// (*Führer von Verbänden*) are kept apart from the other leaders (*Zugführer*) for the
+/// detailed notation (UNIT-7); the three-part notation shows both as leaders.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Strength {
-    /// *Führer*.
+    /// *Führer von Verbänden* (schema version 3 of `units.added`; 0 if not given).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub unit_leaders: u32,
+    /// *Führer*: in the detailed notation *Zugführer*.
     pub leaders: u32,
     /// *Unterführer*.
     pub sub_leaders: u32,
@@ -40,14 +46,45 @@ pub struct Strength {
     pub crew: u32,
 }
 
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
+/// Special functions of a unit's people (UNIT-7), by ID from the profile, e.g. physicians
+/// or respirator wearers: how many of its strength have them ("davon"), not added to it.
+pub type Special = BTreeMap<String, u32>;
+
 impl Strength {
     /// Everyone.
     pub fn total(&self) -> u32 {
-        self.leaders + self.sub_leaders + self.crew
+        self.unit_leaders + self.leaders + self.sub_leaders + self.crew
+    }
+
+    // [impl->dsn~detailed-strength~1]
+    /// The numbers of the notation, the total last: four in the three-part notation (leaders
+    /// of formations counted as leaders), five in the detailed one.
+    pub fn parts(&self, detailed: bool) -> Vec<u32> {
+        if detailed {
+            vec![
+                self.unit_leaders,
+                self.leaders,
+                self.sub_leaders,
+                self.crew,
+                self.total(),
+            ]
+        } else {
+            vec![
+                self.unit_leaders + self.leaders,
+                self.sub_leaders,
+                self.crew,
+                self.total(),
+            ]
+        }
     }
 
     /// Adds another strength.
     pub fn add(&mut self, other: Strength) {
+        self.unit_leaders += other.unit_leaders;
         self.leaders += other.leaders;
         self.sub_leaders += other.sub_leaders;
         self.crew += other.crew;
@@ -57,10 +94,18 @@ impl Strength {
 impl From<[u32; 3]> for Strength {
     fn from([leaders, sub_leaders, crew]: [u32; 3]) -> Self {
         Self {
+            unit_leaders: 0,
             leaders,
             sub_leaders,
             crew,
         }
+    }
+}
+
+/// Adds the special functions of `other` to `into`.
+pub fn add_special(into: &mut Special, other: &Special) {
+    for (id, n) in other {
+        *into.entry(id.clone()).or_default() += n;
     }
 }
 
@@ -79,6 +124,9 @@ pub struct UnitAdded {
     /// Crew strength (schema version 2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strength: Option<Strength>,
+    /// Special functions of its people (schema version 3).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub special: Special,
 }
 
 impl UnitAdded {
@@ -161,6 +209,8 @@ pub struct Unit {
     pub service: Option<String>,
     /// Crew strength, if reported.
     pub strength: Option<Strength>,
+    /// Special functions of its people.
+    pub special: Special,
     /// Current status, if one was set.
     pub status: Option<UnitStatus>,
     /// The crew (latest list).
@@ -191,12 +241,22 @@ pub struct StrengthOnScene {
     pub by_organisation: BTreeMap<String, (u32, Strength)>,
     /// Units and strength per service ID (`""`: none given).
     pub by_service: BTreeMap<String, (u32, Strength)>,
+    /// Special functions of all units present.
+    pub special: Special,
 }
 
 impl StrengthOnScene {
     /// Counts one unit present, of `organisation` and `service` (`""`: none given), with
-    /// its strength if reported. Packages count their own units this way, e.g. a UHS.
-    pub fn count(&mut self, organisation: &str, service: &str, strength: Option<Strength>) {
+    /// its strength if reported and its special functions. Packages count their own units
+    /// this way, e.g. a UHS.
+    pub fn count(
+        &mut self,
+        organisation: &str,
+        service: &str,
+        strength: Option<Strength>,
+        special: &Special,
+    ) {
+        add_special(&mut self.special, special);
         self.units += 1;
         if strength.is_none() {
             self.unreported += 1;
@@ -266,6 +326,7 @@ impl UnitRegister {
                             u.organisation = a.organisation;
                             u.service = a.service;
                             u.strength = a.strength;
+                            u.special = a.special;
                             u.presence.push(entry);
                         }
                         None => {
@@ -278,6 +339,7 @@ impl UnitRegister {
                                     organisation: a.organisation,
                                     service: a.service,
                                     strength: a.strength,
+                                    special: a.special,
                                     crew: Vec::new(),
                                     presence: vec![entry],
                                 },
@@ -321,6 +383,7 @@ impl UnitRegister {
                 &u.organisation,
                 u.service.as_deref().unwrap_or_default(),
                 u.strength,
+                &u.special,
             );
         }
         s
@@ -345,6 +408,9 @@ pub struct UnitCatalogue {
     /// Qualifications of crew members.
     #[serde(rename = "qualification", default)]
     pub qualifications: Vec<Entry>,
+    /// Special functions counted apart in the detailed strength (UNIT-7), e.g. physicians.
+    #[serde(rename = "special_function", default)]
+    pub special_functions: Vec<Entry>,
 }
 
 impl UnitCatalogue {
@@ -356,6 +422,7 @@ impl UnitCatalogue {
         for (name, list) in [
             ("service", &self.services),
             ("qualification", &self.qualifications),
+            ("special function", &self.special_functions),
         ] {
             let mut seen = std::collections::HashSet::new();
             if let Some(e) = list.iter().find(|e| !seen.insert(e.id.as_str())) {
@@ -567,6 +634,7 @@ mod tests {
             organisation: org.into(),
             service: Some(service.into()),
             strength: strength.map(Strength::from),
+            special: Special::new(),
         };
         event(n, ADDED, a.encode().unwrap())
     }
@@ -615,6 +683,62 @@ mod tests {
             "released units are not counted"
         );
         assert_eq!(Strength::from([0, 1, 8]).total(), 9);
+    }
+
+    // [utest->dsn~detailed-strength~1]
+    #[test]
+    fn the_detailed_notation_keeps_leaders_of_formations_and_special_functions_apart() {
+        let s = Strength {
+            unit_leaders: 1,
+            leaders: 1,
+            sub_leaders: 6,
+            crew: 40,
+        };
+        assert_eq!(
+            s.parts(true),
+            [1, 1, 6, 40, 48],
+            "the example of DV 102, 5.3"
+        );
+        assert_eq!(s.parts(false), [2, 6, 40, 48], "both leaders as Führer");
+        let doctors = Special::from([("physician".to_owned(), 2), ("respirator".to_owned(), 6)]);
+        let a = UnitAdded {
+            unit: "SEG 1".into(),
+            unit_type: "SEG".into(),
+            organisation: "DRK".into(),
+            service: None,
+            strength: Some(s),
+            special: doctors.clone(),
+        };
+        let mut b = a.clone();
+        b.unit = "SEG 2".into();
+        let register = UnitRegister::from_events(&[
+            event(1, ADDED, a.encode().unwrap()),
+            event(2, ADDED, b.encode().unwrap()),
+        ]);
+        let on_scene = register.strength_on_scene();
+        assert_eq!(on_scene.total.total(), 96);
+        assert_eq!(on_scene.special["physician"], 4, "special functions add up");
+        // A strength of schema version 2 has no leaders of formations.
+        #[derive(Serialize)]
+        struct StrengthV2 {
+            leaders: u32,
+            sub_leaders: u32,
+            crew: u32,
+        }
+        let old = StrengthV2 {
+            leaders: 0,
+            sub_leaders: 1,
+            crew: 1,
+        };
+        let v2: Strength = codec::from_cbor(&codec::to_cbor(&old).unwrap()).unwrap();
+        assert_eq!(v2, Strength::from([0, 1, 1]));
+        assert!(
+            !codec::to_cbor(&v2)
+                .unwrap()
+                .windows(12)
+                .any(|w| w == b"unit_leaders"),
+            "not written when 0"
+        );
     }
 
     // [utest->dsn~unit-register~2]

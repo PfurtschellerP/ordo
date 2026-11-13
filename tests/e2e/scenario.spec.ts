@@ -1039,6 +1039,28 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(uhsCard.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
+    // [itest->dsn~detailed-strength~1]
+    // UNIT-7: the incident command chooses the detailed notation of DV 102 (2024).
+    const total = ben.locator(".strength-on-scene__total");
+    const notation = async (detailed: boolean) => {
+      await openView(ben, "Einsatz");
+      await ben.locator("#incident-strength-detailed").setChecked(detailed);
+      await ben.getByRole("button", { name: "Angaben speichern" }).click();
+      await expect(ben.locator("[aria-labelledby=incident-details-title] [role=status]")).toHaveText("Angaben zum Einsatz gespeichert.");
+      await openView(ben, "Einsatzmittel");
+    };
+    await notation(true);
+    await expect(total, "five numbers").toHaveText("3 Einsatzmittel · Stärke 0/0/2/4/6 · ohne Stärkemeldung: 1");
+    await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(uhsCard.getByLabel("Zugführer", { exact: true }), "the forms name the detailed parts").toHaveValue("0");
+    await uhsCard.getByLabel("Führer von Verbänden", { exact: true }).fill("1");
+    await uhsCard.getByLabel("Ärzte", { exact: true }).fill("1");
+    await uhsCard.getByRole("button", { name: "Speichern" }).click();
+    await expect(total, "with the special functions after it").toHaveText("3 Einsatzmittel · Stärke 1/0/2/4/7 (davon 1 × Ärzte) · ohne Stärkemeldung: 1");
+    await expect(ben.locator("#unit-unit-leaders"), "the unit form asks for leaders of formations too").toBeVisible();
+    await audit(ben, "Detailed strength");
+    await notation(false);
+    await expect(total, "back to four numbers: both leaders as Führer").toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));

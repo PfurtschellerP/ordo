@@ -247,7 +247,8 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
 
 * **Join** (`units.added`, schema version 2): call sign, type, organisation, service and
   crew strength (Führer, Unterführer, Mannschaft; the total is computed, shown in
-  tactical notation as 0/1/8/9). Services come from the profile (`units/catalogue.toml`).
+  tactical notation as 0/1/8/9). Schema version 3 adds leaders of formations and special
+  functions (*Detailed strength*). Services come from the profile (`units/catalogue.toml`).
   Version 1 payloads decode without service and strength.
 * **From master data:** the organisation's vehicles (call sign, type, organisation,
   service, usual strength), managed in *Administration – Stammdaten* or fixed in a server
@@ -581,6 +582,31 @@ Covers:
 Needs: impl, itest
 
 Tags: must, m39
+
+#### Detailed strength
+`dsn~detailed-strength~1`
+
+The strength notation follows the BBK recommendation "Taktische Zeichen im
+Bevölkerungsschutz" (2024, section 5.3) where the incident command chooses it on
+*Vorbereitung – Einsatz* (`incidents.detailsChanged` schema version 2, `strengthDetailed`).
+A strength keeps leaders of formations (*Führer von Verbänden*, `unit_leaders`, 0 if not
+given) apart from the other leaders; `units.added` schema version 3 and `uhs.updated`
+schema version 5 add them and the special functions of the people (`special`: count per ID
+from the profile's `[[special_function]]` in `units/catalogue.toml`, e.g. physicians,
+respirator wearers), which count as "davon", not on top. In the detailed notation the
+forms ask for *Führer von Verbänden / Zugführer / Unterführer / Einsatzkräfte* and the
+special functions, and strengths read 1/1/6/40/48 with the total underlined and "(davon
+2 × Ärzte, 6 × AGT)" after it. Otherwise they read 2/6/40/48: both kinds of leaders as
+*Führer*. The data is the same in both, so the choice can change at any time. Vehicle
+master data keeps the three-part strength.
+
+Covers:
+
+* [req~unit-7~1](../requirements/02-shared.md#unit-7--detailed-strength-as-an-option)
+
+Needs: impl, utest, itest
+
+Tags: should, m57
 
 #### UHS as a unit
 `dsn~uhs-as-unit~1`

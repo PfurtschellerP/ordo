@@ -72,7 +72,18 @@ pub struct Details {
     /// Planned end, ms since the Unix epoch (UTC); not before the start.
     #[serde(default, rename = "endsAt", skip_serializing_if = "Option::is_none")]
     pub ends_at: Option<u64>,
+    /// Whether strengths are shown in the detailed notation, with leaders of formations and
+    /// special functions (UNIT-7; schema version 2).
+    #[serde(
+        default,
+        rename = "strengthDetailed",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub strength_detailed: bool,
 }
+
+/// Payload schema of [`DETAILS_CHANGED`]: 2 adds `strengthDetailed`.
+pub const DETAILS_SCHEMA: u32 = 2;
 
 impl Details {
     /// Whether the details can be stored: a bounded description, an end not before the
@@ -381,6 +392,7 @@ mod tests {
             description: "Drei Tage, 20 000 Gäste".into(),
             starts_at: Some(1_000),
             ends_at: Some(2_000),
+            strength_detailed: true,
         };
         assert!(is_valid(DETAILS_CHANGED, &details.encode().unwrap()));
         r.apply(&event(

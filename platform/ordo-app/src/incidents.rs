@@ -198,6 +198,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             .map(core::local_input_time)
             .unwrap_or_default(),
     );
+    let strength_detailed = RwSignal::new(stored.strength_detailed);
     let details_status = RwSignal::new(None::<String>);
     let save_details = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -218,6 +219,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             description: description.get_untracked().trim().to_owned(),
             starts_at,
             ends_at,
+            strength_detailed: strength_detailed.get_untracked(),
         };
         details_status.set(Some(
             match core::set_incident_details(core, revision, &details) {
@@ -299,6 +301,14 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         <label for="incident-ends">{text::INCIDENT_ENDS}</label>
                         <input id="incident-ends" type="datetime-local" disabled=move || !manage.get() bind:value=ends />
                     </div>
+                </div>
+                // [impl->dsn~detailed-strength~1]
+                <div class="field">
+                    <label class="choice chip">
+                        <input id="incident-strength-detailed" type="checkbox" disabled=move || !manage.get()
+                            bind:checked=strength_detailed />
+                        {text::STRENGTH_DETAILED}
+                    </label>
                 </div>
                 <Show when=move || manage.get()>
                     <div class="row">
