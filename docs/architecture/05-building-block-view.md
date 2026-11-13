@@ -586,6 +586,28 @@ Needs: impl, utest, itest
 
 Tags: should, m59
 
+#### Crews from the register
+`dsn~crews-from-register~1`
+
+Where a device reads the helper register (the incident command), a unit's crew is taken
+from it: the crew form suggests the registered helpers by name and accepts a name or an
+account of the register. A name not in it is offered "Erfassen und hinzufügen", which
+registers a helper with that name alone (and, if it is a user ID, as their account) and then
+adds them. `units.crewSet` schema version 2 gives a member the helper's ID besides the name;
+nothing else leaves `people`, and devices without the register show the name. With no
+qualifications chosen, the member gets the helper's. Double bookings
+([Double booking](#double-booking)) are matched by helper where a member is linked, and a
+UHS staff entry that is a helper's account counts as that helper; unlinked entries are
+matched by name, as before. Devices that do not read the register add names as before.
+
+Covers:
+
+* [req~help-3~1](../requirements/02-shared.md#help-3--crews-from-the-register)
+
+Needs: impl, utest, itest
+
+Tags: should, m59
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff

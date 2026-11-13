@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-13
 ---
 
@@ -63,7 +63,7 @@ as an import (ORG-1, ORG-2).
 * Good, because crews stay readable for everyone in the incident by name, as before.
 * Bad, because the first deletion of stored events needs its own path on the server and
   on devices; until then (part 3 of item 9) `people` is kept like other streams.
-* Neutral: the default period is a proposal; the product owner decides it before this record is accepted.
+* Neutral: the product owner confirmed the default of 90 days on 2026-11-13.
 
 ## More Information
 

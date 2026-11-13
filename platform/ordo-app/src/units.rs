@@ -255,7 +255,7 @@ fn StrengthOnScene(
     let summary = Memo::new(move |_| {
         revision.track();
         let events = core.with_value(|c| c.events(ordo_med_patients::UHS_COMPARTMENT));
-        register.with(|r| ordo_med_patients::strength_on_scene(r, &events))
+        register.with(|r| on_scene(core, r, &events))
     });
     view! {
         <section class="strength-on-scene" aria-labelledby="strength-title">
@@ -318,14 +318,66 @@ pub(crate) fn several_labels(several: &[(String, Vec<Post>)]) -> Vec<String> {
 /// Where people are assigned in the chosen incident: the crews of the units present and the
 /// UHS staff lists (UNIT-8).
 pub(crate) fn assignments(core: Handle) -> Assignments {
-    core.with_value(|c| {
-        let events = c.events(ordo_units::COMPARTMENT);
-        ordo_med_patients::strength_on_scene(&UnitRegister::from_events(&events), &events).people
-    })
+    let events = core.with_value(|c| c.events(ordo_units::COMPARTMENT));
+    on_scene(core, &UnitRegister::from_events(&events), &events).people
 }
 
-/// Takes `person` off the crews and UHS staff lists of `from`, to assign them elsewhere.
-pub(crate) fn move_away(core: Handle, revision: RwSignal<u64>, person: &str, from: &[Post]) {
+// [impl->dsn~crews-from-register~1]
+/// The strength on scene with every UHS (UHS-12), where a helper's account on a UHS staff
+/// list counts as that helper (HELP-2), so double bookings are found across both.
+pub(crate) fn on_scene(
+    core: Handle,
+    units: &UnitRegister,
+    events: &[ordo_sync::AppliedEvent],
+) -> ordo_units::StrengthOnScene {
+    let mut s = ordo_med_patients::strength_on_scene(units, events);
+    for h in crate::helpers::register(core)
+        .iter()
+        .flat_map(|r| r.helpers.values())
+    {
+        if let Some(account) = &h.fields.account {
+            s.people.link(account, &h.id);
+        }
+    }
+    s
+}
+
+/// A person being assigned: as typed, the helper of the register if linked, and the
+/// helper's account, which UHS staff lists use.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Who {
+    pub name: String,
+    pub helper: Option<String>,
+    pub account: Option<String>,
+}
+
+impl Who {
+    /// Whether the crew member `m` is this person: by helper where both are linked, else
+    /// by name.
+    fn is_member(&self, m: &CrewMember) -> bool {
+        match (&self.helper, &m.helper) {
+            (Some(a), Some(b)) => a == b,
+            _ => ordo_units::same_person(&m.name, &self.name),
+        }
+    }
+
+    /// Whether the UHS staff entry `s` is this person: by name or by the helper's account.
+    fn is_staff(&self, s: &str) -> bool {
+        ordo_units::same_person(s, &self.name)
+            || self
+                .account
+                .as_deref()
+                .is_some_and(|a| ordo_units::same_person(s, a))
+    }
+
+    /// Where else this person is assigned.
+    pub fn elsewhere(&self, core: Handle, here: &Post) -> Vec<Post> {
+        assignments(core).elsewhere(&self.name, self.helper.as_deref(), here)
+    }
+}
+
+/// Takes `who` off the crews and UHS staff lists of `from`, to assign them elsewhere.
+pub(crate) fn move_away(core: Handle, revision: RwSignal<u64>, who: &Who, from: &[Post]) {
     let (register, uhs) = core.with_value(|c| {
         let events = c.events(ordo_units::COMPARTMENT);
         (
@@ -338,7 +390,7 @@ pub(crate) fn move_away(core: Handle, revision: RwSignal<u64>, person: &str, fro
             let crew = unit
                 .crew
                 .iter()
-                .filter(|m| !ordo_units::same_person(&m.name, person))
+                .filter(|m| !who.is_member(m))
                 .cloned()
                 .collect();
             let _ = core::set_crew(core, revision, &unit.unit, crew);
@@ -348,7 +400,7 @@ pub(crate) fn move_away(core: Handle, revision: RwSignal<u64>, person: &str, fro
                 .map(|d| {
                     d.staff
                         .iter()
-                        .filter(|s| !ordo_units::same_person(s, person))
+                        .filter(|s| !who.is_staff(s))
                         .cloned()
                         .collect()
                 })
@@ -409,6 +461,8 @@ struct CrewDraft {
     qualifications: RwSignal<BTreeSet<String>>,
     /// Where the person being added is assigned already (UNIT-8).
     elsewhere: RwSignal<Vec<Post>>,
+    /// The person being added is not in the helper register (HELP-3).
+    unregistered: RwSignal<bool>,
 }
 
 /// The crew of a unit (UNIT-5): members with qualifications; adding and removing writes the
@@ -427,58 +481,140 @@ fn CrewEditor(
         person,
         qualifications,
         elsewhere,
+        unregistered,
         ..
     } = draft;
+    // [impl->dsn~crews-from-register~1]
+    // Crews come from the helper register where this device reads it (HELP-3).
+    let register = Memo::new(move |_| {
+        revision.track();
+        crate::helpers::register(core)
+    });
     let people = Memo::new(move |_| {
         revision.track();
-        core::incident_people(core)
+        match register.get() {
+            Some(r) => r.by_name().iter().map(|h| h.name().to_owned()).collect(),
+            None => core::incident_people(core),
+        }
     });
+    // The person typed, from the register; `None`: not in it.
+    let resolve = move |typed: &str| -> Option<Who> {
+        let Some(r) = register.get_untracked() else {
+            return Some(Who {
+                name: typed.to_owned(),
+                ..Who::default()
+            });
+        };
+        let h = r.by_name().into_iter().find(|h| {
+            ordo_units::same_person(h.name(), typed)
+                || h.fields
+                    .account
+                    .as_deref()
+                    .is_some_and(|a| ordo_units::same_person(a, typed))
+        })?;
+        Some(Who {
+            name: h.name().to_owned(),
+            helper: Some(h.id.clone()),
+            account: h.fields.account.clone(),
+        })
+    };
     let field = format!("crew-{}", core::slug(&name));
     let commit = {
         let (name, members) = (name.clone(), members.clone());
-        Callback::new(move |who: String| {
+        Callback::new(move |who: Who| {
             let mut list = members.clone();
             // Moved here while on the list already: kept once.
-            list.retain(|m| !ordo_units::same_person(&m.name, &who));
+            list.retain(|m| !who.is_member(m));
+            let mut quals: Vec<String> = CATALOGUE
+                .qualifications
+                .iter()
+                .filter(|q| qualifications.with_untracked(|s| s.contains(&q.id)))
+                .map(|q| q.id.clone())
+                .collect();
+            if quals.is_empty() {
+                // None chosen: the helper's, from the register.
+                quals = who
+                    .helper
+                    .as_ref()
+                    .and_then(|id| {
+                        register.with_untracked(|r| {
+                            r.as_ref()?.helpers.get(id)?.fields.qualifications.clone()
+                        })
+                    })
+                    .unwrap_or_default();
+            }
             list.push(CrewMember {
-                name: who,
-                qualifications: CATALOGUE
-                    .qualifications
-                    .iter()
-                    .filter(|q| qualifications.with_untracked(|s| s.contains(&q.id)))
-                    .map(|q| q.id.clone())
-                    .collect(),
+                name: who.name,
+                qualifications: quals,
+                helper: who.helper,
             });
             if core::set_crew(core, revision, &name, list).is_ok() {
                 person.set(String::new());
                 qualifications.set(BTreeSet::new());
                 elsewhere.set(Vec::new());
+                unregistered.set(false);
             }
         })
     };
     let here = Post::unit(&name);
     // [impl->dsn~double-booking~1]
     // Someone on another crew or UHS is moved here, not counted twice (UNIT-8).
-    let add = {
+    let place = {
         let here = here.clone();
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
-            let who = person.get_untracked().trim().to_owned();
-            if who.is_empty() {
-                return;
-            }
-            let away = assignments(core).elsewhere(&who, &here);
+        Callback::new(move |who: Who| {
+            let away = who.elsewhere(core, &here);
             if away.is_empty() {
                 commit.run(who);
             } else {
                 elsewhere.set(away);
             }
+        })
+    };
+    let add = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let typed = person.get_untracked().trim().to_owned();
+        if typed.is_empty() {
+            return;
+        }
+        match resolve(&typed) {
+            Some(who) => place.run(who),
+            None => unregistered.set(true),
         }
     };
+    // Registered with the name alone, then added (HELP-3).
+    let register_and_add = Callback::new(move |()| {
+        let typed = person.get_untracked().trim().to_owned();
+        let Some(id) = core::new_ulid() else { return };
+        // A user ID typed is the helper's account, as on UHS staff lists (HELP-2).
+        let account = typed
+            .parse::<ordo_core::UserId>()
+            .is_ok()
+            .then(|| typed.clone());
+        let change = ordo_helpers::HelperChange {
+            helper: id.to_string(),
+            fields: ordo_helpers::Fields {
+                name: Some(typed.clone()),
+                account: account.clone(),
+                ..ordo_helpers::Fields::default()
+            },
+        };
+        if change.check(true).is_ok()
+            && core::helper_event(core, revision, true, &change, &typed).is_ok()
+        {
+            unregistered.set(false);
+            place.run(Who {
+                name: typed,
+                helper: Some(change.helper),
+                account,
+            });
+        }
+    });
     let on_move = Callback::new(move |()| {
-        let who = person.get_untracked().trim().to_owned();
-        move_away(core, revision, &who, &elsewhere.get_untracked());
-        commit.run(who);
+        let typed = person.get_untracked().trim().to_owned();
+        if let Some(who) = resolve(&typed) {
+            move_away(core, revision, &who, &elsewhere.get_untracked());
+            commit.run(who);
+        }
     });
     let options: Vec<(String, String)> = CATALOGUE
         .qualifications
@@ -539,6 +675,21 @@ fn CrewEditor(
                     <button type="submit" class="button button--small">{text::CREW_ADD}</button>
                 </div>
                 <AssignedElsewhere person elsewhere here=here.label.clone() on_move />
+                <Show when=move || unregistered.get()>
+                    <div class="notice notice--warning assigned-elsewhere" role="alert">
+                        <p>{move || text::not_registered(person.get().trim())}</p>
+                        <div class="row">
+                            <button type="button" class="button button--small"
+                                aria-label=move || text::register_and_add_label(person.get().trim())
+                                on:click=move |_| register_and_add.run(())>
+                                {text::REGISTER_AND_ADD}
+                            </button>
+                            <button type="button" class="button button--small button--quiet" on:click=move |_| unregistered.set(false)>
+                                {text::CANCEL}
+                            </button>
+                        </div>
+                    </div>
+                </Show>
             </form>
         })}
     }
@@ -783,6 +934,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     person: RwSignal::new(String::new()),
                     qualifications: RwSignal::new(BTreeSet::new()),
                     elsewhere: RwSignal::new(Vec::new()),
+                    unregistered: RwSignal::new(false),
                 })
             }));
         });

@@ -299,7 +299,7 @@ pub fn strength_on_scene(
         );
         let post = uhs_post(&u.id, &u.name);
         for person in &d.staff {
-            s.people.add(person, &post);
+            s.people.add(person, None, &post);
         }
     }
     s
@@ -1321,6 +1321,7 @@ mod tests {
             members: vec![ordo_units::CrewMember {
                 name: "Ben".into(),
                 qualifications: Vec::new(),
+                helper: None,
             }],
         };
         let mut both = events.clone();

@@ -260,6 +260,7 @@ impl Core {
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
+            (units::MODULE, units::CREW_SET) => units::CREW_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
             (patients::UHS_MODULE, patients::UHS_PLACES) => patients::UHS_PLACES_SCHEMA,
             (incidents::MODULE, incidents::DETAILS_CHANGED) => incidents::DETAILS_SCHEMA,

@@ -13,7 +13,7 @@ use crate::ui::{Action, Actions, CheckChips, Suggestions};
 use crate::units::CATALOGUE;
 
 /// The register, if this device may read it: granted by the server, or kept from before.
-fn register(core: Handle) -> Option<HelperRegister> {
+pub(crate) fn register(core: Handle) -> Option<HelperRegister> {
     let events = core.with_value(|c| c.events(ordo_helpers::COMPARTMENT));
     (core::granted(core, ordo_helpers::COMPARTMENT) || !events.is_empty())
         .then(|| HelperRegister::from_events(&events))

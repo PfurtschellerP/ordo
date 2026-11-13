@@ -309,11 +309,12 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    skin as FHIR `open-choice` (EPCR-12); the pupils as choices after DIVI MIND: equal or
    not, size and reaction to light per side, consensual reaction (EPCR-13).
 9. **Helper register** (*Vorbereitung – Personal*,
-   [ADR-0071](adr/0071-helper-register-in-its-own-compartment.md), proposed): part 1 is
+   [ADR-0071](adr/0071-helper-register-in-its-own-compartment.md)): parts 1 and 2 are
    done (m59): helpers with name, organisation, phone, address, date of birth,
    qualifications, duty and ORDO account in the sealed compartment `people`, which only the
-   incident command reads (HELP-1, HELP-2). Next: crews taken from the register (HELP-3),
-   then deleting the helpers' data after the retention period (HELP-4; 90 days proposed).
+   incident command reads (HELP-1, HELP-2); crews taken from the register, double bookings
+   matched by helper and account (HELP-3). Next: deleting the helpers' data 90 days after
+   the incident is closed (HELP-4, confirmed by the product owner).
    The Meldekarte waits for its QR format.
 10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
     and patient cases (place, short description, no clinical data) and assigns them to a

@@ -28,6 +28,9 @@ pub const ADDED_SCHEMA: u32 = 3;
 pub const RELEASED: &str = "units.released";
 /// Event type: the crew of a unit was set (UNIT-5), the whole list.
 pub const CREW_SET: &str = "units.crewSet";
+/// Schema version of `units.crewSet`: 2 since a member may name the helper of the
+/// incident's register (HELP-3); older payloads decode without it.
+pub const CREW_SCHEMA: u32 = 2;
 
 /// Crew strength in tactical notation (UNIT-2): leaders (*Führer*), sub-leaders
 /// (*Unterführer*) and crew (*Mannschaft*); the total is computed. Leaders of formations
@@ -158,6 +161,10 @@ pub struct CrewMember {
     /// Qualification IDs from the profile.
     #[serde(default)]
     pub qualifications: Vec<String>,
+    /// The helper of the incident's register (HELP-3, schema version 2): only the ID; the
+    /// helper's other data stays in the compartment `people`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub helper: Option<String>,
 }
 
 /// Payload of `units.crewSet`: the whole crew of a unit, replacing earlier lists.
@@ -293,32 +300,53 @@ pub fn same_person(a: &str, b: &str) -> bool {
     person_key(a) == person_key(b)
 }
 
+/// The key of a person: their helper if linked (HELP-3), else their name.
+fn key_of(person: &str, helper: Option<&str>) -> String {
+    helper.map_or_else(|| person_key(person), |h| format!("helper:{h}"))
+}
+
 impl Assignments {
-    /// Notes `person` at `post`; empty names and repeats at the same post are ignored.
-    pub fn add(&mut self, person: &str, post: &Post) {
-        let key = person_key(person);
-        if key.is_empty() {
+    /// Notes `person` at `post`, as the helper `helper` if linked; empty names and repeats
+    /// at the same post are ignored.
+    pub fn add(&mut self, person: &str, helper: Option<&str>, post: &Post) {
+        if person_key(person).is_empty() && helper.is_none() {
             return;
         }
         let entry = self
             .people
-            .entry(key)
+            .entry(key_of(person, helper))
             .or_insert_with(|| (person.trim().to_owned(), Vec::new()));
         if !entry.1.contains(post) {
             entry.1.push(post.clone());
         }
     }
 
-    /// Where `person` is assigned, in order.
-    pub fn of(&self, person: &str) -> &[Post] {
+    /// Counts the name `name` (e.g. a user ID on a UHS staff list) as the helper `helper`,
+    /// whose account it is (HELP-2): their posts are one person's.
+    pub fn link(&mut self, name: &str, helper: &str) {
+        if let Some((_, posts)) = self.people.remove(&person_key(name)) {
+            let entry = self
+                .people
+                .entry(key_of(name, Some(helper)))
+                .or_insert_with(|| (name.trim().to_owned(), Vec::new()));
+            for post in posts {
+                if !entry.1.contains(&post) {
+                    entry.1.push(post);
+                }
+            }
+        }
+    }
+
+    /// Where `person` (the helper `helper` if linked) is assigned, in order.
+    pub fn of(&self, person: &str, helper: Option<&str>) -> &[Post] {
         self.people
-            .get(&person_key(person))
+            .get(&key_of(person, helper))
             .map_or(&[], |(_, posts)| posts.as_slice())
     }
 
-    /// Where `person` is assigned besides `here`.
-    pub fn elsewhere(&self, person: &str, here: &Post) -> Vec<Post> {
-        self.of(person)
+    /// Where `person` (the helper `helper` if linked) is assigned besides `here`.
+    pub fn elsewhere(&self, person: &str, helper: Option<&str>, here: &Post) -> Vec<Post> {
+        self.of(person, helper)
             .iter()
             .filter(|p| *p != here)
             .cloned()
@@ -478,7 +506,7 @@ impl UnitRegister {
             );
             let post = Post::unit(&u.unit);
             for m in &u.crew {
-                s.people.add(&m.name, &post);
+                s.people.add(&m.name, m.helper.as_deref(), &post);
             }
         }
         s
@@ -750,6 +778,7 @@ mod tests {
             members: vec![CrewMember {
                 name: "Anna".into(),
                 qualifications: vec!["paramedic".into()],
+                helper: None,
             }],
         };
         let events = vec![
@@ -790,6 +819,7 @@ mod tests {
                 .map(|n| CrewMember {
                     name: (*n).into(),
                     qualifications: Vec::new(),
+                    helper: None,
                 })
                 .collect(),
         };
@@ -822,22 +852,96 @@ mod tests {
             "matched ignoring case and spaces, units by call sign; a released unit's crew does not count"
         );
         assert_eq!(
-            people.elsewhere("ANNA", &Post::unit("KTW 2")),
+            people.elsewhere("ANNA", None, &Post::unit("KTW 2")),
             [Post::unit("RTW 1")]
         );
-        assert!(people.elsewhere("Ben", &Post::unit("RTW 1")).is_empty());
+        assert!(
+            people
+                .elsewhere("Ben", None, &Post::unit("RTW 1"))
+                .is_empty()
+        );
         let uhs = Post {
             id: "uhs:u1".into(),
             label: "UHS Nord".into(),
         };
-        people.add("ben", &uhs);
-        people.add("ben", &uhs);
+        people.add("ben", None, &uhs);
+        people.add("ben", None, &uhs);
         assert_eq!(
-            people.of("Ben"),
+            people.of("Ben", None),
             [Post::unit("RTW 1"), uhs],
             "a post counts once"
         );
         assert_eq!(Post::unit("RTW 1").call_sign(), Some("RTW 1"));
+    }
+
+    // [utest->dsn~crews-from-register~1]
+    #[test]
+    fn crews_linked_to_helpers_are_matched_by_helper_and_account() {
+        let member = |name: &str, helper: Option<&str>| CrewMember {
+            name: name.into(),
+            qualifications: Vec::new(),
+            helper: helper.map(Into::into),
+        };
+        let crew = |unit: &str, members: Vec<CrewMember>| CrewSet {
+            unit: unit.into(),
+            members,
+        };
+        let events = vec![
+            added(1, "RTW 1", "DRK", "rescue", None),
+            added(2, "KTW 2", "DRK", "rescue", None),
+            event(
+                3,
+                CREW_SET,
+                crew("RTW 1", vec![member("Lena", Some("h1"))])
+                    .encode()
+                    .unwrap(),
+            ),
+            event(
+                4,
+                CREW_SET,
+                crew(
+                    "KTW 2",
+                    vec![member("Lena B.", Some("h1")), member("Lena", None)],
+                )
+                .encode()
+                .unwrap(),
+            ),
+        ];
+        let mut people = UnitRegister::from_events(&events)
+            .strength_on_scene()
+            .people;
+        assert_eq!(
+            people.several(),
+            vec![(
+                "Lena B.".to_owned(),
+                vec![Post::unit("KTW 2"), Post::unit("RTW 1")]
+            )],
+            "the same helper under two names; a namesake without a link is someone else"
+        );
+        assert_eq!(
+            people.elsewhere("Lena", Some("h1"), &Post::unit("RTW 1")),
+            [Post::unit("KTW 2")]
+        );
+        // The helper's account on a UHS staff list is the same person (HELP-2).
+        let uhs = Post {
+            id: "uhs:u1".into(),
+            label: "UHS Nord".into(),
+        };
+        people.add("lena@ordo.example.org", None, &uhs);
+        people.link("lena@ordo.example.org", "h1");
+        assert_eq!(people.of("", Some("h1")).len(), 3);
+        // Old crew lists (schema version 1) decode without the link.
+        #[derive(Serialize)]
+        struct MemberV1 {
+            name: String,
+            qualifications: Vec<String>,
+        }
+        let old = MemberV1 {
+            name: "Anna".into(),
+            qualifications: Vec::new(),
+        };
+        let v1: CrewMember = codec::from_cbor(&codec::to_cbor(&old).unwrap()).unwrap();
+        assert_eq!(v1, member("Anna", None));
     }
 
     // [utest->dsn~detailed-strength~1]

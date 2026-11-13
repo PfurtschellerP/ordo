@@ -1926,3 +1926,12 @@ pub fn duty_from(from: &str) -> String {
 pub fn duty_to(to: &str) -> String {
     format!("Dienst bis {to}")
 }
+/// The person typed for a crew is not in the helper register (HELP-3).
+pub fn not_registered(name: &str) -> String {
+    format!("{name} ist nicht im Helferregister. Mit dem Namen erfassen und hinzufügen?")
+}
+pub const REGISTER_AND_ADD: &str = "Erfassen und hinzufügen";
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn register_and_add_label(name: &str) -> String {
+    format!("{REGISTER_AND_ADD}: {name}")
+}

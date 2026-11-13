@@ -948,6 +948,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
     await card.getByLabel("Notfallsanitäter/in").check();
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    // [itest->dsn~crews-from-register~1]
+    await expect(card.locator("[role=alert]", { hasText: "Helferregister" }), "HELP-3: crews come from the helper register").toContainText(
+      "anna@localhost ist nicht im Helferregister.",
+    );
+    await card.getByRole("button", { name: "Erfassen und hinzufügen: anna@localhost" }).click();
     // [itest->dsn~double-booking~1]
     await expect(card.locator(".assigned-elsewhere"), "UNIT-8: someone on a UHS's staff is not booked twice").toContainText(
       "anna@localhost ist schon bei UHS Eingang eingeteilt.",
@@ -957,6 +962,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await card.locator(".assigned-elsewhere").getByRole("button", { name: "Abbrechen" }).click();
     await ben.locator("#crew-rtw-83-1").fill("ben@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await card.getByRole("button", { name: "Erfassen und hinzufügen: ben@localhost" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("ben@localhost · Notfallsanitäter/in");
 
     // [itest->dsn~tasks~2]
@@ -1077,11 +1083,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(dora, "Einsatzmittel");
     const doraCard = dora.locator(".unit-card[data-unit='RTW 83/1']");
     await doraCard.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
-    await dora.locator("#crew-rtw-83-1").fill("Max Muster");
+    await dora.locator("#crew-rtw-83-1").fill("max@localhost");
     await doraCard.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await expect(doraCard.locator(".crew-list")).toContainText("Max Muster");
+    await doraCard.getByRole("button", { name: "Erfassen und hinzufügen: max@localhost" }).click();
+    await expect(doraCard.locator(".crew-list")).toContainText("max@localhost");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await uhsCard.getByLabel("Name", { exact: true }).fill("max muster");
+    // The same account on the staff list: the helper registered on the other device.
+    await uhsCard.getByLabel("Name", { exact: true }).fill("max@localhost");
     await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(uhsCard.locator(".uhs-card__staff"), "this device does not know of the other booking").toHaveText("Personal: 3 Personen");
     await server.start();
@@ -1089,18 +1097,18 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(ben), { timeout: 20_000 }).toContain("Alles gesendet");
     await expect(total, "the total is marked").toHaveText("3 Einsatzmittel · Stärke 1/2/4/7* · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene__several"), "and the person named with both posts").toHaveText(
-      "* Mehrfach eingeteilt, eventuell doppelt gezählt: Max Muster (RTW 83/1, UHS Eingang)",
+      "* Mehrfach eingeteilt, eventuell doppelt gezählt: max@localhost (RTW 83/1, UHS Eingang)",
     );
     await openWorkspace(ben, "Führung");
-    await expect(ben.locator(".tile__several"), "the overview marks it too").toContainText("Max Muster (RTW 83/1, UHS Eingang)");
+    await expect(ben.locator(".tile__several"), "the overview marks it too").toContainText("max@localhost (RTW 83/1, UHS Eingang)");
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     // Moving them back to the unit takes them off the UHS's staff list.
     await card.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
-    await ben.locator("#crew-rtw-83-1").fill("Max Muster");
+    await ben.locator("#crew-rtw-83-1").fill("max@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await expect(card.locator(".assigned-elsewhere")).toContainText("Max Muster ist schon bei UHS Eingang eingeteilt.");
-    await card.getByRole("button", { name: "Hierher umsetzen: Max Muster zu RTW 83/1" }).click();
+    await expect(card.locator(".assigned-elsewhere"), "found in the register, by account").toContainText("max@localhost ist schon bei UHS Eingang eingeteilt.");
+    await card.getByRole("button", { name: "Hierher umsetzen: max@localhost zu RTW 83/1" }).click();
     await expect(ben.locator(".strength-on-scene__several"), "booked once again").toHaveCount(0);
     await expect(total).toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
@@ -1119,7 +1127,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
     const helpers = ben.locator(".helpers");
-    await expect(helpers, "HELP-1: a register of the incident's helpers").toContainText("Noch niemand erfasst.");
+    await expect(helpers.locator(".helper-list [data-helper]", { hasText: "max@localhost" }), "HELP-1: those registered from a crew").toContainText("Konto: max@localhost");
     const form = ben.locator(".helper-form");
     await form.getByRole("button", { name: "Erfassen", exact: true }).click();
     await expect(form.locator("[role=alert]"), "a name is needed").toHaveText("Bitte einen Namen angeben.");

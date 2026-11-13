@@ -1166,6 +1166,19 @@ impl UhsDraft {
     }
 }
 
+// [impl->dsn~crews-from-register~1]
+/// A UHS staff entry (a user ID or name) as a person: the helper whose account it is, if
+/// the register names one (HELP-2).
+fn staff_member(core: Handle, entry: &str) -> crate::units::Who {
+    let helper =
+        crate::helpers::register(core).and_then(|r| r.of_account(entry).map(|h| h.id.clone()));
+    crate::units::Who {
+        name: entry.to_owned(),
+        helper,
+        account: Some(entry.to_owned()),
+    }
+}
+
 // [impl->dsn~uhs-details~3]
 /// Name, capacity, place on the situation map and assigned staff of one unit (UHS-1),
 /// behind a disclosure.
@@ -1311,7 +1324,7 @@ fn UhsDetailsPanel(
             if who.is_empty() {
                 return;
             }
-            let away = crate::units::assignments(core).elsewhere(&who, &here);
+            let away = staff_member(core, &who).elsewhere(core, &here);
             if away.is_empty() {
                 commit.run(who);
             } else {
@@ -1321,7 +1334,12 @@ fn UhsDetailsPanel(
     };
     let on_move = Callback::new(move |()| {
         let who = person.get_untracked().trim().to_owned();
-        crate::units::move_away(core, revision, &who, &elsewhere.get_untracked());
+        crate::units::move_away(
+            core,
+            revision,
+            &staff_member(core, &who),
+            &elsewhere.get_untracked(),
+        );
         commit.run(who);
     });
     let members = staff

@@ -408,7 +408,7 @@ When someone adds a person to the crew of a unit, ORDO shall take the person fro
 helper register, where a new helper can be registered with a name alone, and shall pass
 on only the name and the link, never the other personal data.
 
-Tags: should, shared
+Tags: should, shared, m59
 
 Needs: dsn
 

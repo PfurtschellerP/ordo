@@ -1235,6 +1235,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
         members: vec![units::CrewMember {
             name: "anna@ordo.example.org".into(),
             qualifications: vec!["paramedic".into()],
+            helper: None,
         }],
     }
     .encode()
