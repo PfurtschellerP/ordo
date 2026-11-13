@@ -1,5 +1,5 @@
 ---
-status: accepted; its place in the app superseded by ADR-0070
+status: superseded by ADR-0070
 date: 2026-11-13
 ---
 
@@ -13,7 +13,7 @@ TOML file on the server (`ORDO_VEHICLES_FILE`), which only whoever runs the serv
 change. Roadmap item 6 (user test of 2026-11-11, plan approved the same day) asks for
 unit master data in *Administration*: each vehicle as a template with its usual strength
 and no crew, since the crew changes with every incident
-([ORG-14](../requirements/02-shared.md#org-14--vehicle-master-data)).
+(ORG-14, since removed).
 
 Master data is organisation-wide and outlives incidents, while ORDO's events belong to one
 incident ([ADR-0046](0046-roles-granted-per-incident.md)).
@@ -59,8 +59,7 @@ import from CSV ([ORG-2](../requirements/02-shared.md#org-2--csv-import)) stays 
 
 ## More Information
 
-Since [ADR-0070](0070-units-planned-in-preparation-led-in-command.md) the vehicles are
-kept on *Vorbereitung – Einsatzmittel*, not in *Administration*. Design item *Vehicle
-master data* in
-[chapter 8](../architecture/08-concepts.md#vehicle-master-data);
-[ADR-0035](0035-authorization-with-cedar.md) for the permission.
+Superseded by [ADR-0070](0070-units-planned-in-preparation-led-in-command.md) on the day
+it was accepted: ORDO keeps no organisation-wide vehicle master data; the table (dropped by
+migration 0006), the message `changeVehicle` and the action `manage_master_data` were
+removed again.

@@ -692,33 +692,6 @@ Needs: impl, utest, itest
 
 Tags: should, m45
 
-#### Vehicle master data
-`dsn~vehicle-master-data~2`
-
-The organisation's vehicles are master data on the server
-([ADR-0068](../adr/0068-unit-master-data-on-the-server.md)): call sign, type,
-organisation, service and usual strength (Führer, Unterführer, Mannschaft), never a crew.
-The server stores the ones added in ORDO in the table `vehicles` (migration 0005) and
-reads them at start; the ones from `ORDO_VEHICLES_FILE` stay fixed and are listed with
-`fixed`. The call sign is the key: no two vehicles share one, and a vehicle of the file
-cannot be added again in ORDO. Administrators (organisation action `manage_master_data`)
-manage them at the end of *Vorbereitung – Einsatzmittel*, where units are planned
-([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)): a list sorted by
-organisation and call sign, a form to add one, and per vehicle "Bearbeiten" and
-"Entfernen". `changeVehicle` (protocol 1.2) carries the call sign it replaces (none:
-a new vehicle) and the vehicle (none: remove it); the server answers `vehicles` with the
-whole list, and logs who changed which call sign. A change reaches units already in an
-incident only when they are added again: `units.added` keeps the attributes as given.
-`listVehicles` also answers those with `manage_master_data`.
-
-Covers:
-
-* [req~org-14~1](../requirements/02-shared.md#org-14--vehicle-master-data)
-
-Needs: impl, utest, itest
-
-Tags: should, m57
-
 #### Local accounts
 `dsn~local-accounts~1`
 
@@ -1354,7 +1327,7 @@ Needs: impl, utest, itest
 Tags: must, m11
 
 #### Workspaces by phase
-`dsn~workspaces-by-phase~3`
+`dsn~workspaces-by-phase~4`
 
 The incident command's pages are grouped by phase in the package *Einsatzleitung*
 ([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md),
@@ -1363,9 +1336,9 @@ The incident command's pages are grouped by phase in the package *Einsatzleitung
 running incident (overview, situation map to read, dispatch with the orders and the units
 on scene, whose status is set there, transports), *Vorbereitung*, what is set up before
 and adjusted during it (the incident with its details, start, pause and close; the
-situation map with its region and editor; units planned with their crews, and the
-organisation's vehicles for those who keep them; people with their roles, devices and the
-command structure), and the incident log, which everyone in the incident opens. The overview, the first view of *Führung*, is a
+situation map with its region and editor; units planned with their crews, which are
+incident data, with no organisation-wide vehicle master data; people with their roles,
+devices and the command structure), and the incident log, which everyone in the incident opens. The overview, the first view of *Führung*, is a
 grid of tiles under the incident's name and state: the map (shown, not editable),
 *Disposition* (open orders, follow-ups due, the next three), *Personal* (persons and units
 on scene, strength), the UHS (load against capacity, patients per triage category, open

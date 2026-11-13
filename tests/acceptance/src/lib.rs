@@ -92,7 +92,6 @@ impl World {
                     organisation: "DRK Musterstadt".into(),
                     service: Some("rescue".into()),
                     strength: Some([0, 1, 1]),
-                    fixed: true,
                 }],
             },
             policy,

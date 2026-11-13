@@ -541,8 +541,6 @@
   }
   .place-tile__label { font-weight: var(--ordo-font-weight-bold); }
   .place-tile__patient { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
-  /* A vehicle of the master data: its actions at the end of the line (ORG-14). */
-  .vehicle-list__actions { margin-inline-start: auto; }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);
@@ -908,7 +906,8 @@
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }
   .field-block input[type="text"], .field-block textarea { width: 100%; }
-  .row--tight { flex-wrap: nowrap; gap: var(--ordo-space-2); }
+  /* On very narrow screens "Jetzt" moves below the field instead of sticking out. */
+  .row--tight { flex-wrap: wrap; gap: var(--ordo-space-2); }
   .row--tight > input { flex: 1 1 auto; min-width: 0; }
   .field-error { margin: 0; color: var(--ordo-color-feedback-error-text); font-weight: var(--ordo-font-weight-bold); }
   .field-error:empty { display: none; }

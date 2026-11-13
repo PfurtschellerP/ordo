@@ -250,9 +250,10 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
   tactical notation as 0/1/8/9). Schema version 3 adds leaders of formations and special
   functions (*Detailed strength*). Services come from the profile (`units/catalogue.toml`).
   Version 1 payloads decode without service and strength.
-* **From master data:** the organisation's vehicles (call sign, type, organisation,
-  service, usual strength), managed at the end of *Vorbereitung – Einsatzmittel* or fixed in a server
-  file (`ORDO_VEHICLES_FILE`); see *Vehicle master data* in chapter 8. Devices ask with `listVehicles` (sync protocol 1.1); the server answers
+* **Suggested vehicles:** an installation may list its vehicles (call sign, type,
+  organisation, service, default strength) in a server file (`ORDO_VEHICLES_FILE`); ORDO
+  keeps no organisation-wide vehicle master data of its own
+  ([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)). Devices ask with `listVehicles` (sync protocol 1.1); the server answers
   planners and those who may edit units, others get an empty list. The add form suggests
   the call signs and fills in the rest; units can still be added ad hoc.
 * **Status:** status codes from the profile, set in *Führung – Disposition*
@@ -619,8 +620,8 @@ respirator wearers), which count as "davon", not on top. In the detailed notatio
 forms ask for *Führer von Verbänden / Zugführer / Unterführer / Einsatzkräfte* and the
 special functions, and strengths read 1/1/6/40/48 with the total underlined and "(davon
 2 × Ärzte, 6 × AGT)" after it. Otherwise they read 2/6/40/48: both kinds of leaders as
-*Führer*. The data is the same in both, so the choice can change at any time. Vehicle
-master data keeps the three-part strength.
+*Führer*. The data is the same in both, so the choice can change at any time. The
+installation's vehicle file keeps the three-part strength.
 
 Covers:
 

@@ -282,10 +282,9 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    map is prepared on *Vorbereitung – Lagekarte* (region and editor on one page), the
    *Führung* overview is a grid of tiles, and an incident has a description, planned times
    and a pause.
-6. **UHS and units** is done (m57): unit master data with templates (usual strength,
-   no crew), kept on *Vorbereitung – Einsatzmittel* (ORG-14,
-   [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); units are planned there with
-   their crews, their status is set and their orders given in *Führung – Disposition*
+6. **UHS and units** is done (m57): units are incident data, planned per incident in
+   *Vorbereitung – Einsatzmittel* with their crews, without organisation-wide master data
+   (the product owner, 2026-11-13); their status is set and their orders given in *Führung – Disposition*
    ([ADR-0070](adr/0070-units-planned-in-preparation-led-in-command.md)); a person added
    to a second crew or UHS is moved, and a double booking made offline is marked (UNIT-8); a UHS counts as a unit in the
    forces on scene, with organisation, service and strength (UHS-12,
@@ -298,8 +297,8 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 
-7. **Orders only by those who give them** is built (m50; ADR-0053 accepted on 2026-11-13:
-   only physicians give and confirm orders, no SOP catalogue): the crew records an order given by voice, radio or phone
+7. **Orders only by those who give them** is built (m50; ADR-0053 proposed until the open
+   legal points are decided): the crew records an order given by voice, radio or phone
    with who gave it, how and whether it was read back;
    its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
    documented medication keeps its order, and "Angeordnet durch" is filled only from it.
@@ -349,7 +348,8 @@ Then:
    projections on the device (see "Scaling" below). Later: the test on real tablets.
 4. Upstream login configured in ORDO is done (m52, ADR-0063). Later: LDAP and SAML
    providers in the app; a permission of its own instead of `manage_accounts`.
-5. Further master data in ORDO instead of a file (ORG-1); the vehicles are done (ORG-14).
+5. Master data in an admin view instead of a file (ORG-1); no organisation-wide vehicle
+   master data (product owner, 2026-11-13, ADR-0070).
 6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
 7. Command structure, next steps (ADR-0031): positions give roles and so access (a

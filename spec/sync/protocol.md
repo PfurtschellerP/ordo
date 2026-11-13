@@ -138,15 +138,8 @@ incidents in which the user has a role, or all of them for `manage_incidents`.
 `listVehicles` (version 1.1) asks for the installation's vehicles (master data: call sign,
 type, organisation, service, default strength), offered when adding units. The server
 answers `vehicles`, with the list only for a user with `manage_incidents` or whose roles
-permit `edit_units` in some incident or who has `manage_master_data`, and an empty list
-for everyone else. A session agreed on 1.0 gets no answer.
-
-`changeVehicle` (version 1.2) adds a vehicle (without `replaces`), changes the one named in
-`replaces`, or removes it (without `vehicle`). The server applies it only for a user with
-`manage_master_data`, only to vehicles not marked `fixed` (those of its configuration),
-and only if no other vehicle has the call sign; it trims the texts and refuses a vehicle
-without call sign or type. Either way it answers `vehicles` with the list as
-`listVehicles` would.
+permit `edit_units` in some incident, and an empty list for everyone else. A session
+agreed on 1.0 gets no answer.
 
 `getMapRegion` (version 1.2) asks for the state of an incident's map region, which the
 server offers at `/tiles/<incident ULID>.pmtiles`; `cutMapRegion` asks the server to cut a
@@ -264,5 +257,5 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
-| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066); `changeVehicle` and `fixed` in `vehicle` (§7) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
+| 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 

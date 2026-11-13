@@ -138,8 +138,7 @@ field server checks itself. Plan it like this:
   certificate authority, mount its certificate into the ORDO container and set
   `SSL_CERT_FILE`.
 - For development without login, `seed.toml.example` shows how to pair devices by hand.
-- Administrators keep the organisation's vehicles in *Administration – Stammdaten*.
-  If they are kept elsewhere, `vehicles.toml.example` shows a file for them
-  (`ORDO_VEHICLES_FILE`); its vehicles are shown in ORDO but not changed there.
+- `vehicles.toml.example` lists the organisation's vehicles, offered when adding units
+  (`ORDO_VEHICLES_FILE`).
 - Back up the volumes `ordo-data` and `dex-data` (with Garage also `garage-meta` and
   `garage-data`) **and** `master.key`.

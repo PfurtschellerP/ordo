@@ -979,7 +979,7 @@ fn Workspace(
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
-                    // [impl->dsn~workspaces-by-phase~3]
+                    // [impl->dsn~workspaces-by-phase~4]
                     // [impl->dsn~map-drawing~2]
                     (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />

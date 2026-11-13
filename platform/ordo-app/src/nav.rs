@@ -65,7 +65,7 @@ const fn view(
     }
 }
 
-// [impl->dsn~workspaces-by-phase~3]
+// [impl->dsn~workspaces-by-phase~4]
 /// All workspaces of the packages in use, in launcher order (ADR-0061).
 pub const WORKSPACES: &[Workspace] = &[
     Workspace {
@@ -125,7 +125,7 @@ pub const WORKSPACES: &[Workspace] = &[
                 "incident description date time start pause resume close",
                 "flag",
             ),
-            // [impl->dsn~workspaces-by-phase~3]
+            // [impl->dsn~workspaces-by-phase~4]
             // The map prepared on one page: its region and its objects (ADR-0067).
             view(
                 "map",

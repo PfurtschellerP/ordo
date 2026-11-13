@@ -664,7 +664,7 @@ fn StatusSelect(
     }
 }
 
-// [impl->dsn~workspaces-by-phase~3]
+// [impl->dsn~workspaces-by-phase~4]
 // [impl->dsn~tasks~2]
 /// The units on scene in *Führung – Disposition* (ADR-0070): status since when, set here, and
 /// their open tasks, each with a way to give one (UNIT-3, TASK-3).
@@ -746,11 +746,11 @@ pub fn UnitStatusBoard(
 
 // [impl->dsn~unit-register~2]
 // [impl->dsn~views-by-role~1]
-// [impl->dsn~workspaces-by-phase~3]
+// [impl->dsn~workspaces-by-phase~4]
 /// The incident's units as planned in *Vorbereitung* (UNIT-1…6, ADR-0070): strength on
 /// scene, every unit with its crew, position and release; released units apart; adding from
-/// the organisation's vehicles or ad hoc; and those vehicles, for whoever keeps them
-/// (ORG-14). Adding units: incident command only (`edit_units`).
+/// the installation's vehicles or ad hoc. Adding units: incident command only
+/// (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let can_edit = Memo::new(move |_| {
@@ -765,10 +765,6 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         if can_edit.get() {
             core::list_vehicles(core);
         }
-    });
-    let keeps_master_data = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| c.replica.has_permission("manage_master_data"))
     });
     let register = Memo::new(move |_| {
         revision.track();
@@ -883,11 +879,6 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             </Show>
         </section>
         <crate::views::UhsResources core revision />
-        // [impl->dsn~vehicle-master-data~2]
-        // The organisation's vehicles, kept where units are planned (ADR-0070).
-        <Show when=move || keeps_master_data.get()>
-            <crate::master_data::VehiclesView core revision />
-        </Show>
     }
 }
 

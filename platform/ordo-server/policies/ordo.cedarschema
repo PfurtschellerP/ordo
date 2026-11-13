@@ -81,10 +81,3 @@ action manage_accounts appliesTo {
   resource: [Organisation],
   context: OrganisationRequest,
 };
-
-// Manage the organisation's master data, e.g. its vehicles (ORG-14, ADR-0068).
-action manage_master_data appliesTo {
-  principal: [User],
-  resource: [Organisation],
-  context: OrganisationRequest,
-};

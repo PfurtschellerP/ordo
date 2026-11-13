@@ -29,15 +29,6 @@ permit (
 )
 when { context.roles.contains("admin") };
 
-// Admins keep the organisation's master data, e.g. its vehicles (ORG-14, ADR-0068).
-@id("admin.manage-master-data")
-permit (
-  principal,
-  action == Action::"manage_master_data",
-  resource == Organisation::"organisation"
-)
-when { context.roles.contains("admin") };
-
 // Planners prepare incidents and their rosters (ADR-0046); administrators are planners
 // too, so a new installation can start.
 @id("admin.manage-incidents")

@@ -143,7 +143,7 @@ the build fails.
 | 54 — Map editor | `m54` | The map is edited on its own page with a toolbar: symbols placed and corners set by a tap or at the map's centre, drawings reshaped by dragging; a UHS's place is its symbol on the map (MAP-1, MAP-4, UHS-1, ADR-0064) |
 | 55 — Feedback of 2026-11-12 | `m55` | Header menus close on a click outside; licences and versions under *Administration – Info* instead of a footer; the map edited in *Vorbereitung* and kept offline by default; the app shell cached per version; address search on the map |
 | 56 — Command overview and preparation | `m56` | *Führung – Übersicht* as a grid of tiles; *Vorbereitung – Lagekarte* with the map region and the editor on one page; incident description, planned times and pause |
-| 57 — UHS and units | `m57` | Vehicle master data kept with the units (ORG-14, ADR-0070); status and orders in *Führung*, one post per person (UNIT-8); the UHS as a unit, its capacity per triage category and its places; strength after DV 102; the command structure as an org chart (roadmap item 6) |
+| 57 — UHS and units | `m57` | Units planned per incident, without organisation-wide master data (ADR-0070); status and orders in *Führung*, one post per person (UNIT-8); the UHS as a unit, its capacity per triage category and its places; strength after DV 102; the command structure as an org chart (roadmap item 6) |
 | 58 — Patient record fields | `m58` | A diagnosis with its certainty, kept in the record (EPCR-11); other answers as free text (EPCR-12); the pupils as choices (EPCR-13) (roadmap item 8) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to

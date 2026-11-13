@@ -370,11 +370,6 @@ impl AccessPolicy for RolePolicy {
         self.allows_organisation(user, "manage_accounts")
     }
 
-    // [impl->dsn~vehicle-master-data~2]
-    fn can_manage_master_data(&self, user: &UserId) -> bool {
-        self.allows_organisation(user, "manage_master_data")
-    }
-
     // [impl->dsn~incident-roles~1]
     fn can_assign_roles(&self, user: &UserId, incident: &IncidentId, roles: &[String]) -> bool {
         let shared: CompartmentId = "incident".parse().expect("valid compartment");
@@ -490,17 +485,11 @@ mod tests {
     }
 
     // [utest->dsn~device-revocation~1]
-    // [utest->dsn~vehicle-master-data~2]
     #[test]
     fn admins_manage_all_devices() {
         let roles = Roles::new([(user("dora"), vec!["admin".to_owned()])]);
         let p = RolePolicy::new(roles, &[]).expect("valid");
         assert!(p.can_manage_devices(&user("dora")));
-        assert!(
-            p.can_manage_master_data(&user("dora")),
-            "and the master data"
-        );
-        assert!(!p.can_manage_master_data(&user("anna")));
         assert!(
             !p.can_read(
                 &user("dora"),

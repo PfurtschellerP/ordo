@@ -1,8 +1,6 @@
 # The organisation's vehicles (master data, UNIT-1): offered when the incident command
 # adds a unit, which then gets type, organisation, service and default strength filled in.
-# Units not listed here can always be added by hand. Administrators can also keep vehicles
-# in the app (Administration – Stammdaten, ORG-14); those of this file are shown there but
-# not changed. To use it, mount it in a
+# Units not listed here can always be added by hand. To use it, mount it in a
 # compose.override.yaml:
 #   services:
 #     ordo:

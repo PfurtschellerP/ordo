@@ -1,5 +1,5 @@
 ---
-status: accepted; its workspace table and overview rule superseded by ADR-0067, the place of master data by ADR-0070
+status: accepted; its workspace table and overview rule superseded by ADR-0067, its later Stammdaten by ADR-0070
 date: 2026-11-11
 ---
 
