@@ -278,9 +278,11 @@ impl UhsDetails {
 }
 
 // [impl->dsn~uhs-as-unit~1]
+// [impl->dsn~double-booking~1]
 /// Units and persons on scene with every on-site care unit counted as a unit (UHS-12, UNIT-4):
 /// the units present of `units`, then each UHS with its organisation, service and
-/// strength. Its people are not counted twice as long as they are not also a unit.
+/// strength. Each UHS's staff is noted at the post [`uhs_post`], so people also on a crew
+/// or another UHS are found (UNIT-8).
 pub fn strength_on_scene(
     units: &ordo_units::UnitRegister,
     incident_events: &[AppliedEvent],
@@ -295,8 +297,25 @@ pub fn strength_on_scene(
             d.strength_on_scene(),
             &d.special,
         );
+        let post = uhs_post(&u.id, &u.name);
+        for person in &d.staff {
+            s.people.add(person, &post);
+        }
     }
     s
+}
+
+/// The post of a UHS's staff list, for [`ordo_units::Assignments`].
+pub fn uhs_post(id: &str, name: &str) -> ordo_units::Post {
+    ordo_units::Post {
+        id: format!("uhs:{id}"),
+        label: name.to_owned(),
+    }
+}
+
+/// The UHS ID of a post made by [`uhs_post`].
+pub fn uhs_of_post(post: &ordo_units::Post) -> Option<&str> {
+    post.id.strip_prefix("uhs:")
 }
 
 // [impl->dsn~uhs-registry~1]
@@ -1294,6 +1313,33 @@ mod tests {
         assert_eq!(s.by_organisation["DRK"], (2, [0, 2, 6].into()));
         assert_eq!(s.by_service["medical"].0, 1);
         assert_eq!(s.by_service[""], (2, [0, 0, 2].into()));
+        assert!(s.people.several().is_empty(), "nobody is on two posts");
+        // [utest->dsn~double-booking~1]
+        // Ben also on the RTW's crew: found, with both posts.
+        let crew = ordo_units::CrewSet {
+            unit: "RTW 1".into(),
+            members: vec![ordo_units::CrewMember {
+                name: "Ben".into(),
+                qualifications: Vec::new(),
+            }],
+        };
+        let mut both = events.clone();
+        both.push(shared(
+            8,
+            ordo_units::MODULE,
+            ordo_units::CREW_SET,
+            crew.encode().unwrap(),
+        ));
+        let units = ordo_units::UnitRegister::from_events(&both);
+        assert_eq!(
+            strength_on_scene(&units, &both).people.several(),
+            vec![(
+                "Ben".to_owned(),
+                vec![ordo_units::Post::unit("RTW 1"), uhs_post("sued", "sued")]
+            )]
+        );
+        assert_eq!(uhs_of_post(&uhs_post("sued", "Süd")), Some("sued"));
+        assert!(ordo_units::same_person(" Ben", "ben"));
         // A strength set and cleared falls back to the staff list.
         let cleared = UhsUpdated {
             id: "nord".into(),

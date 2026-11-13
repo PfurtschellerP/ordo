@@ -158,7 +158,7 @@ pub fn may_manage(core: Handle) -> bool {
     })
 }
 
-// [impl->dsn~workspaces-by-phase~2]
+// [impl->dsn~workspaces-by-phase~3]
 // [impl->dsn~incident-details~1]
 /// The incident itself (*Vorbereitung – Einsatz*): name and state, its description and
 /// planned times, and starting, pausing, resuming and closing it.

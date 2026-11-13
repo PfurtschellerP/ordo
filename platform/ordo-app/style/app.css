@@ -117,6 +117,8 @@
 
   .choices { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); border: 0; padding: 0; margin: 0; }
   .choices legend { margin-bottom: var(--ordo-space-2); }
+  /* EPCR-12: the other answer of an open choice, on its own line below the chips. */
+  .choices__other { flex-basis: 100%; }
   .choice { display: inline-flex; align-items: center; gap: var(--ordo-space-2); min-height: var(--ordo-size-touch-target); cursor: pointer; }
   .choice input { width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--ordo-color-action-primary-background); }
 
@@ -657,6 +659,11 @@
   .strength-on-scene ul, .crew-list { padding-inline-start: var(--ordo-space-5); }
   .unit-card__crew-panel[hidden] { display: none; }
   .unit-card--released { border-style: dashed; }
+  /* UNIT-8: a person on several posts; the mark is explained right below the total. */
+  .strength-on-scene__mark { font-weight: var(--ordo-font-weight-bold); padding-inline-start: var(--ordo-space-1); }
+  .assigned-elsewhere { display: grid; gap: var(--ordo-space-2); }
+  .assigned-elsewhere p { margin: 0; }
+  .unit-status__item .button { justify-self: start; }
   .add-unit { margin-block-start: var(--ordo-space-4); }
   .load-list__details, .load-list__location, .load-list__staff { grid-column: 1 / -1; }
   /* Tasks (TASK-1…4): due follow-ups say so in words and with a sign, not by colour alone. */

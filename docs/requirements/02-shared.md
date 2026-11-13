@@ -136,6 +136,19 @@ Tags: should, shared, m57
 
 Needs: dsn
 
+#### UNIT-8 — One post per person
+`req~unit-8~1`
+
+When someone adds a person to the crew of a unit or the staff list of a UHS while that
+person is on another crew or staff list of the incident, ORDO shall say where they are and
+offer to move them there from the other lists. Where a person is on more than one crew or
+staff list anyway, e.g. after changes made offline, ORDO shall mark the strength on scene
+and name the person and the lists, because they may be counted twice.
+
+Tags: should, shared, m57
+
+Needs: dsn
+
 #### UNIT-6 — Release units
 `req~unit-6~1`
 

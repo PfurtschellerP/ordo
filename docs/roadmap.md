@@ -283,8 +283,11 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    *Führung* overview is a grid of tiles, and an incident has a description, planned times
    and a pause.
 6. **UHS and units** is done (m57): unit master data with templates (usual strength,
-   no crew) in *Administration – Stammdaten* (ORG-14,
-   [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS counts as a unit in the
+   no crew), kept on *Vorbereitung – Einsatzmittel* (ORG-14,
+   [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); units are planned there with
+   their crews, their status is set and their orders given in *Führung – Disposition*
+   ([ADR-0070](adr/0070-units-planned-in-preparation-led-in-command.md)); a person added
+   to a second crew or UHS is moved, and a double booking made offline is marked (UNIT-8); a UHS counts as a unit in the
    forces on scene, with organisation, service and strength (UHS-12,
    [ADR-0069](adr/0069-uhs-counts-as-a-unit.md)); a UHS's capacity per triage category with
    places kept for each, and a plan of its places with the patient on each (UHS-13,
@@ -300,10 +303,12 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    with who gave it, how and whether it was read back;
    its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
    documented medication keeps its order, and "Angeordnet durch" is filled only from it.
-8. **Patient record (profile):** a working, suspected or confirmed diagnosis (passed on
-   with the transport only to those who carry the patient), "other" with free text for
-   breathing and skin, choices for the pupils (isocoric/anisocoric, size, reaction to
-   light, consensual reaction).
+8. **Patient record (profile)** is done (m58): a working, suspected or confirmed
+   diagnosis in its own form, kept in the record and never in the transport request
+   (EPCR-11; it reaches the crew that carries the patient with the handover, EPCR-6, and
+   later the vehicles' workspace of item 11); "Sonstiges" with free text for breathing and
+   skin as FHIR `open-choice` (EPCR-12); the pupils as choices after DIVI MIND: equal or
+   not, size and reaction to light per side, consensual reaction (EPCR-13).
 9. **Helper register** (*Vorbereitung – Personal*): name, address, phone, date of birth,
    qualifications, start and end of duty; crews only from registered helpers; helpers
    linked to ORDO accounts; the Meldekarte scanned. Personal data in their own
@@ -313,8 +318,9 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     unit, which turns them into a patient (ADR).
 11. **Map:** every tactical symbol of the profile placeable, chosen from a menu grouped by
     topic. **UHS:** request a physician or paramedic, who then gets access to the UHS.
-    **Vehicles:** a workspace for crews to see, confirm and carry out their transports and
-    tasks and to set their own status.
+    **Vehicles and medical teams** (*Sanitätstrupp*): a workspace for crews to see,
+    confirm and carry out their transports and outstanding orders and to set their own
+    status, built on the units board of *Führung – Disposition* (ADR-0070).
 12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
     agreement are available (ADR-0050, regional profile).
 
@@ -343,7 +349,7 @@ Then:
    projections on the device (see "Scaling" below). Later: the test on real tablets.
 4. Upstream login configured in ORDO is done (m52, ADR-0063). Later: LDAP and SAML
    providers in the app; a permission of its own instead of `manage_accounts`.
-5. Master data in an admin view instead of a file (ORG-1).
+5. Further master data in ORDO instead of a file (ORG-1); the vehicles are done (ORG-14).
 6. Design the main tablet screens for the Med MVP with volunteers (the patient list is
    now a list of cards; check forms and the record page with medics).
 7. Command structure, next steps (ADR-0031): positions give roles and so access (a
@@ -351,6 +357,10 @@ Then:
    drag and drop on tablets, sectors on the map.
 
 Later, after the features above:
+
+- Incident templates: start an incident from an earlier one or a template with its map,
+  units, command structure and roles, e.g. for a city festival held every year (product
+  owner, 2026-11-13).
 
 - Offline device approval: an already paired person with the right role approves a new
   device directly, without any identity provider — like a coach substituting a player at

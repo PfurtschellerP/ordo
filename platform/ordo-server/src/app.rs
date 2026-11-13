@@ -649,7 +649,7 @@ impl App {
         Ok(())
     }
 
-    // [impl->dsn~vehicle-master-data~1]
+    // [impl->dsn~vehicle-master-data~2]
     /// Answers `changeVehicle`: administrators (`manage_master_data`) add, change or remove
     /// a vehicle of the master data; vehicles from the configuration stay as they are, and
     /// no call sign is taken twice. The answer is the list, as `listVehicles` gives it.
@@ -1371,7 +1371,7 @@ pub(crate) async fn stopped(mut receiver: watch::Receiver<bool>) {
 }
 
 /// Milliseconds since the Unix epoch.
-// [impl->dsn~vehicle-master-data~1]
+// [impl->dsn~vehicle-master-data~2]
 /// The installation's vehicles: those of the configuration (marked fixed), then those added
 /// in ORDO whose call sign the configuration does not already use.
 pub(crate) fn installation_vehicles(

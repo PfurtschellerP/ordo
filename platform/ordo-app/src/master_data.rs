@@ -1,7 +1,8 @@
-//! Administration workspace *Stammdaten*: the organisation's vehicles (ORG-14, ADR-0068).
-//! Administrators add, change and remove them, each with its usual strength and no crew;
-//! they are offered when units are added to an incident. Vehicles from the server's
-//! configuration are shown, not changed.
+//! The organisation's vehicles as master data (ORG-14, ADR-0068), kept on the page where
+//! units are planned, *Vorbereitung – Einsatzmittel* (ADR-0070). Those who keep master data
+//! add, change and remove them, each with its usual strength and no crew; they are offered
+//! when units are added to an incident. Vehicles from the server's configuration are shown,
+//! not changed.
 
 use leptos::prelude::*;
 use ordo_sync::message::{Vehicle, VehicleChange};
@@ -11,7 +12,7 @@ use crate::core::{self, Handle};
 use crate::text;
 use crate::units::{CATALOGUE, StrengthText};
 
-// [impl->dsn~vehicle-master-data~1]
+// [impl->dsn~vehicle-master-data~2]
 /// The organisation's vehicles, sorted by organisation and call sign, and the form.
 #[component]
 pub fn VehiclesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {

@@ -65,14 +65,15 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | superseded by 0064 | 2026-11-11 |
 | [0059](0059-fuzzing-with-cargo-fuzz-and-clusterfuzzlite.md) | Fuzzing with cargo-fuzz, run continuously by ClusterFuzzLite | accepted | 2026-11-11 |
 | [0060](0060-local-accounts-managed-in-ordo.md) | Local accounts are managed in ORDO, through Dex's API | accepted | 2026-11-11 |
-| [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted; partly superseded by 0067 | 2026-11-11 |
+| [0061](0061-workspaces-by-phase-and-administration-apart.md) | Workspaces by phase; administration apart from the incident | accepted; partly superseded by 0067 and 0070 | 2026-11-11 |
 | [0062](0062-map-region-per-incident.md) | A map region per incident | accepted | 2026-11-11 |
 | [0063](0063-upstream-login-configured-in-ordo.md) | Upstream logins are configured in ORDO, through Dex's connector API, after a test login | accepted | 2026-11-12 |
 | [0064](0064-map-editor-with-terra-draw.md) | The map is edited on its own page, with a toolbar, taps and Terra Draw | accepted; Page part superseded by 0065 | 2026-11-12 |
 | [0065](0065-map-editing-in-preparation.md) | The map is edited in *Vorbereitung*, and kept offline by default | accepted; Page part superseded by 0067 | 2026-11-13 |
 | [0066](0066-address-search-with-nominatim.md) | Addresses are searched with Nominatim, through the ORDO server | accepted | 2026-11-13 |
 | [0067](0067-command-overview-tiles-and-map-preparation.md) | The command's overview is a grid of tiles, and *Vorbereitung* has its own *Lagekarte* | accepted | 2026-11-13 |
-| [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server, managed in *Administration* | accepted | 2026-11-13 |
+| [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server | accepted; place in the app superseded by 0070 | 2026-11-13 |
 | [0069](0069-uhs-counts-as-a-unit.md) | A UHS counts as a unit on scene, without a second record | accepted | 2026-11-13 |
+| [0070](0070-units-planned-in-preparation-led-in-command.md) | Units are planned in *Vorbereitung* and led in *Führung*; master data stays with them | accepted | 2026-11-13 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -65,6 +65,9 @@ come from [profiles](architecture/08-concepts.md#88-regional-profiles), never fr
 | medical command | Sanitätseinsatzleitung (SanEL) | LNA and OrgL with their support staff; leads the medical sector |
 | patient care record (ePCR) | Patientenprotokoll, Einsatzprotokoll | Documentation of one patient: identity, history, findings, vital signs, measures, medication, disposition |
 | vital signs | Vitalwerte | Heart rate, blood pressure, breathing rate, SpO₂, temperature, blood sugar, GCS, pain |
+| working, suspected, confirmed diagnosis | Arbeitsdiagnose, Verdachtsdiagnose, gesicherte Diagnose | How certain a documented diagnosis is (EPCR-11); kept in the record only |
+| equal, unequal pupils | isokor, anisokor | Whether both pupils have the same size (EPCR-13) |
+| consensual light reaction | konsensuelle Lichtreaktion | The other pupil narrows when one eye is lit |
 | disposition | Verbleib | What happened to the patient: released, transported, handed over, refused, deceased |
 | physician, emergency physician | Arzt, Notarzt (NA) | — |
 | medic | Sanitäter, Rettungssanitäter, Notfallsanitäter | Medical staff below physician level |

@@ -7,7 +7,8 @@
 //! * Questions are direct children of a group. Their `linkId` is `<group>.<field>`, so it
 //!   is unique in the whole questionnaire, as FHIR requires.
 //! * Question types: `string`, `text`, `decimal`, `integer`, `choice` (with
-//!   `answerOption`; `repeats` for several answers), `date`, `time`, and `reference`
+//!   `answerOption`; `repeats` for several answers), `open-choice` with `repeats` (one
+//!   more answer as free text), `date`, `time`, and `reference`
 //!   limited to `Practitioner` (a person of the crew, answered as text).
 //! * Extensions: `questionnaire-unit`, `minValue`, `maxValue`, and a `display` child with
 //!   `questionnaire-itemControl` for a hint.
@@ -208,7 +209,13 @@ fn field(group: &str, item: &Item) -> Result<Field, CatalogueError> {
         ("text", false) => FieldType::Longtext,
         ("decimal" | "integer", false) => FieldType::Number,
         ("choice", false) => FieldType::Choice,
-        ("choice", true) => FieldType::Choices,
+        ("choice" | "open-choice", true) => FieldType::Choices,
+        ("open-choice", false) => {
+            return Err(unsupported(
+                link_id,
+                "open-choice is supported only with repeats: true",
+            ));
+        }
         ("date", false) => FieldType::Date,
         ("time", false) => FieldType::Time,
         // [impl->dsn~person-suggestions~1]
@@ -272,6 +279,8 @@ fn field(group: &str, item: &Item) -> Result<Field, CatalogueError> {
                     .unwrap_or_else(|| o.value_coding.code.clone()),
             })
             .collect(),
+        // [impl->dsn~open-choice~1]
+        open: item.item_type == "open-choice",
         code: code(item),
         hint,
     })

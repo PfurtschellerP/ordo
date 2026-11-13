@@ -41,7 +41,9 @@ offline. Counting staff only would leave out the UHS as a unit and its organisat
   names the people who work there; without both it counts as unreported, like a unit.
 * People who are on a UHS's staff list and also the crew of a unit on scene are counted
   twice. The command avoids it by not adding the same people as a unit; the helper
-  register (roadmap item 9) will tie people to one place.
+  register (roadmap item 9) will tie people to one place. Since 2026-11-13
+  ([UNIT-8](../requirements/02-shared.md#unit-8--one-post-per-person)) ORDO offers to move
+  someone added a second time, and marks the strength on scene when it happens anyway.
 
 ### Consequences
 

@@ -18,8 +18,9 @@ built or loaded; other elements (`id`, `url`, `version`, `title`, `status`, `cop
 | group `repeats` | `true`: a **series** form (timed entries, e.g. vital signs). Absent or `false`: a **snapshot** form (one current value per field, e.g. identity). |
 | question `item` | Direct child of a group. `linkId` is `<form>.<field>`, so it is unique in the questionnaire. Nested groups are not supported yet. |
 | `text` | Label shown to the user. |
-| `type` | `string`, `text`, `decimal`, `integer`, `choice`, `date`, `time`, `reference` (see below). |
-| `repeats` on a question | Only for `choice`: several answers may be chosen. |
+| `type` | `string`, `text`, `decimal`, `integer`, `choice`, `open-choice`, `date`, `time`, `reference` (see below). |
+| `repeats` on a question | Only for `choice` and `open-choice`: several answers may be chosen. `open-choice` needs it. |
+| `open-choice` | A `choice` with `repeats` that also takes one other answer as free text (FHIR `valueString`), at most 200 characters, e.g. "Sonstiges" for breathing. A text equal to an option's `code` counts as that option. |
 | `answerOption.valueCoding` | Options of a `choice`; `code` is stored (`a-z`, `0-9`, `_`), `display` is shown. |
 | `code` | Terminology code of the question, e.g. LOINC. |
 | `definition` | FHIR element the question fills, e.g. `…/Patient#Patient.birthDate`, for later extraction. |
@@ -43,5 +44,6 @@ author intended.
 ## Answers
 
 ORDO stores each saved form as an event (`epcr.entryRecorded`, see the Med package) with
-the values by field ID. An export as `QuestionnaireResponse` and extraction to FHIR
+the values by field ID. The other answer of an `open-choice` follows the chosen codes in
+the same list. An export as `QuestionnaireResponse` and extraction to FHIR
 resources (e.g. `Observation` for vital signs) are planned for the handover (EPCR-6).

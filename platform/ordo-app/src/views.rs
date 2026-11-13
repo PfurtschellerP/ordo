@@ -979,7 +979,7 @@ fn Workspace(
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
-                    // [impl->dsn~workspaces-by-phase~2]
+                    // [impl->dsn~workspaces-by-phase~3]
                     // [impl->dsn~map-drawing~2]
                     (Some("command.lead"), Some("map")) => view! {
                         <crate::situation::SituationView core revision />
@@ -1008,7 +1008,6 @@ fn Workspace(
                     (Some("admin.access"), Some("login")) => view! { <crate::login_providers::LoginProvidersView core revision /> }.into_any(),
                     (Some("admin.access"), _) => view! { <crate::accounts::AccountsView core revision /> }.into_any(),
                     (Some("admin.info"), _) => view! { <crate::notices::InfoView /> }.into_any(),
-                    (Some("admin.data"), _) => view! { <crate::master_data::VehiclesView core revision /> }.into_any(),
                     (Some("person.devices"), _) => view! { <devices::DevicesView core revision mine_only=true /> }.into_any(),
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
@@ -1118,6 +1117,8 @@ struct UhsDraft {
     strength: crate::units::StrengthDraft,
     /// Capacity per category, in the order of [`CAPACITY_CATEGORIES`].
     capacities: [RwSignal<String>; 5],
+    /// Where the person being added to the staff is assigned already (UNIT-8).
+    elsewhere: RwSignal<Vec<ordo_units::Post>>,
 }
 
 /// The triage categories a UHS can keep capacity and places for (UHS-13): all but the
@@ -1155,6 +1156,7 @@ impl UhsDraft {
                                 .unwrap_or_default(),
                         )
                     }),
+                    elsewhere: RwSignal::new(Vec::new()),
                 })
             });
             out = Some(d);
@@ -1184,6 +1186,7 @@ fn UhsDetailsPanel(
         service,
         strength,
         capacities,
+        elsewhere,
     } = draft;
     let slug = core::slug(&id);
     let staff = details.staff.clone();
@@ -1278,15 +1281,12 @@ fn UhsDetailsPanel(
             }
         }
     };
-    let add = {
+    let commit = {
         let (id, staff) = (id.clone(), staff.clone());
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
-            let who = person.get_untracked().trim().to_owned();
-            if who.is_empty() {
-                return;
-            }
+        Callback::new(move |who: String| {
             let mut list = staff.clone();
+            // Moved here while on the list already: kept once.
+            list.retain(|s| !ordo_units::same_person(s, &who));
             list.push(who);
             let update = med::UhsUpdated {
                 id: id.clone(),
@@ -1295,9 +1295,34 @@ fn UhsDetailsPanel(
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 person.set(String::new());
+                elsewhere.set(Vec::new());
+            }
+        })
+    };
+    let here = med::uhs_post(&id, &name);
+    // [impl->dsn~double-booking~1]
+    // Someone on a crew or another UHS is moved here, not counted twice (UNIT-8).
+    let add = {
+        let here = here.clone();
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let who = person.get_untracked().trim().to_owned();
+            if who.is_empty() {
+                return;
+            }
+            let away = crate::units::assignments(core).elsewhere(&who, &here);
+            if away.is_empty() {
+                commit.run(who);
+            } else {
+                elsewhere.set(away);
             }
         }
     };
+    let on_move = Callback::new(move |()| {
+        let who = person.get_untracked().trim().to_owned();
+        crate::units::move_away(core, revision, &who, &elsewhere.get_untracked());
+        commit.run(who);
+    });
     let members = staff
         .iter()
         .enumerate()
@@ -1398,6 +1423,7 @@ fn UhsDetailsPanel(
                 </div>
                 <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
             </form>
+            <crate::units::AssignedElsewhere person elsewhere here=here.label.clone() on_move />
         </crate::ui::Disclosure>
     }
 }

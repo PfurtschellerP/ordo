@@ -370,7 +370,7 @@ impl AccessPolicy for RolePolicy {
         self.allows_organisation(user, "manage_accounts")
     }
 
-    // [impl->dsn~vehicle-master-data~1]
+    // [impl->dsn~vehicle-master-data~2]
     fn can_manage_master_data(&self, user: &UserId) -> bool {
         self.allows_organisation(user, "manage_master_data")
     }
@@ -490,7 +490,7 @@ mod tests {
     }
 
     // [utest->dsn~device-revocation~1]
-    // [utest->dsn~vehicle-master-data~1]
+    // [utest->dsn~vehicle-master-data~2]
     #[test]
     fn admins_manage_all_devices() {
         let roles = Roles::new([(user("dora"), vec!["admin".to_owned()])]);

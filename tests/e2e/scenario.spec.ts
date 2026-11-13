@@ -132,7 +132,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.locator("#plan-name").fill(INCIDENT);
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
     await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
-    // [itest->dsn~workspaces-by-phase~2]
+    // [itest->dsn~workspaces-by-phase~3]
     // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, quick links.
     await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(5);
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
@@ -320,6 +320,29 @@ test("ORDO in the browser", async ({ browser }) => {
     await saveForm(anna, "vitals");
     await expect.poll(() => facts(anna, "vitals")).toContain("92 /min");
     await expect(anna.locator("[aria-labelledby=section-vitals] .corrected summary"), "the old entry stays visible").toHaveText("1 korrigierter Eintrag");
+
+    // [itest->dsn~open-choice~1]
+    // [itest->dsn~pupil-findings~1]
+    // EPCR-12, EPCR-13: an other answer as free text; the pupils as choices.
+    await anna.locator("#new-findings").click();
+    await fillForm(anna, "findings", { "breathing-other": "Schnappatmung" }, [
+      ["breathing", "Atemnot"],
+      ["pupils_equal", "anisokor (seitenungleich)"],
+      ["pupil_size_right", "weit"],
+      ["pupil_light_right", "keine"],
+      ["pupil_consensual", "fehlt"],
+    ]);
+    await audit(anna, "Findings form");
+    await saveForm(anna, "findings");
+    await expect
+      .poll(() => facts(anna, "findings"), { message: "the other answer after the options, and the pupils" })
+      .toMatch(/Atemnot, Schnappatmung.*anisokor \(seitenungleich\).*weit.*keine.*fehlt/);
+    // [itest->dsn~epcr-diagnosis~1]
+    // EPCR-11: a diagnosis with how certain it is, in the record only.
+    await anna.locator("#new-diagnosis").click();
+    await fillForm(anna, "diagnosis", { text: "Hypoglykämie" }, [["certainty", "Verdachtsdiagnose"]]);
+    await saveForm(anna, "diagnosis");
+    await expect.poll(() => facts(anna, "diagnosis"), { message: "a diagnosis is documented" }).toMatch(/Verdachtsdiagnose.*Hypoglykämie/);
 
     // Unsaved input survives switching views (UX-5).
     await anna.locator("#edit-history").click();
@@ -891,16 +914,21 @@ test("ORDO in the browser", async ({ browser }) => {
     const received = Buffer.concat(benFrames.received);
     expect(received.length).toBeGreaterThan(0);
     expect(
-      received.includes("DE-0042") || received.includes("Mustermann") || received.includes(patientPhoto.subarray(patientPhoto.length - 400, patientPhoto.length - 336)),
-      "the command device receives no triage tag number, no name and no photo",
+      received.includes("DE-0042") ||
+        received.includes("Mustermann") ||
+        received.includes("Hypoglyk") ||
+        received.includes(patientPhoto.subarray(patientPhoto.length - 400, patientPhoto.length - 336)),
+      "the command device receives no triage tag number, no name, no diagnosis and no photo",
     ).toBe(false);
     await audit(ben, "Command workspace");
     await shot(ben, "command");
   });
 
   await test.step("an administrator keeps the organisation's vehicles as master data", async () => {
-    // [itest->dsn~vehicle-master-data~1]
-    await openWorkspace(dora, "Stammdaten");
+    // [itest->dsn~vehicle-master-data~2]
+    // Kept where units are planned (ADR-0070).
+    await openWorkspace(dora, "Vorbereitung");
+    await openView(dora, "Einsatzmittel");
     const fixed = dora.locator(".vehicle-list [data-unit='RTW 83/1']");
     await expect(fixed, "the file's vehicle, with its usual strength").toContainText("RTW · DRK Musterstadt · Rettungsdienst");
     await expect(fixed, "shown, not changed").toContainText("aus der Serverkonfiguration");
@@ -912,7 +940,7 @@ test("ORDO in the browser", async ({ browser }) => {
       await dora.locator("#vehicle-leaders").fill("0");
       await dora.locator("#vehicle-sub-leaders").fill("0");
       await dora.locator("#vehicle-crew").fill(crew);
-      await dora.getByRole("button", { name: "Anlegen" }).click();
+      await dora.locator(".vehicle-form").getByRole("button", { name: "Anlegen", exact: true }).click();
     };
     await add("RTW 83/1", "RTW", "2");
     await expect(dora.locator(".vehicle-form [role=alert]"), "a call sign is taken once").toHaveText("Diesen Funkrufnamen gibt es in den Stammdaten schon.");
@@ -924,7 +952,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator("#vehicle-form-title")).toHaveText("KTW 83/2 bearbeiten");
     await expect(dora.locator("#vehicle-crew"), "the form holds the vehicle").toHaveValue("2");
     await dora.locator("#vehicle-service").selectOption("rescue");
-    await dora.getByRole("button", { name: "Speichern" }).click();
+    await dora.locator(".vehicle-form").getByRole("button", { name: "Speichern", exact: true }).click();
     await expect(ktw, "changed").toContainText("KTW · DRK Musterstadt · Rettungsdienst");
     await expect(dora.locator("#vehicle-form-title"), "the form is new again").toHaveText("Einsatzmittel anlegen");
     await dora.locator(".vehicle-list").getByRole("button", { name: "Entfernen: San-Trupp 1" }).click();
@@ -944,10 +972,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#unit-service")).toHaveValue("rescue");
     await expect(ben.locator("#unit-crew")).toHaveValue("1");
     await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
-    const status_ = ben.getByLabel("Status von RTW 83/1 setzen");
-    await status_.selectOption({ label: "3 – Einsatz übernommen" });
     const card = ben.locator(".unit-card[data-unit='RTW 83/1']");
-    await expect(card, "a unit is added and its status is set").toContainText("Status: 3 – Einsatz übernommen");
+    await expect(card, "a unit is added").toContainText("Status: –");
+    // [itest->dsn~workspaces-by-phase~3]
+    await expect(card.getByLabel("Status von RTW 83/1 setzen"), "planned here; its status is set in Führung").toHaveCount(0);
     await expect(card).toContainText("RTW · DRK Musterstadt");
     await expect(card, "with service and strength").toContainText("Rettungsdienst · Stärke 0/1/1/2");
     // [itest->dsn~uhs-as-unit~1]
@@ -957,15 +985,29 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
     await card.getByLabel("Notfallsanitäter/in").check();
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("anna@localhost · Notfallsanitäter/in");
+    // [itest->dsn~double-booking~1]
+    await expect(card.locator(".assigned-elsewhere"), "UNIT-8: someone on a UHS's staff is not booked twice").toContainText(
+      "anna@localhost ist schon bei UHS Eingang eingeteilt.",
+    );
+    await expect(card.locator(".crew-list"), "not added yet").toHaveCount(0);
+    await audit(ben, "Assigned elsewhere");
+    await card.locator(".assigned-elsewhere").getByRole("button", { name: "Abbrechen" }).click();
+    await ben.locator("#crew-rtw-83-1").fill("ben@localhost");
+    await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("ben@localhost · Notfallsanitäter/in");
 
     // [itest->dsn~tasks~2]
     const strip = ben.locator(".tasks-strip");
     await expect(strip, "open tasks in short at the top of every command view").toHaveText("Aufträge: keine offenen");
     await strip.getByRole("link").click();
     await expect(ben.locator("#tasks-title"), "the page of all tasks").toHaveText("Offene Aufträge (0)");
-    await ben.locator("#give-task-button").click();
-    await ben.locator("#task-unit").selectOption("RTW 83/1");
+    // ADR-0070: the units' status is set and their orders given in Führung – Disposition.
+    const board = ben.locator(".unit-status__item[data-unit='RTW 83/1']");
+    await board.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "3 – Einsatz übernommen" });
+    await expect(board, "the status is set on Disposition").toContainText("Status: 3 – Einsatz übernommen");
+    await expect(board.locator(".unit-status__tasks")).toHaveText("keine offenen Aufträge");
+    await board.getByRole("button", { name: "Auftrag geben: RTW 83/1" }).click();
+    await expect(ben.locator("#task-unit"), "the form opens for the unit").toHaveValue("unit:RTW 83/1");
     await ben.locator("#task-template").selectOption({ label: "Lagemeldung" });
     await expect(ben.locator("#task-text"), "a template fills in the text").toHaveValue("Lagemeldung abgeben");
     await ben.locator("#task-follow-up").fill("0");
@@ -973,9 +1015,11 @@ test("ORDO in the browser", async ({ browser }) => {
     const task = ben.locator(".task-card");
     await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
     await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
+    await expect(board.locator(".unit-status__tasks"), "the unit shows its task").toHaveText("1 offener Auftrag: Lagemeldung abgeben");
+    await audit(ben, "Units on Disposition");
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
-    await expect(card.locator(".unit-card__tasks"), "the unit shows its task").toHaveText("Aufträge: Lagemeldung abgeben");
+    await expect(card, "the status set in Führung shows where units are planned").toContainText("Status: 3 – Einsatz übernommen");
     await expect(strip, "every command view shows open and due tasks").toContainText("Aufträge: 1 offen, davon 1 fällig");
     await expect(strip.locator(".tasks-strip__due"), "the due task by name").toContainText("Fällig: Lagemeldung abgeben");
     await strip.getByRole("link").click();
@@ -1061,6 +1105,43 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(ben, "Detailed strength");
     await notation(false);
     await expect(total, "back to four numbers: both leaders as Führer").toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
+    // [itest->dsn~double-booking~1]
+    // UNIT-8: two devices without a connection book the same person twice; it is marked.
+    await server.stop();
+    await expect.poll(() => status(ben), { message: "both are offline" }).toContain("Offline");
+    await expect.poll(() => status(dora)).toContain("Offline");
+    await openWorkspace(dora, "Vorbereitung");
+    await openView(dora, "Einsatzmittel");
+    const doraCard = dora.locator(".unit-card[data-unit='RTW 83/1']");
+    await doraCard.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
+    await dora.locator("#crew-rtw-83-1").fill("Max Muster");
+    await doraCard.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await expect(doraCard.locator(".crew-list")).toContainText("Max Muster");
+    await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await uhsCard.getByLabel("Name", { exact: true }).fill("max muster");
+    await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(uhsCard.locator(".uhs-card__staff"), "this device does not know of the other booking").toHaveText("Personal: 3 Personen");
+    await server.start();
+    await expect.poll(() => status(dora), { message: "both send their changes", timeout: 20_000 }).toContain("Alles gesendet");
+    await expect.poll(() => status(ben), { timeout: 20_000 }).toContain("Alles gesendet");
+    await expect(total, "the total is marked").toHaveText("3 Einsatzmittel · Stärke 1/2/4/7* · ohne Stärkemeldung: 1");
+    await expect(ben.locator(".strength-on-scene__several"), "and the person named with both posts").toHaveText(
+      "* Mehrfach eingeteilt, eventuell doppelt gezählt: Max Muster (RTW 83/1, UHS Eingang)",
+    );
+    await openWorkspace(ben, "Führung");
+    await expect(ben.locator(".tile__several"), "the overview marks it too").toContainText("Max Muster (RTW 83/1, UHS Eingang)");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
+    // Moving them back to the unit takes them off the UHS's staff list.
+    await card.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
+    await ben.locator("#crew-rtw-83-1").fill("Max Muster");
+    await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await expect(card.locator(".assigned-elsewhere")).toContainText("Max Muster ist schon bei UHS Eingang eingeteilt.");
+    await card.getByRole("button", { name: "Hierher umsetzen: Max Muster zu RTW 83/1" }).click();
+    await expect(ben.locator(".strength-on-scene__several"), "booked once again").toHaveCount(0);
+    await expect(total).toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
+    await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
+    await expect(card.locator(".crew-list li"), "on the crew once").toHaveCount(2);
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));
@@ -1290,10 +1371,8 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-board~1]
     const free = ben.locator("[aria-labelledby=free-units-title]");
     await expect(free, "RTW 83/1 is on scene, not free").toContainText("Keine freien Transportmittel.");
-    await openWorkspace(ben, "Vorbereitung");
-    await openView(ben, "Einsatzmittel");
+    await openView(ben, "Disposition");
     await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "2 – Einsatzbereit auf Wache" });
-    await openWorkspace(ben, "Führung");
     await openView(ben, "Transporte");
     await expect(free.locator("li"), "a transport unit in an available status is free").toHaveText("RTW 83/1 · RTW · 2 – Einsatzbereit auf Wache");
 

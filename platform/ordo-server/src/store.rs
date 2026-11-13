@@ -367,7 +367,7 @@ impl Store {
             .collect()
     }
 
-    // [impl->dsn~vehicle-master-data~1]
+    // [impl->dsn~vehicle-master-data~2]
     /// Stores `vehicle`, in place of the one with the call sign `replaces` if given, in one
     /// transaction. Returns false, and changes nothing, if its call sign is already taken by
     /// another vehicle or `replaces` names none.
@@ -879,7 +879,7 @@ mod tests {
         assert!(store.load_organisation_roles().await.unwrap().is_empty());
     }
 
-    // [utest->dsn~vehicle-master-data~1]
+    // [utest->dsn~vehicle-master-data~2]
     #[tokio::test]
     async fn vehicles_are_added_renamed_and_removed_with_unique_call_signs() {
         let dir = tempfile::tempdir().unwrap();

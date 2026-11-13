@@ -104,7 +104,9 @@ impl TransportCatalogue {
     }
 }
 
-/// Payload of `transport.requested` (TRANS-1).
+// [impl->dsn~epcr-diagnosis~1]
+/// Payload of `transport.requested` (TRANS-1), in the `incident` compartment: no patient
+/// data, so no diagnosis either (EPCR-11); the diagnosis stays in the record.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransportRequested {
     /// New request ID (a ULID).

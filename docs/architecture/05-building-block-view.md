@@ -251,12 +251,14 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
   functions (*Detailed strength*). Services come from the profile (`units/catalogue.toml`).
   Version 1 payloads decode without service and strength.
 * **From master data:** the organisation's vehicles (call sign, type, organisation,
-  service, usual strength), managed in *Administration – Stammdaten* or fixed in a server
+  service, usual strength), managed at the end of *Vorbereitung – Einsatzmittel* or fixed in a server
   file (`ORDO_VEHICLES_FILE`); see *Vehicle master data* in chapter 8. Devices ask with `listVehicles` (sync protocol 1.1); the server answers
   planners and those who may edit units, others get an empty list. The add form suggests
   the call signs and fills in the rest; units can still be added ad hoc.
-* **Status:** status codes from the profile; the lost-update-aware board keeps when and
-  by whom each status was set, and the card shows since when.
+* **Status:** status codes from the profile, set in *Führung – Disposition*
+  ([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)); the
+  lost-update-aware board keeps when and by whom each status was set, and the cards show
+  since when.
 * **Crew** (`units.crewSet`, the whole list): names (suggesting the incident's people) and
   qualifications from the profile; the latest list counts.
 * **Release** (`units.released`): the unit leaves the incident and is no longer counted;
@@ -628,6 +630,29 @@ Needs: impl, utest, itest
 
 Tags: should, m57
 
+#### Double booking
+`dsn~double-booking~1`
+
+The strength on scene also records where each person is assigned (`Assignments` in the
+module `units`): the crews of the units present, at the post `unit:<call sign>`, and, from
+the Med package, every UHS's staff list at `uhs:<ID>`. Names are matched as entered,
+ignoring case and spaces around them; the helper register (roadmap item 9) will match
+people by record instead. Adding a person to a crew or a staff list first looks them up.
+If they are on other posts, the form says where and offers "Hierher umsetzen", which
+writes the other lists without them (`units.crewSet`, `uhs.updated`) and then adds them.
+Nothing is refused, because two devices can do it offline at the same time: when a person
+is on several posts anyway, *Einsatzmittel* marks the total strength with an asterisk and
+names them and their posts below it ("Mehrfach eingeteilt, eventuell doppelt gezählt").
+The asterisk is hidden from screen readers; the line below says it in words.
+
+Covers:
+
+* [req~unit-8~1](../requirements/02-shared.md#unit-8--one-post-per-person)
+
+Needs: impl, utest, itest
+
+Tags: should, m57
+
 #### UHS as a unit
 `dsn~uhs-as-unit~1`
 
@@ -752,6 +777,68 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m6
+
+#### Diagnosis in the record
+`dsn~epcr-diagnosis~1`
+
+The DE profile has a series form *Diagnose* (`diagnosis`): the time, how certain it is
+(`working` Arbeitsdiagnose, `suspected` Verdachtsdiagnose, `confirmed` gesichert; for the
+FHIR handover `provisional`, `unconfirmed` and `confirmed` of
+`Condition.verificationStatus`) and the diagnosis as text (`Condition.code.text`).
+Several entries are several diagnoses or a later view; a correction replaces an entry. Like
+every record entry it is an `epcr.entryRecorded` event in `med.clinical`, so only those who
+read the record see it. Nothing copies it elsewhere: `transport.requested` carries no
+patient data ([Transport requests](08-concepts.md#transport-requests)),
+and connectors carry counts. Those who carry the patient get it with the handover
+(EPCR-6, roadmap) and, later, in the vehicles' workspace (roadmap item 11). ORDO
+suggests no diagnosis (EPCR-9).
+
+Covers:
+
+* [req~epcr-11~1](../requirements/04-med.md#epcr-11--diagnosis)
+
+Needs: impl, utest, itest
+
+Tags: should, m58
+
+#### Open choices
+`dsn~open-choice~1`
+
+A repeating question of type `open-choice` (FHIR R4) is a choice with one more answer as
+free text ([subset](../../spec/profiles/questionnaire-subset.md)). The free text is kept
+after the chosen options in the same list of values; it is trimmed, at most as long as
+any text, and only one is kept. A text that is an option's code counts as that option. The
+form shows the options as chips and a text field "Sonstiges" below them; the record shows
+the free text after the options' labels. The DE profile makes *Atmung* and *Haut* open
+choices.
+
+Covers:
+
+* [req~epcr-12~1](../requirements/04-med.md#epcr-12--other-answers-as-free-text)
+
+Needs: impl, utest, itest
+
+Tags: should, m58
+
+#### Pupils
+`dsn~pupil-findings~1`
+
+The findings of the DE profile ask for the pupils as DIVI MIND records them: equal or not
+(`pupils_equal`: isokor, anisokor), size per side (`pupil_size_right`,
+`pupil_size_left`: eng, mittel, weit, entrundet), reaction to light per side
+(`pupil_light_right`, `pupil_light_left`: prompt, träge, keine) and the consensual
+reaction (`pupil_consensual`: vorhanden, fehlt). The free-text field `pupils` stays as
+"Pupillen, Bemerkung", so entries made before keep their meaning. This is profile data
+only; the platform shows the choices like any other. ORDO draws no conclusion from them
+(EPCR-9).
+
+Covers:
+
+* [req~epcr-13~1](../requirements/04-med.md#epcr-13--pupils-as-choices)
+
+Needs: utest, itest
+
+Tags: should, m58
 
 #### Patient photo
 `dsn~patient-photo~2`

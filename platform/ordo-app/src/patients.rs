@@ -1902,7 +1902,8 @@ fn FieldInput(
         }
         // [impl->dsn~person-suggestions~1]
         FieldType::Person => {
-            let people = use_context::<IncidentPeople>().map_or_else(|| Signal::stored(Vec::new()), |p| p.0);
+            let people =
+                use_context::<IncidentPeople>().map_or_else(|| Signal::stored(Vec::new()), |p| p.0);
             let list = format!("{id}-people");
             view! {
                 <label for=id.clone()>{field.label.clone()}</label>
@@ -1936,8 +1937,12 @@ fn FieldInput(
         }
         .into_any(),
         FieldType::Choice => {
-            let options = std::iter::once((String::new(), text::NO_ANSWER.to_owned()))
-                .chain(field.options.iter().map(|o| (o.id.clone(), o.label.clone())));
+            let options = std::iter::once((String::new(), text::NO_ANSWER.to_owned())).chain(
+                field
+                    .options
+                    .iter()
+                    .map(|o| (o.id.clone(), o.label.clone())),
+            );
             view! {
                 <fieldset class="choices" id=id.clone() tabindex="-1" aria-describedby=described.clone()>
                     <legend>{field.label.clone()}</legend>
@@ -1964,7 +1969,41 @@ fn FieldInput(
             }
             .into_any()
         }
-        FieldType::Choices => view! {
+        FieldType::Choices => {
+            // [impl->dsn~open-choice~1]
+            // An open choice takes one other answer as free text, kept after the options.
+            let other = field.open.then(|| {
+                let codes: Vec<String> = field.options.iter().map(|o| o.id.clone()).collect();
+                let other_id = format!("{id}-other");
+                let current = {
+                    let codes = codes.clone();
+                    move || match value.get() {
+                        Value::Many(list) => list.into_iter().find(|x| !codes.contains(x)).unwrap_or_default(),
+                        Value::One(_) => String::new(),
+                    }
+                };
+                let set = move |ev: leptos::ev::Event| {
+                    let typed = event_target_value(&ev);
+                    value.update(|v| {
+                        let mut list = match v {
+                            Value::Many(list) => std::mem::take(list),
+                            Value::One(_) => Vec::new(),
+                        };
+                        list.retain(|x| codes.contains(x));
+                        if !typed.is_empty() {
+                            list.push(typed);
+                        }
+                        *v = Value::Many(list);
+                    });
+                };
+                view! {
+                    <div class="field choices__other">
+                        <label for=other_id.clone()>{text::OTHER_ANSWER}</label>
+                        <input id=other_id type="text" autocomplete="off" maxlength=ordo_med_patients::record::MAX_OTHER_CHARS.to_string() prop:value=current on:input=set />
+                    </div>
+                }
+            });
+            view! {
             <fieldset class="choices" id=id.clone() tabindex="-1" aria-describedby=described.clone()>
                 <legend>{field.label.clone()}</legend>
                 {field
@@ -2001,9 +2040,11 @@ fn FieldInput(
                         }
                     })
                     .collect_view()}
+                {other}
             </fieldset>
+            }
+            .into_any()
         }
-        .into_any(),
     };
     view! {
         <div class="field-block" class:field-block--invalid=move || error.get().is_some()>

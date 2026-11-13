@@ -49,6 +49,8 @@ struct Overview {
     units: u32,
     strength: [u32; 3],
     unreported: u32,
+    /// People on more than one post, with their posts (UNIT-8).
+    several: Vec<String>,
     uhs: Vec<UhsTile>,
 }
 
@@ -127,6 +129,7 @@ fn overview(core: Handle) -> Overview {
             on_scene.total.crew,
         ],
         unreported: on_scene.unreported,
+        several: crate::units::several_labels(&on_scene.people.several()),
         uhs,
     }
 }
@@ -187,7 +190,7 @@ fn UhsCard(tile: UhsTile, #[prop(optional)] total: bool) -> impl IntoView {
     }
 }
 
-// [impl->dsn~workspaces-by-phase~2]
+// [impl->dsn~workspaces-by-phase~3]
 /// The overview of the incident command: start view of *Einsatzleitung – Führung*.
 #[component]
 pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
@@ -294,7 +297,11 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <TileHead id="tile-people" icon="users" title=text::PEOPLE route=units link=text::OPEN_UNITS />
                     <div class="tile__pair">
                         <p class="tile__figure tile__figure--stacked">
-                            <span id="overview-persons" class="tile__number">{move || o.with(|o| o.persons)}</span>
+                            <span id="overview-persons" class="tile__number">
+                                {move || o.with(|o| o.persons)}
+                                // [impl->dsn~double-booking~1]
+                                {move || o.with(|o| !o.several.is_empty()).then(|| view! { <span aria-hidden="true">"*"</span> })}
+                            </span>
                             <span>{text::PERSONS_ON_SCENE}</span>
                         </p>
                         <p class="tile__figure tile__figure--stacked">
@@ -313,6 +320,9 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         }}
                     </dl>
                     <p class="hint">{move || o.with(|o| text::unreported_strength(o.unreported))}</p>
+                    {move || o.with(|o| (!o.several.is_empty()).then(|| view! {
+                        <p class="hint tile__several"><span aria-hidden="true">"* "</span>{text::double_booked(&o.several)}</p>
+                    }))}
                 </section>
 
                 <section class="tile tile--uhs" aria-labelledby="tile-uhs">

@@ -243,6 +243,97 @@ pub struct StrengthOnScene {
     pub by_service: BTreeMap<String, (u32, Strength)>,
     /// Special functions of all units present.
     pub special: Special,
+    /// Where each person on a crew (or a package's staff list) is assigned (UNIT-8).
+    pub people: Assignments,
+}
+
+// [impl->dsn~double-booking~1]
+/// Where people are assigned: to the crews of units present, and to what packages add, e.g.
+/// a UHS's staff list (UNIT-8). A person is matched by name as entered, ignoring case and
+/// spaces around it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Assignments {
+    /// By person (matched form): the name as first noted and the places, in the order noted
+    /// (units by call sign, then what packages add).
+    people: BTreeMap<String, (String, Vec<Post>)>,
+}
+
+/// A place a person is assigned to: an ID its owner understands (e.g. `unit:<call sign>`)
+/// and the label shown.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Post {
+    /// ID, e.g. `unit:RTW 1`; [`Post::unit`] for units.
+    pub id: String,
+    /// Label, e.g. the call sign.
+    pub label: String,
+}
+
+impl Post {
+    /// The post of a unit's crew.
+    pub fn unit(call_sign: &str) -> Self {
+        Self {
+            id: format!("unit:{call_sign}"),
+            label: call_sign.to_owned(),
+        }
+    }
+
+    /// The call sign, if this is a unit's crew.
+    pub fn call_sign(&self) -> Option<&str> {
+        self.id.strip_prefix("unit:")
+    }
+}
+
+/// The form in which names are matched.
+fn person_key(name: &str) -> String {
+    name.trim().to_lowercase()
+}
+
+/// Whether two names, as entered, are the same person for [`Assignments`].
+pub fn same_person(a: &str, b: &str) -> bool {
+    person_key(a) == person_key(b)
+}
+
+impl Assignments {
+    /// Notes `person` at `post`; empty names and repeats at the same post are ignored.
+    pub fn add(&mut self, person: &str, post: &Post) {
+        let key = person_key(person);
+        if key.is_empty() {
+            return;
+        }
+        let entry = self
+            .people
+            .entry(key)
+            .or_insert_with(|| (person.trim().to_owned(), Vec::new()));
+        if !entry.1.contains(post) {
+            entry.1.push(post.clone());
+        }
+    }
+
+    /// Where `person` is assigned, in order.
+    pub fn of(&self, person: &str) -> &[Post] {
+        self.people
+            .get(&person_key(person))
+            .map_or(&[], |(_, posts)| posts.as_slice())
+    }
+
+    /// Where `person` is assigned besides `here`.
+    pub fn elsewhere(&self, person: &str, here: &Post) -> Vec<Post> {
+        self.of(person)
+            .iter()
+            .filter(|p| *p != here)
+            .cloned()
+            .collect()
+    }
+
+    /// The people assigned to more than one post, by name, with their posts: they may be
+    /// counted twice.
+    pub fn several(&self) -> Vec<(String, Vec<Post>)> {
+        self.people
+            .values()
+            .filter(|(_, posts)| posts.len() > 1)
+            .cloned()
+            .collect()
+    }
 }
 
 impl StrengthOnScene {
@@ -385,6 +476,10 @@ impl UnitRegister {
                 u.strength,
                 &u.special,
             );
+            let post = Post::unit(&u.unit);
+            for m in &u.crew {
+                s.people.add(&m.name, &post);
+            }
         }
         s
     }
@@ -683,6 +778,66 @@ mod tests {
             "released units are not counted"
         );
         assert_eq!(Strength::from([0, 1, 8]).total(), 9);
+    }
+
+    // [utest->dsn~double-booking~1]
+    #[test]
+    fn people_on_more_than_one_crew_are_found_by_name() {
+        let crew = |unit: &str, names: &[&str]| CrewSet {
+            unit: unit.into(),
+            members: names
+                .iter()
+                .map(|n| CrewMember {
+                    name: (*n).into(),
+                    qualifications: Vec::new(),
+                })
+                .collect(),
+        };
+        let events = vec![
+            added(1, "RTW 1", "DRK", "rescue", None),
+            added(2, "KTW 2", "DRK", "rescue", None),
+            added(3, "HLF 1", "FF", "fire", None),
+            event(
+                4,
+                CREW_SET,
+                crew("RTW 1", &["Anna", "Ben"]).encode().unwrap(),
+            ),
+            event(
+                5,
+                CREW_SET,
+                crew("KTW 2", &[" anna ", "Clara"]).encode().unwrap(),
+            ),
+            event(6, CREW_SET, crew("HLF 1", &["Clara"]).encode().unwrap()),
+            released(7, "HLF 1"),
+        ];
+        let mut people = UnitRegister::from_events(&events)
+            .strength_on_scene()
+            .people;
+        assert_eq!(
+            people.several(),
+            vec![(
+                "anna".to_owned(),
+                vec![Post::unit("KTW 2"), Post::unit("RTW 1")]
+            )],
+            "matched ignoring case and spaces, units by call sign; a released unit's crew does not count"
+        );
+        assert_eq!(
+            people.elsewhere("ANNA", &Post::unit("KTW 2")),
+            [Post::unit("RTW 1")]
+        );
+        assert!(people.elsewhere("Ben", &Post::unit("RTW 1")).is_empty());
+        let uhs = Post {
+            id: "uhs:u1".into(),
+            label: "UHS Nord".into(),
+        };
+        people.add("ben", &uhs);
+        people.add("ben", &uhs);
+        assert_eq!(
+            people.of("Ben"),
+            [Post::unit("RTW 1"), uhs],
+            "a post counts once"
+        );
+        assert_eq!(Post::unit("RTW 1").call_sign(), Some("RTW 1"));
     }
 
     // [utest->dsn~detailed-strength~1]

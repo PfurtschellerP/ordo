@@ -62,7 +62,6 @@ pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
 pub const WS_ACCESS: &str = "Zugriff";
 pub const WS_INFO: &str = "Info";
-pub const WS_MASTER_DATA: &str = "Stammdaten";
 /// The UHS as a unit (UHS-12).
 pub const UHS_STRENGTH: &str = "Stärke der UHS";
 pub const UHS_STRENGTH_HINT: &str = "Die UHS zählt bei den Kräften vor Ort als Einsatzmittel: mit dieser Stärke, sonst mit ihrem Personal.";
@@ -195,6 +194,40 @@ pub const NO_STATUS: &str = "–";
 pub fn set_status_label(unit: &str) -> String {
     format!("Status von {unit} setzen")
 }
+pub const UNIT_STATUS_TITLE: &str = "Einsatzmittel: Status und Aufträge";
+pub const UNIT_STATUS_EMPTY: &str =
+    "Noch keine Einsatzmittel im Einsatz. Sie werden in der Vorbereitung hinzugefügt.";
+/// "keine offenen Aufträge", "1 offener Auftrag", "3 offene Aufträge"
+pub fn open_tasks_of(n: usize) -> String {
+    match n {
+        0 => "keine offenen Aufträge".to_owned(),
+        1 => "1 offener Auftrag".to_owned(),
+        n => format!("{n} offene Aufträge"),
+    }
+}
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn task_give_label(unit: &str) -> String {
+    format!("{TASK_GIVE}: {unit}")
+}
+/// People on more than one crew or staff list (UNIT-8), e.g. "Ben (RTW 1, UHS Süd)".
+pub fn double_booked(people: &[String]) -> String {
+    format!(
+        "Mehrfach eingeteilt, eventuell doppelt gezählt: {}",
+        people.join("; ")
+    )
+}
+/// The person being added is on other crews or staff lists already (UNIT-8).
+pub fn assigned_elsewhere(person: &str, posts: &[String]) -> String {
+    format!(
+        "{person} ist schon bei {} eingeteilt. Umsetzen, damit niemand doppelt gezählt wird?",
+        posts.join(", ")
+    )
+}
+pub const MOVE_HERE: &str = "Hierher umsetzen";
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn move_here_label(person: &str, here: &str) -> String {
+    format!("{MOVE_HERE}: {person} zu {here}")
+}
 pub fn lost_update(unit: &str, overwritten: &str, kept: &str) -> String {
     format!(
         "Achtung {unit}: Status {} wurde gleichzeitig durch {} ersetzt. Bitte prüfen.",
@@ -309,6 +342,8 @@ pub const NEW_ENTRY: &str = "Neuer Eintrag";
 pub const CORRECT: &str = "Korrigieren";
 pub const NOTHING_DOCUMENTED: &str = "Noch nichts dokumentiert.";
 pub const NO_ANSWER: &str = "keine Angabe";
+/// The free-text answer of an open choice (EPCR-12).
+pub const OTHER_ANSWER: &str = "Sonstiges";
 pub const NOW: &str = "Jetzt";
 pub const EMPTY_ENTRY: &str = "Bitte mindestens einen Wert eintragen.";
 pub const NO_CHANGES: &str = "Keine Änderungen.";
@@ -1182,7 +1217,6 @@ pub const TASK_FOLLOW_UP_NUMBER: &str = "Bitte die Minuten als ganze Zahl angebe
 pub const FOLLOW_UP_LATER: &str = "In 10 Minuten nachfragen";
 pub const FOLLOW_UP_LATER_DONE: &str = "Nachfrage verschoben";
 pub const DUE: &str = "Fällig";
-pub const TASKS_OF_UNIT: &str = "Aufträge";
 
 pub fn tasks_title(n: usize) -> String {
     format!("{TASKS_TITLE} ({n})")
@@ -1683,7 +1717,7 @@ pub fn org_role_withdraw_label(role: &str, person: &str) -> String {
 }
 
 // Vehicle master data (ORG-14, ADR-0068)
-pub const VEHICLES_TITLE: &str = "Einsatzmittel der Organisation";
+pub const VEHICLES_TITLE: &str = "Stammdaten: Einsatzmittel der Organisation";
 pub const VEHICLES_INTRO: &str = "Fahrzeuge und Trupps mit ihrer üblichen Stärke, ohne Besatzung. Beim Hinzufügen von Einsatzmitteln zu einem Einsatz werden sie vorgeschlagen; die Besatzung kommt im Einsatz dazu.";
 pub const VEHICLES_OFFLINE: &str =
     "Die Stammdaten lassen sich nur mit Verbindung zum Server sehen und ändern.";

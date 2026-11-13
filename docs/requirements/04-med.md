@@ -330,6 +330,40 @@ Tags: must, med
 
 Needs: dsn
 
+#### EPCR-11 — Diagnosis
+`req~epcr-11~1`
+
+When a medic documents a diagnosis, ORDO shall record it with its time, its author and
+whether it is a working, suspected or confirmed diagnosis, and shall keep it in the
+clinical compartment: it shall reach only those who read the patient's record and, with
+the handover (EPCR-6), those who carry the patient, never a transport request or a
+connector.
+
+Tags: should, med, m58
+
+Needs: dsn
+
+#### EPCR-12 — Other answers as free text
+`req~epcr-12~1`
+
+Where the profile allows other answers to a choice, ORDO shall accept a short free text
+besides the options and show it with them, e.g. "Sonstiges" for breathing and skin.
+
+Tags: should, med, m58
+
+Needs: dsn
+
+#### EPCR-13 — Pupils as choices
+`req~epcr-13~1`
+
+When a medic documents the pupils, ORDO shall offer choices for whether they are equal,
+their size and reaction to light on each side, and the consensual reaction, as the DIVI
+MIND dataset records them.
+
+Tags: should, med, m58
+
+Needs: dsn
+
 ### 4.11.1 Med package: medical orders
 
 Orders (*Anordnungen*) are given by physicians and carried out by the crew

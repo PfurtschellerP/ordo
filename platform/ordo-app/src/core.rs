@@ -1151,7 +1151,7 @@ pub fn list_vehicles(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::ListVehicles));
 }
 
-// [impl->dsn~vehicle-master-data~1]
+// [impl->dsn~vehicle-master-data~2]
 /// Adds, changes or removes a vehicle of the master data (ORG-14); the server answers with
 /// the list.
 pub fn change_vehicle(core: Handle, change: ordo_sync::message::VehicleChange) {

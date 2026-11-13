@@ -351,7 +351,7 @@ impl<P: AccessPolicy> Hub<P> {
         self.policy.can_manage_master_data(user)
     }
 
-    // [impl->dsn~vehicle-master-data~1]
+    // [impl->dsn~vehicle-master-data~2]
     /// Replaces the installation's vehicles, e.g. after an administrator changed one; the
     /// next `listVehicles` gets the new list.
     pub fn set_vehicles(&mut self, vehicles: Vec<crate::message::Vehicle>) {

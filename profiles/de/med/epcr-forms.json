@@ -2,7 +2,7 @@
   "resourceType": "Questionnaire",
   "id": "ordo-de-epcr",
   "url": "urn:ordo:profile:de:questionnaire:epcr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "OrdoDeEpcr",
   "title": "Patientenprotokoll (DE)",
   "status": "draft",
@@ -10,7 +10,7 @@
   "subjectType": [
     "Patient"
   ],
-  "description": "ePCR forms of the ORDO DE profile. Sections follow German emergency documentation (DIVI MIND): identity, encounter, history, vital signs, findings, measures, medication, disposition. A repeating group is a series of timed entries; a non-repeating group has one current value per field. Input limits catch typing errors; they are not clinical limits. ORDO subset: spec/fhir/questionnaire-subset.md.",
+  "description": "ePCR forms of the ORDO DE profile. Sections follow German emergency documentation (DIVI MIND): identity, encounter, history, vital signs, findings, diagnosis, measures, medication, disposition. A repeating group is a series of timed entries; a non-repeating group has one current value per field. Input limits catch typing errors; they are not clinical limits. ORDO subset: spec/fhir/questionnaire-subset.md.",
   "copyright": "This material contains content from LOINC® (http://loinc.org). LOINC is copyright © Regenstrief Institute, Inc. and the Logical Observation Identifiers Names and Codes (LOINC) Committee and is available at no cost under the license at http://loinc.org/license. LOINC® is a registered United States trademark of Regenstrief Institute, Inc. This product includes all or a portion of the UCUM table, UCUM codes, and UCUM definitions or is derived from it, subject to a license from Regenstrief Institute, Inc. and The UCUM Organization. The UCUM table and UCUM codes are copyright © 1995-2013, Regenstrief Institute, Inc. and the Unified Codes for Units of Measures (UCUM) Organization.",
   "item": [
     {
@@ -934,7 +934,7 @@
         {
           "linkId": "findings.breathing",
           "text": "Atmung",
-          "type": "choice",
+          "type": "open-choice",
           "repeats": true,
           "answerOption": [
             {
@@ -966,7 +966,7 @@
         {
           "linkId": "findings.skin",
           "text": "Haut",
-          "type": "choice",
+          "type": "open-choice",
           "repeats": true,
           "answerOption": [
             {
@@ -1002,13 +1002,163 @@
           ]
         },
         {
-          "linkId": "findings.pupils",
+          "linkId": "findings.pupils_equal",
           "text": "Pupillen",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "isocoric",
+                "display": "isokor (seitengleich)"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "anisocoric",
+                "display": "anisokor (seitenungleich)"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupil_size_right",
+          "text": "Pupillenweite rechts",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "narrow",
+                "display": "eng"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "medium",
+                "display": "mittel"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "wide",
+                "display": "weit"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "irregular",
+                "display": "entrundet"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupil_size_left",
+          "text": "Pupillenweite links",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "narrow",
+                "display": "eng"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "medium",
+                "display": "mittel"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "wide",
+                "display": "weit"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "irregular",
+                "display": "entrundet"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupil_light_right",
+          "text": "Lichtreaktion rechts",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "prompt",
+                "display": "prompt"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "sluggish",
+                "display": "träge"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "none",
+                "display": "keine"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupil_light_left",
+          "text": "Lichtreaktion links",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "prompt",
+                "display": "prompt"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "sluggish",
+                "display": "träge"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "none",
+                "display": "keine"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupil_consensual",
+          "text": "Konsensuelle Lichtreaktion",
+          "type": "choice",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "present",
+                "display": "vorhanden"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "absent",
+                "display": "fehlt"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "findings.pupils",
+          "text": "Pupillen, Bemerkung",
           "type": "string",
           "item": [
             {
               "linkId": "findings.pupils.hint",
-              "text": "Weite, seitengleich, Lichtreaktion",
+              "text": "Was die Auswahl oben nicht erfasst",
               "type": "display",
               "extension": [
                 {
@@ -1060,6 +1210,71 @@
           "linkId": "findings.notes",
           "text": "Weitere Befunde",
           "type": "text"
+        }
+      ]
+    },
+    {
+      "linkId": "diagnosis",
+      "text": "Diagnose",
+      "type": "group",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "diagnosis.time",
+          "text": "Uhrzeit",
+          "type": "time"
+        },
+        {
+          "linkId": "diagnosis.certainty",
+          "text": "Art der Diagnose",
+          "type": "choice",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Condition#Condition.verificationStatus",
+          "answerOption": [
+            {
+              "valueCoding": {
+                "code": "working",
+                "display": "Arbeitsdiagnose"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "suspected",
+                "display": "Verdachtsdiagnose"
+              }
+            },
+            {
+              "valueCoding": {
+                "code": "confirmed",
+                "display": "gesichert"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "diagnosis.text",
+          "text": "Diagnose",
+          "type": "string",
+          "definition": "http://hl7.org/fhir/StructureDefinition/Condition#Condition.code.text",
+          "item": [
+            {
+              "linkId": "diagnosis.text.hint",
+              "text": "Bleibt im Patientenprotokoll; die Transportanforderung enthält sie nicht.",
+              "type": "display",
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.org/fhir/questionnaire-item-control",
+                        "code": "prompt"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },

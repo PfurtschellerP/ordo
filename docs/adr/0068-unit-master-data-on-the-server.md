@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its place in the app superseded by ADR-0070
 date: 2026-11-13
 ---
 
@@ -59,6 +59,8 @@ import from CSV ([ORG-2](../requirements/02-shared.md#org-2--csv-import)) stays 
 
 ## More Information
 
-Design item *Vehicle master data* in
+Since [ADR-0070](0070-units-planned-in-preparation-led-in-command.md) the vehicles are
+kept on *Vorbereitung – Einsatzmittel*, not in *Administration*. Design item *Vehicle
+master data* in
 [chapter 8](../architecture/08-concepts.md#vehicle-master-data);
 [ADR-0035](0035-authorization-with-cedar.md) for the permission.

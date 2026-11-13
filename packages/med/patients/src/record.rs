@@ -38,6 +38,8 @@ const ATTACHMENT_OVERHEAD: u64 = 40;
 pub const PHOTO_MEDIA_TYPES: [&str; 2] = ["image/jpeg", "image/webp"];
 /// Longest text value, in characters.
 pub const MAX_TEXT_CHARS: usize = 4000;
+/// Longest other answer of an open choice, in characters (EPCR-12).
+pub const MAX_OTHER_CHARS: usize = 200;
 
 // ---------------------------------------------------------------------------
 // Profile catalogue `epcr-forms`
@@ -139,6 +141,10 @@ pub struct Field {
     /// Options of a choice field.
     #[serde(default, rename = "option", skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<Choice>,
+    /// Whether a choice of several also takes one other answer as free text (FHIR
+    /// `open-choice`, EPCR-12).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub open: bool,
     /// Code in an open terminology, for later exchange (e.g. `loinc:8867-4`,
     /// `fhir:Patient.birthDate`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -221,7 +227,9 @@ impl FormCatalogue {
                     return Err(CatalogueError::Duplicate(name));
                 }
                 let is_choice = matches!(field.field_type, FieldType::Choice | FieldType::Choices);
-                if is_choice == field.options.is_empty() {
+                if is_choice == field.options.is_empty()
+                    || (field.open && field.field_type != FieldType::Choices)
+                {
                     return Err(CatalogueError::Options(name));
                 }
                 let mut options = BTreeSet::new();
@@ -374,18 +382,29 @@ impl Field {
             });
         }
         match (self.field_type, value) {
+            // [impl->dsn~open-choice~1]
             (FieldType::Choices, Value::Many(list)) => {
-                for id in list {
-                    if !self.options.iter().any(|o| &o.id == id) {
-                        return Err(ValueError::UnknownOption(id.clone()));
+                let trimmed: Vec<&str> = list.iter().map(|x| x.trim()).collect();
+                let mut other = None;
+                for text in &trimmed {
+                    if text.is_empty() || self.options.iter().any(|o| o.id == *text) {
+                        continue;
                     }
+                    if !self.open {
+                        return Err(ValueError::UnknownOption((*text).to_owned()));
+                    }
+                    if text.chars().count() > MAX_OTHER_CHARS {
+                        return Err(ValueError::TooLong);
+                    }
+                    other.get_or_insert((*text).to_owned()); // only one is kept
                 }
-                // Keep the profile's order and drop duplicates.
+                // Keep the profile's order and drop duplicates; the other answer last.
                 Ok(Value::Many(
                     self.options
                         .iter()
-                        .filter(|o| list.contains(&o.id))
+                        .filter(|o| trimmed.contains(&o.id.as_str()))
                         .map(|o| o.id.clone())
+                        .chain(other)
                         .collect(),
                 ))
             }
@@ -902,6 +921,25 @@ mod tests {
             .is_err()
         );
         assert!(FormCatalogue::from_questionnaire_json(r#"{"resourceType": "Patient"}"#).is_err());
+        // [utest->dsn~open-choice~1]
+        // An open choice takes other answers; it must allow several.
+        let open = replace(
+            r#""type": "choice", "repeats": true"#,
+            r#""type": "open-choice", "repeats": true"#,
+        )
+        .expect("open choice");
+        assert!(
+            open.form("vitals")
+                .and_then(|f| f.field("measures"))
+                .is_some_and(|f| f.open)
+        );
+        assert!(matches!(
+            replace(
+                r#""type": "choice", "repeats": true"#,
+                r#""type": "open-choice""#
+            ),
+            Err(CatalogueError::Unsupported(_))
+        ));
     }
 
     fn one(text: &str) -> Value {
@@ -966,7 +1004,58 @@ mod tests {
             "../../../../profiles/de/med/epcr-forms.json"
         ))
         .expect("DE profile is a valid questionnaire");
-        assert_eq!(de.forms.len(), 8);
+        assert_eq!(de.forms.len(), 9);
+        // [utest->dsn~epcr-diagnosis~1]
+        let diagnosis = de.form("diagnosis").expect("diagnosis");
+        assert_eq!(
+            diagnosis.kind,
+            FormKind::Series,
+            "several, each with its time"
+        );
+        let certainty = diagnosis.field("certainty").expect("certainty");
+        assert_eq!(
+            certainty
+                .options
+                .iter()
+                .map(|o| o.id.as_str())
+                .collect::<Vec<_>>(),
+            ["working", "suspected", "confirmed"]
+        );
+        assert_eq!(
+            diagnosis.field("text").map(|f| f.field_type),
+            Some(FieldType::Text)
+        );
+        // [utest->dsn~open-choice~1]
+        let findings = de.form("findings").expect("findings");
+        for id in ["breathing", "skin"] {
+            assert!(
+                findings.field(id).is_some_and(|f| f.open),
+                "{id} takes other answers"
+            );
+        }
+        // [utest->dsn~pupil-findings~1]
+        let ids: Vec<&str> = findings.fields.iter().map(|f| f.id.as_str()).collect();
+        let pupils = ids
+            .iter()
+            .position(|id| *id == "pupils_equal")
+            .expect("pupils");
+        assert_eq!(
+            ids[pupils..pupils + 7],
+            [
+                "pupils_equal",
+                "pupil_size_right",
+                "pupil_size_left",
+                "pupil_light_right",
+                "pupil_light_left",
+                "pupil_consensual",
+                "pupils",
+            ],
+            "the choices, then the remark that older entries used"
+        );
+        assert_eq!(
+            findings.field("pupils").map(|f| f.label.as_str()),
+            Some("Pupillen, Bemerkung")
+        );
         let vitals = de.form("vitals").expect("vital signs");
         assert_eq!(vitals.kind, FormKind::Series);
         assert_eq!(
@@ -1024,6 +1113,30 @@ mod tests {
         assert_eq!(
             measures.normalise(&Value::Many(vec!["magic".into()])),
             Err(ValueError::UnknownOption("magic".into()))
+        );
+        // [utest->dsn~open-choice~1]
+        let mut open = measures.clone();
+        open.open = true;
+        let many = |list: &[&str]| Value::Many(list.iter().map(|x| (*x).to_owned()).collect());
+        assert_eq!(
+            open.normalise(&many(&[" Schonhaltung ", "splint", "zweite", " oxygen"])),
+            Ok(many(&["oxygen", "splint", "Schonhaltung"])),
+            "options in profile order, one other answer after them"
+        );
+        assert_eq!(
+            open.normalise(&many(&["oxygen", " "])),
+            Ok(many(&["oxygen"]))
+        );
+        assert_eq!(
+            open.normalise(&many(&[&"x".repeat(MAX_OTHER_CHARS + 1)])),
+            Err(ValueError::TooLong)
+        );
+        assert_eq!(
+            open.display(&many(&["oxygen", "Schonhaltung"])),
+            format!(
+                "{}, Schonhaltung",
+                open.option_label("oxygen").expect("option")
+            )
         );
         let sex = c
             .form("identity")

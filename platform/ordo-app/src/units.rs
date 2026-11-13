@@ -6,7 +6,8 @@ use std::sync::LazyLock;
 
 use leptos::prelude::*;
 use ordo_units::{
-    CrewMember, Special, StatusCatalogue, Strength, Unit, UnitAdded, UnitCatalogue, UnitRegister,
+    Assignments, CrewMember, Post, Special, StatusCatalogue, Strength, Unit, UnitAdded,
+    UnitCatalogue, UnitRegister,
 };
 
 use crate::core::{self, Handle};
@@ -271,11 +272,21 @@ fn StrengthOnScene(
                         })
                         .collect_view()
                 };
+                // [impl->dsn~double-booking~1]
+                // People on more than one post may be counted twice: marked, and named.
+                let several = s.people.several();
                 view! {
                     <p class="strength-on-scene__total">
                         <strong>{text::units_count(s.units)}</strong> " · " {text::STRENGTH} " " <StrengthText strength=s.total special=s.special.clone() detailed=detailed(core) />
+                        {(!several.is_empty()).then(|| view! { <span class="strength-on-scene__mark" aria-hidden="true">"*"</span> })}
                         {(s.unreported > 0).then(|| format!(" · {}", text::unreported(s.unreported)))}
                     </p>
+                    {(!several.is_empty()).then(|| view! {
+                        <p class="hint strength-on-scene__several">
+                            <span aria-hidden="true">"* "</span>
+                            {text::double_booked(&several_labels(&several))}
+                        </p>
+                    })}
                     <div class="strength-on-scene__groups">
                         <div>
                             <h4>{text::BY_ORGANISATION}</h4>
@@ -292,6 +303,103 @@ fn StrengthOnScene(
     }
 }
 
+/// "Ben (RTW 1, UHS Süd)" for each person on several posts.
+pub(crate) fn several_labels(several: &[(String, Vec<Post>)]) -> Vec<String> {
+    several
+        .iter()
+        .map(|(person, posts)| {
+            let at: Vec<&str> = posts.iter().map(|p| p.label.as_str()).collect();
+            format!("{person} ({})", at.join(", "))
+        })
+        .collect()
+}
+
+// [impl->dsn~double-booking~1]
+/// Where people are assigned in the chosen incident: the crews of the units present and the
+/// UHS staff lists (UNIT-8).
+pub(crate) fn assignments(core: Handle) -> Assignments {
+    core.with_value(|c| {
+        let events = c.events(ordo_units::COMPARTMENT);
+        ordo_med_patients::strength_on_scene(&UnitRegister::from_events(&events), &events).people
+    })
+}
+
+/// Takes `person` off the crews and UHS staff lists of `from`, to assign them elsewhere.
+pub(crate) fn move_away(core: Handle, revision: RwSignal<u64>, person: &str, from: &[Post]) {
+    let (register, uhs) = core.with_value(|c| {
+        let events = c.events(ordo_units::COMPARTMENT);
+        (
+            UnitRegister::from_events(&events),
+            ordo_med_patients::uhs_details(&events),
+        )
+    });
+    for post in from {
+        if let Some(unit) = post.call_sign().and_then(|call| register.units.get(call)) {
+            let crew = unit
+                .crew
+                .iter()
+                .filter(|m| !ordo_units::same_person(&m.name, person))
+                .cloned()
+                .collect();
+            let _ = core::set_crew(core, revision, &unit.unit, crew);
+        } else if let Some(id) = ordo_med_patients::uhs_of_post(post) {
+            let staff = uhs
+                .get(id)
+                .map(|d| {
+                    d.staff
+                        .iter()
+                        .filter(|s| !ordo_units::same_person(s, person))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
+            let update = ordo_med_patients::UhsUpdated {
+                id: id.to_owned(),
+                staff: Some(staff),
+                ..Default::default()
+            };
+            let _ = core::update_uhs(core, revision, &update);
+        }
+    }
+}
+
+// [impl->dsn~double-booking~1]
+/// Said when the person being added is assigned elsewhere already (UNIT-8): where, and a way
+/// to move them here instead of counting them twice.
+#[component]
+pub(crate) fn AssignedElsewhere(
+    /// The person being added, as entered.
+    person: RwSignal<String>,
+    /// Where they are assigned; empty: nothing to say.
+    elsewhere: RwSignal<Vec<Post>>,
+    /// The label of the post they are added to.
+    here: String,
+    /// Moves them: takes them off `elsewhere` and adds them here.
+    on_move: Callback<()>,
+) -> impl IntoView {
+    let posts = move || elsewhere.with(|e| e.iter().map(|p| p.label.clone()).collect::<Vec<_>>());
+    view! {
+        <Show when=move || elsewhere.with(|e| !e.is_empty())>
+            <div class="notice notice--warning assigned-elsewhere" role="alert">
+                <p>{move || text::assigned_elsewhere(person.get().trim(), &posts())}</p>
+                <div class="row">
+                    <button type="button" class="button button--small"
+                        aria-label={
+                            let here = here.clone();
+                            move || text::move_here_label(person.get().trim(), &here)
+                        }
+                        on:click=move |_| on_move.run(())>
+                        {text::MOVE_HERE}
+                    </button>
+                    <button type="button" class="button button--small button--quiet" on:click=move |_| elsewhere.set(Vec::new())>
+                        {text::CANCEL}
+                    </button>
+                </div>
+            </div>
+        </Show>
+    }
+}
+
 /// What someone types into a unit's crew panel, and whether it is open: kept by the view
 /// under its owner, so the list can update while they type.
 #[derive(Clone, Copy)]
@@ -299,6 +407,8 @@ struct CrewDraft {
     open: RwSignal<bool>,
     person: RwSignal<String>,
     qualifications: RwSignal<BTreeSet<String>>,
+    /// Where the person being added is assigned already (UNIT-8).
+    elsewhere: RwSignal<Vec<Post>>,
 }
 
 /// The crew of a unit (UNIT-5): members with qualifications; adding and removing writes the
@@ -316,6 +426,7 @@ fn CrewEditor(
     let CrewDraft {
         person,
         qualifications,
+        elsewhere,
         ..
     } = draft;
     let people = Memo::new(move |_| {
@@ -323,15 +434,12 @@ fn CrewEditor(
         core::incident_people(core)
     });
     let field = format!("crew-{}", core::slug(&name));
-    let add = {
+    let commit = {
         let (name, members) = (name.clone(), members.clone());
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
-            let who = person.get_untracked().trim().to_owned();
-            if who.is_empty() {
-                return;
-            }
+        Callback::new(move |who: String| {
             let mut list = members.clone();
+            // Moved here while on the list already: kept once.
+            list.retain(|m| !ordo_units::same_person(&m.name, &who));
             list.push(CrewMember {
                 name: who,
                 qualifications: CATALOGUE
@@ -344,9 +452,34 @@ fn CrewEditor(
             if core::set_crew(core, revision, &name, list).is_ok() {
                 person.set(String::new());
                 qualifications.set(BTreeSet::new());
+                elsewhere.set(Vec::new());
+            }
+        })
+    };
+    let here = Post::unit(&name);
+    // [impl->dsn~double-booking~1]
+    // Someone on another crew or UHS is moved here, not counted twice (UNIT-8).
+    let add = {
+        let here = here.clone();
+        move |ev: leptos::ev::SubmitEvent| {
+            ev.prevent_default();
+            let who = person.get_untracked().trim().to_owned();
+            if who.is_empty() {
+                return;
+            }
+            let away = assignments(core).elsewhere(&who, &here);
+            if away.is_empty() {
+                commit.run(who);
+            } else {
+                elsewhere.set(away);
             }
         }
     };
+    let on_move = Callback::new(move |()| {
+        let who = person.get_untracked().trim().to_owned();
+        move_away(core, revision, &who, &elsewhere.get_untracked());
+        commit.run(who);
+    });
     let options: Vec<(String, String)> = CATALOGUE
         .qualifications
         .iter()
@@ -405,6 +538,7 @@ fn CrewEditor(
                 <div class="row">
                     <button type="submit" class="button button--small">{text::CREW_ADD}</button>
                 </div>
+                <AssignedElsewhere person elsewhere here=here.label.clone() on_move />
             </form>
         })}
     }
@@ -418,28 +552,13 @@ fn UnitCard(
     unit: Unit,
     editable: bool,
     draft: CrewDraft,
-    /// The unit's open tasks (TASK-3).
-    tasks: Vec<String>,
     /// The open positions (ID, title) and the unit's position (CMD-2).
     positions: Vec<(String, String)>,
     position: Option<String>,
 ) -> impl IntoView {
     let u = unit;
     let name = u.unit.clone();
-    let current = u
-        .status
-        .as_ref()
-        .map(|s| s.status.clone())
-        .unwrap_or_default();
-    let shown = u.status.as_ref().map_or_else(
-        || text::NO_STATUS.to_owned(),
-        |s| {
-            text::status_since(
-                &text::status_label(&s.status),
-                &core::clock(s.since.wall_ms),
-            )
-        },
-    );
+    let shown = status_shown(&u);
     let crew_open = draft.open;
     let release = editable.then(|| {
         let name = name.clone();
@@ -460,11 +579,8 @@ fn UnitCard(
                 {details(&u)}
                 {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength special=u.special.clone() detailed=detailed(core) /> })}
             </p>
+            // The status is set in *Führung – Disposition* (ADR-0070); shown here.
             <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
-            // [impl->dsn~tasks~2]
-            {(!tasks.is_empty()).then(|| view! {
-                <p class="unit-card__tasks">{text::TASKS_OF_UNIT} ": " {tasks.join(" · ")}</p>
-            })}
             // [impl->dsn~command-structure~1]
             // Under which position: one choice, two taps (CMD-2).
             {(editable && !positions.is_empty()).then(|| {
@@ -491,27 +607,6 @@ fn UnitCard(
             {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
                 <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
             }))}
-            {editable.then(|| {
-                let name = name.clone();
-                view! {
-                    <select aria-label=text::set_status_label(&name) on:change=move |ev| {
-                        let value = event_target_value(&ev);
-                        if !value.is_empty() {
-                            let _ = core::set_status(core, revision, &name, &value);
-                        }
-                    }>
-                        <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
-                        {STATUS
-                            .codes
-                            .iter()
-                            .map(|s| {
-                                let code = s.code.clone();
-                                view! { <option value=code.clone() selected=code == current>{text::status_label(&code)}</option> }
-                            })
-                            .collect_view()}
-                    </select>
-                }
-            })}
             <Disclosure
                 id=format!("crew-{}", core::slug(&name))
                 open=crew_open
@@ -528,11 +623,134 @@ fn UnitCard(
     }
 }
 
+/// "3 – Einsatz übernommen, seit 10:12", or that no status was set.
+fn status_shown(u: &Unit) -> String {
+    u.status.as_ref().map_or_else(
+        || text::NO_STATUS.to_owned(),
+        |s| {
+            text::status_since(
+                &text::status_label(&s.status),
+                &core::clock(s.since.wall_ms),
+            )
+        },
+    )
+}
+
+/// Choosing a unit's status (UNIT-3).
+#[component]
+fn StatusSelect(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: String,
+    current: String,
+) -> impl IntoView {
+    view! {
+        <select aria-label=text::set_status_label(&unit) on:change=move |ev| {
+            let value = event_target_value(&ev);
+            if !value.is_empty() {
+                let _ = core::set_status(core, revision, &unit, &value);
+            }
+        }>
+            <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
+            {STATUS
+                .codes
+                .iter()
+                .map(|s| {
+                    let code = s.code.clone();
+                    view! { <option value=code.clone() selected=code == current>{text::status_label(&code)}</option> }
+                })
+                .collect_view()}
+        </select>
+    }
+}
+
+// [impl->dsn~workspaces-by-phase~3]
+// [impl->dsn~tasks~2]
+/// The units on scene in *Führung – Disposition* (ADR-0070): status since when, set here, and
+/// their open tasks, each with a way to give one (UNIT-3, TASK-3).
+#[component]
+pub fn UnitStatusBoard(
+    core: Handle,
+    revision: RwSignal<u64>,
+    editable: Memo<bool>,
+    /// Opens the form to give a task to the unit with this call sign.
+    give: Callback<String>,
+) -> impl IntoView {
+    let rows = Memo::new(move |_| {
+        revision.track();
+        let tasks = crate::tasks::task_list(core);
+        core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
+            .present()
+            .map(|u| {
+                let open: Vec<String> = tasks
+                    .of_unit(&u.unit)
+                    .iter()
+                    .map(|t| t.given.text.clone())
+                    .collect();
+                (u.clone(), open)
+            })
+            .collect::<Vec<_>>()
+    });
+    let prepare = crate::nav::Route::view("command.prepare", "units");
+    view! {
+        <section class="card unit-status" aria-labelledby="unit-status-title">
+            <h2 id="unit-status-title">{text::UNIT_STATUS_TITLE}</h2>
+            {move || {
+                let list = rows.get();
+                if list.is_empty() {
+                    let prepare = prepare.clone();
+                    return view! {
+                        <p>
+                            {text::UNIT_STATUS_EMPTY} " "
+                            <a href=prepare.to_path() on:click=crate::views::follow_route(prepare.clone())>{text::OPEN_UNITS}</a>
+                        </p>
+                    }
+                    .into_any();
+                }
+                let editable = editable.get();
+                view! {
+                    <ul class="unit-list unit-status__list" data-keys="list">
+                        {list
+                            .into_iter()
+                            .map(|(u, open)| {
+                                let name = u.unit.clone();
+                                let current = u.status.as_ref().map(|s| s.status.clone()).unwrap_or_default();
+                                let call = name.clone();
+                                view! {
+                                    <li class="unit-card unit-status__item" data-unit=name.clone()>
+                                        <h3 class="unit-card__name">{name.clone()}</h3>
+                                        <p class="unit-card__details">{details(&u)}</p>
+                                        <p class="unit-status__current">{text::COL_STATUS} ": " <strong>{status_shown(&u)}</strong></p>
+                                        {editable.then(|| view! { <StatusSelect core revision unit=name.clone() current /> })}
+                                        <p class="unit-status__tasks">
+                                            {text::open_tasks_of(open.len())}
+                                            {(!open.is_empty()).then(|| format!(": {}", open.join(" · ")))}
+                                        </p>
+                                        {editable.then(|| view! {
+                                            <button type="button" class="button button--small" aria-label=text::task_give_label(&name)
+                                                on:click=move |_| give.run(call.clone())>
+                                                {text::TASK_GIVE}
+                                            </button>
+                                        })}
+                                    </li>
+                                }
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+                .into_any()
+            }}
+        </section>
+    }
+}
+
 // [impl->dsn~unit-register~2]
 // [impl->dsn~views-by-role~1]
-/// The incident's units (UNIT-1…6): strength on scene, every unit with status, crew and
-/// release; released units apart; adding from the installation's vehicles or ad hoc.
-/// Adding units and setting their status: incident command only (`edit_units`).
+// [impl->dsn~workspaces-by-phase~3]
+/// The incident's units as planned in *Vorbereitung* (UNIT-1…6, ADR-0070): strength on
+/// scene, every unit with its crew, position and release; released units apart; adding from
+/// the organisation's vehicles or ad hoc; and those vehicles, for whoever keeps them
+/// (ORG-14). Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let can_edit = Memo::new(move |_| {
@@ -547,6 +765,10 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         if can_edit.get() {
             core::list_vehicles(core);
         }
+    });
+    let keeps_master_data = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.replica.has_permission("manage_master_data"))
     });
     let register = Memo::new(move |_| {
         revision.track();
@@ -564,6 +786,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     open: RwSignal::new(false),
                     person: RwSignal::new(String::new()),
                     qualifications: RwSignal::new(BTreeSet::new()),
+                    elsewhere: RwSignal::new(Vec::new()),
                 })
             }));
         });
@@ -594,7 +817,6 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let units = present.get();
                 let editable = can_edit.get();
                 revision.track();
-                let task_list = crate::tasks::task_list(core);
                 let structure = crate::command::structure(core);
                 let positions = crate::command::position_choices(&structure);
                 if units.is_empty() {
@@ -606,14 +828,9 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .into_iter()
                             .map(|unit| {
                                 let draft = draft(&unit.unit);
-                                let tasks = task_list
-                                    .of_unit(&unit.unit)
-                                    .iter()
-                                    .map(|t| t.given.text.clone())
-                                    .collect::<Vec<_>>();
                                 let position = structure.unit_positions.get(&unit.unit).cloned();
                                 let positions = positions.clone();
-                                view! { <UnitCard core revision unit editable draft tasks positions position /> }
+                                view! { <UnitCard core revision unit editable draft positions position /> }
                             })
                             .collect_view()}
                     </ul>
@@ -666,6 +883,11 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             </Show>
         </section>
         <crate::views::UhsResources core revision />
+        // [impl->dsn~vehicle-master-data~2]
+        // The organisation's vehicles, kept where units are planned (ADR-0070).
+        <Show when=move || keeps_master_data.get()>
+            <crate::master_data::VehiclesView core revision />
+        </Show>
     }
 }
 

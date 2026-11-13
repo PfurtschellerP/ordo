@@ -157,7 +157,7 @@ pub fn TasksStrip(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 
 // [impl->dsn~tasks~2]
 /// The page *Disposition*: all open tasks, due follow-ups first; the command gives new tasks
-/// here (TASK-1).
+/// here (TASK-1); below, the units with their status, set here (ADR-0070).
 #[component]
 pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let editable = Memo::new(move |_| {
@@ -182,6 +182,16 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         )
     });
     let giving = RwSignal::new(false);
+    // Whom the next task is for, also chosen from a unit's "Auftrag geben".
+    let chosen = RwSignal::new(String::new());
+    let give = Callback::new(move |unit: String| {
+        chosen.set(format!("unit:{unit}"));
+        // Opened after this click, which would otherwise close it as a click outside.
+        request_animation_frame(move || {
+            giving.set(true);
+            request_animation_frame(|| crate::views::focus("task-template"));
+        });
+    });
     view! {
         <section class="card tasks-panel" aria-labelledby="tasks-title">
             <h2 id="tasks-title">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>
@@ -215,18 +225,19 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     panel_class="tasks-panel__form"
                     button=Box::new(|| view! { {text::TASK_GIVE} }.into_any())
                 >
-                    <GiveTask core revision />
+                    <GiveTask core revision unit=chosen />
                 </Disclosure>
             </Show>
         </section>
+        <crate::units::UnitStatusBoard core revision editable give />
     }
 }
 
 /// Giving a task to a unit (TASK-1): a template fills in the text, which can be changed;
-/// optionally a time to follow up (TASK-4).
+/// optionally a time to follow up (TASK-4). `unit` is whom it is for (`unit:<call sign>` or
+/// `position:<ID>`).
 #[component]
-fn GiveTask(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let unit = RwSignal::new(String::new());
+fn GiveTask(core: Handle, revision: RwSignal<u64>, unit: RwSignal<String>) -> impl IntoView {
     let template = RwSignal::new(String::new());
     let text_value = RwSignal::new(String::new());
     let minutes = RwSignal::new(String::new());
