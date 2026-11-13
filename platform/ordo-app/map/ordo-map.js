@@ -6,7 +6,7 @@
 // the map shows is also in the app's accessible list (A11Y-5). Points with a `symbol`
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 // [impl->dsn~tactical-symbols~1]
 // [impl->dsn~map-drawing~2]
 
@@ -108,9 +108,10 @@ function token(name) {
 /**
  * Creates the map in `element` with the region of `incident` (its ULID), read from the
  * server with `ticket` if the device has no copy; returns a handle, or throws (e.g. no
- * WebGL).
+ * WebGL). With `cooperative` (the hints shown, by MapLibre's keys), the map moves with two
+ * fingers or Ctrl and the wheel, so a page scrolls over it with one finger or the wheel.
  */
-export async function create(element, centre, label, incident, ticket, interactive = true) {
+export async function create(element, centre, label, incident, ticket, cooperative = null) {
   const l = await load();
   const source = await region(l, incident, ticket);
   const style = {
@@ -133,11 +134,12 @@ export async function create(element, centre, label, incident, ticket, interacti
     center: centre ?? START.center,
     zoom: centre ? 15 : START.zoom,
     attributionControl: { compact: false },
-    // A preview (the overview's tile) only shows; the page scrolls over it.
-    interactive,
+    // A map within a page (the overview's tile) moves with two fingers; one scrolls the page.
+    cooperativeGestures: Boolean(cooperative),
+    ...(cooperative ? { locale: cooperative } : {}),
   });
   map.getCanvas().setAttribute("aria-label", label);
-  if (interactive) map.addControl(new l.maplibre.NavigationControl({ showCompass: false }));
+  map.addControl(new l.maplibre.NavigationControl({ showCompass: false }));
   await new Promise((resolve) => map.once("load", resolve));
   // Nothing placed yet: open on the map region, the incident's area, not on all Germany.
   if (!centre && source.archive) {

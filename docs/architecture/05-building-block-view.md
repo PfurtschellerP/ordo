@@ -370,7 +370,7 @@ Tags: must, m57
 ### 5.5.1c Shared module `map`
 
 #### Situation map
-`dsn~situation-map~4`
+`dsn~situation-map~5`
 
 Crate `ordo-map`, module `map`, in the shared `incident` compartment
 ([ADR-0006](../adr/0006-maplibre-pmtiles.md)). `map.objectPlaced` puts an object on the
@@ -381,8 +381,10 @@ off. The latest event of an object counts (hybrid logical clock). Drawn objects 
 areas, MAP-4) use the same events with their own IDs.
 
 The view *Führung – Lagekarte* shows the map with the objects and, below it, the list of
-objects (A11Y-5); it does not edit. The overview's map tile shows the same map, which does
-not move. Those who may edit prepare the map on *Vorbereitung – Lagekarte*
+objects (A11Y-5); it does not edit. The overview's map tile shows the same map; within
+the page it moves with two fingers, or Ctrl (⌘) and the wheel, and says so when tried with
+one, so one finger and the wheel scroll the page (MapLibre's cooperative gestures).
+Those who may edit prepare the map on *Vorbereitung – Lagekarte*
 (`command.prepare/map`, [ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)):
 the map region on top, then the editor ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
 fills the page, a toolbar above it offers *Auswählen*, *Symbol setzen*, *Fläche* and

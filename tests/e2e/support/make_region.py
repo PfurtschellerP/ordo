@@ -9,7 +9,7 @@ https://github.com/protomaps/PMTiles (v3).
                                            from (MAP-8)
 """
 
-# [itest->dsn~situation-map~4]
+# [itest->dsn~situation-map~5]
 # [itest->dsn~map-region~2]
 
 import gzip

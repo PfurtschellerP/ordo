@@ -140,6 +140,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator(".tile--dispatch"), "Disposition keeps its name").toContainText("Keine offenen Aufträge.");
     await audit(dora, "Command overview");
     await shot(dora, "command-overview");
+    await expect(
+      dora.locator(".tile--map .maplibregl-cooperative-gestures"),
+      "the map tile moves with two fingers; one scrolls the page",
+    ).toHaveCount(1);
     // … and once paired, under Administration – Info, for everyone.
     await openWorkspace(dora, "Info");
     await expect(dora.locator("#info-app"), "the app's version").toContainText("Protokolle: Abgleich");
@@ -1232,7 +1236,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(sanel.locator(".position__units"), "units under a position, chosen in two taps").toHaveText("Einsatzmittel: RTW 83/1");
   });
 
-  // [itest->dsn~situation-map~4]
+  // [itest->dsn~situation-map~5]
   await test.step("situation map: read in Führung, edited in Vorbereitung, kept offline by itself", async () => {
     await openWorkspace(ben, "Führung");
     await openView(ben, "Lagekarte");

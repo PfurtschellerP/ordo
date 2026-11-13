@@ -1037,7 +1037,7 @@ pub fn granted(core: Handle, compartment: &str) -> bool {
     })
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// Records an event of the situation map: an object placed or removed (MAP-1).
 pub fn map_event(
     core: Handle,

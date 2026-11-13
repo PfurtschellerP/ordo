@@ -1331,6 +1331,9 @@ pub fn position_of(unit: &str) -> String {
 pub const MAP_TITLE: &str = "Lagekarte";
 pub const MAP_LABEL: &str = "Lagekarte. Pfeiltasten verschieben, Plus und Minus zoomen.";
 pub const MAP_LOADING: &str = "Karte wird geladen …";
+pub const MAP_HINT_TOUCH: &str = "Karte mit zwei Fingern verschieben";
+pub const MAP_HINT_WHEEL: &str = "Zoomen: Strg und Mausrad";
+pub const MAP_HINT_WHEEL_MAC: &str = "Zoomen: ⌘ und Mausrad";
 pub const MAP_UNAVAILABLE: &str = "Die Karte kann auf diesem Gerät nicht angezeigt werden; die Liste unten zeigt alles, was auf ihr steht.";
 pub const MAP_FROM_DEVICE: &str = "Kartengrundlage: auf diesem Gerät gespeichert (auch ohne Netz).";
 pub const MAP_FROM_SERVER: &str = "Kartengrundlage: vom Server.";

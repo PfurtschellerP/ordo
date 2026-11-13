@@ -538,7 +538,7 @@ async fn sync_over_websocket_survives_a_restart() {
         assert_eq!(range["http"]["min"], "1.0", "the answer names the range");
     }
 
-    // [itest->dsn~situation-map~4]
+    // [itest->dsn~situation-map~5]
     // [itest->dsn~map-region~2]
     // The incident's map region is read in parts (range requests), as PMTiles does, with a
     // ticket for that incident.

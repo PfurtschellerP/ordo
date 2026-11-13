@@ -220,14 +220,15 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
     }
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// Creates the map in `node` once it is in the page, keeps it showing the objects, and
-/// removes it with the view.
+/// removes it with the view. A `cooperative` map, within a page, moves with two fingers
+/// (or Ctrl and the wheel) and says so; one finger and the wheel scroll the page.
 fn mount_map(
     core: Handle,
     node: NodeRef<leptos::html::Div>,
     s: Situation,
-    interactive: bool,
+    cooperative: bool,
 ) -> (MapHandle, RwSignal<MapState>) {
     let features = move || s.map.with(|m| s.symbols.with(|y| geojson(m, y)));
     let state = RwSignal::new(MapState::Loading);
@@ -255,6 +256,28 @@ fn mount_map(
                     core::sleep_ms(100).await;
                 }
                 let (incident, ticket) = region_args(core);
+                let hints = if cooperative {
+                    let hints = js_sys::Object::new();
+                    for (key, hint) in [
+                        (
+                            "CooperativeGesturesHandler.MobileHelpText",
+                            text::MAP_HINT_TOUCH,
+                        ),
+                        (
+                            "CooperativeGesturesHandler.WindowsHelpText",
+                            text::MAP_HINT_WHEEL,
+                        ),
+                        (
+                            "CooperativeGesturesHandler.MacHelpText",
+                            text::MAP_HINT_WHEEL_MAC,
+                        ),
+                    ] {
+                        js_sys::Reflect::set(&hints, &key.into(), &hint.into())?;
+                    }
+                    hints.into()
+                } else {
+                    JsValue::NULL
+                };
                 let map = call_async(
                     &module,
                     "create",
@@ -264,7 +287,7 @@ fn mount_map(
                         JsValue::from_str(text::MAP_LABEL),
                         incident,
                         ticket,
-                        JsValue::from_bool(interactive),
+                        hints,
                     ],
                 )
                 .await?;
@@ -354,7 +377,7 @@ fn MapFrame(
     }
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// The device's own position, only when asked: the map moves there.
 #[component]
 fn LocateButton(handle: MapHandle, state: RwSignal<MapState>) -> impl IntoView {
@@ -490,14 +513,14 @@ fn remove(core: Handle, revision: RwSignal<u64>, object: &str) {
     );
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// *Führung – Lagekarte*: the map with ORDO's objects, the list of them and the offline
 /// copy. Editing happens in *Vorbereitung* (ADR-0065).
 #[component]
 pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
-    let (handle, state) = mount_map(core, node, s, true);
+    let (handle, state) = mount_map(core, node, s, false);
     view! {
         <section class="card situation" aria-labelledby="situation-title">
             <h2 id="situation-title">{text::MAP_TITLE}</h2>
@@ -512,15 +535,15 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~situation-map~4]
-/// The overview's map tile (ADR-0067): the map shows the objects but does not move, with
-/// the number of objects and where the region comes from. It keeps the region on the
-/// device like the Lagekarte.
+// [impl->dsn~situation-map~5]
+/// The overview's map tile (ADR-0067): the map with the objects, moved with two fingers
+/// (one scrolls the page), with the number of objects and where the region comes from. It
+/// keeps the region on the device like the Lagekarte.
 #[component]
 pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
-    let (handle, state) = mount_map(core, node, s, false);
+    let (handle, state) = mount_map(core, node, s, true);
     view! {
         <div class="tile__map">
             <MapFrame node state />
@@ -542,7 +565,7 @@ pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// *Vorbereitung – Lagekarte* (ADR-0067): the incident's map region, for those who may
 /// prepare it, then the map editor, on one page.
 #[component]
@@ -679,7 +702,7 @@ fn draft(corners: &[[f64; 2]], shape: ordo_map::Shape) -> Vec<serde_json::Value>
     features
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 // [impl->dsn~map-drawing~2]
 /// *Karte bearbeiten* (ADR-0064): the map as large as the page allows, a toolbar above it,
 /// the tool's panel and the list below. Every tap sets what the tool sets; the button
@@ -694,7 +717,7 @@ pub fn MapEditor(
 ) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
-    let (handle, state) = mount_map(core, node, s, true);
+    let (handle, state) = mount_map(core, node, s, false);
     let tool = RwSignal::new(if preset.is_some() {
         Tool::Place
     } else {
@@ -1179,7 +1202,7 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
     }
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// Keeping the map region on the device for use without network (MAP-2).
 /// The incident's ULID and the map ticket as arguments for the glue module (`null` when
 /// missing).
@@ -1213,7 +1236,7 @@ fn refresh_state(core: Handle, module: JsValue, auto_save: Option<Callback<()>>)
     });
 }
 
-// [impl->dsn~situation-map~4]
+// [impl->dsn~situation-map~5]
 /// The offline copy of the incident's map region (MAP-2, ADR-0065): saved by itself, once
 /// per opening, when the server has a region the device does not keep yet. Nothing to
 /// press; a line says when it is being saved or failed. Whether the map reads from the
