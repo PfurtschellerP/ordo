@@ -558,6 +558,34 @@ Needs: impl, utest, itest
 
 Tags: must, m36
 
+### 5.5.1d Shared module `helpers`
+
+#### Helper register
+`dsn~helper-register~1`
+
+The helpers of an incident are events of the module `helpers` in the compartment `people`
+([ADR-0071](../adr/0071-helper-register-in-its-own-compartment.md)), sealed and read only by
+the incident command (`commander` in `command.cedar`).
+
+* **Register** (`helpers.registered`): a new helper ID (ULID) and the name; where given,
+  date of birth, address, phone, organisation, qualifications from the profile
+  (`units/catalogue.toml`), start and end of duty, and the ORDO account.
+* **Change** (`helpers.updated`): the helper ID and only the changed fields; an empty
+  field clears it. The latest value per field counts, by hybrid logical clock, whatever
+  order the events arrive in.
+* **Page:** *Vorbereitung – Personal* lists the helpers by name with organisation,
+  qualifications and duty, and a form to register one or change one. On duty means:
+  started and not ended. The name is required; everything else may come later.
+
+Covers:
+
+* [req~help-1~1](../requirements/02-shared.md#help-1--helper-register)
+* [req~help-2~1](../requirements/02-shared.md#help-2--helpers-linked-to-accounts)
+
+Needs: impl, utest, itest
+
+Tags: should, m59
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff

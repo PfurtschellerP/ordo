@@ -1869,3 +1869,60 @@ pub fn account_set_password_label(email: &str) -> String {
 pub fn account_delete_label(email: &str) -> String {
     format!("Konto löschen: {email}")
 }
+
+// Helper register (HELP-1, HELP-2, ADR-0071)
+pub const HELPERS_TITLE: &str = "Helferinnen und Helfer";
+pub const HELPERS_INTRO: &str =
+    "Persönliche Angaben der Helfenden dieses Einsatzes. Nur die Einsatzleitung sieht sie.";
+pub const HELPERS_EMPTY: &str = "Noch niemand erfasst.";
+pub const HELPER_ADD_TITLE: &str = "Helfer/in erfassen";
+pub const HELPER_ADD: &str = "Erfassen";
+pub const HELPER_NAME: &str = "Name";
+pub const HELPER_PHONE: &str = "Telefon";
+pub const HELPER_ADDRESS: &str = "Anschrift";
+pub const HELPER_BIRTH_DATE_LABEL: &str = "Geburtsdatum";
+pub const HELPER_DUTY_START: &str = "Dienstbeginn";
+pub const HELPER_DUTY_END: &str = "Dienstende";
+pub const HELPER_ACCOUNT_LABEL: &str = "ORDO-Konto (falls vorhanden)";
+pub const HELPER_NAME_MISSING: &str = "Bitte einen Namen angeben.";
+pub const HELPER_TOO_LONG: &str = "Jede Angabe darf höchstens 200 Zeichen lang sein.";
+pub const HELPER_BIRTH_DATE: &str = "Bitte das Geburtsdatum als Datum angeben.";
+pub const HELPER_ACCOUNT: &str =
+    "Das ORDO-Konto ist keine gültige Kennung, z. B. anna@ordo.example.org.";
+pub const HELPER_TIME: &str = "Bitte Dienstbeginn und -ende als Datum mit Uhrzeit angeben.";
+pub const HELPER_NOT_SAVED: &str = "Die Angaben konnten nicht gespeichert werden.";
+pub const DUTY_START: &str = "Dienst beginnen";
+pub const DUTY_END: &str = "Dienst beenden";
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn duty_start_label(name: &str) -> String {
+    format!("{DUTY_START}: {name}")
+}
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn duty_end_label(name: &str) -> String {
+    format!("{DUTY_END}: {name}")
+}
+/// Starts with the button's visible text, so its name matches what is seen.
+pub fn helper_edit_label(name: &str) -> String {
+    format!("{EDIT}: {name}")
+}
+pub fn helper_edit_title(name: &str) -> String {
+    format!("{name} bearbeiten")
+}
+pub fn helper_saved(name: &str) -> String {
+    format!("Angaben zu {name} gespeichert.")
+}
+pub fn helper_account(account: &str) -> String {
+    format!("Konto: {account}")
+}
+pub fn on_duty_since(at: &str) -> String {
+    format!("im Dienst seit {at}")
+}
+pub fn duty_from_to(from: &str, to: &str) -> String {
+    format!("Dienst {from} – {to}")
+}
+pub fn duty_from(from: &str) -> String {
+    format!("Dienst ab {from}")
+}
+pub fn duty_to(to: &str) -> String {
+    format!("Dienst bis {to}")
+}

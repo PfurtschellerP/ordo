@@ -657,6 +657,8 @@
   .strength-on-scene ul, .crew-list { padding-inline-start: var(--ordo-space-5); }
   .unit-card__crew-panel[hidden] { display: none; }
   .unit-card--released { border-style: dashed; }
+  /* HELP-1: a helper's actions at the end of the line. */
+  .helper-list__actions { margin-inline-start: auto; }
   /* UNIT-8: a person on several posts; the mark is explained right below the total. */
   .strength-on-scene__mark { font-weight: var(--ordo-font-weight-bold); padding-inline-start: var(--ordo-space-1); }
   .assigned-elsewhere { display: grid; gap: var(--ordo-space-2); }

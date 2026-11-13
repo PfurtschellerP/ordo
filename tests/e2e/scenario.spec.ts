@@ -1114,6 +1114,44 @@ test("ORDO in the browser", async ({ browser }) => {
   });
 
   // [itest->dsn~command-structure~1]
+  await test.step("helper register: personal data only the incident command reads", async () => {
+    // [itest->dsn~helper-register~1]
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Personal");
+    const helpers = ben.locator(".helpers");
+    await expect(helpers, "HELP-1: a register of the incident's helpers").toContainText("Noch niemand erfasst.");
+    const form = ben.locator(".helper-form");
+    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    await expect(form.locator("[role=alert]"), "a name is needed").toHaveText("Bitte einen Namen angeben.");
+    await ben.locator("#helper-name").fill("Lena Berger");
+    await ben.locator("#helper-organisation").fill("DRK Musterstadt");
+    await ben.locator("#helper-phone").fill("0170 7654321");
+    await ben.locator("#helper-birth-date").fill("1990-05-01");
+    await form.getByLabel("Notfallsanitäter/in").check();
+    await ben.locator("#helper-account").fill("petra@localhost");
+    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    const lena = helpers.locator(".helper-list [data-helper]", { hasText: "Lena Berger" });
+    await expect(lena).toContainText("DRK Musterstadt · Notfallsanitäter/in");
+    await expect(lena, "HELP-2: linked to an account").toContainText("Konto: petra@localhost");
+    await lena.getByRole("button", { name: "Dienst beginnen: Lena Berger" }).click();
+    await expect(lena, "on duty from now").toContainText("im Dienst seit");
+    await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
+    await expect(ben.locator("#helper-phone"), "the form holds the helper").toHaveValue("0170 7654321");
+    await ben.locator("#helper-phone").fill("0170 1111111");
+    await form.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(ben.locator("#helper-form-title"), "the form is new again").toHaveText("Helfer/in erfassen");
+    await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
+    await expect(ben.locator("#helper-phone"), "changed").toHaveValue("0170 1111111");
+    await form.getByRole("button", { name: "Abbrechen" }).click();
+    await audit(ben, "Helper register");
+    await expect.poll(() => status(ben), { message: "the register is sent" }).toContain("Alles gesendet");
+    expect(
+      Buffer.concat(annaFrames.received).includes("Lena Berger") || Buffer.concat(annaFrames.received).includes("0170 1111111"),
+      "a medic's device never receives the helpers' data",
+    ).toBe(false);
+    expect(Buffer.concat(benFrames.sent).includes("0170 1111111"), "and it travels sealed").toBe(false);
+  });
+
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");

@@ -13,6 +13,7 @@ members = [
   "platform/ordo-server",
   "platform/ordo-app",
   "modules/units",
+  "modules/helpers",
   "modules/tasks",
   "modules/command",
   "modules/map",
@@ -37,6 +38,7 @@ ordo-contracts = { path = "platform/ordo-contracts" }
 ordo-crypto = { path = "platform/ordo-crypto" }
 ordo-sync = { path = "platform/ordo-sync" }
 ordo-units = { path = "modules/units" }
+ordo-helpers = { path = "modules/helpers" }
 ordo-tasks = { path = "modules/tasks" }
 ordo-command = { path = "modules/command" }
 ordo-map = { path = "modules/map" }

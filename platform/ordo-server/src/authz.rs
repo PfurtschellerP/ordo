@@ -704,6 +704,39 @@ mod tests {
         assert!(policy(&[("broken.cedar".to_owned(), "permit (".to_owned())]).is_err());
     }
 
+    // [utest->dsn~helper-register~1]
+    #[test]
+    fn only_the_incident_command_reads_and_writes_the_helper_register() {
+        let p = policy(&[]).expect("valid");
+        let (incident, people) = (incident(), compartment("people"));
+        let erik = user("erik"); // no organisation roles: only those given below
+        for (roles, allowed) in [
+            (vec!["commander"], true),
+            (vec!["medic"], false),
+            (vec!["physician"], false),
+            (vec![], false),
+        ] {
+            let roles: Vec<String> = roles.into_iter().map(str::to_owned).collect();
+            assert_eq!(
+                p.can_read(&erik, &incident, &people, &roles),
+                allowed,
+                "{roles:?}"
+            );
+            assert_eq!(
+                p.can_write(
+                    &erik,
+                    &incident,
+                    &people,
+                    "helpers",
+                    "helpers.registered",
+                    &roles
+                ),
+                allowed,
+                "{roles:?}"
+            );
+        }
+    }
+
     // [utest->dsn~order-permission~2]
     #[test]
     fn only_physicians_give_orders_the_crew_carries_them_out() {

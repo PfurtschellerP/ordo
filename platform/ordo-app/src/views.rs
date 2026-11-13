@@ -992,6 +992,7 @@ fn Workspace(
                     // The command structure is prepared with the people (ADR-0067); old
                     // links to its own view land here.
                     (Some("command.prepare"), Some("people" | "structure")) => view! {
+                        <crate::helpers::HelpersView core revision />
                         <crate::incidents::RosterView core revision />
                         <crate::devices::IncidentDevicesView core revision />
                         <crate::command::LeadershipView core revision />

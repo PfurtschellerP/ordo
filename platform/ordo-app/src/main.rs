@@ -6,6 +6,7 @@ mod attachments;
 mod command;
 mod core;
 mod devices;
+mod helpers;
 mod images;
 mod incidents;
 mod log;

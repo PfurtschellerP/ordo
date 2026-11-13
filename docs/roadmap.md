@@ -308,10 +308,13 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    later the vehicles' workspace of item 11); "Sonstiges" with free text for breathing and
    skin as FHIR `open-choice` (EPCR-12); the pupils as choices after DIVI MIND: equal or
    not, size and reaction to light per side, consensual reaction (EPCR-13).
-9. **Helper register** (*Vorbereitung – Personal*): name, address, phone, date of birth,
-   qualifications, start and end of duty; crews only from registered helpers; helpers
-   linked to ORDO accounts; the Meldekarte scanned. Personal data in their own
-   compartment with a deletion period (ADR).
+9. **Helper register** (*Vorbereitung – Personal*,
+   [ADR-0071](adr/0071-helper-register-in-its-own-compartment.md), proposed): part 1 is
+   done (m59): helpers with name, organisation, phone, address, date of birth,
+   qualifications, duty and ORDO account in the sealed compartment `people`, which only the
+   incident command reads (HELP-1, HELP-2). Next: crews taken from the register (HELP-3),
+   then deleting the helpers' data after the retention period (HELP-4; 90 days proposed).
+   The Meldekarte waits for its QR format.
 10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
     and patient cases (place, short description, no clinical data) and assigns them to a
     unit, which turns them into a patient (ADR).

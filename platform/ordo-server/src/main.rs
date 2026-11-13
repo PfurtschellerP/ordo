@@ -33,7 +33,7 @@ Environment for `serve`:
                          (default https://nominatim.openstreetmap.org, the public
                          Nominatim, max. 1 search per second; off switches it off)
   ORDO_GEOCODER_COUNTRIES  Limit the search to these countries, e.g. de (optional)
-  ORDO_PROTECTED         Protected compartments (default med.clinical)
+  ORDO_PROTECTED         Protected compartments (default med.clinical,people)
   ORDO_APP_DIR           Built web app, served at / (optional)
   ORDO_POLICY_DIR        Own roles and permissions as Cedar policies, *.cedar (optional)
   ORDO_OIDC_ISSUER       Identity provider for login (OpenID Connect, optional); then also:

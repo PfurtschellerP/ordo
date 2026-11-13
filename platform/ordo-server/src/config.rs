@@ -23,7 +23,7 @@ pub struct Config {
     /// `[[vehicle]]` entries), offered when adding units (UNIT-1).
     pub vehicles: Vec<ordo_sync::message::Vehicle>,
     /// Compartments whose payloads must be sealed (`ORDO_PROTECTED`, default
-    /// `med.clinical`, comma-separated).
+    /// `med.clinical,people`, comma-separated).
     pub protected: Vec<CompartmentId>,
     /// Directory of the built web app, served at `/` (`ORDO_APP_DIR`, optional).
     pub app_dir: Option<PathBuf>,
@@ -254,7 +254,7 @@ impl Config {
             None => Vec::new(),
         };
         let protected = get("ORDO_PROTECTED")
-            .unwrap_or_else(|| "med.clinical".into())
+            .unwrap_or_else(|| "med.clinical,people".into())
             .split(',')
             .map(str::trim)
             .filter(|s| !s.is_empty())

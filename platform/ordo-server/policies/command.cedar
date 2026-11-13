@@ -26,6 +26,16 @@ permit (
 )
 when { context.roles.contains("commander") };
 
+// The incident command keeps the register of its helpers, with their personal data
+// (HELP-1, ADR-0071); nobody else reads it.
+@id("command.commander-people")
+permit (
+  principal,
+  action in [Action::"read", Action::"write"],
+  resource == Compartment::"people"
+)
+when { context.roles.contains("commander") };
+
 // The incident command grants and withdraws roles in its incident (ADR-0046).
 @id("command.commander-assigns-roles")
 permit (

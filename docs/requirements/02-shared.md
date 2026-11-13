@@ -377,21 +377,68 @@ Tags: must, shared, m36
 
 Needs: dsn
 
+### 4.6a Shared: helpers in an incident
+
+#### HELP-1 — Helper register
+`req~help-1~1`
+
+When the incident command registers a helper of its incident, ORDO shall record the name,
+and where given the date of birth, address, phone, organisation, qualifications from the
+profile and the start and end of duty, in a compartment of their own that only the
+incident command reads.
+
+Tags: should, shared, m59
+
+Needs: dsn
+
+#### HELP-2 — Helpers linked to accounts
+`req~help-2~1`
+
+Where a helper has an ORDO account, ORDO shall allow linking the helper to it, so the same
+person is recognised in the roster, crews and staff lists.
+
+Tags: should, shared, m59
+
+Needs: dsn
+
+#### HELP-3 — Crews from the register
+`req~help-3~1`
+
+When someone adds a person to the crew of a unit, ORDO shall take the person from the
+helper register, where a new helper can be registered with a name alone, and shall pass
+on only the name and the link, never the other personal data.
+
+Tags: should, shared
+
+Needs: dsn
+
+#### HELP-4 — Helpers' data deleted after the incident
+`req~help-4~1`
+
+When the retention period for helpers' data has passed after the incident was closed
+(90 days unless the installation sets another), ORDO shall delete the helpers' personal
+data on the server and on every device; the crews keep the names.
+
+Tags: should, shared
+
+Needs: dsn
+
 ### 4.7 Shared: organisation and master data
 
 #### ORG-1 — Master data
-`req~org-1~1`
+`req~org-1~2`
 
-Manage members, qualifications, vehicles and their default crew strength
+Manage members and qualifications. Vehicles are no master data: an incident's units are
+incident data, planned per incident (ADR-0070).
 
 Tags: must, shared
 
 Needs: dsn
 
 #### ORG-2 — CSV import
-`req~org-2~1`
+`req~org-2~2`
 
-Import members and vehicles from CSV
+Import members from CSV
 
 Tags: should, shared
 

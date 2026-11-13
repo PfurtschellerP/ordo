@@ -183,6 +183,8 @@ impl Core {
         if let Some(incident) = &incident {
             replica.subscribe(incident, "incident");
             replica.subscribe(incident, patients::COMPARTMENT);
+            // Only the incident command is granted it (ADR-0071).
+            replica.subscribe(incident, ordo_helpers::COMPARTMENT);
         }
         Ok(Self {
             incident,
@@ -997,6 +999,41 @@ pub fn command_event(
         payload,
         text::STRUCTURE_SAVED.to_owned(),
     )
+}
+
+// [impl->dsn~helper-register~1]
+/// Registers a helper or changes their fields (HELP-1), in the compartment `people`.
+pub fn helper_event(
+    core: Handle,
+    revision: RwSignal<u64>,
+    registration: bool,
+    change: &ordo_helpers::HelperChange,
+    name: &str,
+) -> Result<(), String> {
+    let payload = change.encode().map_err(|e| e.to_string())?;
+    let event_type = if registration {
+        ordo_helpers::REGISTERED
+    } else {
+        ordo_helpers::UPDATED
+    };
+    record(
+        core,
+        revision,
+        ordo_helpers::COMPARTMENT,
+        ordo_helpers::MODULE,
+        event_type,
+        &payload,
+        text::helper_saved(name),
+    )
+}
+
+/// Whether the chosen incident's stream `compartment` was granted to this device.
+pub fn granted(core: Handle, compartment: &str) -> bool {
+    core.with_value(|c| {
+        c.incident
+            .as_ref()
+            .is_some_and(|i| c.replica.is_granted(i, compartment))
+    })
 }
 
 // [impl->dsn~situation-map~4]

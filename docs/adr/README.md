@@ -75,5 +75,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server | superseded by 0070 | 2026-11-13 |
 | [0069](0069-uhs-counts-as-a-unit.md) | A UHS counts as a unit on scene, without a second record | accepted | 2026-11-13 |
 | [0070](0070-units-planned-in-preparation-led-in-command.md) | Units are incident data, planned in *Vorbereitung* and led in *Führung* | accepted | 2026-11-13 |
+| [0071](0071-helper-register-in-its-own-compartment.md) | The helper register is a compartment of its own, deleted after the incident | proposed | 2026-11-13 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

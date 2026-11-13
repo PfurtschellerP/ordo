@@ -133,6 +133,7 @@ belongs to exactly one.
 | `incident` | Units, sectors, tasks, map, log, connector data | Everyone taking part in the incident | Configurable (e.g. 1–3 years) |
 | `med.clinical` | Patient identity, triage details, ePCR, transport details | Assigned medical staff, medical leads | ≥ 10 years (medical documentation) |
 | `med.ops` | UHS staff planning, internal med logistics | Med package users | As `incident` |
+| `people` | Helpers' personal data: address, phone, date of birth, duty ([ADR-0071](../adr/0071-helper-register-in-its-own-compartment.md)) | Incident command | 90 days after the incident is closed (set per installation) |
 | `police.restricted` | Police-only information (later) | Police users | Per police rules |
 | `fire.ops` | Fire-internal data, e.g. BA monitoring details | Fire package users | As `incident` |
 
