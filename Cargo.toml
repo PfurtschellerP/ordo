@@ -39,6 +39,8 @@ ordo-crypto = { path = "platform/ordo-crypto" }
 ordo-sync = { path = "platform/ordo-sync" }
 ordo-units = { path = "modules/units" }
 ordo-helpers = { path = "modules/helpers" }
+# Reads QR codes of registration cards in the app (ADR-0072); without the image crate.
+rqrr = { version = "0.10", default-features = false }
 ordo-tasks = { path = "modules/tasks" }
 ordo-command = { path = "modules/command" }
 ordo-map = { path = "modules/map" }
@@ -100,7 +102,7 @@ web-sys = { version = "0.3", features = [
   "AesGcmParams", "AesKeyGenParams", "BinaryType", "Blob", "CanvasRenderingContext2d", "CloseEvent",
   "console", "Crypto", "CryptoKey", "Document", "DomTokenList",
   "File", "FileList", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
-  "Headers", "HtmlInputElement", "ImageBitmap", "Location", "MessageEvent", "Navigator", "Request",
+  "Headers", "HtmlInputElement", "ImageBitmap", "ImageData", "Location", "MessageEvent", "Navigator", "Request",
   "RequestInit", "Response", "ScrollIntoViewOptions",
   "ScrollLogicalPosition", "Storage", "SubtleCrypto", "UrlSearchParams", "WebSocket", "Window",
   "Worker", "WorkerOptions", "WorkerType",

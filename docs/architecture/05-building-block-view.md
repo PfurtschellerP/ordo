@@ -634,6 +634,31 @@ Needs: impl, utest, itest
 
 Tags: should, m59
 
+#### Registration cards
+`dsn~registration-card~1`
+
+A helper's registration card is read from a photo
+([ADR-0072](../adr/0072-registration-cards-read-with-rqrr.md)). The profile's
+`helpers/registration-cards.toml` lists card formats: an ID, a label, the separator, the
+number of fields, and for each field of the register a template (`{n}` is field n,
+counted from 1 as on the card) or a field with a date pattern (`DD`, `MM`, `YYYY`, `hh`,
+`mm`). The module `helpers` reads a text with any of them: the first format whose field
+count matches and that gives a name wins. Templates whose fields are all empty give
+nothing; separators left over are trimmed. Dates become `YYYY-MM-DD`, dates with time
+local `YYYY-MM-DDThh:mm`. The app checks the catalogue at build time. On *Vorbereitung –
+Personal*, "Karte fotografieren" opens the camera (a file input with `capture`); the photo
+is drawn on a canvas at most 1600 pixels wide, made grey and read by rqrr. The result
+fills the empty form, or says the card was not recognised; the command checks and saves.
+The photo is neither stored nor sent.
+
+Covers:
+
+* [req~help-5~1](../requirements/02-shared.md#help-5--registration-card-read-by-camera)
+
+Needs: impl, utest, itest
+
+Tags: should, m59
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff

@@ -16,6 +16,15 @@ checked = 2026-11-08
 fingerprint = "sha256:a5493801da099c2fb381501490f562724100e6acbe33a79794d0944c080bcafe"
 
 [[source]]
+topic = "registration-cards"
+title = "Meldekarte für Einsatzkräfte"
+url = "https://meldekarte.de/"
+note = "run by volunteers of the BRK Kreisverband Augsburg-Land; the QR format is not published and was read from a sample card the product owner provided (ADR-0072)"
+watch = "manual"
+checked = 2026-11-13
+fingerprint = "manual"
+
+[[source]]
 topic = "symbols"
 title = "Taktische Zeichen im Bevölkerungsschutz – Empfehlungen zur Einführung einer FwDV 102/DV 102"
 edition = "BBK, 1st edition May 2024, ISBN 978-3-949117-29-9; recommended to the states by the AFKzV on 11/12 March 2024"

@@ -197,11 +197,10 @@ map; the command workspace's first view is now *Lage* (map and patient counts).
   shell or the BOS digital radios' positions. Only during the deployment, visible to the
   person, limited retention.
 - **Register personnel by scanning the Meldekarte** ([meldekarte.de](https://meldekarte.de),
-  run by volunteers of the BRK Kreisverband Augsburg-Land): the card's QR code carries
-  what is printed on it; scanning it adds the person to the incident's roster with arrival
-  time and formation. The QR format is not published — get a sample card or the format
-  from the operators. Decoding with an open-source library in the app (e.g. rxing,
-  Apache-2.0), camera via the browser.
+  run by volunteers of the BRK Kreisverband Augsburg-Land): done from a photo (HELP-5,
+  ADR-0072), with the format read from a sample card. Open: confirm the format with the
+  operators (how a `;` inside a field is written, whether it changes), scanning several
+  cards in a row with live video.
 - **Interfaces:** Rescuetrack (vehicle positions and status), DIVERA 24/7 (forces on foot,
   availability), and the status from BOS digital radio, so a status set on the radio
   appears in ORDO (via the control centre's interfaces or the organisation's own radios;
@@ -316,8 +315,9 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    incident command reads (HELP-1, HELP-2); crews taken from the register, double bookings
    matched by helper and account (HELP-3); the helpers' data deleted on the server and on
    every device 90 days after the incident is closed (HELP-4, confirmed by the product
-   owner), the first deletion by retention in ORDO.
-   The Meldekarte waits for its QR format.
+   owner), the first deletion by retention in ORDO; helpers registered from a photo of
+   their Meldekarte, read on the device (HELP-5,
+   [ADR-0072](adr/0072-registration-cards-read-with-rqrr.md); format from a sample card).
 10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
     and patient cases (place, short description, no clinical data) and assigns them to a
     unit, which turns them into a patient (ADR).
@@ -329,8 +329,7 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
 12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
     agreement are available (ADR-0050, regional profile).
 
-Blocked or later: registering helpers with the Meldekarte (QR format needed, see below),
-units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
+Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 
 Then:
 

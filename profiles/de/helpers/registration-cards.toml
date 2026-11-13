@@ -1,0 +1,24 @@
+# Registration cards of helpers, read from their QR code (HELP-5, ADR-0072).
+#
+# Each card format: the separator between fields, how many fields, and what the helper
+# register takes from it. A template names fields as {n}, counted from 1 as on the card;
+# a date field gives its pattern (DD, MM, YYYY, hh, mm). Fields not named are not taken.
+
+# The Meldekarte für Einsatzkräfte of meldekarte.de (BRK Kreisverband Augsburg-Land). Its
+# QR code holds, in this order: 1 family name, 2 given name, 3 date of birth, 4 gender,
+# 5 postcode, 6 town, 7 nationality, 8 street, 9 mobile number, 10 district branch
+# (Kreisverband), 11 organisation and unit, 12 place of action, 13 formation, 14 start
+# and 15 end of action, 16 diet. Gender, nationality, place, formation and diet are not
+# taken (data minimisation; a diet can be health data).
+[[card]]
+id = "meldekarte"
+label = "Meldekarte"
+separator = ";"
+fields = 16
+name = "{2} {1}"
+birth_date = { field = 3, pattern = "DD.MM.YYYY" }
+address = "{8}, {5} {6}"
+phone = "{9}"
+organisation = "{11}, {10}"
+duty_start = { field = 14, pattern = "DD.MM.YYYY - hh:mm" }
+duty_end = { field = 15, pattern = "DD.MM.YYYY - hh:mm" }

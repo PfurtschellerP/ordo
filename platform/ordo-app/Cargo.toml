@@ -24,6 +24,7 @@ ordo-sync.workspace = true
 ordo-units.workspace = true
 ordo-helpers.workspace = true
 ordo-tasks.workspace = true
+rqrr.workspace = true
 ordo-command.workspace = true
 ordo-map.workspace = true
 percent-encoding.workspace = true
@@ -35,6 +36,7 @@ web-sys.workspace = true
 
 [build-dependencies]
 ordo-command.workspace = true
+ordo-helpers.workspace = true
 ordo-map.workspace = true
 ordo-med-patients.workspace = true
 ordo-tasks.workspace = true

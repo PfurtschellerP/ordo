@@ -6,6 +6,8 @@
 //! fields; the latest value per field counts by hybrid logical clock, so the register does
 //! not depend on the order in which events arrive.
 
+pub mod cards;
+
 use std::collections::BTreeMap;
 
 use ordo_core::codec::{self, CodecError};

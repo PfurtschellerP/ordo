@@ -1581,6 +1581,8 @@ profiles/de/
 │   └── templates.toml         # task templates
 ├── command/
 │   └── structure.toml         # position kinds (FwDV 100, medical response)
+├── helpers/
+│   └── registration-cards.toml # card formats read by camera, e.g. Meldekarte (ADR-0072)
 └── med/
     ├── epcr-forms.json        # ePCR forms: FHIR Questionnaire (DIVI MIND sections)
     ├── transport-priority.toml

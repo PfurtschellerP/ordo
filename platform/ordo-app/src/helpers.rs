@@ -2,6 +2,7 @@
 //! incident's helpers with their personal data, which only the incident command reads.
 
 use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
 use leptos::prelude::*;
 use ordo_helpers::{FieldError, Fields, Helper, HelperChange, HelperRegister};
@@ -11,6 +12,16 @@ use crate::core::{self, Handle};
 use crate::text;
 use crate::ui::{Action, Actions, CheckChips, Suggestions};
 use crate::units::CATALOGUE;
+
+/// Formats of registration cards from the profile (`helpers/registration-cards.toml`,
+/// checked at build time; ADR-0072).
+static CARDS: LazyLock<ordo_helpers::cards::CardCatalogue> = LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/registration-cards.json"
+    )))
+    .expect("card formats were checked at build time")
+});
 
 /// The register, if this device may read it: granted by the server, or kept from before.
 pub(crate) fn register(core: Handle) -> Option<HelperRegister> {
@@ -289,6 +300,51 @@ fn HelperForm(
             crate::views::focus("helper-name");
         }
     };
+    // [impl->dsn~registration-card~1]
+    // A registration card photographed fills the form of a new helper (HELP-5).
+    let card_status = RwSignal::new(None::<String>);
+    let read_card = move |ev: leptos::ev::Event| {
+        use wasm_bindgen::JsCast;
+        let input = ev
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
+        let Some(file) = input
+            .as_ref()
+            .and_then(|i| i.files())
+            .and_then(|f| f.get(0))
+        else {
+            return;
+        };
+        if let Some(i) = &input {
+            i.set_value(""); // the same card can be photographed again
+        }
+        card_status.set(Some(text::CARD_READING.to_owned()));
+        leptos::task::spawn_local(async move {
+            let texts = crate::images::read_qr(&file).await.unwrap_or_default();
+            let Some(card) = texts.iter().find_map(|t| CARDS.read(t)) else {
+                card_status.set(Some(text::CARD_NOT_RECOGNISED.to_owned()));
+                return;
+            };
+            let label = CARDS
+                .card
+                .iter()
+                .find(|c| c.id == card.card)
+                .map_or("", |c| c.label.as_str());
+            for (signal, value) in [
+                (name, Some(card.name.clone())),
+                (birth_date, card.birth_date),
+                (address, card.address),
+                (phone, card.phone),
+                (organisation, card.organisation),
+                (start, card.duty_start),
+                (end, card.duty_end),
+            ] {
+                signal.set(value.unwrap_or_default());
+            }
+            error.set(None);
+            card_status.set(Some(text::card_read(label, &card.name)));
+        });
+    };
     let options: Vec<(String, String)> = CATALOGUE
         .qualifications
         .iter()
@@ -308,6 +364,16 @@ fn HelperForm(
     view! {
         <form class="form helper-form" novalidate on:submit=submit aria-labelledby="helper-form-title">
             <h3 id="helper-form-title">{title}</h3>
+            {(!editing_one && !CARDS.card.is_empty()).then(|| view! {
+                <div class="row helper-card">
+                    <label class="button" for="helper-card-photo">{text::card_photo(match CARDS.card.as_slice() {
+                        [one] => one.label.as_str(),
+                        _ => text::CARD_GENERIC,
+                    })}</label>
+                    <input id="helper-card-photo" class="visually-hidden" type="file" accept="image/*" capture="environment" on:change=read_card />
+                    <p role="status" class="hint">{move || card_status.get()}</p>
+                </div>
+            })}
             <div class="form--inline">
                 {text_field("helper-name", text::HELPER_NAME, name, "off")}
                 {text_field("helper-organisation", text::UNIT_ORGANISATION, organisation, "off")}

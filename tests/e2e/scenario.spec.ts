@@ -1151,6 +1151,23 @@ test("ORDO in the browser", async ({ browser }) => {
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
     await expect(ben.locator("#helper-phone"), "changed").toHaveValue("0170 1111111");
     await form.getByRole("button", { name: "Abbrechen" }).click();
+    // [itest->dsn~registration-card~1]
+    // HELP-5: a photo of a Meldekarte fills the form; the command checks and saves.
+    const photo = ben.locator("#helper-card-photo");
+    await photo.setInputFiles(path.join(__dirname, "fixtures", "registration-card.png"));
+    await expect(form.locator(".helper-card [role=status]")).toHaveText("Meldekarte von Jonas Sommer gelesen. Bitte prüfen und erfassen.");
+    await expect(ben.locator("#helper-name")).toHaveValue("Jonas Sommer");
+    await expect(ben.locator("#helper-birth-date")).toHaveValue("1995-03-14");
+    await expect(ben.locator("#helper-address")).toHaveValue("Bahnhofstraße 5, 86150 Augsburg");
+    await expect(ben.locator("#helper-phone")).toHaveValue("+491701234567");
+    await expect(ben.locator("#helper-organisation")).toHaveValue("BRK Bereitschaft Mitte, Augsburg-Stadt");
+    await expect(ben.locator("#helper-duty-start")).toHaveValue("2027-06-20T08:30");
+    await audit(ben, "Registration card read");
+    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    await expect(helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" })).toContainText("BRK Bereitschaft Mitte, Augsburg-Stadt");
+    await photo.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: patientPhoto });
+    await expect(form.locator(".helper-card [role=status]"), "a photo without a card").toHaveText(/^Keine Karte erkannt\./);
+    await expect(ben.locator("#helper-name"), "the form stays as it was").toHaveValue("");
     await audit(ben, "Helper register");
     await expect.poll(() => status(ben), { message: "the register is sent" }).toContain("Alles gesendet");
     expect(

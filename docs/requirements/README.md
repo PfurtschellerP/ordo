@@ -145,7 +145,7 @@ the build fails.
 | 56 — Command overview and preparation | `m56` | *Führung – Übersicht* as a grid of tiles; *Vorbereitung – Lagekarte* with the map region and the editor on one page; incident description, planned times and pause |
 | 57 — UHS and units | `m57` | Units planned per incident, without organisation-wide master data (ADR-0070); status and orders in *Führung*, one post per person (UNIT-8); the UHS as a unit, its capacity per triage category and its places; strength after DV 102; the command structure as an org chart (roadmap item 6) |
 | 58 — Patient record fields | `m58` | A diagnosis with its certainty, kept in the record (EPCR-11); other answers as free text (EPCR-12); the pupils as choices (EPCR-13) (roadmap item 8) |
-| 59 — Helper register | `m59` | Helpers of an incident with personal data in the compartment `people`, read by the incident command (HELP-1), linked to accounts (HELP-2); crews from the register (HELP-3); deleted 90 days after the incident is closed (HELP-4) (roadmap item 9, ADR-0071) |
+| 59 — Helper register | `m59` | Helpers of an incident with personal data in the compartment `people`, read by the incident command (HELP-1), linked to accounts (HELP-2); crews from the register (HELP-3); deleted 90 days after the incident is closed (HELP-4); registered from a photo of the Meldekarte (HELP-5, ADR-0072) (roadmap item 9, ADR-0071) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at

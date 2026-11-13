@@ -1935,3 +1935,14 @@ pub const REGISTER_AND_ADD: &str = "Erfassen und hinzufügen";
 pub fn register_and_add_label(name: &str) -> String {
     format!("{REGISTER_AND_ADD}: {name}")
 }
+/// Registration cards (HELP-5, ADR-0072).
+/// "Meldekarte fotografieren", with the profile's label of the card ("Karte" for several).
+pub const CARD_GENERIC: &str = "Karte";
+pub fn card_photo(label: &str) -> String {
+    format!("{label} fotografieren")
+}
+pub const CARD_READING: &str = "Karte wird gelesen …";
+pub const CARD_NOT_RECOGNISED: &str = "Keine Karte erkannt. Bitte noch einmal fotografieren: Karte flach, QR-Code ganz im Bild und scharf.";
+pub fn card_read(card: &str, name: &str) -> String {
+    format!("{card} von {name} gelesen. Bitte prüfen und erfassen.")
+}

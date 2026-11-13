@@ -2,11 +2,13 @@
 //! build: the ePCR forms, an HL7 FHIR Questionnaire (ADR-0037), handed to the app in ORDO's
 //! internal form model; the transport priority settings; the transport request catalogue;
 //! the routes for medical orders; the hospital catalogue; the triage algorithms; the status
-//! codes of units; the tactical symbols with their SVG files.
+//! codes of units; the tactical symbols with their SVG files; the formats of registration
+//! cards.
 
 use std::path::Path;
 
 use ordo_command::StructureCatalogue;
+use ordo_helpers::cards::CardCatalogue;
 use ordo_map::{DrawingCatalogue, SymbolCatalogue};
 use ordo_med_patients::TransportPriorityConfig;
 use ordo_med_patients::hospitals::HospitalCatalogue;
@@ -104,6 +106,12 @@ fn main() {
         &profile.join("map"),
         "drawings.toml",
         DrawingCatalogue::check,
+    );
+    // [impl->dsn~registration-card~1]
+    embed(
+        &profile.join("helpers"),
+        "registration-cards.toml",
+        CardCatalogue::check,
     );
     symbols(&profile.join("symbols"));
 }

@@ -423,6 +423,18 @@ Tags: should, shared, m59
 
 Needs: dsn
 
+#### HELP-5 — Registration card read by camera
+`req~help-5~1`
+
+When the incident command photographs a helper's registration card whose format the
+profile describes (DE: the *Meldekarte* of meldekarte.de), ORDO shall read its QR code on
+the device and fill the helper form with what the register keeps, for the command to check
+and save; ORDO shall take no other data from the card and send the photo nowhere.
+
+Tags: should, shared, m59
+
+Needs: dsn
+
 ### 4.7 Shared: organisation and master data
 
 #### ORG-1 — Master data
