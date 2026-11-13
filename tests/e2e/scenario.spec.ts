@@ -140,16 +140,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
     await expect(dora.locator("#overview-persons"), "counts only").toHaveText("0");
     await expect(dora.locator(".tile--dispatch"), "Disposition keeps its name").toContainText("Keine offenen Aufträge.");
-    await expect(
-      dora.locator(".tile--map .maplibregl-cooperative-gestures"),
-      "the map tile moves with two fingers; one scrolls the page",
-    ).toHaveCount(1);
+    const tileMap = dora.locator(".tile--map .situation__map");
+    await expect(tileMap, "the map tile loads").not.toHaveAttribute("data-map", "loading", { timeout: 30_000 });
+    if ((await tileMap.getAttribute("data-map")) === "ready") {
+      // Without WebGL (some headless browsers) there is no map to move.
+      await expect(
+        dora.locator(".tile--map .maplibregl-cooperative-gestures"),
+        "the map tile moves with two fingers; one scrolls the page",
+      ).toHaveCount(1);
+    }
     await audit(dora, "Command overview");
     await shot(dora, "command-overview");
-    await expect(
-      dora.locator(".tile--map .maplibregl-cooperative-gestures"),
-      "the map tile moves with two fingers; one scrolls the page",
-    ).toHaveCount(1);
     // … and once paired, under Administration – Info, for everyone.
     await openWorkspace(dora, "Info");
     await expect(dora.locator("#info-app"), "the app's version").toContainText("Protokolle: Abgleich");
