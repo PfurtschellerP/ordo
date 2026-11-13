@@ -692,6 +692,32 @@ Needs: impl, utest, itest
 
 Tags: should, m45
 
+#### Vehicle master data
+`dsn~vehicle-master-data~1`
+
+The organisation's vehicles are master data on the server
+([ADR-0068](../adr/0068-unit-master-data-on-the-server.md)): call sign, type,
+organisation, service and usual strength (Führer, Unterführer, Mannschaft), never a crew.
+The server stores the ones added in ORDO in the table `vehicles` (migration 0005) and
+reads them at start; the ones from `ORDO_VEHICLES_FILE` stay fixed and are listed with
+`fixed`. The call sign is the key: no two vehicles share one, and a vehicle of the file
+cannot be added again in ORDO. Administrators (organisation action `manage_master_data`)
+manage them in the workspace *Administration – Stammdaten*, view *Einsatzmittel*: a list
+sorted by organisation and call sign, a form to add one, and per vehicle "Bearbeiten"
+and "Entfernen". `changeVehicle` (protocol 1.2) carries the call sign it replaces (none:
+a new vehicle) and the vehicle (none: remove it); the server answers `vehicles` with the
+whole list, and logs who changed which call sign. A change reaches units already in an
+incident only when they are added again: `units.added` keeps the attributes as given.
+`listVehicles` also answers those with `manage_master_data`.
+
+Covers:
+
+* [req~org-14~1](../requirements/02-shared.md#org-14--vehicle-master-data)
+
+Needs: impl, utest, itest
+
+Tags: should, m57
+
 #### Local accounts
 `dsn~local-accounts~1`
 

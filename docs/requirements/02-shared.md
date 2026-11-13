@@ -479,3 +479,15 @@ command pause and resume it, e.g. overnight at a festival over several days.
 Tags: should, shared, m56
 
 Needs: dsn
+
+#### ORG-14 — Vehicle master data
+`req~org-14~1`
+
+When an administrator adds, changes or removes a vehicle of the organisation's master data
+(call sign, type, organisation, service and usual strength, no crew), ORDO shall keep it on
+the server and offer it when units are added to an incident. Vehicles from the server's
+configuration shall be shown but not changed in ORDO.
+
+Tags: should, shared, m57
+
+Needs: dsn

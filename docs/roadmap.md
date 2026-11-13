@@ -283,7 +283,7 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
    *Führung* overview is a grid of tiles, and an incident has a description, planned times
    and a pause.
 6. **UHS and units:** unit master data with templates (usual strength, no crew) in
-   Administration (ORG-1); a UHS is a unit, so it counts in the forces on scene (ADR);
+   Administration is done (m57, ORG-14, [ADR-0068](adr/0068-unit-master-data-on-the-server.md)); a UHS is a unit, so it counts in the forces on scene (ADR);
    UHS capacity per triage category and a plan of its places; strength after the 2024
    DV 102 recommendation as an option (physicians, respirator wearers, unit and platoon
    leaders apart; notation to be checked in the BBK document); the command structure as
@@ -291,8 +291,8 @@ Now — from the user test with two testers (2026-11-11), plan approved the same
 
 From a practitioner's test of the same version (2026-11-11), before the map editor:
 
-7. **Orders only by those who give them** is built (m50; ADR-0053 proposed until the open
-   legal points are decided): the crew records an order given by voice, radio or phone
+7. **Orders only by those who give them** is built (m50; ADR-0053 accepted on 2026-11-13:
+   only physicians give and confirm orders, no SOP catalogue): the crew records an order given by voice, radio or phone
    with who gave it, how and whether it was read back;
    its giver confirms it later, and the UHS overview counts the unconfirmed ones. A
    documented medication keeps its order, and "Angeordnet durch" is filled only from it.

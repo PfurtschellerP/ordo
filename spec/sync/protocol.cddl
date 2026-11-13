@@ -16,6 +16,7 @@ client-message = { "hello": hello }
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
                / "listVehicles"               ; vehicles of the installation (1.1)
+               / { "changeVehicle": vehicle-change } ; with manage_master_data (1.2)
                / { "getMapRegion": incident-id } ; state of the incident's map region (1.2)
                / { "cutMapRegion": map-region-cut } ; with manage_map in the incident (1.2)
                / { "mapTicket": incident-id } ; ticket to read the incident's map region (1.2)
@@ -52,6 +53,13 @@ vehicle = {
   "organisation": tstr,
   ? "service": tstr,               ; service ID from the profile
   ? "strength": [uint, uint, uint], ; leaders, sub-leaders, crew
+  ? "fixed": true,                 ; from the server's configuration, not changed (1.2)
+}
+
+; Adds (no "replaces"), changes or removes (no "vehicle") a vehicle (ORG-14, 1.2).
+vehicle-change = {
+  ? "replaces": tstr,              ; call sign of the vehicle changed or removed
+  ? "vehicle": vehicle,            ; the vehicle as it shall be
 }
 
 ; "major.minor", e.g. "1.4" (ADR-0052)
@@ -77,8 +85,9 @@ server-message = { "challenge": challenge }
                / { "incidents": [* incident-summary] } ; answer to listIncidents
                / { "people": [* user-id] }    ; answer to listPeople; empty unless the
                                               ; user may grant roles somewhere
-               / { "vehicles": [* vehicle] }  ; answer to listVehicles (1.1); empty unless
-                                              ; the user may edit units somewhere
+               / { "vehicles": [* vehicle] }  ; answer to listVehicles (1.1) and
+                                              ; changeVehicle (1.2); empty unless the user
+                                              ; may edit units somewhere or manage master data
                / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
                                               ; (1.2); state "none" without manage_map
                / { "mapTicket": map-ticket }  ; answer to mapTicket (1.2)

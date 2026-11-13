@@ -887,11 +887,46 @@ test("ORDO in the browser", async ({ browser }) => {
     await shot(ben, "command");
   });
 
+  await test.step("an administrator keeps the organisation's vehicles as master data", async () => {
+    // [itest->dsn~vehicle-master-data~1]
+    await openWorkspace(dora, "Stammdaten");
+    const fixed = dora.locator(".vehicle-list [data-unit='RTW 83/1']");
+    await expect(fixed, "the file's vehicle, with its usual strength").toContainText("RTW · DRK Musterstadt · Rettungsdienst");
+    await expect(fixed, "shown, not changed").toContainText("aus der Serverkonfiguration");
+    await expect(fixed.getByRole("button")).toHaveCount(0);
+    const add = async (unit: string, type: string, crew: string) => {
+      await dora.locator("#vehicle-call-sign").fill(unit);
+      await dora.locator("#vehicle-type").fill(type);
+      await dora.locator("#vehicle-organisation").fill("DRK Musterstadt");
+      await dora.locator("#vehicle-leaders").fill("0");
+      await dora.locator("#vehicle-sub-leaders").fill("0");
+      await dora.locator("#vehicle-crew").fill(crew);
+      await dora.getByRole("button", { name: "Anlegen" }).click();
+    };
+    await add("RTW 83/1", "RTW", "2");
+    await expect(dora.locator(".vehicle-form [role=alert]"), "a call sign is taken once").toHaveText("Diesen Funkrufnamen gibt es in den Stammdaten schon.");
+    await add("KTW 83/2", "KTW", "2");
+    await add("San-Trupp 1", "Sanitätstrupp", "3");
+    const ktw = dora.locator(".vehicle-list [data-unit='KTW 83/2']");
+    await expect(ktw, "added").toContainText("KTW · DRK Musterstadt");
+    await ktw.getByRole("button", { name: "Bearbeiten: KTW 83/2" }).click();
+    await expect(dora.locator("#vehicle-form-title")).toHaveText("KTW 83/2 bearbeiten");
+    await expect(dora.locator("#vehicle-crew"), "the form holds the vehicle").toHaveValue("2");
+    await dora.locator("#vehicle-service").selectOption("rescue");
+    await dora.getByRole("button", { name: "Speichern" }).click();
+    await expect(ktw, "changed").toContainText("KTW · DRK Musterstadt · Rettungsdienst");
+    await expect(dora.locator("#vehicle-form-title"), "the form is new again").toHaveText("Einsatzmittel anlegen");
+    await dora.locator(".vehicle-list").getByRole("button", { name: "Entfernen: San-Trupp 1" }).click();
+    await expect(dora.locator(".vehicle-list [data-unit='San-Trupp 1']"), "removed").toHaveCount(0);
+    await audit(dora, "Master data");
+  });
+
   await test.step("resources: add a unit and set its status, also from the keyboard", async () => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     // [itest->dsn~unit-register~2]
     await expect(ben.locator("#unit-call-signs option[value='RTW 83/1']"), "the installation's vehicles are offered").toHaveCount(1);
+    await expect(ben.locator("#unit-call-signs option[value='KTW 83/2']"), "with those kept in ORDO").toHaveCount(1);
     await ben.locator("#unit-call-sign").fill("RTW 83/1");
     await expect(ben.locator("#unit-type"), "a known call sign fills in the rest").toHaveValue("RTW");
     await expect(ben.locator("#unit-organisation")).toHaveValue("DRK Musterstadt");

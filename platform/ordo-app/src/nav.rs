@@ -207,6 +207,26 @@ pub const WORKSPACES: &[Workspace] = &[
         ],
         hidden: false,
     },
+    // [impl->dsn~vehicle-master-data~1]
+    // The organisation's master data (ORG-14): only for those who keep it.
+    Workspace {
+        id: "admin.data",
+        package: text::TAB_ADMIN,
+        label: text::WS_MASTER_DATA,
+        requires: &[],
+        permission: None,
+        or_organisation: &["manage_master_data"],
+        views: &[View {
+            permission: Some("manage_master_data"),
+            ..view(
+                "units",
+                text::TAB_RESOURCES,
+                "master data vehicles units fleet call signs strength",
+                "truck",
+            )
+        }],
+        hidden: false,
+    },
     // [impl->dsn~licence-notices~2]
     // Version, licences and source code, for everyone (LIC-1): no permission needed.
     Workspace {

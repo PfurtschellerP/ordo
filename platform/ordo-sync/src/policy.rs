@@ -53,6 +53,11 @@ pub trait AccessPolicy: Send {
     fn can_manage_accounts(&self, _user: &UserId) -> bool {
         false
     }
+    /// Whether `user` may manage the organisation's master data, e.g. its vehicles
+    /// (ORG-14).
+    fn can_manage_master_data(&self, _user: &UserId) -> bool {
+        false
+    }
     /// Whether `user`, holding `roles` in `incident`, may grant and withdraw roles and
     /// change the incident's state.
     fn can_assign_roles(&self, _user: &UserId, _incident: &IncidentId, _roles: &[String]) -> bool {

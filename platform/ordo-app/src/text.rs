@@ -62,6 +62,7 @@ pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
 pub const WS_ACCESS: &str = "Zugriff";
 pub const WS_INFO: &str = "Info";
+pub const WS_MASTER_DATA: &str = "Stammdaten";
 pub const INCIDENT_PAGE: &str = "Einsatz";
 
 pub const DEVICES: &str = "Geräte";
@@ -1608,6 +1609,36 @@ pub fn org_role_until(date: &str) -> String {
 /// The accessible name of the withdraw button.
 pub fn org_role_withdraw_label(role: &str, person: &str) -> String {
     format!("{} entziehen: {person}", org_role(role))
+}
+
+// Vehicle master data (ORG-14, ADR-0068)
+pub const VEHICLES_TITLE: &str = "Einsatzmittel der Organisation";
+pub const VEHICLES_INTRO: &str = "Fahrzeuge und Trupps mit ihrer üblichen Stärke, ohne Besatzung. Beim Hinzufügen von Einsatzmitteln zu einem Einsatz werden sie vorgeschlagen; die Besatzung kommt im Einsatz dazu.";
+pub const VEHICLES_OFFLINE: &str =
+    "Die Stammdaten lassen sich nur mit Verbindung zum Server sehen und ändern.";
+pub const VEHICLES_LOADING: &str = "Stammdaten werden geladen …";
+pub const VEHICLES_EMPTY: &str = "Noch keine Einsatzmittel in den Stammdaten.";
+pub const VEHICLE_ADD_TITLE: &str = "Einsatzmittel anlegen";
+pub const VEHICLE_ADD: &str = "Anlegen";
+pub const VEHICLE_REMOVE: &str = "Entfernen";
+pub const VEHICLE_TAKEN: &str = "Diesen Funkrufnamen gibt es in den Stammdaten schon.";
+pub const VEHICLE_TOO_LONG: &str =
+    "Funkrufname, Typ und Organisation dürfen höchstens 100 Zeichen lang sein.";
+pub const VEHICLE_STRENGTH_LEGEND: &str = "Übliche Stärke (Führer / Unterführer / Mannschaft)";
+
+/// The button's name for changing a vehicle, e.g. "Bearbeiten: RTW 1".
+pub fn vehicle_edit_label(unit: &str) -> String {
+    format!("{EDIT}: {unit}")
+}
+
+/// The button's name for removing a vehicle.
+pub fn vehicle_remove_label(unit: &str) -> String {
+    format!("{VEHICLE_REMOVE}: {unit}")
+}
+
+/// The form's heading while a vehicle is changed.
+pub fn vehicle_edit_title(unit: &str) -> String {
+    format!("{unit} bearbeiten")
 }
 
 // Local accounts (ORG-10)

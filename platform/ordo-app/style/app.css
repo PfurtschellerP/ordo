@@ -509,6 +509,8 @@
   .roster__roles { list-style: none; margin: 0; padding: 0; flex: 1 1 14rem; display: grid; gap: var(--ordo-space-1); }
   .roster__role { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); color: var(--ordo-color-text-secondary); }
   .roster__role .button { margin-inline-start: auto; }
+  /* A vehicle of the master data: its actions at the end of the line (ORG-14). */
+  .vehicle-list__actions { margin-inline-start: auto; }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);

@@ -72,5 +72,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0065](0065-map-editing-in-preparation.md) | The map is edited in *Vorbereitung*, and kept offline by default | accepted; Page part superseded by 0067 | 2026-11-13 |
 | [0066](0066-address-search-with-nominatim.md) | Addresses are searched with Nominatim, through the ORDO server | accepted | 2026-11-13 |
 | [0067](0067-command-overview-tiles-and-map-preparation.md) | The command's overview is a grid of tiles, and *Vorbereitung* has its own *Lagekarte* | accepted | 2026-11-13 |
+| [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server, managed in *Administration* | accepted | 2026-11-13 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -367,6 +367,94 @@ impl Store {
             .collect()
     }
 
+    // [impl->dsn~vehicle-master-data~1]
+    /// Stores `vehicle`, in place of the one with the call sign `replaces` if given, in one
+    /// transaction. Returns false, and changes nothing, if its call sign is already taken by
+    /// another vehicle or `replaces` names none.
+    pub async fn save_vehicle(
+        &self,
+        replaces: Option<&str>,
+        vehicle: &ordo_sync::message::Vehicle,
+        by: &UserId,
+        now_ms: u64,
+    ) -> Result<bool, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        if let Some(old) = replaces {
+            let gone = sqlx::query("DELETE FROM vehicles WHERE unit = ?")
+                .bind(old)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+            if gone == 0 {
+                return Ok(false);
+            }
+        }
+        let [leaders, sub_leaders, crew] = vehicle.strength.map_or([None; 3], |s| s.map(Some));
+        let added = sqlx::query(
+            "INSERT INTO vehicles (unit, unit_type, organisation, service, leaders, sub_leaders,
+               crew, changed_by, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (unit) DO NOTHING",
+        )
+        .bind(&vehicle.unit)
+        .bind(&vehicle.unit_type)
+        .bind(&vehicle.organisation)
+        .bind(&vehicle.service)
+        .bind(leaders.map(i64::from))
+        .bind(sub_leaders.map(i64::from))
+        .bind(crew.map(i64::from))
+        .bind(by.as_str())
+        .bind(ms(now_ms))
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        if added == 0 {
+            return Ok(false);
+        }
+        tx.commit().await?;
+        Ok(true)
+    }
+
+    /// Removes the vehicle with call sign `unit`; returns whether there was one.
+    pub async fn remove_vehicle(&self, unit: &str) -> Result<bool, StoreError> {
+        let gone = sqlx::query("DELETE FROM vehicles WHERE unit = ?")
+            .bind(unit)
+            .execute(&self.pool)
+            .await?
+            .rows_affected();
+        Ok(gone > 0)
+    }
+
+    /// The vehicles added in ORDO, by call sign.
+    pub async fn load_vehicles(&self) -> Result<Vec<ordo_sync::message::Vehicle>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT unit, unit_type, organisation, service, leaders, sub_leaders, crew
+             FROM vehicles ORDER BY unit",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let part = |name: &str| {
+                    r.get::<Option<i64>, _>(name)
+                        .and_then(|v| u32::try_from(v).ok())
+                };
+                let strength = match [part("leaders"), part("sub_leaders"), part("crew")] {
+                    [Some(a), Some(b), Some(c)] => Some([a, b, c]),
+                    _ => None,
+                };
+                ordo_sync::message::Vehicle {
+                    unit: r.get("unit"),
+                    unit_type: r.get("unit_type"),
+                    organisation: r.get("organisation"),
+                    service: r.get("service"),
+                    strength,
+                    fixed: false,
+                }
+            })
+            .collect())
+    }
+
     /// The profile picture of `user`: uploaded in ORDO, else from the identity provider,
     /// else from Gravatar.
     pub async fn avatar(&self, user: &UserId) -> Result<Option<Vec<u8>>, StoreError> {
@@ -755,7 +843,7 @@ mod tests {
                 .fetch_all(&store.pool)
                 .await
                 .unwrap();
-            assert_eq!(applied, [1, 2, 3, 4], "each migration, applied once");
+            assert_eq!(applied, [1, 2, 3, 4, 5], "each migration, applied once");
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")
                 .fetch_one(&store.pool)
                 .await
@@ -789,6 +877,68 @@ mod tests {
             .await
             .unwrap();
         assert!(store.load_organisation_roles().await.unwrap().is_empty());
+    }
+
+    // [utest->dsn~vehicle-master-data~1]
+    #[tokio::test]
+    async fn vehicles_are_added_renamed_and_removed_with_unique_call_signs() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let dora = user("dora");
+        let vehicle = |unit: &str, strength| ordo_sync::message::Vehicle {
+            unit: unit.into(),
+            unit_type: "RTW".into(),
+            organisation: "DRK".into(),
+            service: Some("rescue".into()),
+            strength,
+            fixed: false,
+        };
+        assert!(
+            store
+                .save_vehicle(None, &vehicle("RTW 1", Some([0, 1, 1])), &dora, 1)
+                .await
+                .unwrap()
+        );
+        assert!(
+            store
+                .save_vehicle(None, &vehicle("RTW 2", None), &dora, 1)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !store
+                .save_vehicle(None, &vehicle("RTW 1", None), &dora, 2)
+                .await
+                .unwrap(),
+            "a call sign is taken once"
+        );
+        assert!(
+            !store
+                .save_vehicle(Some("RTW 1"), &vehicle("RTW 2", None), &dora, 2)
+                .await
+                .unwrap(),
+            "nor renamed onto another"
+        );
+        assert!(
+            !store
+                .save_vehicle(Some("RTW 9"), &vehicle("RTW 9", None), &dora, 2)
+                .await
+                .unwrap(),
+            "only an existing one is changed"
+        );
+        assert!(
+            store
+                .save_vehicle(Some("RTW 1"), &vehicle("RTW 3", Some([1, 0, 2])), &dora, 3)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            store.load_vehicles().await.unwrap(),
+            [vehicle("RTW 2", None), vehicle("RTW 3", Some([1, 0, 2]))]
+        );
+        assert!(store.remove_vehicle("RTW 2").await.unwrap());
+        assert!(!store.remove_vehicle("RTW 2").await.unwrap());
+        assert_eq!(store.load_vehicles().await.unwrap().len(), 1);
     }
 
     // [utest->dsn~display-names~2]

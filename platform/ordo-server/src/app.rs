@@ -387,6 +387,9 @@ impl App {
             self.geocode(session, request).await;
             return Ok(());
         }
+        if let ClientMessage::ChangeVehicle(change) = message {
+            return self.change_vehicle(session, change).await;
+        }
         let mut hub = self.hub.lock().await;
         // [impl->dsn~incident-devices~1]
         // Who blocked which device in which incident is logged.
@@ -642,6 +645,74 @@ impl App {
         if let Some(person) = changed {
             let out = self.hub.lock().await.organisation_roles_changed(&[person]);
             self.send_refusals(out);
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~vehicle-master-data~1]
+    /// Answers `changeVehicle`: administrators (`manage_master_data`) add, change or remove
+    /// a vehicle of the master data; vehicles from the configuration stay as they are, and
+    /// no call sign is taken twice. The answer is the list, as `listVehicles` gives it.
+    async fn change_vehicle(
+        &self,
+        session: SessionId,
+        change: message::VehicleChange,
+    ) -> Result<(), StoreError> {
+        let mut hub = self.hub.lock().await;
+        let Some(user) = hub.session_user(session) else {
+            return Ok(()); // not authenticated: nothing
+        };
+        if hub
+            .session_version(session)
+            .is_none_or(|v| v < ordo_sync::version::SYNC_MASTER_DATA)
+        {
+            return Ok(());
+        }
+        if hub.may_manage_master_data(&user) {
+            let list = hub.installation_vehicles();
+            let replaces = change.replaces.as_deref().map(str::trim);
+            let changeable =
+                replaces.is_none_or(|old| list.iter().any(|v| v.unit == old && !v.fixed));
+            let vehicle = change.vehicle.map(|v| message::Vehicle {
+                unit: v.unit.trim().to_owned(),
+                unit_type: v.unit_type.trim().to_owned(),
+                organisation: v.organisation.trim().to_owned(),
+                service: v.service.filter(|s| !s.trim().is_empty()),
+                strength: v.strength,
+                fixed: false,
+            });
+            let free = vehicle.as_ref().is_none_or(|v| {
+                v.check()
+                    && !list
+                        .iter()
+                        .any(|other| other.unit == v.unit && Some(other.unit.as_str()) != replaces)
+            });
+            let done = match (changeable && free, replaces, &vehicle) {
+                (true, _, Some(v)) => {
+                    self.store
+                        .save_vehicle(replaces, v, &user, now_ms())
+                        .await?
+                }
+                (true, Some(old), None) => self.store.remove_vehicle(old).await?,
+                _ => false,
+            };
+            if done {
+                tracing::info!(%user, replaces, unit = vehicle.as_ref().map(|v| v.unit.as_str()), "vehicle master data changed");
+                let fixed: Vec<message::Vehicle> =
+                    list.iter().filter(|v| v.fixed).cloned().collect();
+                let all = installation_vehicles(fixed, self.store.load_vehicles().await?);
+                hub.set_vehicles(all);
+            }
+        }
+        let answer = ServerMessage::Vehicles(hub.vehicles(&user));
+        drop(hub);
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(answer);
         }
         Ok(())
     }
@@ -1300,6 +1371,25 @@ pub(crate) async fn stopped(mut receiver: watch::Receiver<bool>) {
 }
 
 /// Milliseconds since the Unix epoch.
+// [impl->dsn~vehicle-master-data~1]
+/// The installation's vehicles: those of the configuration (marked fixed), then those added
+/// in ORDO whose call sign the configuration does not already use.
+pub(crate) fn installation_vehicles(
+    fixed: Vec<message::Vehicle>,
+    stored: Vec<message::Vehicle>,
+) -> Vec<message::Vehicle> {
+    let mut all: Vec<message::Vehicle> = fixed
+        .into_iter()
+        .map(|v| message::Vehicle { fixed: true, ..v })
+        .collect();
+    for v in stored {
+        if !all.iter().any(|f| f.unit == v.unit) {
+            all.push(v);
+        }
+    }
+    all
+}
+
 pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

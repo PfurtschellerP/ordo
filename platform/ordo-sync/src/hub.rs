@@ -346,6 +346,23 @@ impl<P: AccessPolicy> Hub<P> {
         self.policy.can_manage_accounts(user)
     }
 
+    /// Whether `user` may manage the organisation's master data (ORG-14).
+    pub fn may_manage_master_data(&self, user: &UserId) -> bool {
+        self.policy.can_manage_master_data(user)
+    }
+
+    // [impl->dsn~vehicle-master-data~1]
+    /// Replaces the installation's vehicles, e.g. after an administrator changed one; the
+    /// next `listVehicles` gets the new list.
+    pub fn set_vehicles(&mut self, vehicles: Vec<crate::message::Vehicle>) {
+        self.config.vehicles = vehicles;
+    }
+
+    /// All of the installation's vehicles, whoever asks.
+    pub fn installation_vehicles(&self) -> &[crate::message::Vehicle] {
+        &self.config.vehicles
+    }
+
     // [impl->dsn~organisation-roles~1]
     /// The organisation roles of `users` changed: their sessions are cut with
     /// `rolesChanged`, so their devices reconnect and receive what they may do now.
@@ -396,10 +413,11 @@ impl<P: AccessPolicy> Hub<P> {
         list
     }
 
-    /// The installation's vehicles, for planners and those who may edit units in some
-    /// incident; others get none.
-    fn vehicles(&self, user: &UserId) -> Vec<crate::message::Vehicle> {
+    /// The installation's vehicles, for planners, those who manage master data and those
+    /// who may edit units in some incident; others get none.
+    pub fn vehicles(&self, user: &UserId) -> Vec<crate::message::Vehicle> {
         let edits = self.policy.can_manage_incidents(user)
+            || self.policy.can_manage_master_data(user)
             || self.registry.iter().any(|(id, _)| {
                 let roles = self.registry.roles(user, id);
                 !roles.is_empty()
@@ -657,8 +675,8 @@ impl<P: AccessPolicy> Hub<P> {
                 }
             }
             // Answered by the server outside the hub: profile pictures, names, attachments
-            // (access checked with `can_access`), organisation roles, local accounts, the map region
-            // and the address search.
+            // (access checked with `can_access`), organisation roles, local accounts, the map region,
+            // the address search and changes to the master data.
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
             | ClientMessage::SetName(_)
@@ -674,7 +692,8 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::GetMapRegion(_)
             | ClientMessage::CutMapRegion(_)
             | ClientMessage::MapTicket(_)
-            | ClientMessage::Geocode(_) => Vec::new(),
+            | ClientMessage::Geocode(_)
+            | ClientMessage::ChangeVehicle(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),
@@ -828,6 +847,10 @@ impl<P: AccessPolicy> Hub<P> {
                 (
                     "manage_accounts",
                     self.policy.can_manage_accounts(&hello.user),
+                ),
+                (
+                    "manage_master_data",
+                    self.policy.can_manage_master_data(&hello.user),
                 ),
             ]
             .into_iter()

@@ -80,6 +80,8 @@ pub struct Core {
     pub people: Vec<UserId>,
     /// The installation's vehicles, as last listed (for adding units).
     pub vehicles: Vec<ordo_sync::message::Vehicle>,
+    /// Whether the server has answered with the vehicles since the start.
+    pub vehicles_listed: bool,
     /// The incident's map region, as last reported (MAP-8).
     pub map_region: Option<ordo_sync::message::MapRegion>,
     /// The ticket to read the incident's map region, asked on every connection (ADR-0062).
@@ -189,6 +191,7 @@ impl Core {
             incidents: None,
             people: Vec::new(),
             vehicles: Vec::new(),
+            vehicles_listed: false,
             map_region: None,
             map_ticket: None,
             geocoded: None,
@@ -409,6 +412,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::Vehicles(list) = &message {
                 c.vehicles = list.clone();
+                c.vehicles_listed = true;
             }
             if let ServerMessage::MapRegion(region) = &message
                 && region.incident == c.incident
@@ -1107,6 +1111,13 @@ pub fn set_crew(
 /// units).
 pub fn list_vehicles(core: Handle) {
     core.with_value(|c| c.send(&ClientMessage::ListVehicles));
+}
+
+// [impl->dsn~vehicle-master-data~1]
+/// Adds, changes or removes a vehicle of the master data (ORG-14); the server answers with
+/// the list.
+pub fn change_vehicle(core: Handle, change: ordo_sync::message::VehicleChange) {
+    core.with_value(|c| c.send(&ClientMessage::ChangeVehicle(change)));
 }
 
 /// Asks for the state of the incident's map region (MAP-8).

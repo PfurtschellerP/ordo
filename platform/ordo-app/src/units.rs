@@ -27,7 +27,7 @@ pub static CATALOGUE: LazyLock<UnitCatalogue> = LazyLock::new(|| {
 
 /// Crew strength in tactical notation: 0/1/8/9, the total underlined.
 #[component]
-fn StrengthText(strength: Strength) -> impl IntoView {
+pub(crate) fn StrengthText(strength: Strength) -> impl IntoView {
     let s = strength;
     view! {
         <span class="strength" aria-label=text::strength_label(s.leaders, s.sub_leaders, s.crew, s.total())>

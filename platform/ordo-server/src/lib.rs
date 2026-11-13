@@ -163,7 +163,10 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
             server: server.clone(),
             protected: config.protected.clone(),
             max_clock_ahead_ms: 60_000,
-            vehicles: config.vehicles.clone(),
+            vehicles: app::installation_vehicles(
+                config.vehicles.clone(),
+                store.load_vehicles().await?,
+            ),
         },
         policy,
         signer,

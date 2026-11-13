@@ -11,6 +11,7 @@ mod incidents;
 mod log;
 mod login_providers;
 mod map_region;
+mod master_data;
 mod nav;
 mod notices;
 mod orders;

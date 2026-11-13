@@ -249,9 +249,9 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
   crew strength (Führer, Unterführer, Mannschaft; the total is computed, shown in
   tactical notation as 0/1/8/9). Services come from the profile (`units/catalogue.toml`).
   Version 1 payloads decode without service and strength.
-* **From master data:** the installation's vehicles (call sign, type, organisation,
-  service, default strength) are a server file (`ORDO_VEHICLES_FILE`) until an admin view
-  exists (ORG-1). Devices ask with `listVehicles` (sync protocol 1.1); the server answers
+* **From master data:** the organisation's vehicles (call sign, type, organisation,
+  service, usual strength), managed in *Administration – Stammdaten* or fixed in a server
+  file (`ORDO_VEHICLES_FILE`); see *Vehicle master data* in chapter 8. Devices ask with `listVehicles` (sync protocol 1.1); the server answers
   planners and those who may edit units, others get an empty list. The add form suggests
   the call signs and fills in the rest; units can still be added ad hoc.
 * **Status:** status codes from the profile; the lost-update-aware board keeps when and

@@ -32,6 +32,9 @@ pub enum ClientMessage {
     ListPeople,
     /// Asks for the installation's vehicles (master data, UNIT-1); protocol 1.1.
     ListVehicles,
+    /// Adds, changes or removes a vehicle of the master data (ORG-14; organisation
+    /// permission `manage_master_data`); protocol 1.2. Answered with `vehicles`.
+    ChangeVehicle(VehicleChange),
     /// Asks for the state of an incident's map region (MAP-8, ADR-0062); protocol 1.2.
     GetMapRegion(IncidentId),
     /// Asks the server to cut a new map region for an incident (incident permission
@@ -316,6 +319,39 @@ pub struct Vehicle {
     /// Default crew strength: leaders, sub-leaders, crew.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strength: Option<[u32; 3]>,
+    /// From the server's configuration (`ORDO_VEHICLES_FILE`): shown, not changed in ORDO
+    /// (protocol 1.2; older servers never send it).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fixed: bool,
+}
+
+/// The longest call sign, type or organisation of a vehicle, in characters.
+pub const VEHICLE_TEXT_MAX: usize = 100;
+
+impl Vehicle {
+    /// Whether the vehicle can be stored: a call sign and a type, no text too long, and a
+    /// strength below 1000 per part.
+    pub fn check(&self) -> bool {
+        let fits = |s: &str| s.chars().count() <= VEHICLE_TEXT_MAX;
+        !self.unit.trim().is_empty()
+            && !self.unit_type.trim().is_empty()
+            && fits(&self.unit)
+            && fits(&self.unit_type)
+            && fits(&self.organisation)
+            && self.service.as_deref().is_none_or(fits)
+            && self.strength.is_none_or(|s| s.iter().all(|&n| n < 1000))
+    }
+}
+
+/// Adds, changes or removes a vehicle of the master data (ORG-14).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VehicleChange {
+    /// The call sign of the vehicle changed or removed; none for a new one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<String>,
+    /// The vehicle as it shall be; none to remove the one named in `replaces`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vehicle: Option<Vehicle>,
 }
 
 /// A local login account in the identity provider (ORG-10).
@@ -869,6 +905,59 @@ mod tests {
             !bytes.windows(6).any(|w| w == b"places"),
             "no empty list sent"
         );
+    }
+
+    // [utest->dsn~vehicle-master-data~1]
+    #[test]
+    fn vehicle_changes_round_trip_and_vehicles_are_checked() {
+        let rtw = Vehicle {
+            unit: "Rotkreuz Musterstadt 83/1".into(),
+            unit_type: "RTW".into(),
+            organisation: "DRK Musterstadt".into(),
+            service: Some("rescue".into()),
+            strength: Some([0, 1, 1]),
+            fixed: false,
+        };
+        assert!(rtw.check());
+        let change = ClientMessage::ChangeVehicle(VehicleChange {
+            replaces: Some("RTW 1".into()),
+            vehicle: Some(rtw.clone()),
+        });
+        let bytes = encode(&change).unwrap();
+        assert!(bytes.windows(13).any(|w| w == b"changeVehicle"));
+        assert!(
+            !bytes.windows(5).any(|w| w == b"fixed"),
+            "not sent when false"
+        );
+        assert_eq!(decode::<ClientMessage>(&bytes).unwrap(), change);
+        let remove = ClientMessage::ChangeVehicle(VehicleChange {
+            replaces: Some("RTW 1".into()),
+            vehicle: None,
+        });
+        assert_eq!(
+            decode::<ClientMessage>(&encode(&remove).unwrap()).unwrap(),
+            remove
+        );
+        for bad in [
+            Vehicle {
+                unit: " ".into(),
+                ..rtw.clone()
+            },
+            Vehicle {
+                unit_type: String::new(),
+                ..rtw.clone()
+            },
+            Vehicle {
+                organisation: "x".repeat(VEHICLE_TEXT_MAX + 1),
+                ..rtw.clone()
+            },
+            Vehicle {
+                strength: Some([0, 1, 1000]),
+                ..rtw.clone()
+            },
+        ] {
+            assert!(!bad.check(), "{bad:?}");
+        }
     }
 
     #[test]
