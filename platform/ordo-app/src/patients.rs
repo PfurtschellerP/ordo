@@ -179,10 +179,14 @@ pub fn PatientsView(
         core::incident_people(core)
     });
     provide_context(IncidentPeople(people.into(), core));
+    // [impl->dsn~reports~1]
+    // A patient case the registration fills in (REP-3).
+    provide_context(crate::reports::ActiveCase(RwSignal::new(None)));
     view! {
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
+                <crate::reports::AssignedCases core revision />
                 <PlacePlan core revision nav register working selected=record />
                 <RegisterForm core revision nav />
                 <PatientList core revision nav register records selected=record />
@@ -411,6 +415,20 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
             }
         });
     }
+    // [impl->dsn~reports~1]
+    // From a patient case: the unit's UHS first, where the command structure names one.
+    let case = use_context::<crate::reports::ActiveCase>().map(|c| c.0);
+    if let Some(case) = case {
+        Effect::new(move || {
+            let Some(c) = case.get() else { return };
+            let offered = crate::reports::unit_uhs(&crate::command::structure(core), &c.unit);
+            if let Some(id) =
+                offered.filter(|id| list.with_untracked(|l| l.iter().any(|u| &u.id == id)))
+            {
+                uhs.set(id);
+            }
+        });
+    }
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let value = tag.get().trim().to_owned();
@@ -418,8 +436,13 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
         if value.is_empty() || uhs.get().is_empty() {
             return;
         }
-        match core::register(core, revision, &value, chosen, &uhs.get()) {
+        let from = case.and_then(|c| c.get_untracked());
+        let from_case = from.as_ref().map(|c| (c.report.as_str(), c.unit.as_str()));
+        match core::register(core, revision, &value, chosen, &uhs.get(), from_case) {
             Ok(()) => {
+                if let Some(case) = case {
+                    case.set(None);
+                }
                 tag.set(String::new());
                 category.set(None);
                 error.set(None);
@@ -438,6 +461,15 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
                 }
                 view! {
                     <form on:submit=submit class="form">
+                        {move || case.and_then(|c| c.get()).map(|c| view! {
+                            <div class="notice register-case" role="status">
+                                <p>{text::register_from_case(&c.place, &c.unit)}</p>
+                                <button type="button" class="button button--small button--quiet"
+                                    on:click=move |_| if let Some(case) = case { case.set(None) }>
+                                    {text::CASE_CANCEL}
+                                </button>
+                            </div>
+                        })}
                         <label for="tag">{text::REGISTER_TAG}</label>
                         <input id="tag" type="text" inputmode="numeric" autocomplete="off" required bind:value=tag class="input--code" />
                         <fieldset class="choices">

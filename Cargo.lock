@@ -2813,6 +2813,7 @@ dependencies = [
  "ordo-helpers",
  "ordo-map",
  "ordo-med-patients",
+ "ordo-reports",
  "ordo-sync",
  "ordo-tasks",
  "ordo-units",
@@ -2834,6 +2835,7 @@ dependencies = [
  "ordo-helpers",
  "ordo-map",
  "ordo-med-patients",
+ "ordo-reports",
  "ordo-sync",
  "ordo-tasks",
  "ordo-units",
@@ -2959,6 +2961,16 @@ dependencies = [
  "tokio",
  "toml",
  "toml_edit",
+]
+
+[[package]]
+name = "ordo-reports"
+version = "0.0.0"
+dependencies = [
+ "ordo-core",
+ "ordo-sync",
+ "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

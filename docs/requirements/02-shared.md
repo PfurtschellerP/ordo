@@ -234,6 +234,67 @@ Tags: should, shared, m31
 
 Needs: dsn
 
+### 4.4a Shared: reports (*Meldungen*)
+
+Reports are what reaches the incident command by radio, phone or in person: an event on
+the site or a person who needs help. They carry a place and a short description, never
+clinical data ([ADR-0075](../adr/0075-reports-recorded-in-dispatch.md)).
+
+#### REP-1 — Record reports
+`req~rep-1~1`
+
+When a report reaches the incident command, ORDO shall let the command record it in
+*Führung – Disposition* as an event or a patient case, with its place, a short
+description and the time it came in, in the shared incident data.
+
+Tags: must, shared, m60
+
+Needs: dsn
+
+#### REP-2 — Assign reports to units
+`req~rep-2~1`
+
+When the incident command assigns a report to a unit, ORDO shall give that unit a task
+linked to the report, and show every open report with its units and their task status
+until the command closes it.
+
+Tags: must, shared, m60
+
+Needs: dsn
+
+#### REP-3 — Patient from a patient case
+`req~rep-3~1`
+
+When a member of a unit's crew opens a patient case assigned to that unit, ORDO shall let
+them register the patient from it, with the on-site care unit of their choice (the unit's
+own, where the command structure names one, offered first), link the patient to the case,
+and tell the incident command that the case has a patient, without clinical data.
+
+Tags: must, shared, m60
+
+Needs: dsn
+
+#### REP-4 — Place on the map
+`req~rep-4~1`
+
+Where the incident command places a report on the situation map, ORDO shall show the
+place to the crews of the units it is assigned to, on a map and as a link for the device's
+maps app.
+
+Tags: should, shared, m60
+
+Needs: dsn
+
+#### REP-5 — Close reports
+`req~rep-5~1`
+
+When the incident command closes a report, ORDO shall keep it, with its tasks and its
+patient link, in the history and the incident log, and no longer list it as open.
+
+Tags: must, shared, m60
+
+Needs: dsn
+
 ### 4.5 Shared: situation map
 
 #### MAP-1 — Situation map

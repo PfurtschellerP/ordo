@@ -24,7 +24,8 @@
     { "id": "medical-command", "label": "Sanitätseinsatzleitung", "spec": { "grundzeichen": "taktische-formation", "organisation": "fuehrung", "fachaufgabe": "fuehrung", "text": "SanEL" } },
     { "id": "sector-command", "label": "Einsatzabschnittsleitung", "spec": { "grundzeichen": "taktische-formation", "organisation": "fuehrung", "fachaufgabe": "fuehrung", "text": "EAL" } },
     { "id": "sub-sector-command", "label": "Untereinsatzabschnittsleitung", "spec": { "grundzeichen": "taktische-formation", "organisation": "fuehrung", "fachaufgabe": "fuehrung", "text": "UEAL" } },
-    { "id": "transport-organisation", "label": "Transportorganisation", "spec": { "grundzeichen": "taktische-formation", "organisation": "fuehrung", "fachaufgabe": "fuehrung", "text": "TO" } }
+    { "id": "transport-organisation", "label": "Transportorganisation", "spec": { "grundzeichen": "taktische-formation", "organisation": "fuehrung", "fachaufgabe": "fuehrung", "text": "TO" } },
+    { "id": "injured-person", "label": "Verletzte Person", "spec": { "symbol": "person-verletzt" } }
   ],
   "units": {
     "by_type": { "RTW": "rtw", "KTW": "ktw", "ITW": "itw", "NEF": "nef", "RTH": "rth", "ELW": "elw", "HLF": "hlf", "LF": "lf", "DLK": "dlk" },
@@ -40,5 +41,6 @@
     "treatment-area": "treatment-area",
     "transport-organisation": "transport-organisation"
   },
+  "reports": { "event": "incident", "patient": "injured-person" },
   "incident": "incident"
 }

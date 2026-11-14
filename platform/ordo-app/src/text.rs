@@ -1202,6 +1202,107 @@ pub fn uhs_renamed(name: &str) -> String {
     format!("UHS umbenannt in {name}")
 }
 
+// Reports (REP-1…5, ADR-0075).
+pub const REPORT: &str = "Meldung";
+pub const REPORTS_TITLE: &str = "Offene Meldungen";
+pub const REPORTS_EMPTY: &str = "Keine offenen Meldungen.";
+pub const REPORT_RECORD: &str = "Meldung aufnehmen";
+pub const REPORT_KIND: &str = "Art";
+pub const REPORT_PLACE: &str = "Ort";
+pub const REPORT_TEXT: &str = "Kurzbeschreibung";
+pub const REPORT_TEXT_HINT: &str = "Was gemeldet wurde, in wenigen Worten, ohne medizinische Angaben (die gehören in die Patientenakte).";
+pub const REPORT_RECEIVED: &str = "Eingang";
+pub const REPORT_RECEIVED_HINT: &str = "Leer lassen für jetzt.";
+pub const REPORT_KIND_MISSING: &str = "Bitte die Art der Meldung wählen.";
+pub const REPORT_PLACE_MISSING: &str = "Bitte den Ort angeben.";
+pub const REPORT_TEXT_MISSING: &str = "Bitte kurz beschreiben, was gemeldet wurde.";
+pub const REPORT_TOO_LONG: &str = "Ort oder Kurzbeschreibung sind zu lang.";
+pub const REPORT_TIME_INVALID: &str = "Bitte eine Uhrzeit angeben, z. B. 14:05.";
+pub const REPORT_ASSIGN_TO: &str = "Zuweisen an";
+pub const REPORT_ASSIGN: &str = "Zuweisen";
+pub const REPORT_UNIT_MISSING: &str = "Bitte ein Einsatzmittel wählen.";
+pub const REPORT_PLACE_ON_MAP: &str = "Auf der Karte setzen";
+pub const REPORT_MOVE_ON_MAP: &str = "Auf der Karte verschieben";
+pub const REPORT_ON_MAP: &str = "Auf der Lagekarte gesetzt";
+pub const REPORT_CLOSE: &str = "Abschließen";
+pub const REPORT_CLOSED: &str = "Meldung abgeschlossen";
+pub const REPORT_PATIENT_TAKEN: &str = "Patient aus der Meldung aufgenommen";
+pub const ASSIGNED_CASES: &str = "Gemeldete Patienten für Ihr Einsatzmittel";
+pub const CASE_REGISTER: &str = "Patient aufnehmen";
+pub const CASE_CANCEL: &str = "Ohne Meldung aufnehmen";
+pub const OPEN_IN_MAPS_APP: &str = "In der Karten-App öffnen";
+
+pub fn report_kind(kind: ordo_reports::ReportKind) -> &'static str {
+    match kind {
+        ordo_reports::ReportKind::Event => "Ereignis",
+        ordo_reports::ReportKind::Patient => "Patient",
+    }
+}
+
+pub fn reports_title(n: usize) -> String {
+    format!("{REPORTS_TITLE} ({n})")
+}
+
+pub fn report_label(kind: ordo_reports::ReportKind, place: &str) -> String {
+    format!("{}: {place}", report_kind(kind))
+}
+
+pub fn report_received(at: &str) -> String {
+    format!("Eingang {at}")
+}
+
+pub fn report_recorded(place: &str) -> String {
+    format!("Meldung aufgenommen: {place}")
+}
+
+pub fn report_taken(unit: &str, at: &str) -> String {
+    format!("Patient aufgenommen von {unit} ({at})")
+}
+
+pub fn report_place_label(placed: bool, report: &str) -> String {
+    let action = if placed {
+        REPORT_MOVE_ON_MAP
+    } else {
+        REPORT_PLACE_ON_MAP
+    };
+    format!("{action}: {report}")
+}
+
+pub fn report_close_label(report: &str) -> String {
+    format!("{REPORT_CLOSE}: {report}")
+}
+
+/// The text of the task a report gives a unit.
+pub fn report_task(r: &ordo_reports::Recorded) -> String {
+    format!("{}: {} – {}", report_kind(r.kind), r.place, r.text)
+}
+
+pub fn case_for(unit: &str) -> String {
+    format!("Zugewiesen an {unit}")
+}
+
+pub fn log_report_recorded(r: &ordo_reports::Recorded) -> String {
+    format!(
+        "Meldung aufgenommen: {}, {} – {} – {}",
+        report_kind(r.kind),
+        report_received(&crate::core::clock(r.received_at)),
+        r.place,
+        r.text
+    )
+}
+
+pub fn log_report_closed(report: &str) -> String {
+    format!("Meldung abgeschlossen: {report}")
+}
+
+pub fn log_report_patient(report: &str, unit: &str) -> String {
+    format!("Patient aus der Meldung {report} aufgenommen von {unit}")
+}
+
+pub fn register_from_case(place: &str, unit: &str) -> String {
+    format!("Aus der Meldung „{place}“ für {unit}")
+}
+
 // Tasks (TASK-1…4).
 pub const TASKS_TITLE: &str = "Offene Aufträge";
 pub const TASKS_EMPTY: &str = "Keine offenen Aufträge.";
@@ -1368,6 +1469,7 @@ pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
         K::Uhs => "UHS",
         K::Position => POSITION,
         K::Drawing => "Zeichnung",
+        K::Report => REPORT,
     }
 }
 

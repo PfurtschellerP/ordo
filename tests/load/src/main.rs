@@ -421,8 +421,9 @@ async fn fill(w: &mut Writer, o: &Options) -> Result<(), Error> {
             med::COMPARTMENT,
             med::MODULE,
             med::REGISTERED,
-            med::TRIAGE_SCHEMA,
+            med::REGISTERED_SCHEMA,
             &med::Registered {
+                report: None,
                 tag: tag.clone(),
                 category: categories[i % categories.len()],
                 uhs: uhs[i % uhs.len()].clone(),

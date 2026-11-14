@@ -46,6 +46,7 @@ fn grant(world: &mut World, by: &str, to: &str, role: &str, granted: bool) {
 
 fn register(world: &mut World, name: &str, tag: &str) -> Result<(), ordo_sync::SyncError> {
     let payload = Registered {
+        report: None,
         tag: tag.into(),
         category: TriageCategory::Urgent,
         uhs: String::new(),

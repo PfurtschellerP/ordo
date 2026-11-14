@@ -20,6 +20,7 @@ struct Context {
     uhs: BTreeMap<String, String>,
     positions: BTreeMap<String, String>,
     tasks: BTreeMap<String, String>,
+    reports: BTreeMap<String, String>,
     orders: BTreeMap<String, String>,
     transports: BTreeMap<String, (String, String)>,
     hospitals: BTreeMap<String, String>,
@@ -72,6 +73,12 @@ impl Context {
                 ordo_tasks::GIVEN => {
                     if let Some(p) = decode::<ordo_tasks::TaskGiven>(e) {
                         c.tasks.insert(p.task, p.text);
+                    }
+                }
+                ordo_reports::RECORDED => {
+                    if let Some(p) = decode::<ordo_reports::Recorded>(e) {
+                        c.reports
+                            .insert(p.report.clone(), crate::reports::label(&p));
                     }
                 }
                 med::orders::GIVEN => {
@@ -191,6 +198,19 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                     .or(p.sector.as_deref().map(|s| c.position(s)))
                     .unwrap_or_default();
                 text::log_task_given(to, &p.text).into()
+            }
+            // [impl->dsn~reports~1]
+            ordo_reports::RECORDED => {
+                let p = decode::<ordo_reports::Recorded>(e)?;
+                text::log_report_recorded(&p).into()
+            }
+            ordo_reports::CLOSED => {
+                let p = decode::<ordo_reports::Closed>(e)?;
+                text::log_report_closed(Context::name(&c.reports, &p.report)).into()
+            }
+            ordo_reports::PATIENT_REGISTERED => {
+                let p = decode::<ordo_reports::PatientRegistered>(e)?;
+                text::log_report_patient(Context::name(&c.reports, &p.report), &p.unit).into()
             }
             ordo_tasks::UPDATED => {
                 let p = decode::<ordo_tasks::TaskUpdated>(e)?;

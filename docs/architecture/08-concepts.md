@@ -1334,8 +1334,9 @@ The incident command's pages are grouped by phase in the package *Einsatzleitung
 ([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md),
 [ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md),
 [ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)): *Führung*, the
-running incident (overview, situation map to read, dispatch with the orders and the units
-on scene, whose status is set there, transports), *Vorbereitung*, what is set up before
+running incident (overview, situation map to read, dispatch with the open reports, the
+orders and the units on scene, whose status is set there, transports; reports in
+[chapter 5](05-building-block-view.md#reports)), *Vorbereitung*, what is set up before
 and adjusted during it (the incident with its details, start, pause and close; the
 situation map with its region and editor; units planned with their crews, which are
 incident data, with no organisation-wide vehicle master data; people with their roles,

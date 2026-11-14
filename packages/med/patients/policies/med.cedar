@@ -16,9 +16,10 @@ when {
   context.roles.contains("paramedic")
 };
 
-// … and write to it, except units, tasks, the command structure, the situation map and the
-// hospital list: these belong to the incident command (edit_units, TASK-1, CMD-1, MAP-1,
-// TRANS-2).
+// … and write to it, except units, tasks, the command structure, the situation map, the
+// hospital list and reports: these belong to the incident command (edit_units, TASK-1,
+// CMD-1, MAP-1, TRANS-2, REP-1). Of the reports, the crew writes only that it took a patient
+// over from a case (REP-3, ADR-0075).
 @id("med.medic-incident-write")
 permit (
   principal,
@@ -33,7 +34,8 @@ when {
   context.module != "tasks" &&
   context.module != "command" &&
   context.module != "map" &&
-  context.module != "med.hospitals"
+  context.module != "med.hospitals" &&
+  (context.module != "reports" || context.event_type == "reports.patientRegistered")
 };
 
 // … and with clinical data: patients, triage, patient care records, orders. Nobody else

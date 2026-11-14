@@ -321,9 +321,14 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    read in attempts since photos of a screen failed, diet kept,
    [ADR-0073](adr/0073-registration-cards-read-in-attempts-diet-kept.md)). A card is a
    convenience: one that does not fit is not taken, and the helper is typed in.
-10. **Dispatch** (*Führung – Disposition*): the incident command records reported events
-    and patient cases (place, short description, no clinical data) and assigns them to a
-    unit, which turns them into a patient (ADR).
+10. **Reports** (*Führung – Disposition*) are done (m60,
+    [ADR-0075](adr/0075-reports-recorded-in-dispatch.md)): the incident command records
+    reported events and patient cases (place, short description, the time they came in, no
+    clinical data) and assigns them to units as linked tasks (REP-1, REP-2); a patient case
+    can be placed on the situation map, and the crews of its units see it on a small map and
+    as a link for their maps app (REP-4); a crew member registers the patient from the case,
+    choosing the UHS, and the command learns that the case has a patient, never who (REP-3);
+    closed reports stay in the history and the log (REP-5).
 11. **Map:** every tactical symbol of the profile placeable, chosen from a menu grouped by
     topic. **UHS:** request a physician or paramedic, who then gets access to the UHS.
     **Vehicles and medical teams** (*Sanitätstrupp*): a workspace for crews to see,

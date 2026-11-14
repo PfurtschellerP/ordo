@@ -661,6 +661,25 @@ mod tests {
             !p.can_write(&erik, &incident, &shared, "map", "map.objectPlaced", &medic),
             "the situation map is the command's"
         );
+        // [utest->dsn~reports~1]
+        for event in ["reports.recorded", "reports.closed"] {
+            assert!(
+                !p.can_write(&erik, &incident, &shared, "reports", event, &medic),
+                "reports are the command's: {event}"
+            );
+            assert!(p.can_write(&erik, &incident, &shared, "reports", event, &commander));
+        }
+        assert!(
+            p.can_write(
+                &erik,
+                &incident,
+                &shared,
+                "reports",
+                "reports.patientRegistered",
+                &medic
+            ),
+            "the crew says it took a patient over"
+        );
     }
 
     // [utest->dsn~role-policies~1]

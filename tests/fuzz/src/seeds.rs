@@ -38,6 +38,7 @@ fn main() {
         category: ordo_contracts::TriageCategory::Immediate,
         uhs: "nord".into(),
         algorithm: Some("prior".into()),
+        report: Some("01JD0000000000000000000001".into()),
     };
     let payloads: Vec<(&str, Vec<u8>)> = vec![
         ("registered", codec::to_cbor(&registered).expect("encodes")),

@@ -20,6 +20,7 @@ mod palette;
 mod patients;
 mod profile;
 mod qr;
+mod reports;
 mod roles;
 mod situation;
 mod storage;

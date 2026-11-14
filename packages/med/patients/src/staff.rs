@@ -196,6 +196,7 @@ mod tests {
 
     fn registered(n: u64, by: &str, tag: &str, uhs: &str) -> AppliedEvent {
         let r = Registered {
+            report: None,
             tag: tag.into(),
             category: TriageCategory::Minor,
             uhs: uhs.into(),

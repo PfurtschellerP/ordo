@@ -21,6 +21,7 @@ ordo-crypto.workspace = true
 ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 ordo-units.workspace = true
+ordo-reports.workspace = true
 ordo-helpers.workspace = true
 ordo-tasks.workspace = true
 rqrr.workspace = true

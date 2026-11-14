@@ -1524,6 +1524,90 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
+  // [itest->dsn~reports~1]
+  await test.step("reports: a patient case is assigned, placed on the map and taken over by the crew", async () => {
+    // A medical team with Anna on its crew: she moves there from the UHS.
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
+    await ben.locator("#unit-call-sign").fill("SanTrp 1");
+    await ben.locator("#unit-type").fill("SanTrp");
+    await ben.locator("#unit-organisation").fill("DRK Musterstadt");
+    await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
+    const team = ben.locator(".unit-card[data-unit='SanTrp 1']");
+    await team.getByRole("button", { name: /^Besatzung von SanTrp 1/ }).click();
+    await ben.locator("#crew-santrp-1").fill("anna@localhost");
+    await team.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    const enter = team.getByRole("button", { name: "Erfassen und hinzufügen: anna@localhost" });
+    const move = team.getByRole("button", { name: "Hierher umsetzen: anna@localhost zu SanTrp 1" });
+    await expect(enter.or(move)).toBeVisible();
+    if (await enter.isVisible()) await enter.click();
+    await move.click();
+    await expect(team.locator(".crew-list")).toContainText("anna@localhost");
+
+    // REP-1, REP-2: the command records the case and assigns it to the team.
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Disposition");
+    await expect(ben.locator("#reports-title")).toHaveText("Offene Meldungen (0)");
+    await ben.locator("[aria-labelledby=reports-title]").getByRole("button", { name: "Meldung aufnehmen" }).click();
+    const form = ben.locator("form.record-report");
+    await form.getByRole("button", { name: "Meldung aufnehmen" }).click();
+    await expect(form.locator("[role=alert]"), "the kind is chosen, never assumed").toHaveText("Bitte die Art der Meldung wählen.");
+    await form.getByLabel("Patient", { exact: true }).check();
+    await ben.locator("#report-place").fill("Bühne Nord, links");
+    await ben.locator("#report-text").fill("Person liegt am Boden");
+    await expect(ben.locator("#report-text-hint"), "the form asks for no medical details").toContainText("ohne medizinische Angaben");
+    await form.getByRole("button", { name: "Meldung aufnehmen" }).click();
+    const report = ben.locator(".report-card", { hasText: "Bühne Nord, links" });
+    await expect(report, "with kind and time it came in").toContainText(/Patient · Eingang \d\d:\d\d/);
+    await report.getByLabel("Zuweisen an").selectOption("SanTrp 1");
+    await report.getByRole("button", { name: "Zuweisen" }).click();
+    await expect(report.locator(".report-card__units"), "the report lists its unit and the task's status").toHaveText("SanTrp 1 – Offen");
+    await expect(ben.locator(".task-card", { hasText: "Patient: Bühne Nord, links – Person liegt am Boden" }), "a task linked to the report").toHaveCount(1);
+    await audit(ben, "Reports");
+
+    // REP-4: the command puts the place on the map.
+    await report.getByRole("link", { name: "Auf der Karte setzen: Patient: Bühne Nord, links" }).click();
+    await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
+    await expect(ben.locator(".situation__map")).toHaveAttribute("data-map", "ready", { timeout: 30_000 });
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    await expect(ben.locator(".map-panel__status")).toHaveText("Patient: Bühne Nord, links platziert.");
+    const pin = ben.locator(".map-object", { hasText: "Patient: Bühne Nord, links · Meldung" });
+    await expect(pin.locator(".map-object__symbol"), "with the sign for an injured person").toHaveAttribute("data-symbol", "injured-person");
+    await ben.goBack();
+    await expect(report).toContainText("Auf der Lagekarte gesetzt");
+
+    // REP-3, REP-4: Anna, on the team's crew, finds the case with its place, and takes it over.
+    const medic = await newDevice(browser);
+    await loginPair(medic, server, "anna@example.org");
+    await openIncident(medic, INCIDENT);
+    await openView(medic, "Patienten");
+    const cases = medic.locator("[aria-labelledby=assigned-cases-title]");
+    const assigned = cases.locator(".report-card", { hasText: "Bühne Nord, links" });
+    await expect(assigned).toContainText("Zugewiesen an SanTrp 1");
+    await expect(assigned.getByRole("link", { name: "In der Karten-App öffnen" }), "the place for the device's maps app").toHaveAttribute("href", /^geo:48\.\d{6},10\.\d{6}$/);
+    await expect(assigned.locator(".situation__map"), "and on a small map").toHaveCount(1);
+    await audit(medic, "Assigned cases");
+    await assigned.getByRole("button", { name: "Patient aufnehmen" }).click();
+    await expect(medic.locator(".register-case"), "the registration names the case").toContainText("Aus der Meldung „Bühne Nord, links“ für SanTrp 1");
+    await expect(medic.locator("#tag")).toBeFocused();
+    await register(medic, "DE-0077", 1, "UHS Bühne Nord");
+    await expect(cases, "taken over: the case leaves the crew's list").toHaveCount(0);
+    await expect.poll(() => status(medic), { message: "the patient is sent" }).toContain("Alles gesendet");
+    await medic.context().close();
+
+    // The command learns that the case has a patient, never who.
+    await expect(report.locator(".report-card__taken")).toHaveText(/^Patient aufgenommen von SanTrp 1 \(\d\d:\d\d\)$/);
+    expect(Buffer.concat(benFrames.received).includes("DE-0077"), "the command device never receives the tag number").toBe(false);
+    // REP-5: closed, and kept in the log.
+    await report.getByRole("button", { name: "Abschließen: Patient: Bühne Nord, links" }).click();
+    await expect(ben.locator("#reports-title")).toHaveText("Offene Meldungen (0)");
+    await openWorkspace(ben, "Einsatztagebuch");
+    await expect(ben.locator(".log-entry[data-type='reports.patientRegistered']")).toContainText("Patient aus der Meldung Patient: Bühne Nord, links aufgenommen von SanTrp 1");
+    await expect(ben.locator(".log-entry[data-type='reports.closed']")).toContainText("Meldung abgeschlossen: Patient: Bühne Nord, links");
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
+  });
+
   // [itest->dsn~access-timeout~1]
   await test.step("a device locks itself when its login has expired, also offline", async () => {
     const start = Date.now();
@@ -1597,7 +1681,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(dora, "Zugriff");
     await openView(dora, "Geräte");
     await expect(dora.locator("#devices-title")).toHaveText("Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(7);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(8);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "Ben Weber" });
@@ -1606,7 +1690,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(6);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(7);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

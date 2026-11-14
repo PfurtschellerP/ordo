@@ -25,6 +25,7 @@ Compared on 2026-11-10. Numbers are the document's sections.
 | Fire, THW, police, civil-protection and civil-defence vehicle (by service) | 2.x, 5.1.1.1 | Match. Civil-protection units of aid organisations or fire services would be white or red, not orange; units are matched by service only |
 | Incident command (EL), sector (EAL), sub-sector (UEAL) | D.1.1, D.1.4–D.1.6 | Match: command post in yellow with the command bar. Before, the older flag with a pole |
 | Medical command (SanEL), transport organisation (TO) | D.1.1, 2.4, P.7 | Same form as other command posts, with the short names used in the state concepts; the document has no own sign for them |
+| Reported patient case (*Verletzte Person*) | – | The DV 102 sign for an injured person, as the library draws it; the section of the 2024 edition is still to be compared. A reported event uses the *Anlass* sign, like the incident location (REP-4, ADR-0075) |
 | Incident location | – | Not in the 2024 edition (it shows damage and hazards by kind, 5.8); kept as the DV 102 *Anlass* sign until the map editor draws damage and hazards (MAP-4) |
 
 Open points: unit sizes and crew strength, the "with physician" variants (F.3.2, F.3.4),

@@ -16,6 +16,9 @@ pub const COMPARTMENT: &str = "incident";
 pub const GIVEN: &str = "tasks.given";
 /// Event type: a task moved on, or got a new follow-up time.
 pub const UPDATED: &str = "tasks.updated";
+/// Schema version of `tasks.given`: 2 since it may name a report (REP-2, ADR-0075); older
+/// payloads decode unchanged.
+pub const GIVEN_SCHEMA: u32 = 2;
 
 /// Status of a task (TASK-2), in the order of the steps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -66,6 +69,9 @@ pub struct TaskGiven {
     /// When to follow up (Unix time in milliseconds), if wanted (TASK-4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up: Option<u64>,
+    /// The report of the module `reports` the task is about, if any (REP-2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 /// A task that can't be given.
@@ -242,6 +248,18 @@ impl TaskList {
         open
     }
 
+    // [impl->dsn~reports~1]
+    /// Every task about a report, open or not, oldest first.
+    pub fn of_report(&self, report: &str) -> Vec<&Task> {
+        let mut list: Vec<&Task> = self
+            .tasks
+            .values()
+            .filter(|t| t.given.report.as_deref() == Some(report))
+            .collect();
+        list.sort_by_key(|t| t.given_at());
+        list
+    }
+
     /// The open tasks of one unit, oldest first.
     pub fn of_unit(&self, unit: &str) -> Vec<&Task> {
         let mut list: Vec<&Task> = self
@@ -328,6 +346,7 @@ mod tests {
 
     fn given(n: u64, id: &str, unit: &str, follow_up: Option<u64>) -> AppliedEvent {
         let t = TaskGiven {
+            report: None,
             task: id.into(),
             unit: Some(unit.into()),
             sector: None,
@@ -406,6 +425,7 @@ mod tests {
     #[test]
     fn a_task_needs_a_text_and_someone_and_the_profile_is_valid() {
         let mut t = TaskGiven {
+            report: None,
             task: "t".into(),
             unit: Some("RTW 1".into()),
             sector: None,

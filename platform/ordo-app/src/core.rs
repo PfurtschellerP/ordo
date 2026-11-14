@@ -251,9 +251,10 @@ impl Core {
         let incident = self.incident.clone().ok_or("Kein Einsatz gewählt")?;
         // Payload schema versions that are not 1 (rule: payload changes get a version).
         let schema = match (module, event_type) {
-            (patients::MODULE, patients::REGISTERED | patients::RETRIAGED) => {
-                patients::TRIAGE_SCHEMA
-            }
+            (patients::MODULE, patients::REGISTERED) => patients::REGISTERED_SCHEMA,
+            (patients::MODULE, patients::RETRIAGED) => patients::TRIAGE_SCHEMA,
+            (ordo_tasks::MODULE, ordo_tasks::GIVEN) => ordo_tasks::GIVEN_SCHEMA,
+            (ordo_map::MODULE, ordo_map::PLACED) => ordo_map::PLACED_SCHEMA,
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
@@ -678,19 +679,25 @@ fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
     }
 }
 
-/// Registers a patient: stored locally at once, sent when connected.
+// [impl->dsn~reports~1]
+/// Registers a patient: stored locally at once, sent when connected. From a patient case
+/// (`case`: the report and the unit whose crew takes the patient over, REP-3) the record
+/// names the case, and the incident command learns that the case has a patient, without
+/// tag or category.
 pub fn register(
     core: Handle,
     revision: RwSignal<u64>,
     tag: &str,
     category: TriageCategory,
     uhs: &str,
+    case: Option<(&str, &str)>,
 ) -> Result<(), String> {
     let payload = Registered {
         tag: tag.to_owned(),
         category,
         uhs: uhs.to_owned(),
         algorithm: triage_algorithm(),
+        report: case.map(|(report, _)| report.to_owned()),
     }
     .encode()
     .map_err(|e| e.to_string())?;
@@ -703,6 +710,67 @@ pub fn register(
         patients::REGISTERED,
         &payload,
         announcement,
+    )?;
+    let Some((report, unit)) = case else {
+        return Ok(());
+    };
+    let taken = ordo_reports::PatientRegistered {
+        report: report.to_owned(),
+        unit: unit.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_reports::COMPARTMENT,
+        ordo_reports::MODULE,
+        ordo_reports::PATIENT_REGISTERED,
+        &taken,
+        text::REPORT_PATIENT_TAKEN.to_owned(),
+    )
+}
+
+// [impl->dsn~reports~1]
+/// Records a report (REP-1) with a new ID.
+pub fn record_report(
+    core: Handle,
+    revision: RwSignal<u64>,
+    report: ordo_reports::Recorded,
+) -> Result<(), String> {
+    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let report = ordo_reports::Recorded {
+        report: id.to_string(),
+        ..report
+    };
+    report.check().map_err(|e| e.to_string())?;
+    let payload = report.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_reports::COMPARTMENT,
+        ordo_reports::MODULE,
+        ordo_reports::RECORDED,
+        &payload,
+        text::report_recorded(&report.place),
+    )
+}
+
+/// Closes a report (REP-5).
+pub fn close_report(core: Handle, revision: RwSignal<u64>, report: &str) -> Result<(), String> {
+    let payload = ordo_reports::Closed {
+        report: report.to_owned(),
+    }
+    .encode()
+    .map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_reports::COMPARTMENT,
+        ordo_reports::MODULE,
+        ordo_reports::CLOSED,
+        &payload,
+        text::REPORT_CLOSED.to_owned(),
     )
 }
 
@@ -2187,6 +2255,31 @@ pub fn local_time_ms(value: &str) -> Option<u64> {
     // ECMAScript reads a date-time form without an offset as local time.
     let ms = js_sys::Date::new(&wasm_bindgen::JsValue::from_str(value)).get_time();
     (ms.is_finite() && ms >= 0.0).then_some(ms as u64)
+}
+
+/// The latest moment not after `now` (ms) at a local time of day `HH:MM`, as a `time`
+/// input gives it: today, or yesterday for a time still to come (a report of 23:50 typed
+/// in after midnight). `None` if it is not a time.
+pub fn today_at(time: &str, now: u64) -> Option<u64> {
+    let (h, m) = time.trim().split_once(':')?;
+    let (h, m): (u32, u32) = (h.parse().ok()?, m.parse().ok()?);
+    if h > 23 || m > 59 {
+        return None;
+    }
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(now as f64));
+    let set = |date: &js_sys::Date| {
+        date.set_milliseconds(0);
+        date.set_seconds(0);
+        date.set_minutes(m);
+        date.set_hours(h)
+    };
+    let mut at = set(&date);
+    if at > now as f64 {
+        // The day before, by the calendar (not 24 hours: a day may have 23 or 25).
+        date.set_date(date.get_date() - 1);
+        at = set(&date);
+    }
+    (at.is_finite() && at >= 0.0).then_some(at as u64)
 }
 
 /// Local time of day with seconds, `HH:MM:SS` (incident log).

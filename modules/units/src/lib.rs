@@ -493,6 +493,16 @@ impl UnitRegister {
         self.units.values().filter(|u| u.is_present())
     }
 
+    // [impl->dsn~reports~1]
+    /// The units present whose crew names `user` (a user ID, as entered in the crew).
+    pub fn crewed_by<'a>(&'a self, user: &'a str) -> impl Iterator<Item = &'a Unit> {
+        self.present().filter(move |u| {
+            u.crew
+                .iter()
+                .any(|m| m.name.trim().eq_ignore_ascii_case(user.trim()))
+        })
+    }
+
     // [impl->dsn~unit-register~3]
     /// Units and persons on scene (UNIT-4): units released are not counted.
     pub fn strength_on_scene(&self) -> StrengthOnScene {
@@ -807,6 +817,37 @@ mod tests {
             "released units are not counted"
         );
         assert_eq!(Strength::from([0, 1, 8]).total(), 9);
+    }
+
+    // [utest->dsn~reports~1]
+    #[test]
+    fn a_person_finds_the_units_whose_crew_names_them() {
+        let crew = CrewSet {
+            unit: "SanTrp 1".into(),
+            members: vec![CrewMember {
+                name: " Anna@ordo.example.org ".into(),
+                qualifications: Vec::new(),
+                helper: None,
+            }],
+        };
+        let events = vec![
+            added(1, "SanTrp 1", "DRK", "medical", None),
+            added(2, "RTW 1", "DRK", "rescue", None),
+            event(3, CREW_SET, crew.encode().unwrap()),
+        ];
+        let register = UnitRegister::from_events(&events);
+        let mine: Vec<&str> = register
+            .crewed_by("anna@ordo.example.org")
+            .map(|u| u.unit.as_str())
+            .collect();
+        assert_eq!(mine, ["SanTrp 1"]);
+        let events = [events, vec![released(4, "SanTrp 1")]].concat();
+        let register = UnitRegister::from_events(&events);
+        assert_eq!(
+            register.crewed_by("anna@ordo.example.org").count(),
+            0,
+            "not once released"
+        );
     }
 
     // [utest->dsn~double-booking~1]

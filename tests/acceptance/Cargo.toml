@@ -17,6 +17,7 @@ ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 ordo-units.workspace = true
 ordo-tasks.workspace = true
+ordo-reports.workspace = true
 ordo-command.workspace = true
 ordo-map.workspace = true
 

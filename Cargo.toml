@@ -15,6 +15,7 @@ members = [
   "modules/units",
   "modules/helpers",
   "modules/tasks",
+  "modules/reports",
   "modules/command",
   "modules/map",
   "packages/med/patients",
@@ -42,6 +43,7 @@ ordo-helpers = { path = "modules/helpers" }
 # Reads QR codes of registration cards in the app (ADR-0072); without the image crate.
 rqrr = { version = "0.11", default-features = false }
 ordo-tasks = { path = "modules/tasks" }
+ordo-reports = { path = "modules/reports" }
 ordo-command = { path = "modules/command" }
 ordo-map = { path = "modules/map" }
 ordo-med-patients = { path = "packages/med/patients" }

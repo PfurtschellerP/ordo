@@ -85,6 +85,7 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
         .with_value(|c| ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)));
     let uhs = crate::views::uhs_list(core);
     let structure = crate::command::structure(core);
+    let reports = crate::reports::list(core);
     map.objects
         .values()
         .filter_map(|o| {
@@ -104,6 +105,10 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
                     .positions
                     .get(reference)
                     .and_then(|p| SYMBOLS.for_position(&p.created.kind)),
+                ObjectKind::Report => reports
+                    .reports
+                    .get(reference)
+                    .and_then(|r| SYMBOLS.for_report(crate::reports::kind_id(r.recorded.kind))),
                 ObjectKind::Drawing => None,
             }?;
             Some((o.placed.object.clone(), symbol.clone()))
@@ -535,6 +540,32 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
+// [impl->dsn~reports~1]
+/// A small map of the incident, centred on one object: a report's place for the crews sent
+/// there (REP-4). It moves with two fingers, so one finger scrolls the page.
+#[component]
+pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl IntoView {
+    let s = situation(core, revision);
+    let node = NodeRef::<leptos::html::Div>::new();
+    let (handle, state) = mount_map(core, node, s, true);
+    Effect::new(move || {
+        if matches!(state.get(), MapState::Ready(_))
+            && let Some(at) = s.map.with_untracked(|m| {
+                m.objects
+                    .get(&object)
+                    .and_then(|o| o.placed.geometry.anchor())
+            })
+        {
+            show_at(handle, at);
+        }
+    });
+    view! {
+        <div class="place-map">
+            <MapFrame node state />
+        </div>
+    }
+}
+
 // [impl->dsn~situation-map~5]
 /// The overview's map tile (ADR-0067): the map with the objects, moved with two fingers
 /// (one scrolls the page), with the number of objects and where the region comes from. It
@@ -612,7 +643,7 @@ pub fn place_record(kind: ObjectKind, reference: &str) -> String {
 /// What to place, from a record made by [`place_record`].
 pub fn preset(record: &str) -> Option<(String, String)> {
     let (kind, reference) = record.strip_prefix(PLACE)?.split_once(':')?;
-    (["unit", "uhs", "position"].contains(&kind) && !reference.is_empty())
+    (["unit", "uhs", "position", "report"].contains(&kind) && !reference.is_empty())
         .then(|| (kind.to_owned(), reference.to_owned()))
 }
 
@@ -622,6 +653,7 @@ fn place_kind(kind: ObjectKind) -> &'static str {
         ObjectKind::Unit => "unit",
         ObjectKind::Uhs => "uhs",
         ObjectKind::Position => "position",
+        ObjectKind::Report => "report",
         ObjectKind::Incident | ObjectKind::Drawing => "incident",
     }
 }
@@ -1071,7 +1103,7 @@ pub fn MapEditor(
                         kind.set(event_target_value(&ev));
                         reference.set(String::new());
                     }>
-                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION)]
+                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("report", text::REPORT)]
                             .into_iter()
                             .map(|(id, name)| view! { <option value=id selected=move || kind.get() == id>{name}</option> })
                             .collect_view()}
@@ -1180,6 +1212,7 @@ fn object_kind(choice: &str) -> ObjectKind {
         "unit" => ObjectKind::Unit,
         "uhs" => ObjectKind::Uhs,
         "position" => ObjectKind::Position,
+        "report" => ObjectKind::Report,
         _ => ObjectKind::Incident,
     }
 }
@@ -1198,6 +1231,16 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
             .map(|u| (u.id, u.name))
             .collect(),
         ObjectKind::Position => crate::command::position_choices(&crate::command::structure(core)),
+        ObjectKind::Report => crate::reports::list(core)
+            .open()
+            .into_iter()
+            .map(|r| {
+                (
+                    r.recorded.report.clone(),
+                    crate::reports::label(&r.recorded),
+                )
+            })
+            .collect(),
         ObjectKind::Incident | ObjectKind::Drawing => Vec::new(),
     }
 }

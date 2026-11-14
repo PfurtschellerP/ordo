@@ -985,7 +985,11 @@ fn Workspace(
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
                     }.into_any(),
-                    (Some("command.lead"), Some("dispatch")) => view! { <crate::tasks::OpenTasks core revision /> }.into_any(),
+                    // [impl->dsn~reports~1]
+                    (Some("command.lead"), Some("dispatch")) => view! {
+                        <crate::reports::ReportsPanel core revision />
+                        <crate::tasks::OpenTasks core revision />
+                    }.into_any(),
                     (Some("command.lead"), Some("transports")) => view! { <crate::transports::TransportsView core revision /> }.into_any(),
                     (Some("command.lead"), _) => view! { <crate::summary::CommandOverview core revision /> }.into_any(),
                     (Some("command.prepare"), Some("units")) => view! { <crate::units::ResourcesView core revision /> }.into_any(),

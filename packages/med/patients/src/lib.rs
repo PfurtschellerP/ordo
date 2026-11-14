@@ -594,10 +594,14 @@ pub struct StayEntry {
     pub by: UserId,
 }
 
-/// Schema version of `patients.registered` and `patients.retriaged`: 2 since the category
-/// `uninjured` ("Betroffene") exists, 3 since they name the algorithm used (PAT-11);
-/// older payloads decode unchanged.
+/// Schema version of `patients.retriaged` (and of `patients.registered` up to 3): 2 since
+/// the category `uninjured` ("Betroffene") exists, 3 since they name the algorithm used
+/// (PAT-11); older payloads decode unchanged.
 pub const TRIAGE_SCHEMA: u32 = 3;
+
+/// Schema version of `patients.registered`: 4 since it names the patient case it came from
+/// (REP-3, ADR-0075); older payloads decode unchanged.
+pub const REGISTERED_SCHEMA: u32 = 4;
 
 /// Payload of `patients.registered`: the minimum needed (requirement PAT-1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -611,6 +615,9 @@ pub struct Registered {
     /// The triage algorithm used ([`triage::Algorithm::id`]), if the person named one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<String>,
+    /// The patient case of the module `reports` the patient came from, if any (REP-3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 /// Payload of `patients.retriaged`.
@@ -1018,6 +1025,7 @@ mod tests {
 
     fn registered(n: u64, tag: &str, category: TriageCategory) -> AppliedEvent {
         let r = Registered {
+            report: None,
             tag: tag.into(),
             uhs: "uhs-1".into(),
             category,
@@ -1105,6 +1113,7 @@ mod tests {
     #[test]
     fn the_algorithm_used_is_recorded_and_older_triage_payloads_still_decode() {
         let r = Registered {
+            report: None,
             tag: "DE-0001".into(),
             category: TriageCategory::Urgent,
             uhs: "uhs-1".into(),

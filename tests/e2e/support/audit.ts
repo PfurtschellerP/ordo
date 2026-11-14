@@ -43,6 +43,9 @@ async function runAxe(page: Page) {
 const LAYOUT_CHECKS = () => {
   const visible = (el: Element) => {
     if (el.closest(".visually-hidden")) return false;
+    // The content of a closed <details> is not shown, though Chromium gives it a box.
+    const details = el.parentElement?.closest("details:not([open])");
+    if (details && !el.closest("summary")) return false;
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
     return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";

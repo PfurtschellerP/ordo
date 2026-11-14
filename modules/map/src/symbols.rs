@@ -44,6 +44,9 @@ pub struct SymbolCatalogue {
     /// Position kind of the command structure (e.g. `sector`) → symbol ID.
     #[serde(default)]
     pub positions: BTreeMap<String, String>,
+    /// Report kind (`event`, `patient`) → symbol ID (REP-4).
+    #[serde(default)]
+    pub reports: BTreeMap<String, String>,
     /// The incident location's symbol.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub incident: Option<String>,
@@ -76,6 +79,11 @@ impl SymbolCatalogue {
     /// A position's symbol by its kind.
     pub fn for_position(&self, kind: &str) -> Option<&Symbol> {
         self.positions.get(kind).and_then(|id| self.symbol(id))
+    }
+
+    /// A report's symbol by its kind (`event`, `patient`).
+    pub fn for_report(&self, kind: &str) -> Option<&Symbol> {
+        self.reports.get(kind).and_then(|id| self.symbol(id))
     }
 
     /// The incident location's symbol.
@@ -113,6 +121,7 @@ impl SymbolCatalogue {
             .chain(&self.units.by_service)
             .chain(&self.uhs)
             .chain(&self.positions)
+            .chain(&self.reports)
             .map(|(from, id)| (from.as_str(), id.as_str()))
             .chain(self.incident.as_deref().map(|id| ("incident", id)));
         for (from, id) in rules {

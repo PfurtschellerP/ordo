@@ -279,6 +279,7 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>, unit: RwSignal<String>) -> im
             _ => (None, None),
         };
         let task = TaskGiven {
+            report: None,
             task: String::new(),
             unit: for_unit,
             sector: for_sector,

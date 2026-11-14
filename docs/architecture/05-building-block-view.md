@@ -673,6 +673,58 @@ Needs: impl, utest, itest
 
 Tags: should, m59
 
+### 5.5.1e Shared module `reports`
+
+#### Reports
+`dsn~reports~1`
+
+Crate `ordo-reports`, module `reports`, in the shared `incident` compartment
+([ADR-0075](../adr/0075-reports-recorded-in-dispatch.md)). No clinical data.
+
+* **Record** (`reports.recorded`): a new ID (ULID), the kind (`event` or `patient`), the
+  place as text, a short description and the time the report came in (default: now).
+* **Assign:** a task (`tasks.given`, schema version 2) names the report in `report`; its
+  text starts from the report's place and description. A report lists every task that
+  names it, with the unit and the task's status.
+* **Place on the map:** a map object of the kind `report` (`map.objectPlaced`, schema
+  version 2, `reference` the report's ID), placed with the map editor like a unit.
+* **Patient from a case** (`reports.patientRegistered`: report and unit): written by the
+  device of a crew member when they register the patient; `patients.registered` (schema
+  version 4) names the report in `med.clinical`. The incident event carries neither the
+  triage tag nor the category. Cedar: medical roles write no other event of the module.
+* **Close** (`reports.closed`): the incident command's. A closed report is not listed as
+  open; its events stay.
+
+The register is computed from the events in clock order; events for unknown reports are
+ignored, a report recorded twice keeps its first version.
+
+*Führung – Disposition* shows the open reports above the open tasks, oldest first, each
+with kind (word and icon), time, place, description, its units and their task status,
+whether a patient was taken over and by which unit, and the actions to assign, place on
+the map and close. The form records a report; its description field says to leave out
+medical details.
+
+A crew member (by ORDO account in a unit's crew, UNIT-5) sees the open patient cases
+assigned to their units in *UHS – Patienten*: place, description, time, a small map
+centred on the report's map object and a `geo:` link (RFC 5870) for the device's maps app
+where it is placed, and "Patient aufnehmen", which opens the registration with the case
+linked. The UHS offered first is one under the unit's position in the command structure,
+else under the nearest position above it.
+
+The incident log names each report event in words.
+
+Covers:
+
+* [req~rep-1~1](../requirements/02-shared.md#rep-1--record-reports)
+* [req~rep-2~1](../requirements/02-shared.md#rep-2--assign-reports-to-units)
+* [req~rep-3~1](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
+* [req~rep-4~1](../requirements/02-shared.md#rep-4--place-on-the-map)
+* [req~rep-5~1](../requirements/02-shared.md#rep-5--close-reports)
+
+Needs: impl, utest, itest
+
+Tags: must, m60
+
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff
