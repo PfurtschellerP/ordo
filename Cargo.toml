@@ -40,7 +40,7 @@ ordo-sync = { path = "platform/ordo-sync" }
 ordo-units = { path = "modules/units" }
 ordo-helpers = { path = "modules/helpers" }
 # Reads QR codes of registration cards in the app (ADR-0072); without the image crate.
-rqrr = { version = "0.10", default-features = false }
+rqrr = { version = "0.11", default-features = false }
 ordo-tasks = { path = "modules/tasks" }
 ordo-command = { path = "modules/command" }
 ordo-map = { path = "modules/map" }
@@ -52,7 +52,6 @@ blake3 = "1"
 cedar-policy = { version = "4", default-features = false }
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
-console_error_panic_hook = "0.1"
 js-sys = "0.3"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = "0.8"
