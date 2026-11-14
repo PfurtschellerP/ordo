@@ -81,7 +81,7 @@ pub fn App() -> impl IntoView {
                 }
             }
         }
-        vault.set(Some(opened));
+        vault.set(Some(opened.and_then(|()| core::check_pairing())));
     });
     move || match vault.get() {
         None => view! { <main id="main" class="page page--narrow"><p>{text::STARTING}</p></main> }

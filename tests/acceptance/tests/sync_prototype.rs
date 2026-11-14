@@ -608,7 +608,7 @@ fn reused_event_id_with_other_content_is_rejected() {
     ));
 }
 
-// [itest->dsn~local-persistence~1]
+// [itest->dsn~local-persistence~2]
 /// A device can save its state (e.g. in the browser), load it later and continue.
 #[test]
 fn replica_state_survives_saving_and_loading() {

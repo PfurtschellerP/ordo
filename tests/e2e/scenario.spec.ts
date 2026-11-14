@@ -654,7 +654,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(anna), { message: "pending input is shown" }).toContain("1 Eingabe noch nicht gesendet");
     // The write to device storage ends a moment after the change shows.
     await expect.poll(saved, { message: "saved on the device" }).toBeGreaterThan(before);
-    // [itest->dsn~local-persistence~1]
+    // [itest->dsn~local-persistence~2]
     await anna.reload(); // the server is down: the app must start from the device
     await expect.poll(() => patientRows(anna), { message: "offline registration survives a reload" }).toContain("DE-0045 SK III noch nicht gesendet");
     if ((await anna.evaluate(() => document.documentElement.dataset.storage)) === "opfs") {
@@ -1542,7 +1542,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.clock.setSystemTime(Date.now());
     await ben.clock.fastForward("01:05");
     await expect(ben.locator(".app-header__title"), "the device unlocks within its login").toBeVisible();
-    // [itest->dsn~local-persistence~1]
+    // [itest->dsn~local-persistence~2]
     expect(await ben.evaluate(() => location.pathname), "the reload kept the page: the device knows its permissions").toBe("/command.prepare/units");
   });
 

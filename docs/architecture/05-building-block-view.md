@@ -983,9 +983,9 @@ Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `
 palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Fluent later.
 
 #### Local persistence
-`dsn~local-persistence~1`
+`dsn~local-persistence~2`
 
-The app saves the replica state (ordered events, outbox, data keys, and the permissions of the last welcome, so a reload without a connection shows the same views) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8). The stored state names its format (`REPLICA_FORMAT`), which is read before anything else. A state written by a newer version, or one that cannot be read, stops the start with a message and is left untouched: the device never starts empty over stored data. An older format is upgraded when it is read.
+The app saves the replica state (ordered events, outbox, data keys, and the permissions of the last welcome, so a reload without a connection shows the same views) after every change and loads it on start; hash chains are checked again when loading. New input goes into the outbox and is shown at once; the connection reconnects automatically every few seconds and then sends the outbox. Storage is encrypted (ADR-0041) and kept in the device database (design item "Device storage", chapter 8). The stored state names its format (`REPLICA_FORMAT`), which is read before anything else. A state written by a newer version, or one that cannot be read, stops the start with a message and is left untouched: the device never starts empty over stored data. An older format is upgraded when it is read. The device's pairing data (its user, device ID and key) names its format (`PAIRING_FORMAT`) in the same way; pairing data written by a newer version stops the start too, so it is neither taken for none nor overwritten by pairing again. Data kept only until it is used (attachments waiting for upload, a pairing waiting for its login) carries no format: a change in its form gets a new storage name.
 
 Covers:
 

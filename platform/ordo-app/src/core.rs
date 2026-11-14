@@ -2013,14 +2013,65 @@ fn load(name: &str) -> Option<Vec<u8>> {
     plain
 }
 
+/// Format of the stored pairing data, read before anything else (like `REPLICA_FORMAT`).
+/// Data without a format was written before the first release and reads as format 1.
+const PAIRING_FORMAT: u32 = 1;
+
+/// The format a stored pairing names; 0 if none.
+fn pairing_format(json: &[u8]) -> Option<u32> {
+    #[derive(Deserialize)]
+    struct Format {
+        #[serde(default)]
+        format: u32,
+    }
+    serde_json::from_slice::<Format>(json)
+        .ok()
+        .map(|f| f.format)
+}
+
+/// Pairing data as stored: with its format.
+fn encode_pairing(pairing: &Pairing) -> Option<Vec<u8>> {
+    #[derive(Serialize)]
+    struct Stored<'a> {
+        format: u32,
+        #[serde(flatten)]
+        pairing: &'a Pairing,
+    }
+    serde_json::to_vec(&Stored {
+        format: PAIRING_FORMAT,
+        pairing,
+    })
+    .ok()
+}
+
+/// Stored pairing data, unless it was written by a newer version.
+fn decode_pairing(json: &[u8]) -> Option<Pairing> {
+    if pairing_format(json)? > PAIRING_FORMAT {
+        return None;
+    }
+    serde_json::from_slice(json).ok()
+}
+
+// [impl->dsn~local-persistence~2]
+/// Stops the start if the stored pairing was written by a newer version, so it is neither
+/// taken for none nor overwritten by pairing again.
+pub fn check_pairing() -> Result<(), String> {
+    match load(PAIRING_KEY).and_then(|json| pairing_format(&json)) {
+        Some(format) if format > PAIRING_FORMAT => Err(text::stored_state_unusable(
+            &ordo_sync::StoredStateError::Newer(format).to_string(),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// Saved pairing data (encrypted).
 pub fn load_pairing() -> Option<Pairing> {
-    serde_json::from_slice(&load(PAIRING_KEY)?).ok()
+    decode_pairing(&load(PAIRING_KEY)?)
 }
 
 /// Saves pairing data (encrypted).
 pub fn save_pairing(pairing: &Pairing) {
-    if let Ok(json) = serde_json::to_vec(pairing) {
+    if let Some(json) = encode_pairing(pairing) {
         store(PAIRING_KEY, &json);
     }
 }
@@ -2072,7 +2123,7 @@ fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-// [impl->dsn~local-persistence~1]
+// [impl->dsn~local-persistence~2]
 /// The saved replica: from the worker's storage (ADR-0034), else from `localStorage`, where
 /// browsers without OPFS in workers keep it. A replica kept in `localStorage` before the
 /// browser could use the worker moves there with the first write.
@@ -2099,7 +2150,7 @@ fn load_local_replica() -> Result<Option<ReplicaState>, ordo_sync::StoredStateEr
     load(REPLICA_KEY).map_or(Ok(None), |bytes| ReplicaState::decode(&bytes).map(Some))
 }
 
-// [impl->dsn~local-persistence~1]
+// [impl->dsn~local-persistence~2]
 /// Saves the replica, encrypted. An error means the browser refused (storage full or
 /// blocked); the caller shows it, because unsaved input would be lost on reload (UX-5).
 fn save_replica(replica: &Replica) -> Result<(), ()> {
@@ -2215,6 +2266,31 @@ fn from_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
 
 #[cfg(test)]
 mod tests {
+    // [utest->dsn~local-persistence~2]
+    #[test]
+    fn stored_pairing_names_its_format() {
+        use super::*;
+        let pairing = Pairing {
+            user: "anna@ordo.example.org".into(),
+            device: "01JC0000000000000000000000".into(),
+            private_key: "00".repeat(32),
+            incident: String::new(),
+            plan: None,
+        };
+        let json = encode_pairing(&pairing).unwrap();
+        assert_eq!(pairing_format(&json), Some(PAIRING_FORMAT));
+        assert_eq!(decode_pairing(&json), Some(pairing.clone()));
+        // Written before the first release: no format.
+        let old = serde_json::to_vec(&pairing).unwrap();
+        assert_eq!(decode_pairing(&old), Some(pairing.clone()));
+        // Written by a newer version: not read.
+        let mut newer: serde_json::Value = serde_json::from_slice(&json).unwrap();
+        newer["format"] = (PAIRING_FORMAT + 1).into();
+        let newer = serde_json::to_vec(&newer).unwrap();
+        assert_eq!(pairing_format(&newer), Some(PAIRING_FORMAT + 1));
+        assert_eq!(decode_pairing(&newer), None);
+    }
+
     // [utest->dsn~device-names~1]
     #[test]
     fn a_device_is_named_after_its_browser_and_system() {

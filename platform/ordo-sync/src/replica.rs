@@ -85,7 +85,7 @@ pub enum StoredStateError {
 }
 
 impl ReplicaState {
-    // [impl->dsn~local-persistence~1]
+    // [impl->dsn~local-persistence~2]
     /// Decodes a stored state. The format is read first, so a state written by a newer
     /// version is recognised even if its form changed, and never mistaken for none.
     pub fn decode(bytes: &[u8]) -> Result<Self, StoredStateError> {
@@ -769,7 +769,7 @@ mod stored_state_tests {
         }
     }
 
-    // [utest->dsn~local-persistence~1]
+    // [utest->dsn~local-persistence~2]
     #[test]
     fn a_stored_state_names_its_format_and_newer_ones_are_never_taken_for_none() {
         let bytes = crate::message::encode(&state(REPLICA_FORMAT)).unwrap();
