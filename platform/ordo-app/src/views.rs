@@ -1044,6 +1044,8 @@ fn Workspace(
                 </Show>
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
+                    (Some("units.crew"), Some("transports")) => view! { <crate::crew::CrewTransports core revision /> }.into_any(),
+                    (Some("units.crew"), _) => view! { <crate::crew::CrewTasks core revision /> }.into_any(),
                     (Some("med.uhs"), Some("orders")) => view! { <crate::orders::OrdersView core revision nav /> }.into_any(),
                     (Some("med.uhs"), Some("overview")) => view! { <crate::overview::OverviewView core revision /> }.into_any(),
                     (Some("med.uhs"), _) => {

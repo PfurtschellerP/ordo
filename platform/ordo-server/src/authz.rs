@@ -32,13 +32,14 @@ pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
-pub const INCIDENT_PERMISSIONS: [&str; 6] = [
+pub const INCIDENT_PERMISSIONS: [&str; 7] = [
     "view_situation",
     "edit_units",
     "give_orders",
     "all_uhs",
     "manage_map",
     ordo_sync::BLOCK_DEVICES,
+    "crew_work",
 ];
 
 /// A policy file could not be used.
@@ -574,9 +575,10 @@ mod tests {
         let erik = user("erik");
         let medic = ["medic".to_owned()];
         let commander = ["commander".to_owned()];
-        assert!(
-            p.incident_permissions(&erik, &incident, &medic).is_empty(),
-            "UHS crews: no situation view"
+        assert_eq!(
+            p.incident_permissions(&erik, &incident, &medic),
+            ["crew_work"],
+            "UHS crews: no situation view, their crew's workspace"
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &commander),
@@ -589,7 +591,7 @@ mod tests {
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &["physician".to_owned()]),
-            ["give_orders", "all_uhs"],
+            ["give_orders", "all_uhs", "crew_work"],
             "physicians give orders and work at every UHS"
         );
         assert!(
@@ -633,6 +635,18 @@ mod tests {
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"
         );
+        // [utest->dsn~crew-workspace~1]
+        // A crew moves its tasks on and sets its status (UNIT-9, ADR-0079).
+        assert!(p.can_write(&erik, &incident, &shared, "tasks", "tasks.updated", &medic));
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "units",
+            "units.statusChanged",
+            &medic
+        ));
+        assert!(!p.can_write(&erik, &incident, &shared, "units", "units.crewSet", &medic));
         assert!(p.can_write(
             &erik,
             &incident,

@@ -181,12 +181,15 @@ pub fn PatientsView(
     provide_context(IncidentPeople(people.into(), core));
     // [impl->dsn~reports~1]
     // A patient case the registration fills in (REP-3).
-    provide_context(crate::reports::ActiveCase(RwSignal::new(None)));
+    let pending = crate::reports::take_pending_case();
+    if pending.is_some() {
+        request_animation_frame(|| focus("tag"));
+    }
+    provide_context(crate::reports::ActiveCase(RwSignal::new(pending)));
     view! {
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
-                <crate::reports::AssignedCases core revision />
                 <PlacePlan core revision nav register working selected=record />
                 <RegisterForm core revision nav />
                 <PatientList core revision nav register records selected=record />

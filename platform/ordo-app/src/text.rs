@@ -58,6 +58,10 @@ pub const MY_DEVICES: &str = "Meine Geräte";
 /// Workspaces of the incident command, by phase (ADR-0061).
 pub const WS_LEAD: &str = "Führung";
 pub const WS_PREPARE: &str = "Vorbereitung";
+pub const WS_CREW: &str = "Besatzung";
+pub const CREW_TASKS: &str = "Aufträge";
+pub const CREW_TRANSPORTS: &str = "Transporte für Ihr Einsatzmittel";
+pub const CREW_NONE_HERE: &str = "Sie sind in diesem Einsatz in keiner Besatzung eingetragen. Die Einsatzleitung trägt Sie unter Vorbereitung – Einsatzmittel ein.";
 pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
 pub const WS_ACCESS: &str = "Zugriff";

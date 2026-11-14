@@ -1673,7 +1673,23 @@ test("ORDO in the browser", async ({ browser }) => {
     const medic = await newDevice(browser);
     await loginPair(medic, server, "anna@example.org");
     await openIncident(medic, INCIDENT);
-    await openView(medic, "Patienten");
+    // [itest->dsn~crew-workspace~1]
+    // UNIT-9 (ADR-0079): the crew's own workspace: status, tasks, cases and transports.
+    await openWorkspace(medic, "Besatzung");
+    await expect.poll(() => title(medic)).toContain("Einsatzmittel – Besatzung");
+    const crewUnit = medic.locator(".crew-unit[data-unit='SanTrp 1']");
+    await expect(crewUnit.locator("h2"), "only the units whose crew names her").toHaveText("SanTrp 1");
+    await expect(medic.locator(".crew-unit"), "her one unit").toHaveCount(1);
+    await crewUnit.getByLabel("Status von SanTrp 1 setzen").selectOption({ label: "3 – Einsatz übernommen" });
+    await expect(crewUnit.locator(".unit-status__current"), "the crew sets its status").toContainText("3 – Einsatz übernommen");
+    const crewTask = crewUnit.locator(".task-card", { hasText: "Bühne Nord, links" });
+    await crewTask.getByRole("button", { name: /^In Arbeit/ }).click();
+    await expect(crewTask.locator(".task-card__status"), "and moves its task on").toContainText("In Arbeit");
+    await openView(medic, "Transporte");
+    await expect(medic.locator("#crew-transports-title")).toHaveText("Transporte für Ihr Einsatzmittel");
+    await expect(medic.locator(".crew-transports"), "none assigned to SanTrp 1").toContainText("Keine offenen Transporte.");
+    await audit(medic, "Crew transports");
+    await openView(medic, "Aufträge");
     const cases = medic.locator("[aria-labelledby=assigned-cases-title]");
     const assigned = cases.locator(".report-card", { hasText: "Bühne Nord, links" });
     await expect(assigned).toContainText("Zugewiesen an SanTrp 1");
@@ -1681,15 +1697,19 @@ test("ORDO in the browser", async ({ browser }) => {
       await expect(assigned.getByRole("link", { name: "In der Karten-App öffnen" }), "the place for the device's maps app").toHaveAttribute("href", /^geo:48\.\d{6},10\.\d{6}$/);
       await expect(assigned.locator(".situation__map"), "and on a small map").toHaveCount(1);
     }
-    await audit(medic, "Assigned cases");
+    await audit(medic, "Crew workspace");
     await assigned.getByRole("button", { name: "Patient aufnehmen" }).click();
+    await expect.poll(() => title(medic), { message: "the registration opens in the UHS workspace" }).toContain("Sanität – UHS");
     await expect(medic.locator(".register-case"), "the registration names the case").toContainText("Aus der Meldung „Bühne Nord, links“ für SanTrp 1");
     await expect(medic.locator("#tag")).toBeFocused();
     await register(medic, "DE-0077", 1, "UHS Bühne Nord");
+    await openWorkspace(medic, "Besatzung");
     await expect(cases, "taken over: the case leaves the crew's list").toHaveCount(0);
     await expect.poll(() => status(medic), { message: "the patient is sent" }).toContain("Alles gesendet");
     await medic.context().close();
 
+    // The command sees the crew's status and progress without a radio call.
+    await expect(report.locator(".report-card__units")).toHaveText("SanTrp 1 – In Arbeit");
     // The command learns that the case has a patient, never who.
     await expect(report.locator(".report-card__taken")).toHaveText(/^Patient aufgenommen von SanTrp 1 \(\d\d:\d\d\)$/);
     expect(Buffer.concat(benFrames.received).includes("DE-0077"), "the command device never receives the tag number").toBe(false);

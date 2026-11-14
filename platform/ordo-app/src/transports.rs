@@ -81,7 +81,11 @@ fn summary(core: Handle, t: &Transport) -> String {
 
 /// Status, unit and destination, the request, and every change with who and when.
 #[component]
-fn TransportDetails(core: Handle, transport: Transport, show_uhs: bool) -> impl IntoView {
+pub(crate) fn TransportDetails(
+    core: Handle,
+    transport: Transport,
+    show_uhs: bool,
+) -> impl IntoView {
     let t = transport;
     let uhs = show_uhs.then(|| core::uhs_name(core, &t.request.uhs));
     view! {
@@ -133,7 +137,11 @@ pub fn transport_line(t: &Transport) -> String {
 /// Buttons for the next statuses; assigning needs a unit and a destination and is offered
 /// apart (incident command).
 #[component]
-fn StepButtons(core: Handle, revision: RwSignal<u64>, transport: Transport) -> impl IntoView {
+pub(crate) fn StepButtons(
+    core: Handle,
+    revision: RwSignal<u64>,
+    transport: Transport,
+) -> impl IntoView {
     let name = summary(core, &transport);
     let request = transport.request.request.clone();
     let actions = transport

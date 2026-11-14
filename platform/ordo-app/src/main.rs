@@ -5,6 +5,7 @@ mod address;
 mod attachments;
 mod command;
 mod core;
+mod crew;
 mod devices;
 mod helpers;
 mod images;

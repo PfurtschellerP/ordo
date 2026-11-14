@@ -218,7 +218,7 @@ pub(crate) fn StrengthFields(
 }
 
 /// Type, organisation and service of a unit as one line.
-fn details(u: &Unit) -> String {
+pub(crate) fn details(u: &Unit) -> String {
     let service = u
         .service
         .as_deref()
@@ -776,7 +776,7 @@ fn UnitCard(
 }
 
 /// "3 – Einsatz übernommen, seit 10:12", or that no status was set.
-fn status_shown(u: &Unit) -> String {
+pub(crate) fn status_shown(u: &Unit) -> String {
     u.status.as_ref().map_or_else(
         || text::NO_STATUS.to_owned(),
         |s| {
@@ -790,7 +790,7 @@ fn status_shown(u: &Unit) -> String {
 
 /// Choosing a unit's status (UNIT-3).
 #[component]
-fn StatusSelect(
+pub(crate) fn StatusSelect(
     core: Handle,
     revision: RwSignal<u64>,
     unit: String,

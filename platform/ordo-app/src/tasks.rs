@@ -39,7 +39,7 @@ pub(crate) fn assignee(task: &Task, structure: &ordo_command::CommandStructure) 
 
 /// One open task: what, for whom, status, follow-up, and the next steps.
 #[component]
-fn TaskItem(
+pub(crate) fn TaskItem(
     core: Handle,
     revision: RwSignal<u64>,
     task: Task,

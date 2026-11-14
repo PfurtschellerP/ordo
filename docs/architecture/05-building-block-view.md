@@ -226,6 +226,29 @@ ordo/
 
 ### 5.5.1 Shared module `units`
 
+#### Crew workspace
+`dsn~crew-workspace~1`
+
+*Einsatzmittel – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
+incident permission `crew_work` (medical roles, `med.cedar`) and shows the units present
+whose crew names the person's account (`UnitRegister::crewed_by`). View *Aufträge*: per
+unit its status since when and the status select (`units.statusChanged`), its open tasks
+with their next steps (`tasks.updated`; giving tasks stays with the command), and its open
+patient cases ([Reports](#reports)) with place, map and "Patient aufnehmen", which opens
+*UHS – Patienten* with the case in the registration. View *Transporte*: the open
+transports assigned to the unit, from which UHS, with type, priority, needs and
+destination, and their next steps (`transport.updated`). Without a crew, each view says so.
+Cedar lets medical roles write `units.statusChanged` and `tasks.updated`; the server does
+not check that it is their own unit.
+
+Covers:
+
+* [req~unit-9~1](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
+
+Needs: impl, utest, itest
+
+Tags: should, m62
+
 #### Lost-update detection
 `dsn~lost-update-detection~1`
 
@@ -729,7 +752,7 @@ the map and close. The form records a report; its description field says to leav
 medical details.
 
 A crew member (by ORDO account in a unit's crew, UNIT-5) sees the open patient cases
-assigned to their units in *UHS – Patienten*: place, description, time, a small map
+assigned to their units in *Einsatzmittel – Besatzung* ([Crew workspace](#crew-workspace)): place, description, time, a small map
 centred on the report's map object and a `geo:` link (RFC 5870) for the device's maps app
 where it is placed, and "Patient aufnehmen", which opens the registration with the case
 linked. The UHS offered first is one under the unit's position in the command structure,

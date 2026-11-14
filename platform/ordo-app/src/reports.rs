@@ -65,6 +65,17 @@ pub struct Case {
 #[derive(Clone, Copy)]
 pub struct ActiveCase(pub RwSignal<Option<Case>>);
 
+thread_local! {
+    /// A case chosen in the crew's workspace, for the registration in *UHS – Patienten*
+    /// that opens next (ADR-0079).
+    static PENDING_CASE: std::cell::RefCell<Option<Case>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The case chosen for the registration that opens now, taken once.
+pub fn take_pending_case() -> Option<Case> {
+    PENDING_CASE.with_borrow_mut(Option::take)
+}
+
 // [impl->dsn~reports~1]
 /// The UHS to offer first for a unit's patient: one under the unit's position in the command
 /// structure, else under the nearest position above it.
@@ -386,7 +397,12 @@ struct AssignedCase {
 /// "Patient aufnehmen", which fills the registration with the case.
 #[component]
 pub fn AssignedCases(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let active = use_context::<ActiveCase>();
+    let nav = use_context::<crate::views::Nav>();
+    // Registering needs the clinical data (the medical roles).
+    let may_register = Memo::new(move |_| {
+        revision.track();
+        core::granted(core, ordo_med_patients::COMPARTMENT)
+    });
     let cases = Memo::new(move |_| {
         revision.track();
         let me = core.with_value(|c| c.replica.user().to_string());
@@ -430,10 +446,12 @@ pub fn AssignedCases(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             unit: case.unit.clone(),
                             place: case.recorded.place.clone(),
                         };
+                        // [impl->dsn~crew-workspace~1]
+                        // The registration opens in UHS – Patienten with the case.
                         let take = move |_| {
-                            if let Some(active) = active {
-                                active.0.set(Some(chosen.clone()));
-                                request_animation_frame(|| crate::views::focus("tag"));
+                            PENDING_CASE.with_borrow_mut(|p| *p = Some(chosen.clone()));
+                            if let Some(nav) = nav {
+                                nav.go(crate::nav::Route::view("med.uhs", "patients"));
                             }
                         };
                         view! {
@@ -444,11 +462,13 @@ pub fn AssignedCases(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                     <crate::situation::PlaceMap core revision object />
                                     <p><a href=geo_uri(at)><Icon name="map-pin" />{text::OPEN_IN_MAPS_APP}</a></p>
                                 })}
-                                <div class="row">
-                                    <button type="button" class="button button--primary" on:click=take>
-                                        {text::CASE_REGISTER}
-                                    </button>
-                                </div>
+                                <Show when=move || may_register.get()>
+                                    <div class="row">
+                                        <button type="button" class="button button--primary" on:click=take.clone()>
+                                            {text::CASE_REGISTER}
+                                        </button>
+                                    </div>
+                                </Show>
                             </li>
                         }
                     }).collect_view()}

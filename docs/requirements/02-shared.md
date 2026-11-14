@@ -136,6 +136,18 @@ Tags: should, shared, m57
 
 Needs: dsn
 
+#### UNIT-9 — The crew's own workspace
+`req~unit-9~1`
+
+When a person is on the crew of a unit in the incident, ORDO shall give them a workspace
+with that unit's status, open tasks, patient cases and transports, in which they set the
+unit's status, move its tasks and transports on and take its patients over, without the
+incident command's views.
+
+Tags: should, shared, m62
+
+Needs: dsn
+
 #### UNIT-8 — One post per person
 `req~unit-8~1`
 

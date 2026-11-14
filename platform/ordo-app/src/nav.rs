@@ -83,6 +83,31 @@ pub const WORKSPACES: &[Workspace] = &[
         ],
         hidden: false,
     },
+    // [impl->dsn~crew-workspace~1]
+    // A unit's crew: its status, tasks, patient cases and transports (UNIT-9, ADR-0079).
+    Workspace {
+        id: "units.crew",
+        package: text::TAB_RESOURCES,
+        label: text::WS_CREW,
+        requires: &["incident"],
+        permission: Some("crew_work"),
+        or_organisation: &[],
+        views: &[
+            view(
+                "tasks",
+                text::CREW_TASKS,
+                "crew tasks status patient cases",
+                "clipboard-list",
+            ),
+            view(
+                "transports",
+                text::TRANSPORTS,
+                "crew transports",
+                "ambulance",
+            ),
+        ],
+        hidden: false,
+    },
     // The incident command (ADR-0061): leading the running incident …
     Workspace {
         id: "command.lead",
@@ -381,6 +406,10 @@ mod tests {
         for w in WORKSPACES {
             assert!(!w.views.is_empty(), "{}", w.id);
         }
-        assert_eq!(packages().len(), 3);
+        assert_eq!(
+            packages().len(),
+            4,
+            "Sanität, Einsatzmittel, Einsatzleitung, Administration"
+        );
     }
 }
