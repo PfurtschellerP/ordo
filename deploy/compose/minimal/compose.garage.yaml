@@ -14,7 +14,7 @@ services:
       - garage
 
   garage:
-    image: docker.io/dxflrs/garage:v2.1.0@sha256:4c9b34c113e61358466e83fd6e7d66e6d18657ede14b776eb78a93ee8da7cf6a
+    image: docker.io/dxflrs/garage:v2.5.0@sha256:677e5b758e4425a325b811c425c026bf35a4bf42f7ddbaa773de3f4fd779a5a5
     environment:
       GARAGE_RPC_SECRET_FILE: /run/secrets/garage_rpc_secret
     secrets:
