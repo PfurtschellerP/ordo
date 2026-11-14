@@ -284,3 +284,9 @@ fn random_bytes<const N: usize>() -> [u8; N] {
     getrandom::fill(&mut bytes).expect("the operating system provides randomness");
     bytes
 }
+
+/// A builder for the server's HTTP clients, with TLS by ring like the rest of the server.
+pub(crate) fn http_client() -> reqwest::ClientBuilder {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    reqwest::Client::builder()
+}

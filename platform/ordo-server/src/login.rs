@@ -35,7 +35,7 @@ use openidconnect::{
     EndpointNotSet, EndpointSet, IdTokenClaims, IdTokenFields, IssuerUrl, Nonce,
     OAuth2TokenResponse as _, PkceCodeChallenge, PkceCodeVerifier, ProviderMetadata, RedirectUrl,
     RefreshToken, RequestTokenError, Scope, StandardErrorResponse, StandardTokenResponse,
-    TokenResponse as _, reqwest,
+    TokenResponse as _,
 };
 use ordo_core::{DeviceId, Ulid, UserId};
 use ordo_crypto::ed25519_dalek::VerifyingKey;
@@ -88,6 +88,36 @@ type IdFields = IdTokenFields<
     CoreJwsSigningAlgorithm,
 >;
 type Tokens = StandardTokenResponse<IdFields, CoreTokenType>;
+
+/// The HTTP client openidconnect uses: ORDO's reqwest, so the server has one HTTP client and
+/// one TLS setup (openidconnect's own adapter is for an older reqwest).
+struct Http(reqwest::Client);
+
+impl<'c> openidconnect::AsyncHttpClient<'c> for Http {
+    type Error = openidconnect::HttpClientError<reqwest::Error>;
+    type Future = std::pin::Pin<
+        Box<dyn Future<Output = Result<openidconnect::HttpResponse, Self::Error>> + Send + 'c>,
+    >;
+
+    fn call(&'c self, request: openidconnect::HttpRequest) -> Self::Future {
+        Box::pin(async move {
+            let response = self
+                .0
+                .execute(request.try_into().map_err(Box::new)?)
+                .await
+                .map_err(Box::new)?;
+            let mut builder = openidconnect::http::Response::builder()
+                .status(response.status())
+                .version(response.version());
+            for (name, value) in response.headers() {
+                builder = builder.header(name, value);
+            }
+            builder
+                .body(response.bytes().await.map_err(Box::new)?.to_vec())
+                .map_err(openidconnect::HttpClientError::Http)
+        })
+    }
+}
 /// The client with the endpoints in use: authorization, device authorization, token.
 type OidcClient<HasDeviceAuthUrl = EndpointSet> = openidconnect::Client<
     Groups,
@@ -145,7 +175,7 @@ struct DevicePairing {
 /// The login state of the server.
 pub(crate) struct Login {
     config: OidcConfig,
-    http: reqwest::Client,
+    http: Http,
     client: tokio::sync::Mutex<Option<OidcClient>>,
     pending: std::sync::Mutex<HashMap<String, PendingLogin>>,
     pairings: std::sync::Mutex<HashMap<String, DevicePairing>>,
@@ -178,7 +208,7 @@ impl Login {
     }
 
     pub(crate) fn new(config: OidcConfig) -> Result<Self, LoginError> {
-        let http = reqwest::ClientBuilder::new()
+        let http = crate::http_client()
             // Following redirects would open the server to request forgery.
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(15))
@@ -186,7 +216,7 @@ impl Login {
             .map_err(|e| LoginError::Provider(e.to_string()))?;
         Ok(Self {
             config,
-            http,
+            http: Http(http),
             client: tokio::sync::Mutex::new(None),
             pending: std::sync::Mutex::new(HashMap::new()),
             pairings: std::sync::Mutex::new(HashMap::new()),
@@ -348,7 +378,7 @@ async fn refresh_avatars(
     picture: Option<String>,
     email: Option<String>,
 ) {
-    let Ok(http) = reqwest::Client::builder()
+    let Ok(http) = crate::http_client()
         .timeout(Duration::from_secs(10))
         .redirect(reqwest::redirect::Policy::limited(3))
         .build()

@@ -19,6 +19,7 @@ ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 ordo-units.workspace = true
 reqwest.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

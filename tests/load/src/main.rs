@@ -123,6 +123,7 @@ fn say(line: &str) {
 
 /// Pairs by the device flow and returns the person who approved it.
 async fn pair(o: &Options, device: DeviceId, key: &SigningKey) -> Result<UserId, Error> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let http = reqwest::Client::new();
     let public: String = key
         .verifying_key()

@@ -126,6 +126,8 @@ enum Seen {
 }
 
 fn client() -> Result<reqwest::Client, String> {
+    // TLS with ring, like the server.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     reqwest::Client::builder()
         .user_agent(concat!(
             "ordo-profiles/",

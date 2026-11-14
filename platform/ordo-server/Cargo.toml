@@ -29,7 +29,6 @@ ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 qrcode.workspace = true
 reqwest.workspace = true
-reqwest-s3.workspace = true
 pmtiles.workspace = true
 prost.workspace = true
 rcgen.workspace = true
@@ -60,6 +59,3 @@ tokio-tungstenite.workspace = true
 [lints]
 workspace = true
 
-# Dependencies cargo-machete cannot see being used: named only to select TLS features of the HTTP clients of openidconnect and object_store.
-[package.metadata.cargo-machete]
-ignored = ["reqwest", "reqwest-s3"]

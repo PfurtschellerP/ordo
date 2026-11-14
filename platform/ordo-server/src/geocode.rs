@@ -39,7 +39,7 @@ impl Geocoder {
     /// `contact` (the installation's public address or the project's).
     pub fn new(url: Option<String>, countries: Option<String>, contact: &str) -> Self {
         let agent = format!("ORDO/{} (+{contact})", env!("CARGO_PKG_VERSION"));
-        let http = reqwest::Client::builder()
+        let http = crate::http_client()
             .user_agent(agent)
             .timeout(TIMEOUT)
             .build()

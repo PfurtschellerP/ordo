@@ -236,9 +236,7 @@ impl MapJob {
     async fn cut(self: &Arc<Self>, file: &Path, area: MapRegionRequest) -> Result<(), String> {
         let source = self.source();
         if source.starts_with("http://") || source.starts_with("https://") {
-            // TLS with ring, like the rest of the server.
-            let _ = rustls::crypto::ring::default_provider().install_default();
-            let client = pmtiles::reqwest::Client::builder()
+            let client = crate::http_client()
                 .user_agent(concat!("ORDO/", env!("CARGO_PKG_VERSION")))
                 .build()
                 .map_err(|e| e.to_string())?;
