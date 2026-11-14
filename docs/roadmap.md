@@ -343,7 +343,8 @@ Then:
    to issues) and what replaces it if it is abandoned. `cargo deny` already refuses known
    advisories and unmaintained crates; this adds the judgement before they get there
    (e.g. rxing was not taken for registration cards because it pulls in the unmaintained
-   `encoding`, ADR-0073). Recorded per dependency, reviewed each release.
+   `encoding`, ADR-0073). Recorded per dependency, reviewed each release. First done
+   2026-11-14: [dependencies.md](dependencies.md).
 2. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
    clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
    the first release (signed image, provenance, bills of materials: the release workflow

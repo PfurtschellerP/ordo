@@ -1,9 +1,13 @@
+# Weekly updates, each release at least 7 days old (cooldown), so a compromised release is
+# more likely found and pulled before it reaches ORDO (docs/dependencies.md).
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       cargo:
         patterns: ["*"]
@@ -11,6 +15,8 @@ updates:
     directory: /platform/ordo-store
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       storage-worker:
         patterns: ["*"]
@@ -18,6 +24,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -25,18 +33,26 @@ updates:
     directory: /deploy
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: docker-compose
     directory: /deploy/compose/minimal
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: npm
     directory: /tools/symbols
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: npm
     directory: /tests/e2e
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       e2e:
         patterns: ["*"]
@@ -44,7 +60,11 @@ updates:
     directory: /.clusterfuzzlite
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: cargo
     directory: /tests/fuzz
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7

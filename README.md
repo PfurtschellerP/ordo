@@ -27,6 +27,7 @@ Built first for volunteer organisations in Germany, designed to be international
 - [Decisions](docs/adr/README.md) — architecture decision records (MADR)
 - [Glossary](docs/glossary.md) — domain terms, English ↔ German
 - [Standards](docs/standards.md) — standards, doctrine and conventions ORDO follows, with editions and links
+- [Dependencies](docs/dependencies.md) — why each dependency is needed and how well it is maintained
 - [Roadmap](docs/roadmap.md) — phases, open questions, next steps
 - [Specifications](spec/README.md) — open interface specifications
 - [Design system](design/README.md) — design tokens, themes, contrast
