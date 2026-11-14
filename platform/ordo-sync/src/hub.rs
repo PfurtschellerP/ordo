@@ -400,6 +400,14 @@ impl<P: AccessPolicy> Hub<P> {
             .any(|p| p == permission)
     }
 
+    /// Whether `user` may grant and withdraw roles in `incident` (ADR-0046), e.g. to make a
+    /// guest for it (ADR-0077).
+    pub fn may_assign_roles(&self, user: &UserId, incident: &IncidentId) -> bool {
+        let roles = self.registry.roles(user, incident);
+        self.policy.can_manage_incidents(user)
+            || self.policy.can_assign_roles(user, incident, &roles)
+    }
+
     /// Whether `user` may grant and withdraw organisation roles (ORG-9).
     pub fn may_manage_roles(&self, user: &UserId) -> bool {
         self.policy.can_manage_roles(user)
@@ -718,7 +726,10 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::GetMapRegion(_)
             | ClientMessage::CutMapRegion(_)
             | ClientMessage::MapTicket(_)
-            | ClientMessage::Geocode(_) => Vec::new(),
+            | ClientMessage::Geocode(_)
+            // Guests are the home server's (ADR-0077).
+            | ClientMessage::CreateGuest(_)
+            | ClientMessage::SetGuestAccess(_) => Vec::new(),
             ClientMessage::ListIncidents => vec![Outgoing {
                 session,
                 message: ServerMessage::Incidents(self.incident_list(&user)),

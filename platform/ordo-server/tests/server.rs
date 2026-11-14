@@ -506,7 +506,7 @@ async fn sync_over_websocket_survives_a_restart() {
     )
     .unwrap();
     assert_eq!(announced["sync"]["min"], "1.0");
-    assert_eq!(announced["http"]["max"], "1.0");
+    assert_eq!(announced["http"]["max"], "1.1");
     assert_eq!(announced["build"]["version"], env!("CARGO_PKG_VERSION"));
     let version_of = |r: &reqwest::Response| {
         r.headers()
@@ -1040,4 +1040,168 @@ async fn the_database_holds_no_clinical_plaintext() {
         !String::from_utf8_lossy(&bytes).contains("DE-0042"),
         "tag number stored in plain text"
     );
+}
+
+/// A POST with a JSON body; status and body.
+async fn post_json(
+    addr: std::net::SocketAddr,
+    path: &str,
+    body: &serde_json::Value,
+) -> (u16, String) {
+    let body = body.to_string();
+    let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+    let head = format!(
+        "POST {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(head.as_bytes()).await.unwrap();
+    stream.write_all(body.as_bytes()).await.unwrap();
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response).await.unwrap();
+    let text = String::from_utf8_lossy(&response).to_string();
+    let status = text.split_whitespace().nth(1).unwrap().parse().unwrap();
+    let body = text
+        .split_once("\r\n\r\n")
+        .map(|(_, b)| b.to_owned())
+        .unwrap_or_default();
+    (status, body)
+}
+
+impl Client {
+    /// Asks for a guest and waits for the answer.
+    async fn guest(&mut self, request: message::GuestRequest) -> message::GuestPass {
+        self.send(ClientMessage::CreateGuest(request)).await;
+        loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), self.socket.next())
+                .await
+                .expect("timed out waiting for the guest")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                match message::decode::<ServerMessage>(&bytes).unwrap() {
+                    ServerMessage::Guest(pass) => return pass,
+                    other => self.replica.receive(other, now()).unwrap(),
+                }
+            }
+        }
+    }
+}
+
+// [itest->dsn~guest-access~1]
+/// A helper without an account (ADR-0077): the incident command makes a guest and a
+/// one-time code; a medic may not; the code pairs one device once; the guest's device
+/// connects and is cut off when the command ends their access.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() {
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [9; 32]);
+    let running = start_server(dir.path()).await.unwrap();
+    let addr = running.addr;
+    let request = |tag: &str| message::GuestRequest {
+        incident: incident(),
+        guest: None,
+        until: now() + 3_600_000,
+        name: Some("Jonas Sommer".into()),
+        tag: tag.into(),
+    };
+
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    let refused = anna.guest(request("h0")).await;
+    assert_eq!(refused.guest, None, "a medic makes no guests");
+
+    let mut ben = Client::connect(addr, replica("ben")).await;
+    let pass = ben.guest(request("h1")).await;
+    assert_eq!(pass.tag, "h1");
+    let guest = pass.guest.clone().expect("the command makes a guest");
+    assert!(guest.is_guest());
+    let link = pass.link.clone().unwrap();
+    let code = link.split_once("?guest=").unwrap().1.to_owned();
+    assert!(link.starts_with(&format!("https://{SERVER}/?guest=")));
+    assert!(pass.qr.as_deref().is_some_and(|q| q.contains("<svg")));
+    assert!(pass.expires > now() && pass.expires <= now() + 15 * 60_000);
+
+    // The guest's phone pairs with the code, once.
+    let key = SigningKey::from_bytes(&[42; 32]);
+    let device = DeviceId(Ulid::from_parts(now(), 42).unwrap());
+    let pairing = serde_json::json!({
+        "code": code,
+        "device": device.ulid().to_string(),
+        "key": to_hex(key.verifying_key().as_bytes()),
+        "name": "Handy",
+    });
+    let (status, body) = post_json(addr, "/auth/guest", &pairing).await;
+    assert_eq!(status, 200, "{body}");
+    let answer: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(answer["user"], guest.to_string());
+    assert_eq!(answer["incident"], incident().to_string());
+    let (status, _) = post_json(addr, "/auth/guest", &pairing).await;
+    assert_eq!(status, 403, "a code works once");
+    let (status, _) = post_json(
+        addr,
+        "/auth/guest",
+        &serde_json::json!({ "code": "nope", "device": device.ulid().to_string(), "key": to_hex(key.verifying_key().as_bytes()) }),
+    )
+    .await;
+    assert_eq!(status, 403, "an unknown code is refused the same way");
+
+    // The guest's device connects.
+    let signer = EventSigner::new(key, KeyId::new("device-guest", &server()).unwrap());
+    let mut guest_replica = Replica::new(guest.clone(), device, signer, |b: &mut [u8]| {
+        getrandom::fill(b).unwrap()
+    });
+    guest_replica.subscribe(&incident(), "incident");
+    let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{addr}/sync"))
+        .await
+        .unwrap();
+    let mut welcomed = false;
+    while !welcomed {
+        let frame = tokio::time::timeout(Duration::from_secs(10), socket.next())
+            .await
+            .expect("timed out")
+            .expect("connection closed")
+            .unwrap();
+        if let Message::Binary(bytes) = frame {
+            let message: ServerMessage = message::decode(&bytes).unwrap();
+            welcomed = matches!(message, ServerMessage::Welcome(_));
+            assert!(
+                !matches!(message, ServerMessage::Refused(_)),
+                "the guest is let in"
+            );
+            guest_replica.receive(message, now()).unwrap();
+            if let Some(hello) = guest_replica.hello() {
+                socket
+                    .send(Message::Binary(message::encode(&hello).unwrap().into()))
+                    .await
+                    .unwrap();
+            }
+        }
+    }
+
+    // The command ends the guest's duty: the connection is cut.
+    ben.send(ClientMessage::SetGuestAccess(message::GuestAccess {
+        incident: incident(),
+        guest: guest.clone(),
+        until: now(),
+    }))
+    .await;
+    let refused = loop {
+        let frame = tokio::time::timeout(Duration::from_secs(10), socket.next())
+            .await
+            .expect("timed out waiting for the end of access");
+        match frame {
+            Some(Ok(Message::Binary(bytes))) => {
+                if let ServerMessage::Refused(reason) = message::decode(&bytes).unwrap() {
+                    break Some(reason);
+                }
+            }
+            Some(Ok(_)) => {}
+            _ => break None,
+        }
+    };
+    assert_eq!(
+        refused,
+        Some(Rejection::LoginExpired),
+        "access ends with duty"
+    );
+    running.stop().await.unwrap();
 }

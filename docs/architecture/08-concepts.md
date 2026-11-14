@@ -550,6 +550,38 @@ Needs: impl, itest
 
 Tags: must, m8
 
+#### Guest access
+`dsn~guest-access~1`
+
+Helpers without an account get access to one incident by a one-time code
+([ADR-0077](../adr/0077-guest-access-by-one-time-qr-code.md)). In *Vorbereitung – Personal*
+the incident command registers the helper with a role and an end of duty, and no account.
+The device asks the server for a guest (`createGuest`, sync protocol 1.3, with the
+helper's name and ID as tag); the server checks `assign_role`, makes the user ID
+`guest-<ULID>@<server>` and a code of 256 random bits, keeps its SHA-256 hash for 15
+minutes, sets the guest's login to end at the end of duty, and answers the link
+`<public address>/?guest=<code>` with its QR code. The command's device then grants the
+role to the guest's ID, links the helper to it, and shows the QR code until closed; the
+list shows "Gast-Zugang bis …" and "Zugang per QR-Code" for a new code.
+
+The helper scans it; the app makes a device key and pairs with `POST /auth/guest`, which
+uses the code up in one step and registers the device with the guest's ID, its login ending
+at the end of duty, with no renewal. Ending the duty or moving its end sends
+`setGuestAccess`; once the end has passed, the server cuts the guest's connections
+(`loginExpired`). Logins never map to a name starting with `guest-` (they get `u-`
+before it). The Cedar context carries `guest`; `command.guests-never-command` forbids
+everything to a guest who holds `commander`, and the form does not offer it without an
+account. Refused codes are counted (429 after 20 a minute); codes are never logged, codes
+made and used are, with who and the guest's ID.
+
+Covers:
+
+* [req~help-7~1](../requirements/02-shared.md#help-7--access-without-an-account)
+
+Needs: impl, utest, itest
+
+Tags: should, m61
+
 #### Access timeout
 `dsn~access-timeout~1`
 

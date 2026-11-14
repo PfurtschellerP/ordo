@@ -31,6 +31,13 @@ static SETTINGS: LazyLock<ordo_helpers::register::RegisterSettings> = LazyLock::
         .expect("register settings were checked at build time")
 });
 
+thread_local! {
+    /// Roles chosen for helpers without an account, by helper ID, until the server answers
+    /// with their guest ID (ADR-0077).
+    static PENDING_ROLES: std::cell::RefCell<std::collections::HashMap<String, String>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
 /// The register, if this device may read it: granted by the server, or kept from before.
 pub(crate) fn register(core: Handle) -> Option<HelperRegister> {
     let events = core.with_value(|c| c.events(ordo_helpers::COMPARTMENT));
@@ -205,6 +212,41 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let editing = RwSignal::new(None::<Person>);
     let error = RwSignal::new(None::<String>);
+    // [impl->dsn~guest-access~1]
+    // The server's answer to a guest code asked on this device (ADR-0077): the role chosen
+    // goes to the guest's ID, the helper is linked to it, and the code is shown.
+    let shown_pass = RwSignal::new(None::<(ordo_sync::message::GuestPass, String)>);
+    Effect::new(move || {
+        revision.track();
+        // Taken once: a view drawn anew does not show it again.
+        let Some(pass) = core.try_update_value(|c| c.guest_pass.take()).flatten() else {
+            return;
+        };
+        let Some(guest) = pass.guest.clone() else {
+            PENDING_ROLES.with_borrow_mut(|p| p.remove(&pass.tag));
+            error.set(Some(text::GUEST_CODE_REFUSED.to_owned()));
+            return;
+        };
+        let name = helpers
+            .with_untracked(|r| {
+                r.as_ref()
+                    .and_then(|r| r.helpers.get(&pass.tag).map(|h| h.name().to_owned()))
+            })
+            .unwrap_or_default();
+        if let Some(role) = PENDING_ROLES.with_borrow_mut(|p| p.remove(&pass.tag)) {
+            let _ = core::change_role(core, revision, guest.as_str(), &role, true);
+            let link = HelperChange {
+                helper: pass.tag.clone(),
+                fields: Fields {
+                    account: Some(guest.to_string()),
+                    ..Fields::default()
+                },
+            };
+            let _ = core::helper_event(core, revision, false, &link, &name);
+        }
+        shown_pass.set(Some((pass, name)));
+        request_animation_frame(|| crate::views::focus("guest-pass-title"));
+    });
     view! {
         <section aria-labelledby="helpers-title" class="card helpers">
             <h2 id="helpers-title" tabindex="-1">{text::HELPERS_TITLE}</h2>
@@ -229,6 +271,7 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .into_any()
             }}
             <p role="alert" class="error">{move || error.get()}</p>
+            {move || shown_pass.get().map(|(pass, name)| view! { <GuestPassView pass name shown=shown_pass /> })}
             <Show when=move || manage.get() || readable.get()>
                 {move || {
                     // A new form for each person edited, filled with them.
@@ -259,10 +302,16 @@ fn PersonEntry(
         .map(|h| details(h, now))
         .unwrap_or_default();
     let account = person.account.clone();
+    let guest = person
+        .account
+        .as_deref()
+        .and_then(|a| a.parse::<ordo_core::UserId>().ok())
+        .filter(ordo_core::UserId::is_guest);
     let duty_action = person.helper.as_ref().map(|h| {
         let on_duty = h.on_duty(now);
         let id = h.id.clone();
         let name = name.clone();
+        let guest = guest.clone();
         Action {
             text: if on_duty {
                 text::DUTY_END
@@ -295,9 +344,36 @@ fn PersonEntry(
                     fields,
                 };
                 let _ = core::helper_event(core, revision, false, &change, &name);
+                // [impl->dsn~guest-access~1]
+                // A guest's access ends with their duty (ADR-0077).
+                if on_duty && let Some(guest) = guest.clone() {
+                    core::set_guest_access(core, guest, now);
+                }
             }),
         }
     });
+    // A new code for a guest, e.g. for another phone; their access still ends with duty.
+    let guest_action = guest
+        .clone()
+        .zip(person.helper.clone())
+        .map(|(user, h)| Action {
+            text: text::GUEST_ACCESS,
+            label: text::guest_access_label(&name),
+            quiet: true,
+            run: Callback::new(
+                move |()| match h.fields.duty_end.filter(|e| *e > core::now_ms()) {
+                    Some(until) => {
+                        core::create_guest(core, Some(user.clone()), until, &h.id, h.name())
+                    }
+                    None => error.set(Some(text::GUEST_NEEDS_DUTY_END.to_owned())),
+                },
+            ),
+        });
+    let guest_until = guest
+        .as_ref()
+        .and(person.helper.as_ref())
+        .and_then(|h| h.fields.duty_end)
+        .map(|e| text::guest_until(&core::date_time(e)));
     let edit = person.clone();
     let registered = person.helper.is_some();
     let edit_label = if registered {
@@ -315,8 +391,9 @@ fn PersonEntry(
                 let person = person.clone();
                 move || shown_name(core, &person)
             })}</span>
-            {account.clone().map(|a| view! { <span class="roster__id">{a}</span> })}
+            {account.clone().filter(|_| guest.is_none()).map(|a| view! { <span class="roster__id">{a}</span> })}
             {(!line.is_empty()).then(|| view! { <span class="roster__id">{line}</span> })}
+            {guest_until.map(|t| view! { <span class="roster__id helper-list__guest">{t}</span> })}
             {(!roles.is_empty()).then(|| view! {
                 <ul class="roster__roles">
                     {roles.into_iter().map(|role| {
@@ -357,9 +434,45 @@ fn PersonEntry(
                         {if registered { text::EDIT } else { text::HELPER_COMPLETE }}
                     </button>
                 </Show>
-                {duty_action.map(|a| view! { <Actions actions=vec![a] /> })}
+                {
+                    let actions: Vec<Action> = duty_action
+                        .into_iter()
+                        .chain(guest_action.filter(|_| manage.get_untracked()))
+                        .collect();
+                    (!actions.is_empty()).then(|| view! { <Actions actions /> })
+                }
             </span>
         </li>
+    }
+}
+
+// [impl->dsn~guest-access~1]
+/// The one-time code of a guest (ADR-0077), as QR code and link, for their phone; shown
+/// only on this device, until closed.
+#[component]
+fn GuestPassView(
+    pass: ordo_sync::message::GuestPass,
+    name: String,
+    shown: RwSignal<Option<(ordo_sync::message::GuestPass, String)>>,
+) -> impl IntoView {
+    use base64::Engine;
+    let image = pass.qr.as_ref().map(|svg| {
+        format!(
+            "data:image/svg+xml;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(svg)
+        )
+    });
+    let link = pass.link.clone().unwrap_or_default();
+    view! {
+        <section class="notice guest-pass" aria-labelledby="guest-pass-title">
+            <h3 id="guest-pass-title" tabindex="-1">{text::GUEST_CODE_TITLE}</h3>
+            <p>{text::guest_code_for(&name, &core::clock(pass.expires))}</p>
+            {image.map(|src| view! { <img class="pairing-qr__code" src=src alt=text::GUEST_CODE_ALT width="256" height="256" /> })}
+            <p>{text::GUEST_LINK} " " <a href=link.clone() class="guest-pass__link">{link.clone()}</a></p>
+            <div class="row">
+                <button type="button" class="button" on:click=move |_| shown.set(None)>{text::GUEST_CODE_CLOSE}</button>
+            </div>
+        </section>
     }
 }
 
@@ -476,11 +589,36 @@ fn HelperForm(
         ev.prevent_default();
         let chosen_role = role.get_untracked();
         let account_value = account.get_untracked().trim().to_owned();
-        if !chosen_role.is_empty() && account_value.parse::<ordo_core::UserId>().is_err() {
-            error.set(Some(text::ROLE_NEEDS_ACCOUNT));
+        // [impl->dsn~guest-access~1]
+        // A role without an account: a guest, with access until the end of duty (ADR-0077).
+        let guest = !chosen_role.is_empty() && account_value.is_empty();
+        if !chosen_role.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err()
+        {
+            error.set(Some(text::HELPER_ACCOUNT));
             crate::views::focus("helper-account");
             return;
         }
+        if guest && (!readable || chosen_role == core::COMMANDER) {
+            error.set(Some(if readable {
+                text::GUEST_NO_COMMAND
+            } else {
+                text::HELPER_ACCOUNT
+            }));
+            crate::views::focus(if readable {
+                "helper-role"
+            } else {
+                "helper-account"
+            });
+            return;
+        }
+        let duty_end = core::local_time_ms(end.get_untracked().trim())
+            .filter(|_| !end.get_untracked().trim().is_empty());
+        if guest && duty_end.is_none_or(|e| e <= core::now_ms()) {
+            error.set(Some(text::GUEST_NEEDS_DUTY_END));
+            crate::views::focus("helper-duty-end");
+            return;
+        }
+        let mut saved = None;
         if readable {
             match save_helper(&HelperDraft {
                 core,
@@ -501,7 +639,7 @@ fn HelperForm(
                 end,
                 qualifications,
             }) {
-                Ok(()) => {}
+                Ok(id) => saved = Some(id),
                 Err((message, field)) => {
                     error.set(Some(message));
                     crate::views::focus(field);
@@ -509,7 +647,20 @@ fn HelperForm(
                 }
             }
         }
-        if !chosen_role.is_empty() && manage {
+        // A guest of an earlier save keeps their access to the end of duty.
+        if let (Some(a), Some(until)) = (before.account.as_deref(), duty_end)
+            && let Ok(user) = a.parse::<ordo_core::UserId>()
+            && user.is_guest()
+            && before.duty_end != Some(until)
+        {
+            core::set_guest_access(core, user, until);
+        }
+        if guest {
+            if let (Some(helper), Some(until)) = (saved, duty_end) {
+                PENDING_ROLES.with_borrow_mut(|p| p.insert(helper.clone(), chosen_role.clone()));
+                core::create_guest(core, None, until, &helper, &name.get_untracked());
+            }
+        } else if !chosen_role.is_empty() && manage {
             if core::change_role(core, revision, &account_value, &chosen_role, true).is_err() {
                 error.set(Some(text::HELPER_NOT_SAVED));
                 return;
@@ -693,7 +844,12 @@ fn HelperForm(
                         <label for="helper-role">{text::HELPER_ROLE}</label>
                         <select id="helper-role" prop:value=move || role.get() on:change=move |ev| role.set(event_target_value(&ev))>
                             <option value="">{text::ROLE_NONE}</option>
-                            {text::ROLES.iter().map(|(id, label)| view! { <option value=*id>{*label}</option> }).collect_view()}
+                            // A guest never leads (ADR-0077): without an account, no Einsatzleitung.
+                            {move || text::ROLES
+                                .iter()
+                                .filter(|(id, _)| *id != core::COMMANDER || !account.get().trim().is_empty())
+                                .map(|(id, label)| view! { <option value=*id>{*label}</option> })
+                                .collect_view()}
                         </select>
                     </div>
                 })}
@@ -739,8 +895,9 @@ struct HelperDraft<'a> {
 
 // [impl->dsn~helper-register~3]
 /// Checks and saves the form's personal data: the phone number in international form, the
-/// postcode by the profile's pattern. On a problem: the message and the field to focus.
-fn save_helper(d: &HelperDraft<'_>) -> Result<(), (&'static str, &'static str)> {
+/// postcode by the profile's pattern. Returns the helper's ID; on a problem, the message and
+/// the field to focus.
+fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static str)> {
     let ms = |s: RwSignal<String>| {
         let typed = s.get_untracked();
         if typed.trim().is_empty() {
@@ -845,6 +1002,7 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<(), (&'static str, &'static str)> 
         });
     }
     core::helper_event(d.core, d.revision, registration, &change, name.trim())
+        .map(|()| change.helper.clone())
         .map_err(|_| (text::HELPER_NOT_SAVED, "helper-name"))
 }
 

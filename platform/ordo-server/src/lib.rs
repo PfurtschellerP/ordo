@@ -10,6 +10,7 @@ mod blobs;
 pub mod config;
 pub mod dex_api;
 mod geocode;
+mod guests;
 mod login;
 mod map_region;
 mod providers;

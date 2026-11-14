@@ -26,6 +26,13 @@ pub enum ClientMessage {
     /// Blocks (revokes) a device used in an incident (incident permission
     /// `block_devices`); protocol 1.2.
     BlockDevice(DeviceBlock),
+    /// Asks for access for a helper without an account: a guest ID (or, with `guest`, a new
+    /// code for one) and a one-time code (ADR-0077); with `assign_role` in the incident;
+    /// protocol 1.3.
+    CreateGuest(GuestRequest),
+    /// Sets when a guest's access ends, e.g. at the end of duty (ADR-0077); with
+    /// `assign_role` in the guest's incident; protocol 1.3.
+    SetGuestAccess(GuestAccess),
     /// Asks for the incidents the user takes part in (all with `manage_incidents`).
     ListIncidents,
     /// Asks for the people the server knows, to suggest them when granting a role.
@@ -85,6 +92,59 @@ pub struct MapRegionRequest {
     /// Radius in metres (1,000 to 50,000).
     pub radius_m: u32,
 }
+
+/// A request for a guest's access (ADR-0077).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestRequest {
+    /// The incident the guest helps in.
+    pub incident: IncidentId,
+    /// A guest made before, for a new code; none for a new guest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guest: Option<UserId>,
+    /// When the guest's access ends (ms since the Unix epoch): their end of duty.
+    pub until: u64,
+    /// The name the guest is shown by in the incident, like a login's name (ORG-7).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Chosen by the device, returned in the answer (e.g. the helper it is for); at most 64
+    /// characters. The server keeps it nowhere.
+    pub tag: String,
+}
+
+/// When a guest's access ends (ADR-0077).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestAccess {
+    /// The guest's incident.
+    pub incident: IncidentId,
+    /// The guest.
+    pub guest: UserId,
+    /// The new end (ms since the Unix epoch); now or earlier ends it at once.
+    pub until: u64,
+}
+
+/// The answer to `createGuest` (ADR-0077): the guest and their one-time code, or neither
+/// if refused.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestPass {
+    /// As in the request.
+    pub tag: String,
+    /// The incident.
+    pub incident: IncidentId,
+    /// The guest's ID; none if refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guest: Option<UserId>,
+    /// The link that pairs a device with the code, `https://<server>/?guest=<code>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    /// The link as a QR code (SVG).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qr: Option<String>,
+    /// When the code stops working (ms since the Unix epoch).
+    pub expires: u64,
+}
+
+/// The longest tag of a guest request.
+pub const GUEST_TAG_MAX: usize = 64;
 
 /// An address search for an incident's map (ADR-0066): free text, as typed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -637,6 +697,8 @@ pub enum ServerMessage {
     MapTicket(MapTicket),
     /// Answer to `geocode` (protocol 1.2, ADR-0066).
     Geocoded(Geocoded),
+    /// Answer to `createGuest` (protocol 1.3, ADR-0077).
+    Guest(GuestPass),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
     /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,

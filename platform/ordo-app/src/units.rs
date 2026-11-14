@@ -646,7 +646,14 @@ fn CrewEditor(
                             });
                             view! {
                                 <li>
-                                    <strong>{m.name.clone()}</strong>
+                                    // A member named only by their account: by its display name (ORG-7).
+                                    <strong>{
+                                        let (shown, account) = (m.name.clone(), m.account.clone());
+                                        crate::profile::naming(move || match &account {
+                                            Some(a) if a.eq_ignore_ascii_case(shown.trim()) => crate::profile::display_text(core, a),
+                                            _ => shown.clone(),
+                                        })
+                                    }</strong>
                                     {(!quals.is_empty()).then(|| format!(" · {quals}"))}
                                     {remove.map(|actions| view! { <Actions actions /> })}
                                 </li>

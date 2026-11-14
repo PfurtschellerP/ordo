@@ -197,6 +197,11 @@ pub(crate) enum LoginError {
 }
 
 impl Login {
+    /// The server's public address, e.g. `https://ordo.example.org` (`ORDO_PUBLIC_URL`).
+    pub(crate) fn public_url(&self) -> &str {
+        &self.config.public_url
+    }
+
     /// ORDO's client ID at the identity provider.
     pub(crate) fn client_id(&self) -> &str {
         &self.config.client_id
@@ -294,6 +299,10 @@ pub(crate) fn user_name(preferred: Option<&str>, email: Option<&str>) -> String 
     let name: String = name.trim_matches(['-', '.']).chars().take(56).collect();
     if name.is_empty() {
         "user".to_owned()
+    } else if name.starts_with(ordo_core::GUEST_PREFIX) {
+        // [impl->dsn~guest-access~1]
+        // A guest's ID is never a login's (ADR-0077).
+        format!("u-{name}").chars().take(56).collect()
     } else {
         name
     }
@@ -301,7 +310,7 @@ pub(crate) fn user_name(preferred: Option<&str>, email: Option<&str>) -> String 
 
 // [impl->dsn~device-names~1]
 /// A device's name as sent at pairing (ORG-8): see [`tidy_name`], at most 60 characters.
-fn device_name(raw: Option<&str>) -> Option<String> {
+pub(crate) fn device_name(raw: Option<&str>) -> Option<String> {
     tidy_name(raw, 60)
 }
 
@@ -323,7 +332,7 @@ pub(crate) fn tidy_name(raw: Option<&str>, max: usize) -> Option<String> {
 pub(crate) const MAX_PERSON_NAME: usize = 80;
 
 /// A device ID and public key from a request.
-fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
+pub(crate) fn parse_device(device: &str, key: &str) -> Option<(DeviceId, VerifyingKey)> {
     let device = DeviceId(device.parse::<Ulid>().ok()?);
     let bytes = (key.len() == 64)
         .then(|| {
@@ -1046,6 +1055,12 @@ mod tests {
         );
         assert_eq!(user_name(Some("  "), None), "user");
         assert_eq!(user_name(Some("-@-"), None), "user");
+        // [utest->dsn~guest-access~1]
+        assert_eq!(
+            user_name(Some("Guest-01JD"), None),
+            "u-guest-01jd",
+            "no login takes a guest's ID"
+        );
         let long = "a".repeat(100);
         assert_eq!(user_name(Some(&long), None).len(), 56);
         let server: ordo_core::ServerName = "ordo.example.org".parse().unwrap();

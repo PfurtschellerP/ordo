@@ -51,11 +51,13 @@ pub struct App {
     dex_api: Option<crate::dex_api::DexApi>,
     /// Test logins through new or changed upstream providers (ORG-11).
     pub(crate) login_tests: crate::providers::Tests,
+    /// Refused guest codes per minute (ADR-0077).
+    pub(crate) guest_refusals: crate::guests::Refusals,
     /// Whether temporary connectors left from before the start were looked for.
     tests_cleaned: AtomicBool,
     /// Up to when lapsed role grants were looked for (ms).
     roles_checked: AtomicU64,
-    sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
+    pub(crate) sessions: std::sync::Mutex<HashMap<SessionId, mpsc::UnboundedSender<ServerMessage>>>,
     /// The people each connection asked about: it hears when their name or picture
     /// changes (ORG-7).
     asked: std::sync::Mutex<HashMap<SessionId, HashSet<UserId>>>,
@@ -104,6 +106,7 @@ impl App {
             roles,
             dex_api,
             login_tests: crate::providers::Tests::default(),
+            guest_refusals: crate::guests::Refusals::default(),
             tests_cleaned: AtomicBool::new(false),
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
@@ -153,6 +156,37 @@ impl App {
             hub.set_paired(&device, now_ms(), name);
         }
         self.set_valid_until(&user, valid_until).await?;
+        Ok(true)
+    }
+
+    // [impl->dsn~guest-access~1]
+    /// Pairs a device with a guest (ADR-0077): like [`Self::register_device`], with the
+    /// login ending at the guest's end of duty and no renewal.
+    pub(crate) async fn register_guest_device(
+        &self,
+        device: DeviceId,
+        guest: UserId,
+        key: VerifyingKey,
+        name: Option<String>,
+        until: u64,
+    ) -> Result<bool, StoreError> {
+        if !self
+            .store
+            .save_device(
+                &device,
+                &guest,
+                key.as_bytes(),
+                name.as_deref(),
+                now_ms(),
+                until,
+            )
+            .await?
+        {
+            return Ok(false);
+        }
+        let mut hub = self.hub.lock().await;
+        hub.register_device_until(device, guest, key, Some(until));
+        hub.set_paired(&device, now_ms(), name);
         Ok(true)
     }
 
@@ -324,6 +358,7 @@ impl App {
             .route("/auth/callback", get(login::callback))
             .route("/auth/test/{token}", get(login::test))
             .route("/auth/device", post(login::device_start))
+            .route("/auth/guest", post(crate::guests::pair))
             .route("/auth/device/{id}", get(login::device_status))
             .route("/auth/device/{id}/qr.svg", get(login::device_qr))
             .route(
@@ -417,6 +452,9 @@ impl App {
         if let ClientMessage::Geocode(request) = message {
             self.geocode(session, request).await;
             return Ok(());
+        }
+        if let ClientMessage::CreateGuest(_) | ClientMessage::SetGuestAccess(_) = message {
+            return self.guests(session, message).await;
         }
         let mut hub = self.hub.lock().await;
         // [impl->dsn~incident-devices~1]

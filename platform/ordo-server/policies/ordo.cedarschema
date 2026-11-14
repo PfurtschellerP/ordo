@@ -11,6 +11,9 @@ entity Compartment;
 
 type Request = {
   roles: Set<String>,
+  // Whether the user is a guest: a helper without an account, paired by a one-time code
+  // for one incident (ADR-0077).
+  guest: Bool,
   incident: String,
   // The module of the event being written, e.g. "units"; empty for reading and for the
   // view permissions.

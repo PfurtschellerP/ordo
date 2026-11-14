@@ -109,7 +109,9 @@ fn Start() -> impl IntoView {
     let returned = core::url_param("paired")
         .and_then(|user| core::PendingDevice::take().map(|device| device.paired(&user)));
     let login_error = core::url_param("login_error");
-    if returned.is_some() || login_error.is_some() {
+    // A guest's one-time code (ADR-0077), from the QR code the incident command showed.
+    let guest_code = core::url_param("guest");
+    if returned.is_some() || login_error.is_some() || guest_code.is_some() {
         core::clear_url_params();
     }
     if let Some(pairing) = &returned {
@@ -118,7 +120,7 @@ fn Start() -> impl IntoView {
     let pairing = RwSignal::new(returned.or_else(core::load_pairing));
     view! {
         <Router>
-            <Screens pairing login_error />
+            <Screens pairing login_error guest_code />
         </Router>
     }
 }
@@ -127,7 +129,11 @@ fn Start() -> impl IntoView {
 /// The screen for the URL: the licence notices, pairing or the paired device. Pairing links
 /// to the notices; a paired device has them under *Administration – Info* (LIC-1).
 #[component]
-fn Screens(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> impl IntoView {
+fn Screens(
+    pairing: RwSignal<Option<Pairing>>,
+    login_error: Option<String>,
+    guest_code: Option<String>,
+) -> impl IntoView {
     let location = use_location();
     let pathname = location.pathname;
     // A memo, so moving between views does not build the device's screen anew.
@@ -145,11 +151,59 @@ fn Screens(pairing: RwSignal<Option<Pairing>>, login_error: Option<String>) -> i
             if on_notices.get() {
                 return view! { <crate::notices::NoticesPage back=previous.get_value() /> }.into_any();
             }
-            match pairing.get() {
-                None => view! { <PairingForm pairing login_error=login_error.clone() /> }.into_any(),
-                Some(p) => view! { <Device pairing=p paired=pairing on_unpair=move || pairing.set(None) /> }.into_any(),
+            match (pairing.get(), guest_code.clone()) {
+                (None, Some(code)) => view! { <GuestPairing pairing code /> }.into_any(),
+                (None, None) => view! { <PairingForm pairing login_error=login_error.clone() /> }.into_any(),
+                (Some(p), _) => view! { <Device pairing=p paired=pairing on_unpair=move || pairing.set(None) /> }.into_any(),
             }
         }}
+    }
+}
+
+// [impl->dsn~guest-access~1]
+/// A helper without an account pairs this device with the one-time code of the QR code the
+/// incident command showed them (ADR-0077): the device makes its own key, as for a login,
+/// and opens the incident with the role it was given.
+#[component]
+fn GuestPairing(pairing: RwSignal<Option<Pairing>>, code: String) -> impl IntoView {
+    let error = RwSignal::new(None::<&'static str>);
+    leptos::task::spawn_local(async move {
+        let failed = move || error.set(Some(text::GUEST_CODE_INVALID));
+        let Some(device) = core::PendingDevice::create("") else {
+            return failed();
+        };
+        let Some(key) = device.public_key() else {
+            return failed();
+        };
+        let body = serde_json::json!({
+            "code": code,
+            "device": device.device,
+            "key": key,
+            "name": core::suggested_device_name(),
+        });
+        match core::fetch_json("POST", "/auth/guest", Some(&body)).await {
+            Ok(answer) => {
+                let (Some(user), Some(incident)) =
+                    (answer["user"].as_str(), answer["incident"].as_str())
+                else {
+                    return failed();
+                };
+                let mut paired = device.paired(user);
+                paired.incident = incident.to_owned();
+                core::save_pairing(&paired);
+                pairing.set(Some(paired));
+            }
+            Err(_) => failed(),
+        }
+    });
+    view! {
+        <main id="main" class="page page--narrow">
+            <h1>{text::APP_NAME} " – " {text::GUEST_PAIR_TITLE}</h1>
+            {move || match error.get() {
+                None => view! { <p role="status">{text::GUEST_PAIRING}</p> }.into_any(),
+                Some(e) => view! { <p role="alert" class="error">{e}</p> }.into_any(),
+            }}
+        </main>
     }
 }
 
@@ -596,6 +650,12 @@ fn Device(
         }
     };
     let has_incident = core.with_value(|c| c.incident.is_some());
+    // [impl->dsn~guest-access~1]
+    // A guest cannot log in again: their access ended with their duty (ADR-0077).
+    let guest = pairing
+        .user
+        .parse::<ordo_core::UserId>()
+        .is_ok_and(|u| u.is_guest());
     let relogin = StoredValue::new(pairing);
     view! {
         <Show
@@ -604,7 +664,16 @@ fn Device(
         >
             <Show
                 when=move || !locked.get()
-                fallback=move || view! { <PairingForm pairing=paired login_error=None relogin=relogin.get_value() /> }
+                fallback=move || if guest {
+                    view! {
+                        <main id="main" class="page page--narrow">
+                            <h1>{text::APP_NAME} " – " {text::GUEST_ENDED_TITLE}</h1>
+                            <p>{text::GUEST_ENDED}</p>
+                        </main>
+                    }.into_any()
+                } else {
+                    view! { <PairingForm pairing=paired login_error=None relogin=relogin.get_value() /> }.into_any()
+                }
             >
                 {if has_incident {
                     view! { <Workspace core revision on_unpair=unpair on_change_incident=change_incident /> }.into_any()

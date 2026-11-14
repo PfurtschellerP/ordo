@@ -572,6 +572,103 @@ impl Store {
             .collect()
     }
 
+    // [impl->dsn~guest-access~1]
+    /// Stores a guest of `incident` (ADR-0077), or, if known, sets their end of access.
+    pub async fn save_guest(
+        &self,
+        guest: &UserId,
+        incident: &IncidentId,
+        until: u64,
+        by: &UserId,
+        now_ms: u64,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO guests (user_id, incident, until_ms, created_by, created_ms)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT (user_id) DO UPDATE SET until_ms = excluded.until_ms",
+        )
+        .bind(guest.as_str())
+        .bind(incident.to_string())
+        .bind(ms(until))
+        .bind(by.as_str())
+        .bind(ms(now_ms))
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// The incident of a guest and the end of their access, if they are one.
+    pub async fn guest(&self, guest: &UserId) -> Result<Option<(IncidentId, u64)>, StoreError> {
+        let row = sqlx::query("SELECT incident, until_ms FROM guests WHERE user_id = ?")
+            .bind(guest.as_str())
+            .fetch_optional(&self.pool)
+            .await?;
+        row.map(|row| {
+            let incident: String = row.get("incident");
+            let until: i64 = row.get("until_ms");
+            Ok((
+                incident
+                    .parse()
+                    .map_err(|e: ordo_core::IdError| StoreError::Invalid(e.to_string()))?,
+                u64::try_from(until).unwrap_or_default(),
+            ))
+        })
+        .transpose()
+    }
+
+    // [impl->dsn~guest-access~1]
+    /// Stores a new one-time code of a guest by its hash; their unused codes stop working.
+    pub async fn save_guest_code(
+        &self,
+        guest: &UserId,
+        hash: &[u8; 32],
+        expires: u64,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM guest_codes WHERE user_id = ? AND used_ms IS NULL")
+            .bind(guest.as_str())
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("INSERT INTO guest_codes (hash, user_id, expires_ms) VALUES (?, ?, ?)")
+            .bind(hash.as_slice())
+            .bind(guest.as_str())
+            .bind(ms(expires))
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    // [impl->dsn~guest-access~1]
+    /// Uses up the code with this hash, if it is known, unused and not expired at `now_ms`:
+    /// the guest, their incident and the end of their access. One statement, so a code
+    /// works only once also when two devices try it at the same time.
+    pub async fn use_guest_code(
+        &self,
+        hash: &[u8; 32],
+        now_ms: u64,
+    ) -> Result<Option<(UserId, IncidentId, u64)>, StoreError> {
+        let row = sqlx::query(
+            "UPDATE guest_codes SET used_ms = ?
+             WHERE hash = ? AND used_ms IS NULL AND expires_ms > ?
+             RETURNING user_id",
+        )
+        .bind(ms(now_ms))
+        .bind(hash.as_slice())
+        .bind(ms(now_ms))
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(row) = row else { return Ok(None) };
+        let user: String = row.get("user_id");
+        let user: UserId = user
+            .parse()
+            .map_err(|e: ordo_core::IdError| StoreError::Invalid(e.to_string()))?;
+        Ok(self
+            .guest(&user)
+            .await?
+            .map(|(incident, until)| (user, incident, until)))
+    }
+
     /// Sets the end of the login of all devices of `user` (re-verified or ended).
     pub async fn set_valid_until(&self, user: &UserId, valid_until: u64) -> Result<(), StoreError> {
         sqlx::query("UPDATE devices SET valid_until = ? WHERE user_id = ?")
@@ -770,6 +867,49 @@ mod tests {
         format!("{name}@ordo.example.org").parse().unwrap()
     }
 
+    // [utest->dsn~guest-access~1]
+    #[tokio::test]
+    async fn a_guest_code_works_once_and_only_until_it_expires() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let guest = user("guest-01jd0000000000000000000001");
+        let incident: IncidentId = "01JD0000000000000000000009@ordo.example.org"
+            .parse()
+            .unwrap();
+        store
+            .save_guest(&guest, &incident, 9_000, &user("ben"), 1_000)
+            .await
+            .unwrap();
+        let (first, second) = ([1u8; 32], [2u8; 32]);
+        store.save_guest_code(&guest, &first, 2_000).await.unwrap();
+        // A new code: the unused one stops working.
+        store.save_guest_code(&guest, &second, 2_000).await.unwrap();
+        assert_eq!(store.use_guest_code(&first, 1_500).await.unwrap(), None);
+        assert_eq!(
+            store.use_guest_code(&second, 1_500).await.unwrap(),
+            Some((guest.clone(), incident.clone(), 9_000))
+        );
+        assert_eq!(
+            store.use_guest_code(&second, 1_600).await.unwrap(),
+            None,
+            "once"
+        );
+        let third = [3u8; 32];
+        store.save_guest_code(&guest, &third, 2_000).await.unwrap();
+        assert_eq!(
+            store.use_guest_code(&third, 2_000).await.unwrap(),
+            None,
+            "expired"
+        );
+        // The end of access changes, the guest stays.
+        store
+            .save_guest(&guest, &incident, 5_000, &user("ben"), 3_000)
+            .await
+            .unwrap();
+        assert_eq!(store.guest(&guest).await.unwrap(), Some((incident, 5_000)));
+        assert_eq!(store.guest(&user("anna")).await.unwrap(), None);
+    }
+
     #[tokio::test]
     async fn the_schema_is_migrated_once_also_for_databases_from_before_the_first_release() {
         let dir = tempfile::tempdir().unwrap();
@@ -802,7 +942,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 applied,
-                [1, 2, 3, 4, 5, 6, 7],
+                [1, 2, 3, 4, 5, 6, 7, 8],
                 "each migration, applied once"
             );
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")

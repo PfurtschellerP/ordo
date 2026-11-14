@@ -476,6 +476,18 @@ Tags: should, shared, m61
 
 Needs: dsn
 
+#### HELP-7 — Access without an account
+`req~help-7~1`
+
+When the incident command registers a helper without an ORDO account with a role in the
+incident, ORDO shall give them access to that incident only, with that role, by a one-time
+code shown as QR code on the command's device, and shall end that access when the helper's
+duty ends; such a helper shall never lead the incident.
+
+Tags: should, shared, m61
+
+Needs: dsn
+
 #### HELP-3 — Crews from the register
 `req~help-3~1`
 

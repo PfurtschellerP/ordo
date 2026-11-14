@@ -81,5 +81,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0074](0074-no-vehicles-file.md) | No file of the installation's vehicles | accepted | 2026-11-14 |
 | [0075](0075-reports-recorded-in-dispatch.md) | Reports are recorded in *Disposition*, assigned as tasks, and become patients through the crew | accepted | 2026-11-14 |
 | [0076](0076-people-and-roles-in-one-list.md) | The incident's people and their roles in one list and one form | accepted | 2026-11-14 |
+| [0077](0077-guest-access-by-one-time-qr-code.md) | Helpers without an account get access by a one-time QR code, until their duty ends | accepted | 2026-11-14 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

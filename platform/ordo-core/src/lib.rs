@@ -18,7 +18,7 @@ pub use codec::CodecError;
 pub use event::{Author, EventBody, Payload, SealedBox, SequencedEvent, Signature, SignedEvent};
 pub use hlc::{Hlc, HlcClock, HlcError};
 pub use ids::{
-    CompartmentId, DeviceId, EventId, EventType, IdError, IncidentId, KeyId, ModuleId, ServerName,
-    UserId,
+    CompartmentId, DeviceId, EventId, EventType, GUEST_PREFIX, IdError, IncidentId, KeyId,
+    ModuleId, ServerName, UserId,
 };
 pub use ulid::{Ulid, UlidError};

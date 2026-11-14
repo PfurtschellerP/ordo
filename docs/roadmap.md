@@ -342,10 +342,11 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     keeps the personal data (a Meldekarte adds to it) and grants the role (HELP-6); address
     as street, postcode and town with a postcode check (no address search: a home address
     stays in the installation), phone numbers checked and kept in international form, the
-    diet from the profile's list (HELP-1). Part 2: access for helpers without an account,
-    by a one-time QR code the incident command makes for them in this incident, with the
-    role chosen at registration (never *Einsatzleitung*) and valid until their duty ends
-    (ADR and an ASVS check first).
+    diet from the profile's list (HELP-1). Part 2 is done too
+    ([ADR-0077](adr/0077-guest-access-by-one-time-qr-code.md)): helpers without an account
+    get access to the incident by a one-time QR code the incident command makes for them,
+    with the role chosen at registration (never *Einsatzleitung*), until their duty ends
+    (HELP-7).
 
 Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 

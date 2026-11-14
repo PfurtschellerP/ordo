@@ -82,6 +82,8 @@ pub struct Core {
     pub map_region: Option<ordo_sync::message::MapRegion>,
     /// The ticket to read the incident's map region, asked on every connection (ADR-0062).
     pub map_ticket: Option<String>,
+    /// The last guest code made on this device (ADR-0077), to show as QR code.
+    pub guest_pass: Option<ordo_sync::message::GuestPass>,
     /// The last answer to an address search (ADR-0066).
     pub geocoded: Option<ordo_sync::message::Geocoded>,
     /// Whether the server speaks the map region messages (protocol 1.2).
@@ -191,6 +193,7 @@ impl Core {
             map_region: None,
             map_ticket: None,
             geocoded: None,
+            guest_pass: None,
             map_regions: false,
             organisation_roles: None,
             accounts: None,
@@ -425,6 +428,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::Geocoded(answer) = &message {
                 c.geocoded = Some(answer.clone());
+            }
+            if let ServerMessage::Guest(pass) = &message {
+                c.guest_pass = Some(pass.clone());
             }
             if let ServerMessage::OrganisationRoles(list) = &message {
                 c.organisation_roles = Some(list.clone());
@@ -732,6 +738,40 @@ pub fn register(
         &taken,
         text::REPORT_PATIENT_TAKEN.to_owned(),
     )
+}
+
+// [impl->dsn~guest-access~1]
+/// Asks for a guest of the chosen incident, or with `guest` a new code for one, whose access
+/// ends at `until` (ADR-0077); `tag` comes back with the answer.
+pub fn create_guest(core: Handle, guest: Option<UserId>, until: u64, tag: &str, name: &str) {
+    core.with_value(|c| {
+        if let Some(incident) = c.incident.clone() {
+            c.send(&ClientMessage::CreateGuest(
+                ordo_sync::message::GuestRequest {
+                    incident,
+                    guest,
+                    until,
+                    name: Some(name.trim().to_owned()).filter(|n| !n.is_empty()),
+                    tag: tag.to_owned(),
+                },
+            ));
+        }
+    });
+}
+
+/// Sets when a guest's access ends, e.g. at their end of duty (ADR-0077).
+pub fn set_guest_access(core: Handle, guest: UserId, until: u64) {
+    core.with_value(|c| {
+        if let Some(incident) = c.incident.clone() {
+            c.send(&ClientMessage::SetGuestAccess(
+                ordo_sync::message::GuestAccess {
+                    incident,
+                    guest,
+                    until,
+                },
+            ));
+        }
+    });
 }
 
 // [impl->dsn~reports~1]

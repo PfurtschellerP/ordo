@@ -190,6 +190,27 @@ user ([ADR-0063](../../docs/adr/0063-upstream-login-configured-in-ordo.md)). The
 runs in a browser at `GET /auth/test/<token>`; it pairs no device. A session agreed on 1.0
 or 1.1 gets no answer.
 
+`createGuest` (version 1.3) asks for access for a helper without an account
+([ADR-0077](../../docs/adr/0077-guest-access-by-one-time-qr-code.md)): for an incident, a
+new guest or (`guest`) a new code for one, the end of their access (`until`, ms since the
+Unix epoch: their end of duty), optionally the name they are shown by, and a `tag` of up to
+64 characters that comes back. The server MUST make guests only for a user whose roles in
+that incident permit `assign_role` and who is no guest. It makes the user ID
+`guest-<ULID>@<server>`, a code of 256 random bits (base64url), keeps only its SHA-256 hash,
+valid once for 15 minutes, and answers `guest` with the guest's ID, the link
+`<public address>/?guest=<code>`, the link as QR code (SVG) and the code's end; a new code
+makes the guest's unused ones invalid. Anyone else gets `guest` without ID, link and code.
+The server MUST NOT log codes, and MUST map no login to a name that starts with `guest-`.
+`setGuestAccess` moves the end of a guest's access (now or earlier ends it); the server
+MUST set it as the end of the login of the guest's devices and cut their connections once
+it has passed (`refused: loginExpired`), for the same users as `createGuest`. Guests are not
+renewed. A device pairs with a code over HTTP (`POST /auth/guest` with `code`, `device`,
+`key`, optional `name`; HTTP API 1.1): the server MUST use up the code in one step, refuse
+an unknown, used or expired code, or one of a guest whose access has ended, alike with
+`403`, answer `429` after 20 refused codes in a minute, and on success answer the guest's
+`user` and `incident`. A session agreed on 1.2 or older gets no answer to the guest
+messages.
+
 `listPeople` asks for the people the server knows, to suggest them when granting a role:
 the users with a paired device or a role in any incident. The server answers `people`
 (a list of user IDs, sorted). It MUST answer with the list only a user with
@@ -257,5 +278,6 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7); removed again before the first release ([ADR-0074](../../docs/adr/0074-no-vehicles-file.md)) | unchanged |
+| 1.3 | `createGuest`, `setGuestAccess` and `guest` (§7, ADR-0077) | 1.1: `POST /auth/guest` |
 | 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 

@@ -2000,8 +2000,29 @@ pub const HELPER_POSTCODE_INVALID: &str =
 pub const HELPER_TOWN: &str = "Ort";
 pub const HELPER_ROLE: &str = "Rolle im Einsatz";
 pub const ROLE_NONE: &str = "keine Rolle";
-pub const ROLE_NEEDS_ACCOUNT: &str =
-    "Eine Rolle braucht ein ORDO-Konto. Für Helfende ohne Konto folgt der Zugang per QR-Code.";
+pub const GUEST_NEEDS_DUTY_END: &str =
+    "Für den Zugang ohne Konto bitte das Dienstende angeben: Der Zugang endet mit ihm.";
+pub const GUEST_NO_COMMAND: &str = "Die Einsatzleitung braucht ein ORDO-Konto.";
+pub const GUEST_PAIR_TITLE: &str = "Zugang für Helfende";
+pub const GUEST_ENDED_TITLE: &str = "Zugang beendet";
+pub const GUEST_ENDED: &str = "Ihr Zugang zu diesem Einsatz ist mit Ihrem Dienst beendet. Für einen neuen Zugang bitte die Einsatzleitung fragen.";
+pub const GUEST_PAIRING: &str = "Dieses Gerät wird mit dem QR-Code gekoppelt …";
+pub const GUEST_CODE_INVALID: &str = "Der QR-Code gilt nicht mehr (schon benutzt, abgelaufen oder Dienst beendet). Bitte die Einsatzleitung um einen neuen.";
+pub const GUEST_ACCESS: &str = "Zugang per QR-Code";
+pub const GUEST_CODE_TITLE: &str = "QR-Code für den Zugang";
+pub const GUEST_CODE_REFUSED: &str = "Der Zugang konnte nicht erstellt werden.";
+pub const GUEST_CODE_ALT: &str = "QR-Code, der dieses Gerät des Helfers mit dem Einsatz koppelt";
+pub const GUEST_LINK: &str = "Oder diesen Link auf dem Gerät öffnen:";
+pub const GUEST_CODE_CLOSE: &str = "Fertig";
+pub fn guest_code_for(name: &str, expires: &str) -> String {
+    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis {expires} Uhr.")
+}
+pub fn guest_access_label(name: &str) -> String {
+    format!("{GUEST_ACCESS}: {name}")
+}
+pub fn guest_until(until: &str) -> String {
+    format!("Gast-Zugang bis {until}")
+}
 pub const ROLE_MISSING: &str = "Bitte eine Rolle wählen.";
 pub const HELPER_ACCOUNT_HINT: &str =
     "Konto der Organisation wählen; der Name wird übernommen. Leer lassen für Helfende ohne Konto.";

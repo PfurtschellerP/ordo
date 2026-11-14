@@ -44,3 +44,14 @@ permit (
   resource == Compartment::"incident"
 )
 when { context.roles.contains("commander") };
+
+// Helpers without an account (guests, ADR-0077) never lead an incident: a guest who holds
+// the commander role loses every permission in it. A forbid wins over every permit, also
+// over an organisation's own policies.
+@id("command.guests-never-command")
+forbid (
+  principal,
+  action,
+  resource is Compartment
+)
+when { context.guest && context.roles.contains("commander") };

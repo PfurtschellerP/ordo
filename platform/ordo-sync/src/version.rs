@@ -90,7 +90,7 @@ impl VersionRange {
 /// The versions of the sync protocol this implementation speaks (spec/sync/protocol.md §11).
 pub const SYNC: VersionRange = VersionRange {
     min: Version::new(1, 0),
-    max: Version::new(1, 2),
+    max: Version::new(1, 3),
 };
 
 /// Sync protocol 1.2: `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (MAP-8).
@@ -105,12 +105,18 @@ pub const SYNC_LIVENESS: Version = Version::new(1, 2);
 /// Sync protocol 1.2: `listIncidentDevices`, `blockDevice` and `incidentDevices` (ORG-12).
 pub const SYNC_INCIDENT_DEVICES: Version = Version::new(1, 2);
 
+/// Sync protocol 1.3: `createGuest`, `setGuestAccess` and `guest` (ADR-0077).
+pub const SYNC_GUESTS: Version = Version::new(1, 3);
+
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].
 pub const HTTP: VersionRange = VersionRange {
     min: Version::new(1, 0),
-    max: Version::new(1, 0),
+    max: Version::new(1, 1),
 };
+
+/// HTTP API 1.1: `POST /auth/guest`, pairing with a guest's one-time code (ADR-0077).
+pub const HTTP_GUESTS: Version = Version::new(1, 1);
 
 /// The HTTP header that names the API version of a request and of its response.
 pub const HTTP_HEADER: &str = "ORDO-API-Version";

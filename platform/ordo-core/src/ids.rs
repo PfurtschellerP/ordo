@@ -199,7 +199,17 @@ text_id! {
     EventType, "event type", check_event_type
 }
 
+/// The start of a guest's user ID (ADR-0077): a helper without an account, paired by a
+/// one-time code for one incident. No login maps to a name with it.
+pub const GUEST_PREFIX: &str = "guest-";
+
 impl UserId {
+    // [impl->dsn~guest-access~1]
+    /// Whether this is a guest, a helper without an account (ADR-0077).
+    pub fn is_guest(&self) -> bool {
+        self.localpart().starts_with(GUEST_PREFIX)
+    }
+
     /// Builds a user ID from a local part and a server name.
     pub fn new(localpart: &str, server: &ServerName) -> Result<Self, IdError> {
         format!("{localpart}@{server}").parse()
