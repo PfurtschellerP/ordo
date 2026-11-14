@@ -7,7 +7,7 @@
 // property show that tactical symbol of the profile (MAP-3), the others a circle.
 //
 // [impl->dsn~situation-map~5]
-// [impl->dsn~tactical-symbols~1]
+// [impl->dsn~tactical-symbols~2]
 // [impl->dsn~map-drawing~2]
 
 // One region per incident, named by the incident's ULID; read with a ticket.

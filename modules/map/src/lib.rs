@@ -22,8 +22,9 @@ pub const PLACED: &str = "map.objectPlaced";
 /// Event type: an object was taken off the map.
 pub const REMOVED: &str = "map.objectRemoved";
 /// Schema version of `map.objectPlaced`: 2 since an object may stand for a report (REP-4,
-/// ADR-0075); older payloads decode unchanged.
-pub const PLACED_SCHEMA: u32 = 2;
+/// ADR-0075), 3 since it may be a tactical symbol of its own (MAP-10); older payloads decode
+/// unchanged.
+pub const PLACED_SCHEMA: u32 = 3;
 /// The ID of the incident location: there is one per incident.
 pub const INCIDENT_OBJECT: &str = "incident";
 
@@ -43,6 +44,9 @@ pub enum ObjectKind {
     Drawing,
     /// The place of a report (`reference`: its ID; REP-4). Since schema version 2.
     Report,
+    /// A tactical symbol of the profile placed on its own (`reference`: the symbol's ID;
+    /// MAP-10); several of one symbol each have an ID of their own. Since schema version 3.
+    Symbol,
 }
 
 impl ObjectKind {
@@ -56,6 +60,7 @@ impl ObjectKind {
             Self::Position => format!("position:{reference}"),
             Self::Drawing => format!("drawing:{reference}"),
             Self::Report => format!("report:{reference}"),
+            Self::Symbol => format!("symbol:{reference}"),
         }
     }
 }

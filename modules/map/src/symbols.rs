@@ -16,6 +16,18 @@ pub struct Symbol {
     /// How the profile's generator draws it (parameters of the regional standard).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spec: BTreeMap<String, String>,
+    /// The topic it is offered under when placed on the map (MAP-10); none: not offered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+}
+
+/// A topic of the symbols offered for placing (MAP-10), e.g. "Personen".
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SymbolGroup {
+    /// Stable ID, e.g. `persons`.
+    pub id: String,
+    /// What it is called, e.g. "Personen".
+    pub label: String,
 }
 
 /// Which symbol a unit gets: by its type first, else by its service.
@@ -35,6 +47,9 @@ pub struct SymbolCatalogue {
     /// The symbols.
     #[serde(default)]
     pub symbols: Vec<Symbol>,
+    /// The topics symbols are offered under, in menu order (MAP-10).
+    #[serde(default)]
+    pub groups: Vec<SymbolGroup>,
     /// Units.
     #[serde(default)]
     pub units: UnitRules,
@@ -58,7 +73,7 @@ impl SymbolCatalogue {
         self.symbols.iter().find(|s| s.id == id)
     }
 
-    // [impl->dsn~tactical-symbols~1]
+    // [impl->dsn~tactical-symbols~2]
     /// A unit's symbol: by its type (case does not matter), else by its service, else none.
     pub fn for_unit(&self, unit_type: &str, service: Option<&str>) -> Option<&Symbol> {
         let unit_type = unit_type.trim();
@@ -84,6 +99,23 @@ impl SymbolCatalogue {
     /// A report's symbol by its kind (`event`, `patient`).
     pub fn for_report(&self, kind: &str) -> Option<&Symbol> {
         self.reports.get(kind).and_then(|id| self.symbol(id))
+    }
+
+    // [impl->dsn~tactical-symbols~2]
+    /// The symbols offered for placing, by topic in menu order (MAP-10).
+    pub fn by_group(&self) -> Vec<(&SymbolGroup, Vec<&Symbol>)> {
+        self.groups
+            .iter()
+            .map(|g| {
+                let list = self
+                    .symbols
+                    .iter()
+                    .filter(|s| s.group.as_deref() == Some(g.id.as_str()))
+                    .collect();
+                (g, list)
+            })
+            .filter(|(_, list): &(_, Vec<&Symbol>)| !list.is_empty())
+            .collect()
     }
 
     /// The incident location's symbol.
@@ -114,6 +146,19 @@ impl SymbolCatalogue {
                 return Err(format!("symbol {} has no label", s.id));
             }
         }
+        let mut groups = std::collections::BTreeSet::new();
+        for g in &self.groups {
+            if g.label.trim().is_empty() || !groups.insert(g.id.as_str()) {
+                return Err(format!("group {:?} twice or without a label", g.id));
+            }
+        }
+        if let Some(s) = self
+            .symbols
+            .iter()
+            .find(|s| s.group.as_deref().is_some_and(|g| !groups.contains(g)))
+        {
+            return Err(format!("symbol {}: no group {:?}", s.id, s.group));
+        }
         let rules = self
             .units
             .by_type
@@ -141,11 +186,16 @@ mod tests {
         serde_json::from_str(
             r#"{
               "symbols": [
-                { "id": "incident", "label": "Einsatzstelle", "spec": { "grundzeichen": "anlass" } },
-                { "id": "rtw", "label": "Rettungswagen" },
+                { "id": "incident", "label": "Einsatzstelle", "spec": { "grundzeichen": "anlass" }, "group": "scene" },
+                { "id": "rtw", "label": "Rettungswagen", "group": "units" },
                 { "id": "rescue-vehicle", "label": "Fahrzeug Rettungsdienst" },
                 { "id": "treatment-area", "label": "Behandlungsplatz" },
                 { "id": "sector-command", "label": "Einsatzabschnittsleitung" }
+              ],
+              "groups": [
+                { "id": "units", "label": "Einsatzmittel" },
+                { "id": "scene", "label": "Einsatzstelle" },
+                { "id": "persons", "label": "Personen" }
               ],
               "units": { "by_type": { "RTW": "rtw" }, "by_service": { "rescue": "rescue-vehicle" } },
               "uhs": { "treatmentArea": "treatment-area" },
@@ -160,7 +210,7 @@ mod tests {
         s.map(|s| s.id.as_str())
     }
 
-    // [utest->dsn~tactical-symbols~1]
+    // [utest->dsn~tactical-symbols~2]
     #[test]
     fn objects_get_the_profiles_symbols() {
         let c = catalogue();
@@ -186,7 +236,34 @@ mod tests {
         );
     }
 
-    // [utest->dsn~tactical-symbols~1]
+    // [utest->dsn~tactical-symbols~2]
+    #[test]
+    fn symbols_are_offered_by_topic_in_menu_order() {
+        let c = catalogue();
+        let menu: Vec<(&str, Vec<&str>)> = c
+            .by_group()
+            .into_iter()
+            .map(|(g, list)| {
+                (
+                    g.label.as_str(),
+                    list.iter().map(|s| s.id.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            menu,
+            [
+                ("Einsatzmittel", vec!["rtw"]),
+                ("Einsatzstelle", vec!["incident"])
+            ],
+            "a topic without symbols is left out; symbols without a topic are not offered"
+        );
+        let mut c = catalogue();
+        c.symbols[1].group = Some("nowhere".into());
+        assert!(c.check().is_err(), "a symbol's topic must exist");
+    }
+
+    // [utest->dsn~tactical-symbols~2]
     #[test]
     fn check_finds_broken_catalogues() {
         let mut c = catalogue();

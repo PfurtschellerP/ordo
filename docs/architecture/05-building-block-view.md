@@ -536,7 +536,7 @@ Needs: impl, utest, itest
 Tags: must, m38, m51
 
 #### Tactical symbols
-`dsn~tactical-symbols~1`
+`dsn~tactical-symbols~2`
 
 Symbols are profile data (rule 6: German doctrine stays out of the platform). The profile
 file `symbols/symbols.json` describes each symbol by the parameters of DV 102 (base
@@ -553,13 +553,21 @@ and the list beside the map shows the symbol too, named by its label. Symbols ar
 black on white, as on paper, in every theme. Objects without a symbol keep the plain
 marker. Another profile can ship other files.
 
+Each symbol may name a topic of the profile's `groups` (e.g. *Personen*, *Gefahren und
+Schäden*, *Stellen und Einrichtungen*); the map editor offers every symbol with a topic as
+an object of its own (MAP-10): kind *Taktisches Zeichen*, a menu grouped by topic in the
+profile's order, and an optional label, else the symbol's. Each placement has an ID of its
+own (`symbol:<ULID>`, `map.objectPlaced` schema version 3), so one symbol can stand many
+times on the map; the list names it by its label and the symbol.
+
 Covers:
 
 * [req~map-3~1](../requirements/02-shared.md#map-3--tactical-symbols)
+* [req~map-10~1](../requirements/02-shared.md#map-10--placing-tactical-symbols)
 
 Needs: impl, utest, itest
 
-Tags: must, m34
+Tags: must, m34, m62
 
 #### Incident log
 `dsn~incident-log~1`

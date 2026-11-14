@@ -1471,6 +1471,8 @@ pub const INCIDENT_LOCATION: &str = "Einsatzort";
 pub const MAP_SAVING: &str =
     "Die Kartengrundlage wird für die Nutzung ohne Netz auf diesem Gerät gespeichert …";
 pub const MAP_SAVE_FAILED: &str = "Die Karte konnte nicht gespeichert werden.";
+pub const MAP_KIND_SYMBOL: &str = "Taktisches Zeichen";
+pub const MAP_SYMBOL_LABEL: &str = "Beschriftung (optional)";
 
 pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
     use ordo_map::ObjectKind as K;
@@ -1481,6 +1483,7 @@ pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
         K::Position => POSITION,
         K::Drawing => "Zeichnung",
         K::Report => REPORT,
+        K::Symbol => MAP_KIND_SYMBOL,
     }
 }
 

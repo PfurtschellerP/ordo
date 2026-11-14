@@ -76,7 +76,7 @@ fn symbol_url(id: &str) -> Option<String> {
     })
 }
 
-// [impl->dsn~tactical-symbols~1]
+// [impl->dsn~tactical-symbols~2]
 /// Which symbol each object gets (MAP-3), by object ID: a unit by its type or service, a
 /// UHS by its kind, a position by its kind, the incident location its own. Objects this
 /// device cannot look up (e.g. a UHS without access to medical data) get none.
@@ -109,6 +109,7 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
                     .reports
                     .get(reference)
                     .and_then(|r| SYMBOLS.for_report(crate::reports::kind_id(r.recorded.kind))),
+                ObjectKind::Symbol => SYMBOLS.symbol(reference),
                 ObjectKind::Drawing => None,
             }?;
             Some((o.placed.object.clone(), symbol.clone()))
@@ -416,6 +417,15 @@ fn kind_label(placed: &ObjectPlaced) -> String {
         placed.reference.as_deref().and_then(|r| DRAWINGS.get(r)),
     ) {
         (ObjectKind::Drawing, Some(c)) => c.label.clone(),
+        // A symbol of its own says which one (MAP-10).
+        (ObjectKind::Symbol, _) => placed
+            .reference
+            .as_deref()
+            .and_then(|r| SYMBOLS.symbol(r))
+            .map_or_else(
+                || text::map_kind(ObjectKind::Symbol).to_owned(),
+                |s| s.label.clone(),
+            ),
         (kind, _) => text::map_kind(kind).to_owned(),
     }
 }
@@ -654,6 +664,7 @@ fn place_kind(kind: ObjectKind) -> &'static str {
         ObjectKind::Uhs => "uhs",
         ObjectKind::Position => "position",
         ObjectKind::Report => "report",
+        ObjectKind::Symbol => "symbol",
         ObjectKind::Incident | ObjectKind::Drawing => "incident",
     }
 }
@@ -843,8 +854,11 @@ pub fn MapEditor(
             error.set(Some(text::MAP_PLACE_MISSING));
             return;
         }
-        let shown = if object_kind == ObjectKind::Incident {
-            label.get_untracked().trim().to_owned()
+        let typed = label.get_untracked().trim().to_owned();
+        let shown = if object_kind == ObjectKind::Incident
+            || (object_kind == ObjectKind::Symbol && !typed.is_empty())
+        {
+            typed
         } else {
             place_choices(core, object_kind)
                 .into_iter()
@@ -852,8 +866,18 @@ pub fn MapEditor(
                 .map(|(_, name)| name)
                 .unwrap_or_default()
         };
+        // [impl->dsn~tactical-symbols~2]
+        // A symbol of its own gets an ID of its own: one symbol can be placed many times.
+        let object = if object_kind == ObjectKind::Symbol {
+            match core::new_ulid() {
+                Some(id) => ObjectKind::Symbol.object_id(&id.to_string()),
+                None => return,
+            }
+        } else {
+            object_kind.object_id(&reference_value)
+        };
         let placed = ObjectPlaced {
-            object: object_kind.object_id(&reference_value),
+            object,
             kind: object_kind,
             reference: (object_kind != ObjectKind::Incident).then_some(reference_value),
             label: if shown.is_empty() {
@@ -1103,20 +1127,42 @@ pub fn MapEditor(
                         kind.set(event_target_value(&ev));
                         reference.set(String::new());
                     }>
-                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("report", text::REPORT)]
+                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("report", text::REPORT), ("symbol", text::MAP_KIND_SYMBOL)]
                             .into_iter()
                             .map(|(id, name)| view! { <option value=id selected=move || kind.get() == id>{name}</option> })
                             .collect_view()}
                     </select>
                 </div>
+                // [impl->dsn~tactical-symbols~2]
+                // Every symbol of the profile, by topic (MAP-10), with a label if wanted.
+                <Show when=move || kind.get() == "symbol">
+                    <div class="field">
+                        <label for="place-symbol">{text::MAP_KIND_SYMBOL}</label>
+                        <select id="place-symbol" prop:value=move || reference.get() on:change=move |ev| reference.set(event_target_value(&ev))>
+                            <option value="" selected=move || reference.get().is_empty()>{text::MAP_PLACE_CHOOSE}</option>
+                            {SYMBOLS.by_group().into_iter().map(|(g, list)| view! {
+                                <optgroup label=g.label.clone()>
+                                    {list.into_iter().map(|s| {
+                                        let mine = s.id.clone();
+                                        view! { <option value=s.id.clone() selected=move || reference.get() == mine>{s.label.clone()}</option> }
+                                    }).collect_view()}
+                                </optgroup>
+                            }).collect_view()}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="place-symbol-label">{text::MAP_SYMBOL_LABEL}</label>
+                        <input id="place-symbol-label" type="text" autocomplete="off" bind:value=label />
+                    </div>
+                </Show>
                 <Show
-                    when=move || kind.get() != "incident"
-                    fallback=move || view! {
+                    when=move || kind.get() != "incident" && kind.get() != "symbol"
+                    fallback=move || (kind.get() == "incident").then(|| view! {
                         <div class="field">
                             <label for="place-label">{text::MAP_PLACE_LABEL}</label>
                             <input id="place-label" type="text" autocomplete="off" bind:value=label />
                         </div>
-                    }
+                    })
                 >
                     <div class="field">
                         <label for="place-reference">{text::MAP_PLACE_WHICH}</label>
@@ -1213,6 +1259,7 @@ fn object_kind(choice: &str) -> ObjectKind {
         "uhs" => ObjectKind::Uhs,
         "position" => ObjectKind::Position,
         "report" => ObjectKind::Report,
+        "symbol" => ObjectKind::Symbol,
         _ => ObjectKind::Incident,
     }
 }
@@ -1240,6 +1287,12 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
                     crate::reports::label(&r.recorded),
                 )
             })
+            .collect(),
+        ObjectKind::Symbol => SYMBOLS
+            .by_group()
+            .into_iter()
+            .flat_map(|(_, list)| list)
+            .map(|s| (s.id.clone(), s.label.clone()))
             .collect(),
         ObjectKind::Incident | ObjectKind::Drawing => Vec::new(),
     }

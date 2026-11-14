@@ -637,7 +637,7 @@ test("ORDO in the browser", async ({ browser }) => {
 
   await test.step("input survives being offline and a reload", async () => {
     // [itest->dsn~offline-app-shell~2]
-    await expect.poll(() => anna.evaluate(() => !!navigator.serviceWorker.controller), { message: "the app shell is installed for offline use" }).toBe(true);
+    await expect.poll(() => anna.evaluate(() => !!navigator.serviceWorker.controller), { message: "the app shell is installed for offline use (the first install fetches every file)", timeout: 30_000 }).toBe(true);
     await expect
       .poll(() => anna.evaluate(async () => (await caches.keys()).filter((k) => k.startsWith("ordo-app-shell")).map((k) => /^ordo-app-shell-[0-9a-f]{16}$/.test(k))), {
         message: "one cache, for the version of the app that runs",
@@ -1384,11 +1384,25 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
     const unit = ben.locator(".map-object[data-object='unit:RTW 83/1']");
     await expect(unit).toContainText("RTW 83/1 · Einsatzmittel");
-    // [itest->dsn~tactical-symbols~1]
+    // [itest->dsn~tactical-symbols~2]
     // MAP-3: objects carry the profile's tactical symbols, on the map and in the list.
     await expect(unit.getByRole("img", { name: "Rettungswagen" }), "a unit of type RTW gets its symbol").toHaveAttribute("data-symbol", "rtw");
     await expect(objects.first().locator(".map-object__symbol"), "the incident location gets its symbol").toHaveAttribute("data-symbol", "incident");
     expect(Number(await ben.locator(".situation__map").getAttribute("data-symbols")), "the map has the symbols as images").toBeGreaterThan(20);
+    // [itest->dsn~tactical-symbols~2]
+    // MAP-10: every symbol of the profile, by topic, placed as often as needed.
+    await ben.locator("#place-kind").selectOption({ label: "Taktisches Zeichen" });
+    await expect(ben.locator("#place-symbol optgroup"), "grouped by topic").toHaveCount(6);
+    await expect(ben.locator("#place-symbol optgroup[label='Gefahren und Schäden'] option", { hasText: "Gefahr akut" })).toHaveCount(1);
+    await ben.locator("#place-symbol").selectOption({ label: "Gefahr" });
+    await ben.locator("#place-symbol-label").fill("Glasscherben");
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    await expect(panelStatus).toHaveText("Glasscherben platziert.");
+    await ben.locator("#place-symbol-label").fill("");
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    const hazards = objects.filter({ has: ben.locator(".map-object__symbol[data-symbol='hazard']") });
+    await expect(hazards, "the same symbol twice").toHaveCount(2);
+    await expect(hazards.filter({ hasText: "Glasscherben" }), "named by its label and the symbol").toContainText("Glasscherben · Gefahr");
     expect(await unit.locator(".map-object__at").innerText(), "placed where the keyboard moved the map from the device's position").toMatch(/^48\.36000, 10\.(?!89000)\d+$/);
     // MAP-4 by keyboard: the incident area, corner by corner at the crosshair.
     await tool("Fläche").click();

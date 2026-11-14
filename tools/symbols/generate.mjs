@@ -6,7 +6,7 @@
 //   node generate.mjs ../../profiles/de/symbols          write <id>.svg
 //   node generate.mjs ../../profiles/de/symbols --check  fail if a file differs
 //
-// [impl->dsn~tactical-symbols~1]
+// [impl->dsn~tactical-symbols~2]
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";

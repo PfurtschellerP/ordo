@@ -396,6 +396,17 @@ Needs: dsn
 
 ### 4.6 Shared: incident log (*Einsatztagebuch*)
 
+#### MAP-10 — Placing tactical symbols
+`req~map-10~1`
+
+When the incident command places a tactical symbol on the situation map, ORDO shall offer
+every symbol of the profile, grouped by topic, place it as often as needed, and show it
+with its label on the map and in the list.
+
+Tags: should, shared, m62
+
+Needs: dsn
+
 #### LOG-1 — Automatic log
 `req~log-1~1`
 
