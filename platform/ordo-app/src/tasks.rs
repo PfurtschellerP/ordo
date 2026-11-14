@@ -121,7 +121,7 @@ fn TaskItem(
     }
 }
 
-// [impl->dsn~tasks~2]
+// [impl->dsn~tasks~3]
 /// The open tasks in short, at the top of every view of the incident command (TASK-3): how
 /// many, which are due, and a link to the page *Disposition*.
 #[component]
@@ -155,7 +155,93 @@ pub fn TasksStrip(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~tasks~2]
+// [impl->dsn~tasks~3]
+/// The bell in the header (TASK-3): for the incident command, on every page, what needs its
+/// attention now: follow-ups that are due, and open reports no unit is working on (REP-2).
+/// The number is text, never colour alone; each item links to *Disposition*.
+#[component]
+pub fn AttentionBell(
+    core: Handle,
+    revision: RwSignal<u64>,
+    /// Called before opening, to close the other header menus.
+    on_open: Callback<()>,
+) -> impl IntoView {
+    let leads = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, "view_situation"))
+        })
+    });
+    let items = Memo::new(move |_| {
+        revision.track();
+        let now = core::now_ms();
+        let tasks = task_list(core);
+        let mut items: Vec<String> = tasks
+            .open(now)
+            .into_iter()
+            .filter(|t| t.is_due(now))
+            .map(|t| {
+                text::attention_due(t.given.unit.as_deref().unwrap_or_default(), &t.given.text)
+            })
+            .collect();
+        items.extend(
+            crate::reports::list(core)
+                .open()
+                .into_iter()
+                .filter(|r| {
+                    !tasks
+                        .of_report(&r.recorded.report)
+                        .iter()
+                        .any(|t| t.status.is_open())
+                })
+                .map(|r| text::attention_unassigned(&crate::reports::label(&r.recorded))),
+        );
+        items
+    });
+    let open = RwSignal::new(false);
+    view! {
+        <Show when=move || leads.get()>
+            <crate::ui::Disclosure id="attention" open class="attention"
+                button_class="attention__button" panel_class="attention__panel"
+                on_open=Some(on_open)
+                label=Some(Signal::derive(move || text::attention_label(items.with(Vec::len))))
+                button=Box::new(move || view! {
+                    <crate::ui::Icon name="bell" />
+                    {move || {
+                        let n = items.with(Vec::len);
+                        (n > 0).then(|| view! { <span class="attention__count" aria-hidden="true">{n}</span> })
+                    }}
+                }.into_any())>
+                <h2 class="launcher__title">{text::ATTENTION}</h2>
+                {move || {
+                    let list = items.get();
+                    if list.is_empty() {
+                        return view! { <p>{text::ATTENTION_NONE}</p> }.into_any();
+                    }
+                    let dispatch = crate::nav::Route::view("command.lead", "dispatch");
+                    view! {
+                        <ul class="attention__list">
+                            {list.into_iter().map(|item| {
+                                let route = dispatch.clone();
+                                view! {
+                                    <li><a href=route.to_path() on:click={
+                                        let follow = crate::views::follow_route(route.clone());
+                                        move |ev| { open.set(false); follow(ev) }
+                                    }>{item}</a></li>
+                                }
+                            }).collect_view()}
+                        </ul>
+                    }
+                    .into_any()
+                }}
+            </crate::ui::Disclosure>
+        </Show>
+    }
+}
+
+// [impl->dsn~tasks~3]
 /// The page *Disposition*: all open tasks, due follow-ups first; the command gives new tasks
 /// here (TASK-1); below, the units with their status, set here (ADR-0070).
 #[component]

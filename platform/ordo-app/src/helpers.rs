@@ -58,20 +58,24 @@ fn duty(h: &Helper, now: u64) -> Option<String> {
     }
 }
 
-/// Organisation, qualifications and duty of a helper, as one line.
+/// Duty and organisation of a helper, as one line: "im Dienst seit 10:12 · DRK Musterstadt".
 fn details(h: &Helper, now: u64) -> String {
-    let quals = h.fields.qualifications.as_ref().map(|q| {
-        q.iter()
-            .map(|id| UnitCatalogue::label(&CATALOGUE.qualifications, id).to_owned())
-            .collect::<Vec<_>>()
-            .join(", ")
-    });
-    [h.fields.organisation.clone(), quals, duty(h, now)]
+    [duty(h, now), h.fields.organisation.clone()]
         .into_iter()
         .flatten()
         .filter(|t| !t.is_empty())
         .collect::<Vec<_>>()
         .join(" · ")
+}
+
+/// A helper's qualifications, by their labels in the profile.
+fn qualifications(h: &Helper) -> Vec<String> {
+    h.fields
+        .qualifications
+        .iter()
+        .flatten()
+        .map(|id| UnitCatalogue::label(&CATALOGUE.qualifications, id).to_owned())
+        .collect()
 }
 
 /// The diets of the helpers whose duty has not ended, most frequent first, those without
@@ -248,6 +252,9 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         request_animation_frame(|| crate::views::focus("guest-pass-title"));
     });
     view! {
+        // [impl->dsn~helper-register~3]
+        // Who is there, then the form to take someone in: two sections (feedback of
+        // 2026-11-14), each person a card of short lines.
         <section aria-labelledby="helpers-title" class="card helpers">
             <h2 id="helpers-title" tabindex="-1">{text::HELPERS_TITLE}</h2>
             <p class="hint">{move || if readable.get() { text::HELPERS_INTRO } else { text::HELPERS_INTRO_ROLES }}</p>
@@ -271,15 +278,17 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .into_any()
             }}
             <p role="alert" class="error">{move || error.get()}</p>
-            {move || shown_pass.get().map(|(pass, name)| view! { <GuestPassView pass name shown=shown_pass /> })}
-            <Show when=move || manage.get() || readable.get()>
+        </section>
+        <Show when=move || manage.get() || readable.get()>
+            <section aria-labelledby="helper-form-title" class="card helper-form-section">
+                {move || shown_pass.get().map(|(pass, name)| view! { <GuestPassView pass name shown=shown_pass /> })}
                 {move || {
                     // A new form for each person edited, filled with them.
                     let person = editing.get();
                     view! { <HelperForm core revision editing person readable=readable.get() manage=manage.get() /> }
                 }}
-            </Show>
-        </section>
+            </section>
+        </Show>
     }
 }
 
@@ -382,26 +391,45 @@ fn PersonEntry(
         text::helper_complete_label(&name)
     };
     let roles = person.roles.clone();
+    let quals = person
+        .helper
+        .as_ref()
+        .map(qualifications)
+        .unwrap_or_default();
     view! {
-        <li class="roster__entry" data-helper=person.helper.as_ref().map(|h| h.id.clone()) data-user=account.clone()>
-            {account.as_deref().and_then(|a| a.parse::<ordo_core::UserId>().ok()).map(|id| view! {
-                <crate::profile::Avatar core revision user=id />
+        <li class="roster__entry person-card" data-helper=person.helper.as_ref().map(|h| h.id.clone()) data-user=account.clone()>
+            <p class="person-card__head">
+                {account.as_deref().and_then(|a| a.parse::<ordo_core::UserId>().ok()).map(|id| view! {
+                    <crate::profile::Avatar core revision user=id />
+                })}
+                <span class="roster__person">{crate::profile::naming({
+                    let person = person.clone();
+                    move || shown_name(core, &person)
+                })}</span>
+                // The account, unless the name is the account itself (until a name is known).
+                {account.clone().filter(|_| guest.is_none()).map(|a| {
+                    let differs = crate::profile::naming({
+                        let (person, a) = (person.clone(), a.clone());
+                        move || !shown_name(core, &person).eq_ignore_ascii_case(&a)
+                    });
+                    view! { <Show when=move || differs.get()><span class="roster__id">{a.clone()}</span></Show> }
+                })}
+            </p>
+            {(!line.is_empty()).then(|| view! { <p class="person-card__duty">{line}</p> })}
+            {guest_until.map(|t| view! { <p class="person-card__duty helper-list__guest">{t}</p> })}
+            {(!quals.is_empty()).then(|| view! {
+                <ul class="chip-row person-card__quals" aria-label=text::CREW_QUALIFICATIONS>
+                    {quals.into_iter().map(|q| view! { <li class="tag">{q}</li> }).collect_view()}
+                </ul>
             })}
-            <span class="roster__person">{crate::profile::naming({
-                let person = person.clone();
-                move || shown_name(core, &person)
-            })}</span>
-            {account.clone().filter(|_| guest.is_none()).map(|a| view! { <span class="roster__id">{a}</span> })}
-            {(!line.is_empty()).then(|| view! { <span class="roster__id">{line}</span> })}
-            {guest_until.map(|t| view! { <span class="roster__id helper-list__guest">{t}</span> })}
             {(!roles.is_empty()).then(|| view! {
-                <ul class="roster__roles">
+                <ul class="chip-row roster__roles" aria-label=text::HELPER_ROLE>
                     {roles.into_iter().map(|role| {
                         let user = account.clone().unwrap_or_default();
                         let label = text::withdraw_label(&user, &role);
                         let (u, r) = (user.clone(), role.clone());
                         view! {
-                            <li class="roster__role">
+                            <li class="tag roster__role">
                                 {text::role_label(&role)}
                                 <Show when=move || manage.get()>
                                     <button type="button" class="button button--small" aria-label=label.clone()
@@ -619,7 +647,12 @@ fn HelperForm(
             return;
         }
         let mut saved = None;
-        if readable {
+        // Someone registered already (e.g. a second role for the same account) is not
+        // registered again: only the role is granted.
+        let registered_already = id.is_none()
+            && !account_value.is_empty()
+            && register(core).is_some_and(|r| r.of_account(&account_value).is_some());
+        if readable && !registered_already {
             match save_helper(&HelperDraft {
                 core,
                 revision,
@@ -763,17 +796,19 @@ fn HelperForm(
             </div>
         }
     };
+    // From a registration card (HELP-5): next to the account, where a registration starts.
+    let card = (readable && !editing_one && !CARDS.card.is_empty()).then(|| view! {
+        <div class="field helper-card">
+            <span class="helper-form__or" aria-hidden="true">{text::OR}</span>
+            <label class="button" for="helper-card-photo">{text::card_photo(match CARDS.card.as_slice() {
+                [one] => one.label.as_str(),
+                _ => text::CARD_GENERIC,
+            })}</label>
+            <input id="helper-card-photo" class="visually-hidden" type="file" accept="image/*" capture="environment" on:change=read_card />
+            <p role="status" class="hint">{move || card_status.get()}</p>
+        </div>
+    });
     let personal = readable.then(|| view! {
-        {(!editing_one && !CARDS.card.is_empty()).then(|| view! {
-            <div class="row helper-card">
-                <label class="button" for="helper-card-photo">{text::card_photo(match CARDS.card.as_slice() {
-                    [one] => one.label.as_str(),
-                    _ => text::CARD_GENERIC,
-                })}</label>
-                <input id="helper-card-photo" class="visually-hidden" type="file" accept="image/*" capture="environment" on:change=read_card />
-                <p role="status" class="hint">{move || card_status.get()}</p>
-            </div>
-        })}
         <div class="form--inline">
             {text_field("helper-name", text::HELPER_NAME, name, "off")}
             {text_field("helper-organisation", text::UNIT_ORGANISATION, organisation, "off")}
@@ -825,10 +860,13 @@ fn HelperForm(
             </div>
         </div>
     });
+    // [impl->dsn~helper-register~3]
+    // In the order of use: an account or a Meldekarte to start from, then what they did not
+    // bring, then the role.
     view! {
         <form class="form helper-form" novalidate on:submit=submit aria-labelledby="helper-form-title">
-            <h3 id="helper-form-title">{title}</h3>
-            <div class="form--inline">
+            <h2 id="helper-form-title">{title}</h2>
+            <div class="form--inline helper-form__start">
                 <div class="field">
                     <label for="helper-account">{text::HELPER_ACCOUNT_LABEL}</label>
                     <input id="helper-account" type="text" autocomplete="off" spellcheck="false" list="helper-account-people"
@@ -839,7 +877,11 @@ fn HelperForm(
                     <Suggestions id="helper-account-people" values=people core />
                     <p id="helper-account-hint" class="hint">{text::HELPER_ACCOUNT_HINT}</p>
                 </div>
-                {manage.then(|| view! {
+                {card}
+            </div>
+            {personal}
+            {manage.then(|| view! {
+                <div class="form--inline">
                     <div class="field">
                         <label for="helper-role">{text::HELPER_ROLE}</label>
                         <select id="helper-role" prop:value=move || role.get() on:change=move |ev| role.set(event_target_value(&ev))>
@@ -852,9 +894,8 @@ fn HelperForm(
                                 .collect_view()}
                         </select>
                     </div>
-                })}
-            </div>
-            {personal}
+                </div>
+            })}
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
                 <button type="submit" class="button button--primary">

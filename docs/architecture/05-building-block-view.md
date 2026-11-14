@@ -282,7 +282,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~2`
+`dsn~tasks~3`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment. `tasks.given`
 gives a task a new ID (ULID): to a unit (call sign; sectors follow with the command
@@ -294,10 +294,14 @@ with who and when. A follow-up is due once its time has passed and the task is o
 
 Only the incident command gives and updates tasks (Cedar: medical roles may not write the
 module). The page *Disposition* (*Einsatzleitung – Führung*) lists the open tasks, due follow-ups
-first, then by age, each with its unit and next steps, and gives new tasks. Every other
-view of the incident command shows them in short at the top (TASK-3): how many are open,
-which are due, linked to the page. Each unit card lists its open tasks.
-"Due" is shown in words and with an icon, not by colour alone.
+first, then by age, each with its unit and next steps, and gives new tasks. The other views
+of *Führung* show them in short at the top (TASK-3): how many are open, which are due,
+linked to the page; *Vorbereitung* does not (feedback of 2026-11-14). Instead, on every
+page, a bell in the header counts what needs the command's attention now: follow-ups that
+are due and open reports no unit is working on ([Reports](#reports)). Its number is text,
+its name says it ("Hinweise: 2"), and its panel lists each item, linked to *Disposition*.
+Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
+colour alone.
 
 Covers:
 
@@ -347,12 +351,14 @@ Needs: impl, utest, itest
 Tags: must, m32
 
 #### Org chart
-`dsn~org-chart~1`
+`dsn~org-chart~2`
 
 The command structure is drawn as an org chart from the same nested lists, by CSS alone:
 where the card is at least 40rem wide (container query), positions under one stand side by
-side below it, joined by lines in the border colour; each position is a compact card
-(title, leader, units, UHS, the handovers collapsed). A wide chart scrolls within its own
+side below it, joined by lines in the border colour, and the chart takes the card's
+width, siblings sharing it; each position is a compact card (title, leader, the handovers
+collapsed). The units and UHS under a position are the next level of the tree, below it,
+each a smaller card with its kind in words. A wide chart scrolls within its own
 region, which takes keyboard focus. Where the card is narrower, the chart falls back to the
 indented tree. The lists stay the semantics, so screen readers hear a nested list, as
 before. Org chart libraries (d3-org-chart, OrgChart.js) were not needed: they draw from
@@ -583,11 +589,13 @@ the incident command (`commander` in `command.cedar`).
   field clears it. The latest value per field counts, by hybrid logical clock, whatever
   order the events arrive in.
 * **Page** ([ADR-0076](../adr/0076-people-and-roles-in-one-list.md)): *Vorbereitung –
-  Personal* lists the incident's people in one list: every helper by name with account,
-  organisation, qualifications, duty and the roles of their account, then everyone with a
-  role who is not in the register, with "Angaben ergänzen". One form registers a person:
-  first the ORDO account, chosen from the people the server knows, which fills in the name;
-  then the personal data, and a role in the incident, granted with the registration. A
+  Personal* starts with the incident's people, then the form to take someone in, then the
+  command structure, and the devices last. The list holds every helper, then everyone with
+  a role who is not in the register, with "Angaben ergänzen"; each a card of short lines:
+  name and account; duty and organisation; qualifications and roles as chips that wrap.
+  The form follows the order of use: the ORDO account, chosen from the people the server
+  knows, which fills in the name, or a Meldekarte; then what is still missing; then a role
+  in the incident, granted with the registration. A
   role needs an account. Without access to the register (e.g. a planner of another
   incident) the list holds the roles and the form asks only for account and role. On duty
   means: started and not ended. The name is required; everything else may come later. For

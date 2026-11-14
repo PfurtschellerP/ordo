@@ -912,6 +912,7 @@ fn Workspace(
                 <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
             </button>
             <div class="app-header__end">
+                <crate::tasks::AttentionBell core revision on_open=Callback::new(move |()| { open.set(false); profile_open.set(false); }) />
                 <ConnectionStatus core revision />
                 <Disclosure id="profile" open=profile_open class="profile-menu"
                     button_class="profile-menu__button" panel_class="profile-menu__panel"
@@ -1032,12 +1033,12 @@ fn Workspace(
               </div>
             </div>
             <main id="main" class="page" tabindex="-1">
-                // [impl->dsn~tasks~2]
-                // The open tasks, in short, at the top of every view of the incident command
-                // (TASK-3); the whole list is the page *Aufträge*.
+                // [impl->dsn~tasks~3]
+                // The open tasks, in short, at the top of the views of *Führung* (TASK-3); the
+                // whole list is the page *Disposition*. Elsewhere the bell in the header says
+                // what needs attention.
                 <Show when=move || {
-                    current.get().is_some_and(|w| w.starts_with("command."))
-                        && current_view.get() != Some("dispatch")
+                    current.get() == Some("command.lead") && current_view.get() != Some("dispatch")
                 }>
                     <crate::tasks::TasksStrip core revision />
                 </Show>
@@ -1065,9 +1066,11 @@ fn Workspace(
                     // The command structure is prepared with the people (ADR-0067); old
                     // links to its own view land here.
                     (Some("command.prepare"), Some("people" | "structure")) => view! {
+                        // Who is there and taking people in first, the devices last
+                        // (feedback of 2026-11-14).
                         <crate::helpers::HelpersView core revision />
-                        <crate::devices::IncidentDevicesView core revision />
                         <crate::command::LeadershipView core revision />
+                        <crate::devices::IncidentDevicesView core revision />
                     }.into_any(),
                     // The situation map prepared on one page: its region, then the editor,
                     // also opened to place one object (`place:<kind>:<ID>`).

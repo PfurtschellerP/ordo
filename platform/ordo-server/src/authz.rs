@@ -628,7 +628,7 @@ mod tests {
             "hospitals.set",
             &commander
         ));
-        // [utest->dsn~tasks~2]
+        // [utest->dsn~tasks~3]
         assert!(
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"

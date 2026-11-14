@@ -1198,6 +1198,22 @@ pub fn uhs_renamed(name: &str) -> String {
     format!("UHS umbenannt in {name}")
 }
 
+// What needs the command's attention (TASK-3): the bell in the header.
+pub const ATTENTION: &str = "Hinweise";
+pub const ATTENTION_NONE: &str = "Nichts, das gerade Aufmerksamkeit braucht.";
+pub fn attention_label(n: usize) -> String {
+    match n {
+        0 => format!("{ATTENTION}: keine"),
+        n => format!("{ATTENTION}: {n}"),
+    }
+}
+pub fn attention_due(unit: &str, task: &str) -> String {
+    format!("Rückfrage fällig: {unit} – {task}")
+}
+pub fn attention_unassigned(report: &str) -> String {
+    format!("Meldung ohne Einsatzmittel: {report}")
+}
+
 // Reports (REP-1…5, ADR-0075).
 pub const REPORT: &str = "Meldung";
 pub const REPORTS_TITLE: &str = "Offene Meldungen";
@@ -1399,13 +1415,8 @@ pub fn handover(from: Option<&str>, to: &str) -> String {
     }
 }
 
-pub fn assigned_units(units: &str) -> String {
-    format!("Einsatzmittel: {units}")
-}
-
-pub fn assigned_uhs(uhs: &str) -> String {
-    format!("UHS: {uhs}")
-}
+/// What a member of a position is, under its name in the org chart.
+pub const MEMBER_UHS: &str = "UHS";
 
 /// Shown, never enforced (ADR-0031).
 pub fn span_of_control(n: usize) -> String {
@@ -1999,6 +2010,7 @@ pub const HELPER_POSTCODE_INVALID: &str =
     "Die Postleitzahl hat nicht die Form des Landes, z. B. 55116.";
 pub const HELPER_TOWN: &str = "Ort";
 pub const HELPER_ROLE: &str = "Rolle im Einsatz";
+pub const OR: &str = "oder";
 pub const ROLE_NONE: &str = "keine Rolle";
 pub const GUEST_NEEDS_DUTY_END: &str =
     "Für den Zugang ohne Konto bitte das Dienstende angeben: Der Zugang endet mit ihm.";

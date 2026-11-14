@@ -79,13 +79,32 @@ fn position_item(
             })
             .collect::<Vec<_>>()
     });
-    let units = (!p.units.is_empty()).then(|| text::assigned_units(&p.units.join(", ")));
-    let uhs: Vec<String> = p
-        .uhs
+    // [impl->dsn~org-chart~2]
+    // Units and UHS under a position are the tree's next level, below it (feedback of
+    // 2026-11-14), each with a word for what it is.
+    let members: Vec<AnyView> = p
+        .units
         .iter()
-        .map(|u| uhs_names.get(u).cloned().unwrap_or_else(|| u.clone()))
+        .map(|u| ("unit", u.clone(), text::TAB_RESOURCES))
+        .chain(p.uhs.iter().map(|u| {
+            (
+                "uhs",
+                uhs_names.get(u).cloned().unwrap_or_else(|| u.clone()),
+                text::MEMBER_UHS,
+            )
+        }))
+        .map(|(kind, name, what)| {
+            view! {
+                <li class="position position--member" data-member=kind>
+                    <div class="position__card position__card--member">
+                        <p class="position__title"><strong>{name}</strong></p>
+                        <p class="position__kind">{what}</p>
+                    </div>
+                </li>
+            }
+            .into_any()
+        })
         .collect();
-    let uhs = (!uhs.is_empty()).then(|| text::assigned_uhs(&uhs.join(", ")));
     let span = p
         .span_exceeded()
         .then(|| text::span_of_control(p.subordinates()));
@@ -108,18 +127,17 @@ fn position_item(
             }),
         }]
     });
-    let children: Vec<AnyView> = p
+    let mut children: Vec<AnyView> = p
         .children
         .iter()
         .map(|child| position_item(core, revision, s, child, uhs_names, editable))
         .collect();
+    children.extend(members);
     view! {
         <li class="position" data-position=id.to_owned()>
             <div class="position__card">
                 <p class="position__title"><strong>{title.clone()}</strong></p>
                 <p class="position__leader">{leader}</p>
-                {units.map(|u| view! { <p class="position__units">{u}</p> })}
-                {uhs.map(|u| view! { <p class="position__uhs">{u}</p> })}
                 {span.map(|s| view! { <p class="notice position__span">{s}</p> })}
                 {(!p.leaders.is_empty()).then(|| view! { <History entries=handovers /> })}
                 {close.map(|actions| view! { <Actions actions /> })}
@@ -169,7 +187,7 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .iter()
                     .map(|id| position_item(core, revision, &s, id, &names, editable))
                     .collect();
-                // [impl->dsn~org-chart~1]
+                // [impl->dsn~org-chart~2]
                 // An org chart where the card is wide enough, else an indented tree; a wide
                 // chart scrolls within its own region, reachable by keyboard.
                 view! {

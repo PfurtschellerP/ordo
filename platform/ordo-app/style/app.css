@@ -73,7 +73,8 @@
 
   label, legend { font-weight: var(--ordo-font-weight-bold); }
 
-  input[type="text"], input[type="password"] {
+  /* Every text-like input looks the same: phone numbers and date-times too. */
+  input[type="text"], input[type="password"], input[type="tel"], input[type="datetime-local"] {
     min-height: var(--ordo-component-input-min-height);
     padding: 0 var(--ordo-space-3);
     background: var(--ordo-component-input-background);
@@ -288,8 +289,9 @@
   .launcher__button.launcher__button--bar { display: none; }
   @media (max-width: 48rem) {
     /* Heading, connection icon and person in one row, the search below. */
-    .app-header { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "start status person" "search search search"; }
+    .app-header { grid-template-columns: minmax(0, 1fr) auto auto auto; grid-template-areas: "start bell status person" "search search search search"; }
     .app-header__end { display: contents; }
+    .app-header .attention { grid-area: bell; align-self: start; }
     .app-header .connection { grid-area: status; }
     .app-header .profile-menu { grid-area: person; align-self: start; }
     .app-header .connection { align-self: start; }
@@ -348,7 +350,27 @@
   .profile-menu__panel[hidden] { display: none; }
   .profile-menu__panel .button { justify-self: start; }
 
-  .search-button, .launcher__button, .profile-menu__button, .connection__button {
+  /* What needs the command's attention (TASK-3): a bell with the number as text. */
+  .attention { position: relative; }
+  .attention__button { gap: var(--ordo-space-1); }
+  .attention__count {
+    min-inline-size: 1.5em; padding: 0 var(--ordo-space-1); border-radius: var(--ordo-radius-medium);
+    background: var(--ordo-color-feedback-warning-text); color: var(--ordo-color-surface-default);
+    font-size: var(--ordo-font-size-1); line-height: 1.5; text-align: center;
+  }
+  .attention__panel[hidden] { display: none; }
+  .attention__panel {
+    position: absolute; top: calc(100% + var(--ordo-space-2)); right: 0; z-index: 20;
+    width: min(24rem, calc(100vw - 2 * var(--ordo-space-4))); padding: var(--ordo-space-4);
+    display: grid; gap: var(--ordo-space-2);
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
+  }
+  .attention__panel p { margin: 0; }
+  .attention__list { margin: 0; padding-inline-start: var(--ordo-space-4); display: grid; gap: var(--ordo-space-2); }
+  .search-button, .launcher__button, .profile-menu__button, .connection__button, .attention__button {
     display: inline-flex; align-items: center; justify-content: center; gap: var(--ordo-space-3);
     min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-4);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
@@ -659,6 +681,21 @@
   .unit-card--released { border-style: dashed; }
   /* HELP-1: a helper's actions at the end of the line. */
   .helper-list__actions { margin-inline-start: auto; }
+  /* The incident's people (ADR-0076): a card each, in short lines; qualifications and roles
+     as chips that wrap. */
+  .helper-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); align-items: start; }
+  .person-card { display: grid; gap: var(--ordo-space-2); align-items: start; }
+  .person-card p, .person-card ul { margin: 0; }
+  .person-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-1) var(--ordo-space-2); }
+  .person-card__duty { color: var(--ordo-color-text-secondary); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: var(--ordo-space-1); padding: 0; list-style: none; }
+  .person-card .helper-list__actions { margin-inline-start: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .person-card .helper-list__actions .row { display: contents; }
+  .person-card .helper-list__actions .button--quiet { margin-inline-start: 0; }
+  /* The form: fields of a row start at the same height; hints hang below them. */
+  .helper-form .form--inline { align-items: start; }
+  .helper-form__start .helper-card { align-self: start; }
+  .helper-form__or { color: var(--ordo-color-text-secondary); }
   /* UNIT-8: a person on several posts; the mark is explained right below the total. */
   .strength-on-scene__mark { font-weight: var(--ordo-font-weight-bold); padding-inline-start: var(--ordo-space-1); }
   .assigned-elsewhere { display: grid; gap: var(--ordo-space-2); }
@@ -785,6 +822,9 @@
   .position-tree .position-tree { border-inline-start: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); margin-block-start: var(--ordo-space-2); }
   .position { display: grid; gap: var(--ordo-space-1); hyphens: auto; overflow-wrap: break-word; min-width: 0; }
   .position p { margin: 0; }
+  /* A unit or UHS under a position: a smaller card, its kind in words. */
+  .position__card--member { border-style: dashed; }
+  .position__kind { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
   .position__card {
     display: grid; gap: var(--ordo-space-1);
     padding: var(--ordo-space-2) var(--ordo-space-3);
@@ -807,7 +847,12 @@
       padding: var(--ordo-space-4) var(--ordo-space-2) 0;
     }
     .org-chart .position-tree--root > .position { padding-block-start: 0; }
-    .org-chart .position__card { inline-size: max-content; max-inline-size: 16rem; }
+    /* The chart takes the card's width: siblings share it, each subtree at least as wide as
+       its cards (CMD-3, feedback of 2026-11-14). */
+    .org-chart .position-tree--root { min-inline-size: 100%; }
+    .org-chart .position { flex: 1 0 auto; }
+    .org-chart .position > .position-tree { align-self: stretch; }
+    .org-chart .position__card { inline-size: max-content; min-inline-size: 11rem; max-inline-size: 20rem; }
     .org-chart .position::before, .org-chart .position::after {
       content: ""; position: absolute; inset-block-start: 0; inline-size: 50%;
       block-size: var(--ordo-space-4);
