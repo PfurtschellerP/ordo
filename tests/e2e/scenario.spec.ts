@@ -995,6 +995,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#task-template").selectOption({ label: "Lagemeldung" });
     await expect(ben.locator("#task-text"), "a template fills in the text").toHaveValue("Lagemeldung abgeben");
     await ben.locator("#task-follow-up").fill("0");
+    await expect(ben.locator("#task-follow-up"), "the follow-up is typed in before the task is given").toHaveValue("0");
+    await expect(ben.locator("#task-text")).toHaveValue("Lagemeldung abgeben");
     await ben.locator(".give-task button[type=submit]").click();
     const task = ben.locator(".task-card");
     await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
