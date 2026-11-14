@@ -153,8 +153,8 @@ recorded with every triage, the category stays the person's choice; post-quantum
 exchange X25519MLKEM768 first, checked in CI; ADR-0042 lists every algorithm and how each
 is replaced; bills of materials (milestone `m28`, ADR-0043): CycloneDX for the server and the
 web app on every build, checked in CI; units complete (milestone `m29`,
-UNIT-1…6): units from the installation's vehicles (`ORDO_VEHICLES_FILE`, sync protocol
-1.1) or ad hoc, with service and strength in tactical notation, status since when, crew
+UNIT-1…6): units added per incident (a vehicles file of the installation was removed again,
+ADR-0074), with service and strength in tactical notation, status since when, crew
 with qualifications, release and return, and the strength on scene per organisation and
 service; UHS details (milestone `m30`,
 UHS-1): location, capacity and assigned staff per unit, also in the overview; tasks (milestone `m31`,

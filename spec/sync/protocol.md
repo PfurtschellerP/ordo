@@ -141,12 +141,6 @@ then on, and reject every event written to it as `forbidden`. No new message is 
 device deletes the stream as for a withdrawn role. `listIncidents` returns the
 incidents in which the user has a role, or all of them for `manage_incidents`.
 
-`listVehicles` (version 1.1) asks for the installation's vehicles (master data: call sign,
-type, organisation, service, default strength), offered when adding units. The server
-answers `vehicles`, with the list only for a user with `manage_incidents` or whose roles
-permit `edit_units` in some incident, and an empty list for everyone else. A session
-agreed on 1.0 gets no answer.
-
 `getMapRegion` (version 1.2) asks for the state of an incident's map region, which the
 server offers at `/tiles/<incident ULID>.pmtiles`; `cutMapRegion` asks the server to cut a
 new one for the incident around a centre with a radius of 1 to 50 km from its world map.
@@ -262,6 +256,6 @@ clients raises `major`.
 | Version | Sync protocol | HTTP API |
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
-| 1.1 | `listVehicles` and `vehicles` (§7) | unchanged |
+| 1.1 | `listVehicles` and `vehicles` (§7); removed again before the first release ([ADR-0074](../../docs/adr/0074-no-vehicles-file.md)) | unchanged |
 | 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 

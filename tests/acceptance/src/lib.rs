@@ -88,13 +88,6 @@ impl World {
                 max_clock_ahead_ms: 60_000,
                 // The helpers' data, 90 days after the incident is closed (HELP-4).
                 retention: vec![("people".parse().unwrap(), 90 * 24 * 3_600_000)],
-                vehicles: vec![ordo_sync::message::Vehicle {
-                    unit: "Rotkreuz Musterstadt 83/1".into(),
-                    unit_type: "RTW".into(),
-                    organisation: "DRK Musterstadt".into(),
-                    service: Some("rescue".into()),
-                    strength: Some([0, 1, 1]),
-                }],
             },
             policy,
             EventSigner::new(

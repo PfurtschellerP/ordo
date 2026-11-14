@@ -938,13 +938,14 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("resources: add a unit and set its status, also from the keyboard", async () => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
-    // [itest->dsn~unit-register~2]
-    await expect(ben.locator("#unit-call-signs option[value='RTW 83/1']"), "the installation's vehicles are offered").toHaveCount(1);
+    // [itest->dsn~unit-register~3]
     await ben.locator("#unit-call-sign").fill("RTW 83/1");
-    await expect(ben.locator("#unit-type"), "a known call sign fills in the rest").toHaveValue("RTW");
-    await expect(ben.locator("#unit-organisation")).toHaveValue("DRK Musterstadt");
-    await expect(ben.locator("#unit-service")).toHaveValue("rescue");
-    await expect(ben.locator("#unit-crew")).toHaveValue("1");
+    await ben.locator("#unit-type").fill("RTW");
+    await ben.locator("#unit-organisation").fill("DRK Musterstadt");
+    await ben.locator("#unit-service").selectOption("rescue");
+    await ben.locator("#unit-leaders").fill("0");
+    await ben.locator("#unit-sub-leaders").fill("1");
+    await ben.locator("#unit-crew").fill("1");
     await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const card = ben.locator(".unit-card[data-unit='RTW 83/1']");
     await expect(card, "a unit is added").toContainText("Status: –");

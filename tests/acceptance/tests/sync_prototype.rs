@@ -1207,7 +1207,7 @@ fn unit_event(world: &mut World, user: &str, event_type: &str, payload: &[u8]) {
     world.tick(1_000);
 }
 
-// [itest->dsn~unit-register~2]
+// [itest->dsn~unit-register~3]
 /// Units with service and strength, a crew and a release reach every device the same way,
 /// and the strength on scene counts only the units present.
 #[test]

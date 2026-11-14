@@ -409,7 +409,7 @@ enum UnitChange {
 }
 
 impl UnitRegister {
-    // [impl->dsn~unit-register~2]
+    // [impl->dsn~unit-register~3]
     /// Computes the register; the result doesn't depend on the order of `events`. A unit
     /// added while present keeps its first entry; added after its release, it comes back
     /// with the attributes given then. The latest crew list counts.
@@ -493,7 +493,7 @@ impl UnitRegister {
         self.units.values().filter(|u| u.is_present())
     }
 
-    // [impl->dsn~unit-register~2]
+    // [impl->dsn~unit-register~3]
     /// Units and persons on scene (UNIT-4): units released are not counted.
     pub fn strength_on_scene(&self) -> StrengthOnScene {
         let mut s = StrengthOnScene::default();
@@ -770,7 +770,7 @@ mod tests {
         )
     }
 
-    // [utest->dsn~unit-register~2]
+    // [utest->dsn~unit-register~3]
     #[test]
     fn strength_on_scene_counts_present_units_by_organisation_and_service() {
         let crew = CrewSet {
@@ -1000,7 +1000,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~unit-register~2]
+    // [utest->dsn~unit-register~3]
     #[test]
     fn a_released_unit_comes_back_when_added_again_and_old_payloads_decode() {
         let mut events = vec![

@@ -78,7 +78,7 @@ fn a_ping_is_answered_from_version_1_2_on() {
 
     // A device on 1.1 does not know the answer: it gets none.
     let older = connect(&mut world, "ben", 811, |v| {
-        *v = Some(version::SYNC_VEHICLES)
+        *v = Some(version::Version::new(1, 1))
     });
     assert!(matches!(older, ServerMessage::Welcome(_)));
     assert!(world.hub.handle(811, ClientMessage::Ping, now).is_empty());

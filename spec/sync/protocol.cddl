@@ -15,7 +15,6 @@ client-message = { "hello": hello }
                / { "blockDevice": device-block } ; revoke one of them (1.2)
                / "listIncidents"              ; incidents with a role; all for planners
                / "listPeople"                 ; people to suggest when granting roles
-               / "listVehicles"               ; vehicles of the installation (1.1)
                / { "getMapRegion": incident-id } ; state of the incident's map region (1.2)
                / { "cutMapRegion": map-region-cut } ; with manage_map in the incident (1.2)
                / { "mapTicket": incident-id } ; ticket to read the incident's map region (1.2)
@@ -45,15 +44,6 @@ hello = {
   ? "version": version,          ; protocol version spoken; none means "1.0" (§11)
 }
 
-; A vehicle of the installation's master data (UNIT-1).
-vehicle = {
-  "unit": tstr,                    ; call sign
-  "type": tstr,                    ; e.g. "RTW"
-  "organisation": tstr,
-  ? "service": tstr,               ; service ID from the profile
-  ? "strength": [uint, uint, uint], ; leaders, sub-leaders, crew
-}
-
 ; "major.minor", e.g. "1.4" (ADR-0052)
 version = tstr .regexp "[0-9]+\\.[0-9]+"
 version-range = { "min": version, "max": version }
@@ -77,8 +67,6 @@ server-message = { "challenge": challenge }
                / { "incidents": [* incident-summary] } ; answer to listIncidents
                / { "people": [* user-id] }    ; answer to listPeople; empty unless the
                                               ; user may grant roles somewhere
-               / { "vehicles": [* vehicle] }  ; answer to listVehicles (1.1); empty unless
-                                              ; the user may edit units somewhere
                / { "mapRegion": map-region }  ; answer to getMapRegion and cutMapRegion
                                               ; (1.2); state "none" without manage_map
                / { "mapTicket": map-ticket }  ; answer to mapTicket (1.2)

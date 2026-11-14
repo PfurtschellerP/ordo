@@ -74,9 +74,10 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0067](0067-command-overview-tiles-and-map-preparation.md) | The command's overview is a grid of tiles, and *Vorbereitung* has its own *Lagekarte* | accepted | 2026-11-13 |
 | [0068](0068-unit-master-data-on-the-server.md) | The organisation's vehicles are master data on the server | superseded by 0070 | 2026-11-13 |
 | [0069](0069-uhs-counts-as-a-unit.md) | A UHS counts as a unit on scene, without a second record | accepted | 2026-11-13 |
-| [0070](0070-units-planned-in-preparation-led-in-command.md) | Units are incident data, planned in *Vorbereitung* and led in *Führung* | accepted | 2026-11-13 |
+| [0070](0070-units-planned-in-preparation-led-in-command.md) | Units are incident data, planned in *Vorbereitung* and led in *Führung* | accepted; partly superseded by 0074 | 2026-11-13 |
 | [0071](0071-helper-register-in-its-own-compartment.md) | The helper register is a compartment of its own, deleted after the incident | accepted | 2026-11-13 |
 | [0072](0072-registration-cards-read-with-rqrr.md) | Registration cards are read from a photo with rqrr; their format is profile data | accepted; partly superseded by 0073 | 2026-11-13 |
 | [0073](0073-registration-cards-read-in-attempts-diet-kept.md) | Registration cards are read in several attempts, and their diet is kept | accepted | 2026-11-13 |
+| [0074](0074-no-vehicles-file.md) | No file of the installation's vehicles | accepted | 2026-11-14 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

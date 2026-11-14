@@ -1,8 +1,0 @@
-# Vehicles of the test installation (ORDO_VEHICLES_FILE, UNIT-1): offered when adding units.
-
-[[vehicle]]
-unit = "RTW 83/1"
-type = "RTW"
-organisation = "DRK Musterstadt"
-service = "rescue"
-strength = [0, 1, 1]

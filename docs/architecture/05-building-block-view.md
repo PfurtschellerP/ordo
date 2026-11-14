@@ -240,7 +240,7 @@ Needs: impl, itest
 Tags: must, m1
 
 #### Unit register
-`dsn~unit-register~2`
+`dsn~unit-register~3`
 
 Units (vehicles, teams, other resources) are events of the module `units` in the shared
 `incident` compartment; every device computes the same register from them.
@@ -250,12 +250,11 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
   tactical notation as 0/1/8/9). Schema version 3 adds leaders of formations and special
   functions (*Detailed strength*). Services come from the profile (`units/catalogue.toml`).
   Version 1 payloads decode without service and strength.
-* **Suggested vehicles:** an installation may list its vehicles (call sign, type,
-  organisation, service, default strength) in a server file (`ORDO_VEHICLES_FILE`); ORDO
-  keeps no organisation-wide vehicle master data of its own
-  ([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)). Devices ask with `listVehicles` (sync protocol 1.1); the server answers
-  planners and those who may edit units, others get an empty list. The add form suggests
-  the call signs and fills in the rest; units can still be added ad hoc.
+* **No vehicle list:** units are entered per incident; the add form offers the types and
+  organisations of the incident's units as choices. ORDO keeps no list of an
+  installation's vehicles, neither as master data
+  ([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)) nor as a file
+  ([ADR-0074](../adr/0074-no-vehicles-file.md)).
 * **Status:** status codes from the profile, set in *Führung – Disposition*
   ([ADR-0070](../adr/0070-units-planned-in-preparation-led-in-command.md)); the
   lost-update-aware board keeps when and by whom each status was set, and the cards show
@@ -269,7 +268,7 @@ Units (vehicles, teams, other resources) are events of the module `units` in the
 
 Covers:
 
-* [req~unit-1~1](../requirements/02-shared.md#unit-1--add-units)
+* [req~unit-1~2](../requirements/02-shared.md#unit-1--add-units)
 * [req~unit-2~1](../requirements/02-shared.md#unit-2--unit-attributes)
 * [req~unit-3~1](../requirements/02-shared.md#unit-3--unit-status)
 * [req~unit-4~1](../requirements/02-shared.md#unit-4--strength-on-scene)
@@ -736,8 +735,7 @@ respirator wearers), which count as "davon", not on top. In the detailed notatio
 forms ask for *Führer von Verbänden / Zugführer / Unterführer / Einsatzkräfte* and the
 special functions, and strengths read 1/1/6/40/48 with the total underlined and "(davon
 2 × Ärzte, 6 × AGT)" after it. Otherwise they read 2/6/40/48: both kinds of leaders as
-*Führer*. The data is the same in both, so the choice can change at any time. The
-installation's vehicle file keeps the three-part strength.
+*Führer*. The data is the same in both, so the choice can change at any time.
 
 Covers:
 

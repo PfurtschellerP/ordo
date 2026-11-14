@@ -99,13 +99,6 @@ impl StrengthDraft {
         }
     }
 
-    /// Fills the three-part strength of a template.
-    pub fn fill(&self, [leaders, sub_leaders, crew]: [u32; 3]) {
-        for (signal, n) in self.parts.iter().zip([0, leaders, sub_leaders, crew]) {
-            signal.set(n.to_string());
-        }
-    }
-
     /// Empties it.
     pub fn clear(&self) {
         for s in self.parts {
@@ -242,7 +235,7 @@ fn details(u: &Unit) -> String {
     .join(" · ")
 }
 
-// [impl->dsn~unit-register~2]
+// [impl->dsn~unit-register~3]
 // [impl->dsn~uhs-as-unit~1]
 /// Units and persons on scene, in total, per organisation and per service (UNIT-4), every
 /// UHS counted as a unit (UHS-12).
@@ -895,13 +888,12 @@ pub fn UnitStatusBoard(
     }
 }
 
-// [impl->dsn~unit-register~2]
+// [impl->dsn~unit-register~3]
 // [impl->dsn~views-by-role~1]
 // [impl->dsn~workspaces-by-phase~4]
 /// The incident's units as planned in *Vorbereitung* (UNIT-1…6, ADR-0070): strength on
-/// scene, every unit with its crew, position and release; released units apart; adding from
-/// the installation's vehicles or ad hoc. Adding units: incident command only
-/// (`edit_units`).
+/// scene, every unit with its crew, position and release; released units apart; adding
+/// units. Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let can_edit = Memo::new(move |_| {
@@ -911,11 +903,6 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .as_ref()
                 .is_some_and(|i| c.replica.may(i, "edit_units"))
         })
-    });
-    Effect::new(move || {
-        if can_edit.get() {
-            core::list_vehicles(core);
-        }
     });
     let register = Memo::new(move |_| {
         revision.track();
@@ -1034,8 +1021,8 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-/// Adding a unit (UNIT-1, UNIT-2): a call sign of the installation's vehicles fills in
-/// the rest; anything can be entered ad hoc.
+/// Adding a unit (UNIT-1, UNIT-2): organisations and types of the incident's units are
+/// offered as choices; anything can be entered.
 #[component]
 fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let call_sign = RwSignal::new(String::new());
@@ -1048,15 +1035,8 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         detailed(core)
     });
     let error = RwSignal::new(None::<&'static str>);
-    let vehicles = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| c.vehicles.clone())
-    });
-    let call_signs = Signal::derive(move || {
-        vehicles.with(|v| v.iter().map(|v| v.unit.clone()).collect::<Vec<_>>())
-    });
-    // Organisations and types offered as choices: those of the installation's vehicles and
-    // of the units already in the incident; anything else can still be typed.
+    // Organisations and types offered as choices: those of the units already in the
+    // incident; anything else can still be typed.
     let in_incident = Memo::new(move |_| {
         revision.track();
         let events = core.with_value(|c| c.events(ordo_units::COMPARTMENT));
@@ -1069,15 +1049,6 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let known = move |organisations: bool| {
         Signal::derive(move || {
             let mut set = BTreeSet::new();
-            vehicles.with(|v| {
-                set.extend(v.iter().map(|v| {
-                    if organisations {
-                        v.organisation.clone()
-                    } else {
-                        v.unit_type.clone()
-                    }
-                }));
-            });
             in_incident.with(|units| {
                 set.extend(
                     units
@@ -1092,20 +1063,6 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     let organisations = known(true);
     let types = known(false);
-    // A known call sign fills in type, organisation, service and default strength.
-    let fill = move |value: String| {
-        if let Some(v) =
-            vehicles.with_untracked(|list| list.iter().find(|v| v.unit == value).cloned())
-        {
-            unit_type.set(v.unit_type);
-            organisation.set(v.organisation);
-            service.set(v.service.unwrap_or_default());
-            if let Some(parts) = v.strength {
-                strength.fill(parts);
-            }
-        }
-        call_sign.set(value);
-    };
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let (u, t) = (
@@ -1146,9 +1103,7 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             <div class="form--inline">
                 <div class="field">
                     <label for="unit-call-sign">{text::UNIT_CALL_SIGN}</label>
-                    <input id="unit-call-sign" type="text" required autocomplete="off" list="unit-call-signs"
-                        prop:value=move || call_sign.get() on:input=move |ev| fill(event_target_value(&ev)) />
-                    <Suggestions id="unit-call-signs" values=call_signs />
+                    <input id="unit-call-sign" type="text" required autocomplete="off" bind:value=call_sign />
                 </div>
                 <div class="field">
                     <label for="unit-type">{text::UNIT_TYPE}</label>

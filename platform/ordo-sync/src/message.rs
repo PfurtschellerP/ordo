@@ -30,8 +30,6 @@ pub enum ClientMessage {
     ListIncidents,
     /// Asks for the people the server knows, to suggest them when granting a role.
     ListPeople,
-    /// Asks for the installation's vehicles (master data, UNIT-1); protocol 1.1.
-    ListVehicles,
     /// Asks for the state of an incident's map region (MAP-8, ADR-0062); protocol 1.2.
     GetMapRegion(IncidentId),
     /// Asks the server to cut a new map region for an incident (incident permission
@@ -298,24 +296,6 @@ pub struct IncidentSummary {
     pub roles: Vec<String>,
     /// Whether the person may grant roles and change the state.
     pub manage: bool,
-}
-
-/// A vehicle of the installation's master data (UNIT-1), offered when adding a unit.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Vehicle {
-    /// Call sign.
-    pub unit: String,
-    /// Type, e.g. "RTW".
-    #[serde(rename = "type")]
-    pub unit_type: String,
-    /// Organisation.
-    pub organisation: String,
-    /// Service ID from the profile.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service: Option<String>,
-    /// Default crew strength: leaders, sub-leaders, crew.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub strength: Option<[u32; 3]>,
 }
 
 /// A local login account in the identity provider (ORG-10).
@@ -650,9 +630,6 @@ pub enum ServerMessage {
     /// The people the server knows (answer to `listPeople`): empty for those who may not
     /// grant roles anywhere.
     People(Vec<UserId>),
-    /// The installation's vehicles (answer to `listVehicles`, protocol 1.1): empty for
-    /// those who may not edit units anywhere.
-    Vehicles(Vec<Vehicle>),
     /// An incident's map region (answer to `getMapRegion` and `cutMapRegion`, protocol
     /// 1.2).
     MapRegion(MapRegion),

@@ -78,8 +78,6 @@ pub struct Core {
     pub incidents: Option<Vec<IncidentSummary>>,
     /// The people the server knows, as last listed (for granting roles).
     pub people: Vec<UserId>,
-    /// The installation's vehicles, as last listed (for adding units).
-    pub vehicles: Vec<ordo_sync::message::Vehicle>,
     /// The incident's map region, as last reported (MAP-8).
     pub map_region: Option<ordo_sync::message::MapRegion>,
     /// The ticket to read the incident's map region, asked on every connection (ADR-0062).
@@ -190,7 +188,6 @@ impl Core {
             incident,
             incidents: None,
             people: Vec::new(),
-            vehicles: Vec::new(),
             map_region: None,
             map_ticket: None,
             geocoded: None,
@@ -411,9 +408,6 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             }
             if let ServerMessage::People(list) = &message {
                 c.people = list.clone();
-            }
-            if let ServerMessage::Vehicles(list) = &message {
-                c.vehicles = list.clone();
             }
             if let ServerMessage::MapRegion(region) = &message
                 && region.incident == c.incident
@@ -1136,7 +1130,7 @@ pub fn add_unit(core: Handle, revision: RwSignal<u64>, unit: UnitAdded) -> Resul
     )
 }
 
-// [impl->dsn~unit-register~2]
+// [impl->dsn~unit-register~3]
 /// Releases a unit from the incident (UNIT-6); it stays in the history.
 pub fn release_unit(core: Handle, revision: RwSignal<u64>, unit: &str) -> Result<(), String> {
     let payload = units::Released {
@@ -1177,12 +1171,6 @@ pub fn set_crew(
         &payload,
         text::crew_set(unit),
     )
-}
-
-/// Asks the server for the installation's vehicles (UNIT-1; answered to those who edit
-/// units).
-pub fn list_vehicles(core: Handle) {
-    core.with_value(|c| c.send(&ClientMessage::ListVehicles));
 }
 
 /// Asks for the state of the incident's map region (MAP-8).

@@ -132,7 +132,6 @@ fn main() {
     // Messages in both directions.
     let client = [
         ("list-incidents", ClientMessage::ListIncidents),
-        ("list-vehicles", ClientMessage::ListVehicles),
         ("get-map-region", ClientMessage::GetMapRegion(incident.clone())),
         (
             "cut-map-region",

@@ -566,7 +566,6 @@ impl Replica {
             | ServerMessage::IncidentDevices(_)
             | ServerMessage::Incidents(_)
             | ServerMessage::People(_)
-            | ServerMessage::Vehicles(_)
             | ServerMessage::MapRegion(_)
             | ServerMessage::MapTicket(_)
             | ServerMessage::Geocoded(_)

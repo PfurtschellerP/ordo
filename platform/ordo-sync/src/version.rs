@@ -93,9 +93,6 @@ pub const SYNC: VersionRange = VersionRange {
     max: Version::new(1, 2),
 };
 
-/// Sync protocol 1.1: `listVehicles` and `vehicles` (UNIT-1).
-pub const SYNC_VEHICLES: Version = Version::new(1, 1);
-
 /// Sync protocol 1.2: `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (MAP-8).
 pub const SYNC_MAP_REGION: Version = Version::new(1, 2);
 

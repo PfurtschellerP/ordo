@@ -59,7 +59,6 @@ export class OrdoServer {
         ORDO_DATA_DIR: path.join(this.work, "data"),
         ORDO_MASTER_KEY_FILE: path.join(this.work, "master.key"),
         ORDO_SEED_FILE: path.join(this.work, "seed.toml"),
-        ORDO_VEHICLES_FILE: path.join(__dirname, "vehicles.toml"),
         // No region at first; the incident command cuts one per incident from this "world
         // map" in the app (MAP-8, ADR-0062; made by make_region.py).
         ORDO_MAP_DIR: path.join(this.work, "maps"),

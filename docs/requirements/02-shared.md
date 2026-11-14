@@ -79,9 +79,9 @@ Needs: dsn
 ### 4.2 Shared: units and resources
 
 #### UNIT-1 — Add units
-`req~unit-1~1`
+`req~unit-1~2`
 
-Add units to an incident from master data or ad hoc (neighbouring organisation, other service)
+When the incident command adds a unit, ORDO shall take its attributes as entered for this incident, whether the unit is the organisation's own, a neighbouring organisation's or another service's
 
 Tags: must, shared, m29
 
