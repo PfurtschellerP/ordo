@@ -329,11 +329,14 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     as a link for their maps app (REP-4); a crew member registers the patient from the case,
     choosing the UHS, and the command learns that the case has a patient, never who (REP-3);
     closed reports stay in the history and the log (REP-5).
-11. **Map:** every tactical symbol of the profile placeable, chosen from a menu grouped by
-    topic. **UHS:** request a physician or paramedic, who then gets access to the UHS.
-    **Vehicles and medical teams** (*Sanitätstrupp*): a workspace for crews to see,
-    confirm and carry out their transports and outstanding orders and to set their own
-    status, built on the units board of *Führung – Disposition* (ADR-0070).
+11. **Map, UHS staff and crews** are done (m62): every tactical symbol of the profile
+    placeable, chosen from a menu grouped by topic (MAP-10; the new DE symbols still to be
+    compared with the BBK's 2024 edition); a UHS requests a physician or paramedic, whom
+    the command puts on its staff list (UHS-15); vehicles and medical teams get
+    *Einsatzmittel – Besatzung* to set their status, carry out their orders and transports
+    and take their patient cases over (UNIT-9,
+    [ADR-0079](adr/0079-crew-workspace.md)). Open: crew members without a medical role
+    (e.g. drivers) need a role of their own to get the workspace.
 12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
     agreement are available (ADR-0050, regional profile).
 13. **People and roles** (product owner, 2026-11-14): part 1 is done (m61,
