@@ -198,6 +198,10 @@ pub fn AttentionBell(
                 })
                 .map(|r| text::attention_unassigned(&crate::reports::label(&r.recorded))),
         );
+        // [impl->dsn~uhs-staff-request~1]
+        items.extend(crate::staffing::list(core).open().into_iter().map(|r| {
+            text::staff_requested(&core::uhs_name(core, &r.requested.uhs), r.requested.need)
+        }));
         items
     });
     let open = RwSignal::new(false);

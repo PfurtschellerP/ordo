@@ -24,6 +24,7 @@ mod qr;
 mod reports;
 mod roles;
 mod situation;
+mod staffing;
 mod storage;
 mod summary;
 mod tasks;

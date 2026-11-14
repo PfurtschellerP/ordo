@@ -1202,6 +1202,37 @@ pub fn uhs_renamed(name: &str) -> String {
     format!("UHS umbenannt in {name}")
 }
 
+// A UHS asks for staff (UHS-15).
+pub const STAFF_REQUESTS_TITLE: &str = "Personal anfordern";
+pub const STAFF_REQUEST_OPEN: &str = "offen";
+pub const STAFF_REQUEST_WITHDRAWN: &str = "zurückgenommen";
+pub const STAFF_REQUEST_CLOSED: &str = "Anforderung abgeschlossen";
+pub const STAFF_BOARD_TITLE: &str = "Anforderungen der UHS";
+pub const STAFF_SEND: &str = "Wer kommt?";
+pub const STAFF_ASSIGN: &str = "Zuweisen";
+pub const STAFF_WITHDRAW: &str = "Zurücknehmen";
+pub fn staff_need(need: ordo_med_patients::staffing::Need) -> &'static str {
+    match need {
+        ordo_med_patients::staffing::Need::Physician => "Arzt/Ärztin",
+        ordo_med_patients::staffing::Need::Paramedic => "Notfallsanitäter/in",
+    }
+}
+pub fn staff_request_button(need: ordo_med_patients::staffing::Need) -> String {
+    format!("{} anfordern", staff_need(need))
+}
+pub fn staff_requested(uhs: &str, need: ordo_med_patients::staffing::Need) -> String {
+    format!("{uhs} fordert {} an", staff_need(need))
+}
+pub fn staff_request_label(uhs: &str, need: ordo_med_patients::staffing::Need) -> String {
+    staff_requested(uhs, need)
+}
+pub fn staff_request_met(person: &str) -> String {
+    format!("{person} kommt")
+}
+pub fn staff_withdraw_label(request: &str) -> String {
+    format!("{STAFF_WITHDRAW}: {request}")
+}
+
 // What needs the command's attention (TASK-3): the bell in the header.
 pub const ATTENTION: &str = "Hinweise";
 pub const ATTENTION_NONE: &str = "Nichts, das gerade Aufmerksamkeit braucht.";

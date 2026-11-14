@@ -1739,6 +1739,37 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
+  // [itest->dsn~uhs-staff-request~1]
+  await test.step("a UHS asks for a physician; the command sends one onto its staff list", async () => {
+    // UHS-15: the UHS's staff ask …
+    const medic = await newDevice(browser);
+    await loginPair(medic, server, "anna@example.org");
+    await openIncident(medic, INCIDENT);
+    await openWorkspace(medic, "UHS");
+    await openView(medic, "Patienten");
+    await medic.locator("#working-uhs").selectOption({ label: "UHS Bühne Nord" });
+    const panel = medic.locator("[aria-labelledby=staff-requests-title]");
+    await panel.getByRole("button", { name: "Arzt/Ärztin anfordern" }).click();
+    await expect(panel.locator(".staff-requests__list li").first(), "the request, open").toContainText(/^Arzt\/Ärztin · \d\d:\d\d · offen$/);
+    await audit(medic, "Staff request");
+    // … the command sees it in Disposition and in the bell …
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Disposition");
+    await expect(ben.locator("#attention-button"), "the bell rings").toHaveAccessibleName(/^Hinweise: [1-9]/);
+    const board = ben.locator("[aria-labelledby=staff-board-title]");
+    const request = board.locator(".report-card", { hasText: "UHS Bühne Nord fordert Arzt/Ärztin an" });
+    await request.getByLabel("Wer kommt?").fill("petra@localhost");
+    await request.getByRole("button", { name: "Zuweisen" }).click();
+    await expect(board, "met: no open requests left").toHaveCount(0);
+    // … and the UHS learns who comes; she is on its staff list now.
+    await expect(panel.locator(".staff-requests__list li").first()).toContainText(/(Dr\. Petra Lang|petra@localhost) kommt$/);
+    await medic.context().close();
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
+    const uhs = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Bühne Nord" });
+    await expect(uhs.locator(".uhs-card__staff"), "on the UHS's staff list").toHaveText("Personal: 1 Person");
+  });
+
   // [itest->dsn~access-timeout~1]
   await test.step("a device locks itself when its login has expired, also offline", async () => {
     const start = Date.now();
@@ -1812,7 +1843,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(dora, "Zugriff");
     await openView(dora, "Geräte");
     await expect(dora.locator("#devices-title")).toHaveText("Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(9);
+    await expect(dora.locator(".device-card"), "an admin sees all devices").toHaveCount(10);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "Ben Weber" });
@@ -1821,7 +1852,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(8);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(9);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

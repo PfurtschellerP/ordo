@@ -238,6 +238,17 @@ Tags: should, med, m57
 
 Needs: dsn
 
+#### UHS-15 — Request a physician or a paramedic
+`req~uhs-15~1`
+
+When the staff of a UHS ask for a physician or a paramedic, ORDO shall show the request to
+the incident command until it is met or withdrawn, and when the command names the person
+who comes, put them on that UHS's staff list, which gives them access to its patients.
+
+Tags: should, med, m62
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient

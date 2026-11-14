@@ -810,6 +810,28 @@ Needs: impl, utest, itest
 
 Tags: must, m37
 
+#### UHS staff requests
+`dsn~uhs-staff-request~1`
+
+Module `med.staffing` in the shared `incident` compartment (no patient data):
+`staffing.requested` (request ID, UHS, need: physician or paramedic) and `staffing.closed`
+(the person sent, or none: withdrawn). The register is computed in clock order; the first
+close counts. *UHS – Patienten* shows, for the UHS the person works at, "Arzt/Ärztin
+anfordern" and "Notfallsanitäter/in anfordern" and the latest requests with who comes.
+*Führung – Disposition* lists the open requests above the reports; the command names the
+person (suggesting the incident's people), the app puts them on the UHS's staff list
+(`uhs.updated`, allowed to the command by [UHS staff](#uhs-staff)) and closes the request;
+"Zurücknehmen" closes it without anyone. Open requests ring the bell in the header
+([Tasks](#tasks)), and the incident log names each step.
+
+Covers:
+
+* [req~uhs-15~1](../requirements/04-med.md#uhs-15--request-a-physician-or-a-paramedic)
+
+Needs: impl, utest, itest
+
+Tags: should, m62
+
 #### UHS among the resources
 `dsn~uhs-resources~1`
 

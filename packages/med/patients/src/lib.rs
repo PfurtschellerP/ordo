@@ -18,6 +18,7 @@ pub mod overview;
 pub mod questionnaire;
 pub mod record;
 pub mod staff;
+pub mod staffing;
 pub mod transport;
 pub mod triage;
 

@@ -1690,6 +1690,27 @@ pub fn uhs_name(core: Handle, id: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Records an event of `module` in the incident's shared compartment, e.g. a UHS's staff
+/// request (UHS-15).
+pub fn record_shared(
+    core: Handle,
+    revision: RwSignal<u64>,
+    module: &str,
+    event_type: &str,
+    payload: &[u8],
+    announcement: String,
+) -> Result<(), String> {
+    record(
+        core,
+        revision,
+        "incident",
+        module,
+        event_type,
+        payload,
+        announcement,
+    )
+}
+
 fn record(
     core: Handle,
     revision: RwSignal<u64>,

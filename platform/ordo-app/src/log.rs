@@ -199,6 +199,18 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                     .unwrap_or_default();
                 text::log_task_given(to, &p.text).into()
             }
+            // [impl->dsn~uhs-staff-request~1]
+            med::staffing::REQUESTED => {
+                let p = decode::<med::staffing::Requested>(e)?;
+                text::staff_requested(c.uhs(&p.uhs), p.need).into()
+            }
+            med::staffing::CLOSED => {
+                let p = decode::<med::staffing::Closed>(e)?;
+                match p.person {
+                    Some(person) => text::staff_request_met(&name(&person)).into(),
+                    None => text::STAFF_REQUEST_WITHDRAWN.to_owned().into(),
+                }
+            }
             // [impl->dsn~reports~1]
             ordo_reports::RECORDED => {
                 let p = decode::<ordo_reports::Recorded>(e)?;

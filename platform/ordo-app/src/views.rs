@@ -1059,6 +1059,7 @@ fn Workspace(
                     }.into_any(),
                     // [impl->dsn~reports~1]
                     (Some("command.lead"), Some("dispatch")) => view! {
+                        <crate::staffing::StaffRequestsBoard core revision />
                         <crate::reports::ReportsPanel core revision />
                         <crate::tasks::OpenTasks core revision />
                     }.into_any(),

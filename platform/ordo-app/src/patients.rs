@@ -190,6 +190,8 @@ pub fn PatientsView(
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
+                // [impl->dsn~uhs-staff-request~1]
+                <crate::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
                 <PlacePlan core revision nav register working selected=record />
                 <RegisterForm core revision nav />
                 <PatientList core revision nav register records selected=record />
