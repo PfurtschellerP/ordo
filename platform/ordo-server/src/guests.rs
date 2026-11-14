@@ -21,8 +21,6 @@ use sha2::{Digest, Sha256};
 use crate::app::{App, now_ms};
 use crate::store::StoreError;
 
-/// How long a code works.
-pub(crate) const CODE_TTL_MS: u64 = 15 * 60 * 1000;
 /// Refused codes per minute, after which the server answers `429` until the minute is over.
 pub(crate) const MAX_REFUSED_PER_MINUTE: u64 = 20;
 
@@ -75,7 +73,7 @@ fn qr(link: &str) -> Option<String> {
 }
 
 impl App {
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Answers `createGuest` and `setGuestAccess` (protocol 1.3) for those who may grant
     /// roles in the incident.
     pub(crate) async fn guests(
@@ -163,7 +161,7 @@ impl App {
         let Some(code) = new_code() else {
             return Ok(refused);
         };
-        let expires = now + CODE_TTL_MS;
+        let expires = now + self.guest_code_ttl_ms;
         self.store
             .save_guest(&guest, &request.incident, request.until, user, now)
             .await?;
@@ -236,7 +234,7 @@ pub(crate) struct GuestPairing {
     name: Option<String>,
 }
 
-// [impl->dsn~guest-access~1]
+// [impl->dsn~guest-access~2]
 /// `POST /auth/guest` (HTTP API 1.1): pairs the device with the guest of the code, if the
 /// code is known, unused and not expired; any other code is refused the same way. Answers
 /// the guest's ID and incident.
@@ -288,7 +286,7 @@ pub(crate) async fn pair(
 mod tests {
     use super::*;
 
-    // [utest->dsn~guest-access~1]
+    // [utest->dsn~guest-access~2]
     #[test]
     fn codes_have_256_bits_and_are_kept_by_hash() {
         let (a, b) = (new_code().unwrap(), new_code().unwrap());
@@ -302,7 +300,7 @@ mod tests {
         assert_ne!(hash(&a), hash(&b));
     }
 
-    // [utest->dsn~guest-access~1]
+    // [utest->dsn~guest-access~2]
     #[test]
     fn refused_codes_are_braked_per_minute() {
         let r = Refusals::default();

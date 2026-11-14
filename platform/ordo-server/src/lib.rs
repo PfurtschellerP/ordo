@@ -243,7 +243,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         }
         None => None,
     };
-    let app = Arc::new(App::new(
+    let mut app = App::new(
         hub,
         store,
         master,
@@ -264,7 +264,9 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         roles,
         dex_api,
         stop.clone(),
-    ));
+    );
+    app.guest_code_ttl_ms = config.guest_code_minutes * 60_000;
+    let app = Arc::new(app);
     tokio::spawn(app.clone().maintenance());
     let router = app.clone().router(config.app_dir.as_deref());
     tracing::info!(%addr, server = %config.server_name, restored_events = restored, "listening");

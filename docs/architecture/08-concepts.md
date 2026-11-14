@@ -551,15 +551,16 @@ Needs: impl, itest
 Tags: must, m8
 
 #### Guest access
-`dsn~guest-access~1`
+`dsn~guest-access~2`
 
 Helpers without an account get access to one incident by a one-time code
 ([ADR-0077](../adr/0077-guest-access-by-one-time-qr-code.md)). In *Vorbereitung – Personal*
 the incident command registers the helper with a role and an end of duty, and no account.
 The device asks the server for a guest (`createGuest`, sync protocol 1.3, with the
 helper's name and ID as tag); the server checks `assign_role`, makes the user ID
-`guest-<ULID>@<server>` and a code of 256 random bits, keeps its SHA-256 hash for 15
-minutes, sets the guest's login to end at the end of duty, and answers the link
+`guest-<ULID>@<server>` and a code of 256 random bits, keeps its SHA-256 hash for the
+installation's time (`ORDO_GUEST_CODE_MINUTES`, default 30, 5 to 1440;
+[ADR-0078](../adr/0078-guest-codes-last-30-minutes-set-per-installation.md)), sets the guest's login to end at the end of duty, and answers the link
 `<public address>/?guest=<code>` with its QR code. The command's device then grants the
 role to the guest's ID, links the helper to it, and shows the QR code until closed; the
 list shows "Gast-Zugang bis …" and "Zugang per QR-Code" for a new code.

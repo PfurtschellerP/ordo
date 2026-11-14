@@ -300,7 +300,7 @@ pub(crate) fn user_name(preferred: Option<&str>, email: Option<&str>) -> String 
     if name.is_empty() {
         "user".to_owned()
     } else if name.starts_with(ordo_core::GUEST_PREFIX) {
-        // [impl->dsn~guest-access~1]
+        // [impl->dsn~guest-access~2]
         // A guest's ID is never a login's (ADR-0077).
         format!("u-{name}").chars().take(56).collect()
     } else {
@@ -1055,7 +1055,7 @@ mod tests {
         );
         assert_eq!(user_name(Some("  "), None), "user");
         assert_eq!(user_name(Some("-@-"), None), "user");
-        // [utest->dsn~guest-access~1]
+        // [utest->dsn~guest-access~2]
         assert_eq!(
             user_name(Some("Guest-01JD"), None),
             "u-guest-01jd",

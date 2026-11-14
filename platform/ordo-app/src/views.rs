@@ -160,7 +160,7 @@ fn Screens(
     }
 }
 
-// [impl->dsn~guest-access~1]
+// [impl->dsn~guest-access~2]
 /// A helper without an account pairs this device with the one-time code of the QR code the
 /// incident command showed them (ADR-0077): the device makes its own key, as for a login,
 /// and opens the incident with the role it was given.
@@ -650,7 +650,7 @@ fn Device(
         }
     };
     let has_incident = core.with_value(|c| c.incident.is_some());
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     // A guest cannot log in again: their access ended with their duty (ADR-0077).
     let guest = pairing
         .user

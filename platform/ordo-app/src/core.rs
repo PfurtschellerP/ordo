@@ -740,7 +740,7 @@ pub fn register(
     )
 }
 
-// [impl->dsn~guest-access~1]
+// [impl->dsn~guest-access~2]
 /// Asks for a guest of the chosen incident, or with `guest` a new code for one, whose access
 /// ends at `until` (ADR-0077); `tag` comes back with the answer.
 pub fn create_guest(core: Handle, guest: Option<UserId>, until: u64, tag: &str, name: &str) {

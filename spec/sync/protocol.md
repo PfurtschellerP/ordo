@@ -197,7 +197,8 @@ Unix epoch: their end of duty), optionally the name they are shown by, and a `ta
 64 characters that comes back. The server MUST make guests only for a user whose roles in
 that incident permit `assign_role` and who is no guest. It makes the user ID
 `guest-<ULID>@<server>`, a code of 256 random bits (base64url), keeps only its SHA-256 hash,
-valid once for 15 minutes, and answers `guest` with the guest's ID, the link
+valid once for the time the installation sets (default 30 minutes,
+[ADR-0078](../../docs/adr/0078-guest-codes-last-30-minutes-set-per-installation.md)), and answers `guest` with the guest's ID, the link
 `<public address>/?guest=<code>`, the link as QR code (SVG) and the code's end; a new code
 makes the guest's unused ones invalid. Anyone else gets `guest` without ID, link and code.
 The server MUST NOT log codes, and MUST map no login to a name that starts with `guest-`.

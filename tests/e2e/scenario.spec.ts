@@ -1207,7 +1207,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" })).toContainText("BRK Bereitschaft Mitte, Augsburg-Stadt");
     // [itest->dsn~helper-register~3]
     await expect(helpers.locator(".helper-diets"), "diets counted for catering").toContainText("1 × vegetarisch");
-    // [itest->dsn~guest-access~1]
+    // [itest->dsn~guest-access~2]
     // HELP-7 (ADR-0077): Jonas has no account; a role gives him access to this incident by a
     // one-time QR code, until his duty ends, and never as Einsatzleitung.
     const jonas = helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" });

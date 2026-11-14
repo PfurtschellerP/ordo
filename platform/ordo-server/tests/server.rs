@@ -1087,7 +1087,7 @@ impl Client {
     }
 }
 
-// [itest->dsn~guest-access~1]
+// [itest->dsn~guest-access~2]
 /// A helper without an account (ADR-0077): the incident command makes a guest and a
 /// one-time code; a medic may not; the code pairs one device once; the guest's device
 /// connects and is cut off when the command ends their access.
@@ -1118,7 +1118,7 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
     let code = link.split_once("?guest=").unwrap().1.to_owned();
     assert!(link.starts_with(&format!("https://{SERVER}/?guest=")));
     assert!(pass.qr.as_deref().is_some_and(|q| q.contains("<svg")));
-    assert!(pass.expires > now() && pass.expires <= now() + 15 * 60_000);
+    assert!(pass.expires > now() + 29 * 60_000 && pass.expires <= now() + 30 * 60_000);
 
     // The guest's phone pairs with the code, once.
     let key = SigningKey::from_bytes(&[42; 32]);

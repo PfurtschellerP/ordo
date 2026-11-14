@@ -212,7 +212,7 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let editing = RwSignal::new(None::<Person>);
     let error = RwSignal::new(None::<String>);
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     // The server's answer to a guest code asked on this device (ADR-0077): the role chosen
     // goes to the guest's ID, the helper is linked to it, and the code is shown.
     let shown_pass = RwSignal::new(None::<(ordo_sync::message::GuestPass, String)>);
@@ -344,7 +344,7 @@ fn PersonEntry(
                     fields,
                 };
                 let _ = core::helper_event(core, revision, false, &change, &name);
-                // [impl->dsn~guest-access~1]
+                // [impl->dsn~guest-access~2]
                 // A guest's access ends with their duty (ADR-0077).
                 if on_duty && let Some(guest) = guest.clone() {
                     core::set_guest_access(core, guest, now);
@@ -446,7 +446,7 @@ fn PersonEntry(
     }
 }
 
-// [impl->dsn~guest-access~1]
+// [impl->dsn~guest-access~2]
 /// The one-time code of a guest (ADR-0077), as QR code and link, for their phone; shown
 /// only on this device, until closed.
 #[component]
@@ -589,7 +589,7 @@ fn HelperForm(
         ev.prevent_default();
         let chosen_role = role.get_untracked();
         let account_value = account.get_untracked().trim().to_owned();
-        // [impl->dsn~guest-access~1]
+        // [impl->dsn~guest-access~2]
         // A role without an account: a guest, with access until the end of duty (ADR-0077).
         let guest = !chosen_role.is_empty() && account_value.is_empty();
         if !chosen_role.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err()

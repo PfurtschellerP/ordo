@@ -43,6 +43,8 @@ Environment for `serve`:
                          (default 48, from 24 to 720 = 1 to 30 days)
   ORDO_PEOPLE_RETENTION_DAYS  Days after an incident is closed until the helpers'
                          personal data is deleted (default 90, from 1 to 3650)
+  ORDO_GUEST_CODE_MINUTES  How long the one-time code of a helper without an account
+                         works (default 30, from 5 to 1440)
   ORDO_ADMINS            Administrators by user name, comma-separated, e.g. dora
                          (plan incidents, grant roles)
   ORDO_GRAVATAR          Profile pictures from Gravatar: on (default) or off

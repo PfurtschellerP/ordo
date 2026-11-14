@@ -572,7 +572,7 @@ impl Store {
             .collect()
     }
 
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Stores a guest of `incident` (ADR-0077), or, if known, sets their end of access.
     pub async fn save_guest(
         &self,
@@ -616,7 +616,7 @@ impl Store {
         .transpose()
     }
 
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Stores a new one-time code of a guest by its hash; their unused codes stop working.
     pub async fn save_guest_code(
         &self,
@@ -639,7 +639,7 @@ impl Store {
         Ok(())
     }
 
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Uses up the code with this hash, if it is known, unused and not expired at `now_ms`:
     /// the guest, their incident and the end of their access. One statement, so a code
     /// works only once also when two devices try it at the same time.
@@ -867,7 +867,7 @@ mod tests {
         format!("{name}@ordo.example.org").parse().unwrap()
     }
 
-    // [utest->dsn~guest-access~1]
+    // [utest->dsn~guest-access~2]
     #[tokio::test]
     async fn a_guest_code_works_once_and_only_until_it_expires() {
         let dir = tempfile::tempdir().unwrap();

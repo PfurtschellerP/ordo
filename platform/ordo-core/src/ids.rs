@@ -204,7 +204,7 @@ text_id! {
 pub const GUEST_PREFIX: &str = "guest-";
 
 impl UserId {
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Whether this is a guest, a helper without an account (ADR-0077).
     pub fn is_guest(&self) -> bool {
         self.localpart().starts_with(GUEST_PREFIX)

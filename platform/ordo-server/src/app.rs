@@ -51,6 +51,8 @@ pub struct App {
     dex_api: Option<crate::dex_api::DexApi>,
     /// Test logins through new or changed upstream providers (ORG-11).
     pub(crate) login_tests: crate::providers::Tests,
+    /// How long a guest's one-time code works (ms; ADR-0078).
+    pub(crate) guest_code_ttl_ms: u64,
     /// Refused guest codes per minute (ADR-0077).
     pub(crate) guest_refusals: crate::guests::Refusals,
     /// Whether temporary connectors left from before the start were looked for.
@@ -107,6 +109,7 @@ impl App {
             dex_api,
             login_tests: crate::providers::Tests::default(),
             guest_refusals: crate::guests::Refusals::default(),
+            guest_code_ttl_ms: crate::config::GUEST_CODE_MINUTES * 60_000,
             tests_cleaned: AtomicBool::new(false),
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
@@ -159,7 +162,7 @@ impl App {
         Ok(true)
     }
 
-    // [impl->dsn~guest-access~1]
+    // [impl->dsn~guest-access~2]
     /// Pairs a device with a guest (ADR-0077): like [`Self::register_device`], with the
     /// login ending at the guest's end of duty and no renewal.
     pub(crate) async fn register_guest_device(
