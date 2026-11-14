@@ -1,0 +1,8 @@
+# Helper register of the DE profile (HELP-1, ADR-0076): how phone numbers and postcodes are
+# checked, and the diets offered for catering on site. Other diets can be typed in.
+
+# Numbers given with a leading 0 are German numbers (+49).
+calling_code = "49"
+# Postleitzahl: five digits.
+postcode = "99999"
+diets = ["vegetarisch", "vegan", "ohne Schweinefleisch", "laktosefrei", "glutenfrei"]

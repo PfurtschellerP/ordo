@@ -255,6 +255,9 @@ impl Core {
             (patients::MODULE, patients::RETRIAGED) => patients::TRIAGE_SCHEMA,
             (ordo_tasks::MODULE, ordo_tasks::GIVEN) => ordo_tasks::GIVEN_SCHEMA,
             (ordo_map::MODULE, ordo_map::PLACED) => ordo_map::PLACED_SCHEMA,
+            (ordo_helpers::MODULE, ordo_helpers::REGISTERED | ordo_helpers::UPDATED) => {
+                ordo_helpers::SCHEMA
+            }
             (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
             (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
             (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
@@ -1064,7 +1067,7 @@ pub fn command_event(
     )
 }
 
-// [impl->dsn~helper-register~2]
+// [impl->dsn~helper-register~3]
 /// Registers a helper or changes their fields (HELP-1), in the compartment `people`.
 pub fn helper_event(
     core: Handle,

@@ -804,8 +804,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
     // [itest->dsn~person-suggestions~1]
-    await expect(ben.locator("#roster-person"), "granting a role suggests the people the server knows").toHaveAttribute("list", "roster-person-people");
-    await expect(ben.locator("#roster-person-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
+    await expect(ben.locator("#helper-account"), "taking a person in suggests the people the server knows").toHaveAttribute("list", "helper-account-people");
+    await expect(ben.locator("#helper-account-people option[value='dora@localhost']"), "with a device, or a role anywhere").toHaveCount(1);
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
@@ -960,11 +960,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
     await card.getByLabel("Notfallsanitäter/in").check();
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    // [itest->dsn~crews-from-register~1]
-    await expect(card.locator("[role=alert]", { hasText: "Helferregister" }), "HELP-3: crews come from the helper register").toContainText(
-      "anna@localhost ist nicht im Helferregister.",
-    );
-    await card.getByRole("button", { name: "Erfassen und hinzufügen: anna@localhost" }).click();
+    // Anna is in the register since she got her role (ADR-0076).
     // [itest->dsn~double-booking~1]
     await expect(card.locator(".assigned-elsewhere"), "UNIT-8: someone on a UHS's staff is not booked twice").toContainText(
       "anna@localhost ist schon bei UHS Eingang eingeteilt.",
@@ -974,8 +970,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await card.locator(".assigned-elsewhere").getByRole("button", { name: "Abbrechen" }).click();
     await ben.locator("#crew-rtw-83-1").fill("ben@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await card.getByRole("button", { name: "Erfassen und hinzufügen: ben@localhost" }).click();
-    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("ben@localhost · Notfallsanitäter/in");
+    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
 
     // [itest->dsn~tasks~2]
     const strip = ben.locator(".tasks-strip");
@@ -1097,6 +1092,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await doraCard.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
     await dora.locator("#crew-rtw-83-1").fill("max@localhost");
     await doraCard.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    // [itest->dsn~crews-from-register~2]
+    await expect(doraCard.locator("[role=alert]", { hasText: "Helferregister" }), "HELP-3: crews come from the helper register").toContainText(
+      "max@localhost ist nicht im Helferregister.",
+    );
     await doraCard.getByRole("button", { name: "Erfassen und hinzufügen: max@localhost" }).click();
     await expect(doraCard.locator(".crew-list")).toContainText("max@localhost");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
@@ -1135,33 +1134,57 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~command-structure~1]
   await test.step("helper register: personal data only the incident command reads", async () => {
-    // [itest->dsn~helper-register~2]
+    // [itest->dsn~helper-register~3]
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
     const helpers = ben.locator(".helpers");
-    await expect(helpers.locator(".helper-list [data-helper]", { hasText: "max@localhost" }), "HELP-1: those registered from a crew").toContainText("Konto: max@localhost");
+    await expect(helpers.locator(".helper-list [data-helper]", { hasText: "max@localhost" }), "HELP-1: those registered from a crew").toHaveCount(1);
+    // [itest->dsn~incident-roles~1]
+    // HELP-6 (ADR-0076): one list of the incident's people with their roles; those who got a
+    // role are registered with it, named from their account.
+    const petra = helpers.locator(".helper-list .roster__entry[data-user='petra@localhost']");
+    await expect(petra.locator(".roster__person")).toHaveText("Dr. Petra Lang");
+    await expect(petra.locator(".roster__role")).toContainText("Arzt/Ärztin");
+    await expect(helpers.locator(".helper-list .roster__entry[data-user='dora@localhost']"), "and those with a role who are not registered").toContainText("Angaben ergänzen");
     const form = ben.locator(".helper-form");
-    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
     await expect(form.locator("[role=alert]"), "a name is needed").toHaveText("Bitte einen Namen angeben.");
     await ben.locator("#helper-name").fill("Lena Berger");
     await ben.locator("#helper-organisation").fill("DRK Musterstadt");
-    await ben.locator("#helper-phone").fill("0170 7654321");
     await ben.locator("#helper-birth-date").fill("1990-05-01");
     await form.getByLabel("Notfallsanitäter/in").check();
-    await ben.locator("#helper-account").fill("petra@localhost");
-    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    await ben.locator("#helper-role").selectOption({ label: "Notfallsanitäter/in" });
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
+    await expect(form.locator("[role=alert]"), "a role needs an account").toContainText("Eine Rolle braucht ein ORDO-Konto.");
+    await ben.locator("#helper-account").fill("lena@localhost");
+    await ben.locator("#helper-phone").fill("0170 76543x1");
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
+    await expect(form.locator("[role=alert]"), "a phone number is checked").toHaveText("Die Telefonnummer ist keine gültige Nummer mit Vorwahl, z. B. 0171 1234567.");
+    await expect(ben.locator("#helper-phone")).toBeFocused();
+    await ben.locator("#helper-phone").fill("0170 7654321");
+    await ben.locator("#helper-postcode").fill("5511");
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
+    await expect(form.locator("[role=alert]"), "and a postcode, by the profile's form").toHaveText("Die Postleitzahl hat nicht die Form des Landes, z. B. 55116.");
+    await ben.locator("#helper-postcode").fill("55116");
+    await ben.locator("#helper-street").fill("Rheinstraße 4");
+    await ben.locator("#helper-town").fill("Mainz");
+    await ben.locator("#helper-diet").selectOption({ label: "andere …" });
+    await ben.locator("#helper-diet-other").fill("halal");
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
     const lena = helpers.locator(".helper-list [data-helper]", { hasText: "Lena Berger" });
     await expect(lena).toContainText("DRK Musterstadt · Notfallsanitäter/in");
-    await expect(lena, "HELP-2: linked to an account").toContainText("Konto: petra@localhost");
+    await expect(lena, "HELP-2: linked to an account").toContainText("lena@localhost");
+    await expect(lena.locator(".roster__role"), "HELP-6: with the role granted in the same form").toContainText("Notfallsanitäter/in");
     await lena.getByRole("button", { name: "Dienst beginnen: Lena Berger" }).click();
     await expect(lena, "on duty from now").toContainText("im Dienst seit");
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
-    await expect(ben.locator("#helper-phone"), "the form holds the helper").toHaveValue("0170 7654321");
+    await expect(ben.locator("#helper-phone"), "the form holds the helper, the number in international form").toHaveValue("+491707654321");
+    await expect(ben.locator("#helper-diet-other")).toHaveValue("halal");
     await ben.locator("#helper-phone").fill("0170 1111111");
     await form.getByRole("button", { name: "Speichern", exact: true }).click();
-    await expect(ben.locator("#helper-form-title"), "the form is new again").toHaveText("Helfer/in erfassen");
+    await expect(ben.locator("#helper-form-title"), "the form is new again").toHaveText("Person aufnehmen");
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
-    await expect(ben.locator("#helper-phone"), "changed").toHaveValue("0170 1111111");
+    await expect(ben.locator("#helper-phone"), "changed").toHaveValue("+491701111111");
     await form.getByRole("button", { name: "Abbrechen" }).click();
     // [itest->dsn~registration-card~2]
     // HELP-5: a photo of a Meldekarte fills the form; the command checks and saves. The card
@@ -1172,26 +1195,28 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(form.locator(".helper-card [role=status]")).toHaveText("Meldekarte von Jonas Sommer gelesen. Bitte prüfen und erfassen.");
     await expect(ben.locator("#helper-name")).toHaveValue("Jonas Sommer");
     await expect(ben.locator("#helper-birth-date")).toHaveValue("1995-03-14");
-    await expect(ben.locator("#helper-address")).toHaveValue("Bahnhofstraße 5, 86150 Augsburg");
+    await expect(ben.locator("#helper-street")).toHaveValue("Bahnhofstraße 5");
+    await expect(ben.locator("#helper-postcode")).toHaveValue("86150");
+    await expect(ben.locator("#helper-town")).toHaveValue("Augsburg");
     await expect(ben.locator("#helper-phone")).toHaveValue("+491701234567");
     await expect(ben.locator("#helper-organisation")).toHaveValue("BRK Bereitschaft Mitte, Augsburg-Stadt");
     await expect(ben.locator("#helper-duty-start")).toHaveValue("2027-06-20T08:30");
-    await expect(ben.locator("#helper-diet")).toHaveValue("vegetarische Ernährung");
+    await expect(ben.locator("#helper-diet"), "the card's wording in the profile's list").toHaveValue("vegetarisch");
     await audit(ben, "Registration card read");
-    await form.getByRole("button", { name: "Erfassen", exact: true }).click();
+    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
     await expect(helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" })).toContainText("BRK Bereitschaft Mitte, Augsburg-Stadt");
-    // [itest->dsn~helper-register~2]
-    await expect(helpers.locator(".helper-diets"), "diets counted for catering").toContainText("1 × vegetarische Ernährung");
+    // [itest->dsn~helper-register~3]
+    await expect(helpers.locator(".helper-diets"), "diets counted for catering").toContainText("1 × vegetarisch");
     await photo.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: patientPhoto });
     await expect(form.locator(".helper-card [role=status]"), "a photo without a card").toHaveText(/^Keine Karte erkannt\./);
     await expect(ben.locator("#helper-name"), "the form stays as it was").toHaveValue("");
     await audit(ben, "Helper register");
     await expect.poll(() => status(ben), { message: "the register is sent" }).toContain("Alles gesendet");
     expect(
-      Buffer.concat(annaFrames.received).includes("Lena Berger") || Buffer.concat(annaFrames.received).includes("0170 1111111"),
+      Buffer.concat(annaFrames.received).includes("Lena Berger") || Buffer.concat(annaFrames.received).includes("+491701111111"),
       "a medic's device never receives the helpers' data",
     ).toBe(false);
-    expect(Buffer.concat(benFrames.sent).includes("0170 1111111"), "and it travels sealed").toBe(false);
+    expect(Buffer.concat(benFrames.sent).includes("+491701111111"), "and it travels sealed").toBe(false);
   });
 
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
@@ -1542,7 +1567,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(enter.or(move)).toBeVisible();
     if (await enter.isVisible()) await enter.click();
     await move.click();
-    await expect(team.locator(".crew-list")).toContainText("anna@localhost");
+    await expect(team.locator(".crew-list"), "by her name in the register; the crew keeps her account").toContainText("Anna Schmidt");
 
     // REP-1, REP-2: the command records the case and assigns it to the team.
     await openWorkspace(ben, "Führung");

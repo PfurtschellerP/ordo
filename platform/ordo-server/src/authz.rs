@@ -723,7 +723,7 @@ mod tests {
         assert!(policy(&[("broken.cedar".to_owned(), "permit (".to_owned())]).is_err());
     }
 
-    // [utest->dsn~helper-register~2]
+    // [utest->dsn~helper-register~3]
     #[test]
     fn only_the_incident_command_reads_and_writes_the_helper_register() {
         let p = policy(&[]).expect("valid");

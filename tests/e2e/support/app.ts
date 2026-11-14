@@ -81,10 +81,14 @@ export async function openIncident(page: Page, name: string): Promise<void> {
 }
 
 /** Grants a role in the open incident (view "Personal" of the Einsatzleitung). */
+/** Takes a person into the incident with a role (ADR-0076): their account, which fills in
+ * the name, and the role; with access to the register, they are registered as a helper too. */
 export async function grantRole(page: Page, user: string, role: string): Promise<void> {
-  await page.locator("#roster-person").fill(user);
-  await page.locator("#roster-role").selectOption({ label: role });
-  await page.getByRole("button", { name: "Rolle vergeben" }).click();
+  const form = page.locator("form.helper-form");
+  await form.locator("#helper-account").fill(user);
+  await form.locator("#helper-account").blur();
+  await form.locator("#helper-role").selectOption({ label: role });
+  await form.getByRole("button", { name: /^(Aufnehmen|Rolle vergeben)$/ }).click();
   await expect(page.locator(".roster__entry", { hasText: user }).filter({ hasText: role })).toBeVisible();
 }
 

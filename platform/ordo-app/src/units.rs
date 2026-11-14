@@ -315,7 +315,7 @@ pub(crate) fn assignments(core: Handle) -> Assignments {
     on_scene(core, &UnitRegister::from_events(&events), &events).people
 }
 
-// [impl->dsn~crews-from-register~1]
+// [impl->dsn~crews-from-register~2]
 /// The strength on scene with every UHS (UHS-12), where a helper's account on a UHS staff
 /// list counts as that helper (HELP-2), so double bookings are found across both.
 pub(crate) fn on_scene(
@@ -477,7 +477,7 @@ fn CrewEditor(
         unregistered,
         ..
     } = draft;
-    // [impl->dsn~crews-from-register~1]
+    // [impl->dsn~crews-from-register~2]
     // Crews come from the helper register where this device reads it (HELP-3).
     let register = Memo::new(move |_| {
         revision.track();
@@ -540,6 +540,7 @@ fn CrewEditor(
                 name: who.name,
                 qualifications: quals,
                 helper: who.helper,
+                account: who.account,
             });
             if core::set_crew(core, revision, &name, list).is_ok() {
                 person.set(String::new());

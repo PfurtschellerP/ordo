@@ -336,6 +336,16 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     status, built on the units board of *Führung – Disposition* (ADR-0070).
 12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
     agreement are available (ADR-0050, regional profile).
+13. **People and roles** (product owner, 2026-11-14): part 1 is done (m61,
+    [ADR-0076](adr/0076-people-and-roles-in-one-list.md)): the helpers and the roles in the
+    incident in one list, joined by account; one form takes the name from an account,
+    keeps the personal data (a Meldekarte adds to it) and grants the role (HELP-6); address
+    as street, postcode and town with a postcode check (no address search: a home address
+    stays in the installation), phone numbers checked and kept in international form, the
+    diet from the profile's list (HELP-1). Part 2: access for helpers without an account,
+    by a one-time QR code the incident command makes for them in this incident, with the
+    role chosen at registration (never *Einsatzleitung*) and valid until their duty ends
+    (ADR and an ASVS check first).
 
 Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 

@@ -1,12 +1,15 @@
 //! Shared module `helpers`: the helpers of an incident (HELP-1, HELP-2), kept in the
 //! compartment `people`, which only the incident command reads (ADR-0071).
 //!
-//! A helper is registered with a name and, where known, date of birth, address, phone,
-//! organisation, qualifications, diet, duty and ORDO account. Changes carry only the changed
+//! A helper is registered with a name and, where known, date of birth, address (street,
+//! postcode, town), phone, organisation, qualifications, diet, duty and ORDO account. The
+//! profile's settings ([`register::RegisterSettings`]) check phone and postcode and offer
+//! the diets. Changes carry only the changed
 //! fields; the latest value per field counts by hybrid logical clock, so the register does
 //! not depend on the order in which events arrive.
 
 pub mod cards;
+pub mod register;
 
 use std::collections::BTreeMap;
 
@@ -23,9 +26,9 @@ pub const COMPARTMENT: &str = "people";
 pub const REGISTERED: &str = "helpers.registered";
 /// Event type: fields of a helper changed.
 pub const UPDATED: &str = "helpers.updated";
-/// Schema version of both event types. Version 2 adds the diet; version 1 decodes without
-/// it.
-pub const SCHEMA: u32 = 2;
+/// Schema version of both event types. Version 2 adds the diet, version 3 the address as
+/// street, postcode and town (HELP-1); older versions decode without them.
+pub const SCHEMA: u32 = 3;
 /// Longest text of a field, in characters.
 pub const TEXT_MAX: usize = 200;
 
@@ -39,9 +42,19 @@ pub struct Fields {
     /// Date of birth, `YYYY-MM-DD`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub birth_date: Option<String>,
-    /// Postal address.
+    /// Postal address in one text, as schema versions 1 and 2 kept it; shown where street,
+    /// postcode and town are not given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    /// Street and house number (schema version 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub street: Option<String>,
+    /// Postcode (schema version 3), checked against the profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postcode: Option<String>,
+    /// Town (schema version 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub town: Option<String>,
     /// Phone number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
@@ -117,6 +130,9 @@ impl HelperChange {
             &f.name,
             &f.birth_date,
             &f.address,
+            &f.street,
+            &f.postcode,
+            &f.town,
             &f.phone,
             &f.organisation,
             &f.diet,
@@ -162,6 +178,29 @@ impl Helper {
         self.fields.name.as_deref().unwrap_or_default()
     }
 
+    /// The address in one line: street, postcode and town, else as older versions kept it.
+    pub fn address(&self) -> Option<String> {
+        let f = &self.fields;
+        let place = [f.postcode.as_deref(), f.town.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" ");
+        let line = [
+            f.street.as_deref(),
+            (!place.is_empty()).then_some(place.as_str()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(", ");
+        if line.is_empty() {
+            f.address.clone()
+        } else {
+            Some(line)
+        }
+    }
+
     /// Whether the helper is on duty at `now_ms`: duty started and not ended.
     pub fn on_duty(&self, now_ms: u64) -> bool {
         self.fields.duty_start.is_some_and(|s| s <= now_ms)
@@ -182,6 +221,9 @@ fn apply(into: &mut Fields, change: Fields) {
     take(&mut into.name, trimmed(change.name), text);
     take(&mut into.birth_date, trimmed(change.birth_date), text);
     take(&mut into.address, trimmed(change.address), text);
+    take(&mut into.street, trimmed(change.street), text);
+    take(&mut into.postcode, trimmed(change.postcode), text);
+    take(&mut into.town, trimmed(change.town), text);
     take(&mut into.phone, trimmed(change.phone), text);
     take(&mut into.organisation, trimmed(change.organisation), text);
     take(&mut into.diet, trimmed(change.diet), text);
@@ -203,7 +245,7 @@ pub struct HelperRegister {
 }
 
 impl HelperRegister {
-    // [impl->dsn~helper-register~2]
+    // [impl->dsn~helper-register~3]
     /// Computes the register; the result does not depend on the order of `events`. A
     /// helper exists once registered; changes apply in clock order, also those made before
     /// the registration arrived.
@@ -307,7 +349,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~helper-register~2]
+    // [utest->dsn~helper-register~3]
     #[test]
     fn helpers_are_registered_and_changed_field_by_field_in_any_order() {
         let anna = change(

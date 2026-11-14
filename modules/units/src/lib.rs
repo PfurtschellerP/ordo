@@ -29,8 +29,9 @@ pub const RELEASED: &str = "units.released";
 /// Event type: the crew of a unit was set (UNIT-5), the whole list.
 pub const CREW_SET: &str = "units.crewSet";
 /// Schema version of `units.crewSet`: 2 since a member may name the helper of the
-/// incident's register (HELP-3); older payloads decode without it.
-pub const CREW_SCHEMA: u32 = 2;
+/// incident's register (HELP-3), 3 since it may name their ORDO account (REP-3, ADR-0076);
+/// older payloads decode without them.
+pub const CREW_SCHEMA: u32 = 3;
 
 /// Crew strength in tactical notation (UNIT-2): leaders (*Führer*), sub-leaders
 /// (*Unterführer*) and crew (*Mannschaft*); the total is computed. Leaders of formations
@@ -165,6 +166,10 @@ pub struct CrewMember {
     /// helper's other data stays in the compartment `people`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub helper: Option<String>,
+    /// The member's ORDO account (schema version 3), so their own device knows its units
+    /// without reading the register.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
 }
 
 /// Payload of `units.crewSet`: the whole crew of a unit, replacing earlier lists.
@@ -494,12 +499,17 @@ impl UnitRegister {
     }
 
     // [impl->dsn~reports~1]
-    /// The units present whose crew names `user` (a user ID, as entered in the crew).
+    /// The units present whose crew names `user` (a user ID): by the member's account, or
+    /// by a name typed as a user ID.
     pub fn crewed_by<'a>(&'a self, user: &'a str) -> impl Iterator<Item = &'a Unit> {
+        let user = user.trim();
         self.present().filter(move |u| {
-            u.crew
-                .iter()
-                .any(|m| m.name.trim().eq_ignore_ascii_case(user.trim()))
+            u.crew.iter().any(|m| {
+                m.account
+                    .as_deref()
+                    .is_some_and(|a| a.trim().eq_ignore_ascii_case(user))
+                    || m.name.trim().eq_ignore_ascii_case(user)
+            })
         })
     }
 
@@ -786,6 +796,7 @@ mod tests {
         let crew = CrewSet {
             unit: "RTW 1".into(),
             members: vec![CrewMember {
+                account: None,
                 name: "Anna".into(),
                 qualifications: vec!["paramedic".into()],
                 helper: None,
@@ -825,6 +836,7 @@ mod tests {
         let crew = CrewSet {
             unit: "SanTrp 1".into(),
             members: vec![CrewMember {
+                account: None,
                 name: " Anna@ordo.example.org ".into(),
                 qualifications: Vec::new(),
                 helper: None,
@@ -848,6 +860,22 @@ mod tests {
             0,
             "not once released"
         );
+        // By the account a member taken from the register keeps (schema version 3).
+        let named = CrewSet {
+            unit: "RTW 1".into(),
+            members: vec![CrewMember {
+                name: "Anna Schmidt".into(),
+                qualifications: Vec::new(),
+                helper: Some("h1".into()),
+                account: Some("anna@ordo.example.org".into()),
+            }],
+        };
+        let events = vec![
+            added(1, "RTW 1", "DRK", "rescue", None),
+            event(2, CREW_SET, named.encode().unwrap()),
+        ];
+        let register = UnitRegister::from_events(&events);
+        assert_eq!(register.crewed_by("anna@ordo.example.org").count(), 1);
     }
 
     // [utest->dsn~double-booking~1]
@@ -858,6 +886,7 @@ mod tests {
             members: names
                 .iter()
                 .map(|n| CrewMember {
+                    account: None,
                     name: (*n).into(),
                     qualifications: Vec::new(),
                     helper: None,
@@ -915,10 +944,11 @@ mod tests {
         assert_eq!(Post::unit("RTW 1").call_sign(), Some("RTW 1"));
     }
 
-    // [utest->dsn~crews-from-register~1]
+    // [utest->dsn~crews-from-register~2]
     #[test]
     fn crews_linked_to_helpers_are_matched_by_helper_and_account() {
         let member = |name: &str, helper: Option<&str>| CrewMember {
+            account: None,
             name: name.into(),
             qualifications: Vec::new(),
             helper: helper.map(Into::into),

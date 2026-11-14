@@ -997,7 +997,6 @@ fn Workspace(
                     // links to its own view land here.
                     (Some("command.prepare"), Some("people" | "structure")) => view! {
                         <crate::helpers::HelpersView core revision />
-                        <crate::incidents::RosterView core revision />
                         <crate::devices::IncidentDevicesView core revision />
                         <crate::command::LeadershipView core revision />
                     }.into_any(),
@@ -1170,7 +1169,7 @@ impl UhsDraft {
     }
 }
 
-// [impl->dsn~crews-from-register~1]
+// [impl->dsn~crews-from-register~2]
 /// A UHS staff entry (a user ID or name) as a person: the helper whose account it is, if
 /// the register names one (HELP-2).
 fn staff_member(core: Handle, entry: &str) -> crate::units::Who {

@@ -1328,6 +1328,7 @@ mod tests {
         let crew = ordo_units::CrewSet {
             unit: "RTW 1".into(),
             members: vec![ordo_units::CrewMember {
+                account: None,
                 name: "Ben".into(),
                 qualifications: Vec::new(),
                 helper: None,

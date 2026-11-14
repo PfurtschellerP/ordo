@@ -441,14 +441,16 @@ Needs: dsn
 ### 4.6a Shared: helpers in an incident
 
 #### HELP-1 — Helper register
-`req~help-1~2`
+`req~help-1~3`
 
 When the incident command registers a helper of its incident, ORDO shall record the name,
-and where given the date of birth, address, phone, organisation, qualifications from the
-profile, diet and the start and end of duty, in a compartment of their own that only the
-incident command reads.
+and where given the date of birth, address (street, postcode, town), phone, organisation,
+qualifications from the profile, diet (chosen from the profile's list or typed in) and the
+start and end of duty, in a compartment of their own that only the incident command reads;
+ORDO shall take a phone number only with its area code, and keep it in international form,
+and a postcode only in the form the profile gives.
 
-Tags: should, shared, m59
+Tags: should, shared, m59, m61
 
 Needs: dsn
 
@@ -459,6 +461,18 @@ Where a helper has an ORDO account, ORDO shall allow linking the helper to it, s
 person is recognised in the roster, crews and staff lists.
 
 Tags: should, shared, m59
+
+Needs: dsn
+
+#### HELP-6 — People and roles in one list
+`req~help-6~1`
+
+When the incident command registers a person for its incident, ORDO shall offer the
+organisation's accounts to choose from, take the name from the chosen account, and grant
+the role chosen in the same form; ORDO shall list the incident's helpers and everyone with
+a role in it in one list, joined by their account.
+
+Tags: should, shared, m61
 
 Needs: dsn
 

@@ -434,10 +434,6 @@ pub const PLAN_TITLE: &str = "Einsatz planen";
 pub const PLAN_NAME: &str = "Name des Einsatzes";
 pub const PLAN_SUBMIT: &str = "Einsatz anlegen";
 pub const CHANGE_INCIDENT: &str = "Einsatz wechseln";
-pub const ROSTER_TITLE: &str = "Rollen im Einsatz";
-pub const ROSTER_EMPTY: &str = "Noch niemand hat eine Rolle in diesem Einsatz.";
-pub const ROSTER_PERSON: &str = "Person (name@server)";
-pub const ROSTER_ROLE: &str = "Rolle";
 pub const GRANT: &str = "Rolle vergeben";
 pub const WITHDRAW: &str = "Entziehen";
 pub const INCIDENT_STATE: &str = "Status";
@@ -1979,12 +1975,38 @@ pub fn account_delete_label(email: &str) -> String {
 pub const HELPERS_TITLE: &str = "Helferinnen und Helfer";
 pub const HELPERS_INTRO: &str =
     "Persönliche Angaben der Helfenden dieses Einsatzes. Nur die Einsatzleitung sieht sie.";
+pub const HELPERS_INTRO_ROLES: &str =
+    "Wer in diesem Einsatz welche Rolle hat. Persönliche Angaben sieht nur die Einsatzleitung.";
 pub const HELPERS_EMPTY: &str = "Noch niemand erfasst.";
-pub const HELPER_ADD_TITLE: &str = "Helfer/in erfassen";
-pub const HELPER_ADD: &str = "Erfassen";
+pub const HELPER_ADD_TITLE: &str = "Person aufnehmen";
+pub const HELPER_ADD: &str = "Aufnehmen";
+pub const ROLE_ADD_TITLE: &str = "Rolle vergeben";
+pub const HELPER_COMPLETE: &str = "Angaben ergänzen";
+pub fn helper_complete_label(name: &str) -> String {
+    format!("{HELPER_COMPLETE}: {name}")
+}
+pub fn helper_complete_title(name: &str) -> String {
+    format!("Angaben zu {name} ergänzen")
+}
 pub const HELPER_NAME: &str = "Name";
 pub const HELPER_PHONE: &str = "Telefon";
-pub const HELPER_ADDRESS: &str = "Anschrift";
+pub const HELPER_PHONE_HINT: &str = "Mit Vorwahl, z. B. 0171 1234567 oder +43 664 1234567.";
+pub const HELPER_PHONE_INVALID: &str =
+    "Die Telefonnummer ist keine gültige Nummer mit Vorwahl, z. B. 0171 1234567.";
+pub const HELPER_STREET: &str = "Straße und Hausnummer";
+pub const HELPER_POSTCODE: &str = "PLZ";
+pub const HELPER_POSTCODE_INVALID: &str =
+    "Die Postleitzahl hat nicht die Form des Landes, z. B. 55116.";
+pub const HELPER_TOWN: &str = "Ort";
+pub const HELPER_ROLE: &str = "Rolle im Einsatz";
+pub const ROLE_NONE: &str = "keine Rolle";
+pub const ROLE_NEEDS_ACCOUNT: &str =
+    "Eine Rolle braucht ein ORDO-Konto. Für Helfende ohne Konto folgt der Zugang per QR-Code.";
+pub const ROLE_MISSING: &str = "Bitte eine Rolle wählen.";
+pub const HELPER_ACCOUNT_HINT: &str =
+    "Konto der Organisation wählen; der Name wird übernommen. Leer lassen für Helfende ohne Konto.";
+pub const DIET_OTHER: &str = "andere …";
+pub const DIET_OTHER_LABEL: &str = "Andere Ernährung";
 pub const HELPER_BIRTH_DATE_LABEL: &str = "Geburtsdatum";
 pub const HELPER_DIET: &str = "Ernährung";
 pub const DIET_NONE: &str = "ohne Angabe";
@@ -2000,7 +2022,7 @@ pub fn diet_counts(counts: &[(String, usize)]) -> String {
 }
 pub const HELPER_DUTY_START: &str = "Dienstbeginn";
 pub const HELPER_DUTY_END: &str = "Dienstende";
-pub const HELPER_ACCOUNT_LABEL: &str = "ORDO-Konto (falls vorhanden)";
+pub const HELPER_ACCOUNT_LABEL: &str = "ORDO-Konto";
 pub const HELPER_NAME_MISSING: &str = "Bitte einen Namen angeben.";
 pub const HELPER_TOO_LONG: &str = "Jede Angabe darf höchstens 200 Zeichen lang sein.";
 pub const HELPER_BIRTH_DATE: &str = "Bitte das Geburtsdatum als Datum angeben.";
@@ -2027,9 +2049,6 @@ pub fn helper_edit_title(name: &str) -> String {
 }
 pub fn helper_saved(name: &str) -> String {
     format!("Angaben zu {name} gespeichert.")
-}
-pub fn helper_account(account: &str) -> String {
-    format!("Konto: {account}")
 }
 pub fn on_duty_since(at: &str) -> String {
     format!("im Dienst seit {at}")

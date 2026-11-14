@@ -80,5 +80,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0073](0073-registration-cards-read-in-attempts-diet-kept.md) | Registration cards are read in several attempts, and their diet is kept | accepted | 2026-11-13 |
 | [0074](0074-no-vehicles-file.md) | No file of the installation's vehicles | accepted | 2026-11-14 |
 | [0075](0075-reports-recorded-in-dispatch.md) | Reports are recorded in *Disposition*, assigned as tasks, and become patients through the crew | accepted | 2026-11-14 |
+| [0076](0076-people-and-roles-in-one-list.md) | The incident's people and their roles in one list and one form | accepted | 2026-11-14 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

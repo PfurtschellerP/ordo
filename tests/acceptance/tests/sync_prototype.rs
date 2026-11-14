@@ -1235,6 +1235,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
     let crew = units::CrewSet {
         unit: "RTW 1".into(),
         members: vec![units::CrewMember {
+            account: None,
             name: "anna@ordo.example.org".into(),
             qualifications: vec!["paramedic".into()],
             helper: None,

@@ -2,6 +2,8 @@
 //! from the profile (`helpers/registration-cards.toml`). The module knows no card; the
 //! profile says which field of a card goes where.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 /// What the register takes from one field of the card.
@@ -36,9 +38,15 @@ pub struct CardFormat {
     /// Date of birth.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub birth_date: Option<Rule>,
-    /// Postal address.
+    /// Street and house number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub address: Option<Rule>,
+    pub street: Option<Rule>,
+    /// Postcode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postcode: Option<Rule>,
+    /// Town.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub town: Option<Rule>,
     /// Phone number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phone: Option<Rule>,
@@ -48,6 +56,10 @@ pub struct CardFormat {
     /// Diet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diet: Option<Rule>,
+    /// The card's wording of a diet → the register's (`helpers/register.toml`), compared
+    /// without case; an empty one means none was given. Other wordings are taken as they are.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub diets: BTreeMap<String, String>,
     /// Start of duty (date and time).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duty_start: Option<Rule>,
@@ -75,8 +87,12 @@ pub struct CardFields {
     pub name: String,
     /// Date of birth.
     pub birth_date: Option<String>,
-    /// Postal address.
-    pub address: Option<String>,
+    /// Street and house number.
+    pub street: Option<String>,
+    /// Postcode.
+    pub postcode: Option<String>,
+    /// Town.
+    pub town: Option<String>,
     /// Phone number.
     pub phone: Option<String>,
     /// Organisation.
@@ -235,13 +251,29 @@ impl CardFormat {
             name: Self::value(&self.name, &fields)
                 .filter(|n| n.chars().any(char::is_alphabetic))?,
             birth_date: get(&self.birth_date),
-            address: get(&self.address),
+            street: get(&self.street),
+            postcode: get(&self.postcode),
+            town: get(&self.town),
             phone: get(&self.phone),
             organisation: get(&self.organisation),
-            diet: get(&self.diet),
+            diet: get(&self.diet).and_then(|d| self.diet(d)),
             duty_start: get(&self.duty_start),
             duty_end: get(&self.duty_end),
         })
+    }
+}
+
+impl CardFormat {
+    /// The register's wording of a diet the card gives; `None` for "none given".
+    fn diet(&self, card: String) -> Option<String> {
+        match self
+            .diets
+            .iter()
+            .find(|(from, _)| from.trim().eq_ignore_ascii_case(card.trim()))
+        {
+            Some((_, to)) => (!to.trim().is_empty()).then(|| to.trim().to_owned()),
+            None => Some(card),
+        }
     }
 }
 
@@ -268,7 +300,9 @@ impl CardCatalogue {
             let rules = [
                 Some(&f.name),
                 f.birth_date.as_ref(),
-                f.address.as_ref(),
+                f.street.as_ref(),
+                f.postcode.as_ref(),
+                f.town.as_ref(),
                 f.phone.as_ref(),
                 f.organisation.as_ref(),
                 f.diet.as_ref(),
@@ -325,10 +359,12 @@ mod tests {
                 card: "meldekarte".into(),
                 name: "Max Mustermann".into(),
                 birth_date: Some("2001-01-01".into()),
-                address: Some("Musterstraße 1, 12345 Testendorf".into()),
+                street: Some("Musterstraße 1".into()),
+                postcode: Some("12345".into()),
+                town: Some("Testendorf".into()),
                 phone: Some("+4915112312285".into()),
                 organisation: Some("Malteser Testgruppe, Testverband".into()),
-                diet: Some("Ernährung ohne Einschränkung".into()),
+                diet: None,
                 duty_start: Some("2027-01-01T18:00".into()),
                 duty_end: None,
             })
@@ -336,7 +372,8 @@ mod tests {
         // Empty fields leave no separators behind; a date that does not fit is left out.
         let sparse = "Muster;Erika;1.1.2001;w;;;;Hauptstr. 2;;;Wasserwacht;;;;;";
         let read = c.read(sparse).expect("read");
-        assert_eq!(read.address.as_deref(), Some("Hauptstr. 2"));
+        assert_eq!(read.street.as_deref(), Some("Hauptstr. 2"));
+        assert_eq!(read.postcode, None);
         assert_eq!(read.organisation.as_deref(), Some("Wasserwacht"));
         assert_eq!(read.birth_date, None);
         assert_eq!(read.phone, None);
@@ -345,11 +382,21 @@ mod tests {
                      +49170000000;Testverband;Testgruppe;;;;;vegetarische Ernährung";
         let read = c.read(plain).expect("read");
         assert_eq!((read.duty_start, read.duty_end), (None, None));
-        assert_eq!(read.diet.as_deref(), Some("vegetarische Ernährung"));
+        assert_eq!(
+            read.diet.as_deref(),
+            Some("vegetarisch"),
+            "the card's wording in the register's"
+        );
+        let other = plain.replace("vegetarische Ernährung", "Halal");
+        assert_eq!(
+            c.read(&other).expect("read").diet.as_deref(),
+            Some("Halal"),
+            "others as given"
+        );
         // Conservative: a value that does not fit is left out, the rest is taken.
         let long = plain.replace("Hauptstr. 2", &"x".repeat(crate::TEXT_MAX + 1));
         let read = c.read(&long).expect("read");
-        assert_eq!(read.address, None, "too long");
+        assert_eq!(read.street, None, "too long");
         assert_eq!(read.phone.as_deref(), Some("+49170000000"));
         let control = plain.replace("+49170000000", "+49\u{7}170");
         assert_eq!(

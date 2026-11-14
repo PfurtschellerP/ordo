@@ -562,43 +562,59 @@ Tags: must, m36
 ### 5.5.1d Shared module `helpers`
 
 #### Helper register
-`dsn~helper-register~2`
+`dsn~helper-register~3`
 
 The helpers of an incident are events of the module `helpers` in the compartment `people`
 ([ADR-0071](../adr/0071-helper-register-in-its-own-compartment.md)), sealed and read only by
 the incident command (`commander` in `command.cedar`).
 
 * **Register** (`helpers.registered`): a new helper ID (ULID) and the name; where given,
-  date of birth, address, phone, organisation, qualifications from the profile
-  (`units/catalogue.toml`), diet, start and end of duty, and the ORDO account. Schema
-  version 2 adds the diet; version 1 decodes without it.
+  date of birth, address as street, postcode and town, phone, organisation, qualifications
+  from the profile (`units/catalogue.toml`), diet, start and end of duty, and the ORDO
+  account. Schema version 2 adds the diet, version 3 street, postcode and town; older
+  versions decode without them, and an address kept in one text is shown as it is.
+* **Checks** from the profile (`helpers/register.toml`): a phone number is kept in the
+  international form of E.164 (`+`, country code, 7 to 15 digits; a leading `0` gets the
+  profile's calling code, separators and an `(0)` go), and refused without an area code;
+  a postcode must match the profile's pattern (`9` a digit, `A` a letter). The diet is one
+  of the profile's list or typed in; a registration card's wording of a diet is mapped to
+  the list where the card format says so.
 * **Change** (`helpers.updated`): the helper ID and only the changed fields; an empty
   field clears it. The latest value per field counts, by hybrid logical clock, whatever
   order the events arrive in.
-* **Page:** *Vorbereitung – Personal* lists the helpers by name with organisation,
-  qualifications and duty, and a form to register one or change one. On duty means:
-  started and not ended. The name is required; everything else may come later. For
+* **Page** ([ADR-0076](../adr/0076-people-and-roles-in-one-list.md)): *Vorbereitung –
+  Personal* lists the incident's people in one list: every helper by name with account,
+  organisation, qualifications, duty and the roles of their account, then everyone with a
+  role who is not in the register, with "Angaben ergänzen". One form registers a person:
+  first the ORDO account, chosen from the people the server knows, which fills in the name;
+  then the personal data, and a role in the incident, granted with the registration. A
+  role needs an account. Without access to the register (e.g. a planner of another
+  incident) the list holds the roles and the form asks only for account and role. On duty
+  means: started and not ended. The name is required; everything else may come later. For
   catering, a line above the list counts the diets of those whose duty has not ended
   (spelling as first seen, without case), and those without one.
 
 Covers:
 
-* [req~help-1~2](../requirements/02-shared.md#help-1--helper-register)
+* [req~help-1~3](../requirements/02-shared.md#help-1--helper-register)
 * [req~help-2~1](../requirements/02-shared.md#help-2--helpers-linked-to-accounts)
+* [req~help-6~1](../requirements/02-shared.md#help-6--people-and-roles-in-one-list)
 
 Needs: impl, utest, itest
 
-Tags: should, m59
+Tags: should, m59, m61
 
 #### Crews from the register
-`dsn~crews-from-register~1`
+`dsn~crews-from-register~2`
 
 Where a device reads the helper register (the incident command), a unit's crew is taken
 from it: the crew form suggests the registered helpers by name and accepts a name or an
 account of the register. A name not in it is offered "Erfassen und hinzufügen", which
 registers a helper with that name alone (and, if it is a user ID, as their account) and then
-adds them. `units.crewSet` schema version 2 gives a member the helper's ID besides the name;
-nothing else leaves `people`, and devices without the register show the name. With no
+adds them. `units.crewSet` schema version 2 gives a member the helper's ID besides the name,
+version 3 the helper's ORDO account, so a crew member's own device knows its units
+([Reports](#reports)); nothing else leaves `people`, and devices without the register show
+the name. With no
 qualifications chosen, the member gets the helper's. Double bookings
 ([Double booking](#double-booking)) are matched by helper where a member is linked, and a
 UHS staff entry that is a helper's account counts as that helper; unlinked entries are
