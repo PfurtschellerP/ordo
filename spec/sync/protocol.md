@@ -22,14 +22,20 @@ message per frame.
 1. The server sends `challenge` with 32 random bytes, new for every connection, and
    `versions`: the range of protocol versions it supports (§11).
 2. The device sends `hello` with its user, device, the streams it wants (each with the
-   last sequence number it already has), the protocol `version` it speaks (§11), and a
-   `proof`: the Ed25519 signature with its
-   device key over `"ORDO hello v1"`, a zero byte, the challenge, the 16-byte device ID
+   last sequence number it already has), the protocol `version` it speaks (§11), its
+   `kem_key`, and a `proof`: the Ed25519 signature with its device key over
+   `"ORDO hello v2"`, a zero byte, the challenge, the 16-byte device ID, the `kem_key`
    and the UTF-8 user ID. The different prefix keeps proofs and event signatures apart.
+   `kem_key` is the device's public X-Wing key (X25519 and ML-KEM-768, 1216 bytes,
+   [ADR-0080](../../docs/adr/0080-key-grants-sealed-per-device-with-x-wing.md)). The
+   device derives it from its device key's seed with BLAKE3 (`derive_key`, context
+   `"ORDO 2026-11-17 device X-Wing key v1"`), so it is the same on every connection.
 3. The server MUST refuse (`refused: notAuthenticated`) a hello on a connection without an
    unused challenge, or with a proof that does not verify against the device's registered
    key; and (`refused: unknownDevice`) if the device is not paired with that user. A
-   challenge is used once, so a recorded hello cannot be replayed. The server MUST refuse
+   challenge is used once, so a recorded hello cannot be replayed. As the proof covers the
+   `kem_key`, a hello whose `kem_key` was changed, or has another length, is refused
+   (`notAuthenticated`) too. The server MUST refuse
    (`refused: unsupportedVersion`) a hello whose version is outside its range. Nothing is
    sent to a refused connection; the server closes it after the refusal.
 4. The server answers `welcome`:
@@ -38,7 +44,11 @@ message per frame.
    - `denied`: streams the user may not read. The server MUST NOT send any event of a
      denied stream to this connection.
    - `protected`: compartments whose payloads must be sealed.
-   - `keys`: data keys of granted protected streams.
+   - `keys`: data keys of granted protected streams, each sealed for the `kem_key` of
+     this hello (`encapsulated`, `ciphertext`; see `key-grant` in
+     [`protocol.cddl`](protocol.cddl)), bound to the device ID, incident, compartment
+     and key name. The server MUST NOT send a data key in plain text. The device MUST
+     refuse a welcome with a grant it cannot open, and take nothing of it.
    - `permissions` (optional): what the user may do beyond compartments, e.g.
      `manage_devices` (§6).
    - `version`: the protocol version agreed for this connection (§11).
@@ -248,7 +258,7 @@ profile pictures (§8); attachments (§9).
 
 Open for draft 2:
 
-- Key grants encrypted for the device key (X25519); key rotation.
+- Key rotation. (Key grants are sealed for the device since 1.4, ADR-0080.)
 - Verifying signatures of other devices' events on the device (key directory).
 - AsyncAPI description of the WebSocket channel.
 
@@ -279,6 +289,7 @@ clients raises `major`.
 |---|---|---|
 | 1.0 | Draft 1 (§2–§9), with `versions`, `version`, `unsupportedVersion` | `/auth/*`, `/blobs/*` as of 2026-11-10 |
 | 1.1 | `listVehicles` and `vehicles` (§7); removed again before the first release ([ADR-0074](../../docs/adr/0074-no-vehicles-file.md)) | unchanged |
-| 1.3 | `createGuest`, `setGuestAccess` and `guest` (§7, ADR-0077) | 1.1: `POST /auth/guest` |
 | 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
+| 1.3 | `createGuest`, `setGuestAccess` and `guest` (§7, ADR-0077) | 1.1: `POST /auth/guest` |
+| 1.4 | `kem_key` in `hello`, proof `"ORDO hello v2"`; `keys` sealed for the device (§2, ADR-0080). The server's range starts at 1.4: 1.0–1.3 sent data keys in plain text and were dropped before the first release | unchanged |
 

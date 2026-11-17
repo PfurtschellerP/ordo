@@ -310,6 +310,15 @@ Tags: must, quality, m42
 
 Needs: dsn
 
+#### SEC-19 — Data keys sealed for each device
+`req~sec-19~1`
+
+When the server gives a device the data key of a protected compartment, ORDO shall send it encrypted for that device alone with a hybrid key encapsulation (classical and post-quantum), so that a proxy that ends TLS, or a recording of the traffic, never learns the key ([ADR-0080](../adr/0080-key-grants-sealed-per-device-with-x-wing.md)).
+
+Tags: must, quality, m63
+
+Needs: dsn
+
 #### SEC-2 — Role-based access
 `req~sec-2~1`
 

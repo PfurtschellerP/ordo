@@ -88,10 +88,15 @@ impl VersionRange {
 }
 
 /// The versions of the sync protocol this implementation speaks (spec/sync/protocol.md §11).
+/// From 1.4 on, data keys travel only sealed for the device, so the older versions, which
+/// carried them in plain text, were dropped (ADR-0080).
 pub const SYNC: VersionRange = VersionRange {
-    min: Version::new(1, 0),
-    max: Version::new(1, 3),
+    min: Version::new(1, 4),
+    max: Version::new(1, 4),
 };
+
+/// The version of a hello that names none (ADR-0052).
+pub const SYNC_UNNAMED: Version = Version::new(1, 0);
 
 /// Sync protocol 1.2: `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket` (MAP-8).
 pub const SYNC_MAP_REGION: Version = Version::new(1, 2);
@@ -107,6 +112,9 @@ pub const SYNC_INCIDENT_DEVICES: Version = Version::new(1, 2);
 
 /// Sync protocol 1.3: `createGuest`, `setGuestAccess` and `guest` (ADR-0077).
 pub const SYNC_GUESTS: Version = Version::new(1, 3);
+
+/// Sync protocol 1.4: `kem_key` in `hello`, key grants sealed for it (ADR-0080).
+pub const SYNC_SEALED_KEYS: Version = Version::new(1, 4);
 
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].

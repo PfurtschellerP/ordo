@@ -149,6 +149,7 @@ the build fails.
 | 60 — Reports | `m60` | Reports recorded in *Führung – Disposition* as events or patient cases with place and description (REP-1), assigned to units as linked tasks (REP-2), a patient case registered as a patient by the assigned crew (REP-3), the place shown to the crew on a map (REP-4), closed and kept (REP-5) (roadmap item 10, ADR-0075) |
 | 61 — People and roles | `m61` | One list of the incident's helpers and role holders, joined by account; one form that takes the name from an account, keeps the personal data and grants the role; address as street, postcode and town, phone and postcode checked, diet from the profile's list (HELP-1, HELP-6, ADR-0076); access for helpers without an account by a one-time QR code, until their duty ends (HELP-7, ADR-0077) |
 | 62 — The crew's workspace | `m62` | *Einsatzmittel – Besatzung*: a unit's crew sees and sets its status, carries out its tasks and transports and takes its patient cases over (UNIT-9, ADR-0079); every tactical symbol of the profile placeable, by topic (MAP-10); a UHS requests a physician or a paramedic, put on its staff list by the command (UHS-15) (roadmap item 11) |
+| 63 — Sealed key grants | `m63` | Data keys reach a device only sealed for it with X-Wing (X25519 and ML-KEM-768), so a proxy that ends TLS never sees them; sync protocol 1.4 (SEC-19, ADR-0080) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -157,5 +158,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63 docs platform modules packages tests
 ```

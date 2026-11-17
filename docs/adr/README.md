@@ -84,5 +84,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0077](0077-guest-access-by-one-time-qr-code.md) | Helpers without an account get access by a one-time QR code, until their duty ends | accepted; partly superseded by 0078 | 2026-11-14 |
 | [0078](0078-guest-codes-last-30-minutes-set-per-installation.md) | A guest's one-time code lasts 30 minutes, set per installation | accepted | 2026-11-14 |
 | [0079](0079-crew-workspace.md) | Crews get a workspace of their own: status, tasks, patient cases and transports | accepted | 2026-11-14 |
+| [0080](0080-key-grants-sealed-per-device-with-x-wing.md) | Key grants are sealed for each device with X-Wing (X25519 and ML-KEM-768) | accepted | 2026-11-17 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

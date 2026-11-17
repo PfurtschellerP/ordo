@@ -143,8 +143,9 @@ Each compartment has its own:
 - **Sync scope** — the server sends a device only the compartments its user may read.
   A fire tablet never receives, and therefore never stores, patient records.
 - **Encryption key** — one data key per incident and compartment. Keys are given to
-  authorised devices encrypted for that device's own key (X25519), and are removed when
-  a device is revoked or a role ends.
+  authorised devices sealed for that device's own key (X-Wing: X25519 and ML-KEM-768,
+  [ADR-0080](../adr/0080-key-grants-sealed-per-device-with-x-wing.md)), and are removed
+  when a device is revoked or a role ends.
 - **Retention** — closed incidents are deleted or anonymised per compartment, so ePCR
   data can be kept 10 years while operational data is deleted earlier.
 
@@ -353,6 +354,28 @@ Needs: itest
 
 Tags: must, m27
 
+#### Sealed key grants
+`dsn~sealed-key-grants~1`
+
+Each device has an X-Wing key (X25519 and ML-KEM-768), derived from its Ed25519 device
+seed with BLAKE3, so nothing new is stored or paired. It sends the public key with every
+hello, covered by the hello's proof. For each data key it grants, the hub encapsulates to
+that key, derives an XChaCha20-Poly1305 key and nonce from the shared secret with BLAKE3,
+and encrypts the data key bound to the device ID, incident, compartment and key name. The
+device opens all grants of a welcome before it takes any of it, and refuses a welcome with
+a grant it cannot open. Protocol 1.4 has no plain-text grants, and the hub's range starts
+at 1.4, so no one in between can force an older version
+([ADR-0080](../adr/0080-key-grants-sealed-per-device-with-x-wing.md),
+[protocol §2](../../spec/sync/protocol.md)).
+
+Covers:
+
+* [req~sec-19~1](../requirements/07-quality.md#sec-19--data-keys-sealed-for-each-device)
+
+Needs: impl, utest, itest
+
+Tags: must, m63
+
 #### Software bill of materials
 `dsn~sbom~1`
 
@@ -480,8 +503,9 @@ Tags: must, m35, m55
 `dsn~device-proof~1`
 
 On every connection the hub sends a fresh 32-byte challenge. The device answers with its
-hello, which carries an Ed25519 signature with the device key over `ORDO hello v1`, a zero
-byte, the challenge, the device ID and the user ID (sync protocol draft 1). The hub uses
+hello, which carries an Ed25519 signature with the device key over `ORDO hello v2`, a zero
+byte, the challenge, the device ID, the device's public X-Wing key and the user ID (sync
+protocol 1.4). The hub uses
 each challenge once, checks the signature against the device's registered key, and
 refuses the connection otherwise; a refused connection gets no data and no key.
 

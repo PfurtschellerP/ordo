@@ -817,8 +817,8 @@ impl<P: AccessPolicy> Hub<P> {
             return refuse(Rejection::NotAuthenticated);
         };
         // [impl->dsn~protocol-versions~1]
-        // No version is the oldest; one outside the range is refused (ADR-0052).
-        let version = hello.version.unwrap_or(SYNC_VERSIONS.min);
+        // No version is 1.0; one outside the range is refused (ADR-0052).
+        let version = hello.version.unwrap_or(crate::version::SYNC_UNNAMED);
         if !SYNC_VERSIONS.contains(version) {
             return refuse(Rejection::UnsupportedVersion);
         }
@@ -834,10 +834,13 @@ impl<P: AccessPolicy> Hub<P> {
         else {
             return refuse(Rejection::UnknownDevice);
         };
+        // [impl->dsn~sealed-key-grants~1]
+        // The proof also covers the device's X-Wing key, so no one in between can swap it.
         if ordo_crypto::verify_hello(
             &device.key,
             &challenge,
             &hello.device,
+            &hello.kem_key,
             &hello.user,
             &hello.proof,
         )
@@ -912,12 +915,31 @@ impl<P: AccessPolicy> Hub<P> {
                 continue;
             }
             if self.is_protected(&sub.compartment) {
+                // [impl->dsn~sealed-key-grants~1]
+                // Sealed for this device alone; never in plain text.
                 let (key_id, data_key) = self.data_key(&key);
+                let aad = ordo_crypto::kem::grant_aad(
+                    &hello.device.ulid().to_bytes(),
+                    sub.incident.as_str(),
+                    sub.compartment.as_str(),
+                    key_id.as_str(),
+                );
+                let entropy = &mut self.entropy;
+                let Ok(sealed) = ordo_crypto::kem::seal_for_device(
+                    &hello.kem_key,
+                    data_key.as_bytes(),
+                    &aad,
+                    &mut |buf| entropy.fill(buf),
+                ) else {
+                    // The proof covered a key of the right length; X-Wing takes any such.
+                    return refuse(Rejection::NotAuthenticated);
+                };
                 welcome.keys.push(KeyGrant {
                     incident: sub.incident.clone(),
                     compartment: sub.compartment.clone(),
                     key_id,
-                    key: *data_key.as_bytes(),
+                    encapsulated: sealed.encapsulated,
+                    ciphertext: sealed.ciphertext,
                 });
             }
             let missing: Vec<SequencedEvent> = self

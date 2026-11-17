@@ -41,8 +41,11 @@ hello = {
   "user": user-id,
   "device": device-id,
   "subscriptions": [* subscription],
+  ; The device's public X-Wing key (X25519 + ML-KEM-768); key grants are sealed for it (1.4)
+  "kem_key": bstr .size 1216,
   ; Ed25519 signature with the device key over
-  ;   "ORDO hello v1" 0x00 || challenge nonce (32) || device-id (16) || UTF-8 user-id
+  ;   "ORDO hello v2" 0x00 || challenge nonce (32) || device-id (16) || kem_key (1216)
+  ;   || UTF-8 user-id
   "proof": bstr .size 64,
   ? "version": version,          ; protocol version spoken; none means "1.0" (§11)
 }
@@ -255,13 +258,18 @@ stream-ref = {
   "compartment": compartment-id,
 }
 
-; Draft 0: the key travels inside the TLS-protected session. Draft 1 encrypts it for
-; the device's own X25519 key.
+; A data key sealed for the device's X-Wing key from its hello (1.4, §2): never in plain
+; text. shared = X-Wing decapsulation of "encapsulated";
+; key = BLAKE3-derive-key("ORDO 2026-11-17 key grant encryption key v1", shared);
+; nonce = first 24 bytes of BLAKE3-derive-key("ORDO 2026-11-17 key grant nonce v1", shared);
+; "ciphertext" = XChaCha20-Poly1305(key, nonce, data key, aad), with
+; aad = device-id (16) || incident-id 0x00 || compartment-id 0x00 || key-id 0x00 (UTF-8).
 key-grant = {
   "incident": incident-id,
   "compartment": compartment-id,
   "key_id": key-id,
-  "key": bstr .size 32,
+  "encapsulated": bstr .size 1120,
+  "ciphertext": bstr .size 48,     ; the 32-byte data key and the 16-byte tag
 }
 
 delivery = {

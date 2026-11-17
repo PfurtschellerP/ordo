@@ -23,6 +23,11 @@ ignore = [
   # libsqlite3-sys 0.39, which sqlx 0.9 does not allow yet (< 0.38). Remove this entry as
   # soon as an sqlx release does (Dependabot proposes it).
   { id = "RUSTSEC-2026-0459", reason = "server opens only its own database files; fix blocked until sqlx allows libsqlite3-sys 0.39" },
+  # chrono is unmaintained since November 2026 (no known vulnerability), and so is humantime,
+  # which wraps it. ORDO does not use either; they come with Cedar, openidconnect/oauth2 and
+  # object_store (server only). Revisit when those move to jiff or time.
+  { id = "RUSTSEC-2026-0543", reason = "unmaintained, no known vulnerability; only via cedar-policy, openidconnect and object_store" },
+  { id = "RUSTSEC-2026-0542", reason = "unmaintained because chrono is, no known vulnerability; only via object_store" },
 ]
 
 [licenses]

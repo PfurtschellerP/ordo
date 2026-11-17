@@ -52,6 +52,7 @@ axum = { version = "0.8", features = ["ws"] }
 base64 = "0.23"
 blake3 = "1"
 cedar-policy = { version = "4", default-features = false }
+x-wing = { version = "0.1", default-features = false, features = ["zeroize"] }
 chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc", "zeroize"] }
 ciborium = "0.2"
 js-sys = "0.3"

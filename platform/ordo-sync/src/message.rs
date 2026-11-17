@@ -633,7 +633,11 @@ pub struct Hello {
     pub device: DeviceId,
     /// Streams the device wants, with the last sequence number it already has.
     pub subscriptions: Vec<Subscription>,
-    /// Ed25519 signature of the server's challenge with the device key
+    /// The device's public X-Wing key (protocol 1.4, ADR-0080): the server seals the
+    /// data keys for it. Covered by `proof`.
+    #[serde(with = "serde_bytes", default)]
+    pub kem_key: Vec<u8>,
+    /// Ed25519 signature of the server's challenge and the KEM key with the device key
     /// (`ordo_crypto::hello_message`).
     #[serde(with = "fixed_bytes")]
     pub proof: [u8; 64],
@@ -752,12 +756,30 @@ pub struct StreamRef {
     pub compartment: CompartmentId,
 }
 
-/// A compartment data key for one device.
-///
-/// Prototype: the key travels inside the (TLS-protected) session. Later it is
-/// encrypted for the device's own key (X25519), see architecture chapter 8.2.
+// [impl->dsn~sealed-key-grants~1]
+/// A compartment data key for one device, sealed for the device's X-Wing key from its
+/// hello (protocol 1.4, ADR-0080): only that device opens it, not a proxy that ends TLS.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyGrant {
+    /// Incident.
+    pub incident: IncidentId,
+    /// Compartment.
+    pub compartment: CompartmentId,
+    /// Name of the key.
+    pub key_id: KeyId,
+    /// The X-Wing encapsulation for the device.
+    #[serde(with = "serde_bytes")]
+    pub encapsulated: Vec<u8>,
+    /// The key, encrypted (`ordo_crypto::kem`), bound to the device and the three fields
+    /// above.
+    #[serde(with = "serde_bytes")]
+    pub ciphertext: Vec<u8>,
+}
+
+/// A compartment data key as the device stores it, protected by its storage key
+/// (ADR-0041).
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoredKey {
     /// Incident.
     pub incident: IncidentId,
     /// Compartment.
@@ -767,6 +789,16 @@ pub struct KeyGrant {
     /// The key.
     #[serde(with = "fixed_bytes")]
     pub key: [u8; 32],
+}
+
+impl core::fmt::Debug for StoredKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("StoredKey")
+            .field("incident", &self.incident)
+            .field("compartment", &self.compartment)
+            .field("key_id", &self.key_id)
+            .finish_non_exhaustive()
+    }
 }
 
 impl core::fmt::Debug for KeyGrant {

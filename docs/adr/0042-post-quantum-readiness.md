@@ -16,11 +16,11 @@ matters for the long-term evidence of the incident log. ORDO's algorithms today:
 | Use | Algorithm | Quantum risk |
 |---|---|---|
 | TLS between devices and the server (Compose: Caddy) | TLS 1.3; key exchange per client | key exchange: harvest now, decrypt later |
-| Event and hello signatures | Ed25519, versioned contexts (`ORDO event v1`, `ORDO hello v1`) | forgery once a quantum computer exists |
+| Event and hello signatures | Ed25519, versioned contexts (`ORDO event v1`, `ORDO hello v2`) | forgery once a quantum computer exists |
 | Sealed payloads and attachments | XChaCha20-Poly1305, 256-bit data keys | none known that matters |
 | Device storage | AES-256-GCM (WebCrypto), key wrapped per device (ADR-0041) | none known that matters |
 | Hash chain, attachment names | BLAKE3, 256 bit | none known that matters |
-| Key grants to devices (planned, draft 2) | X25519 planned | key exchange: harvest now, decrypt later |
+| Key grants to devices (sync protocol 1.4, ADR-0080) | X-Wing (X25519 and ML-KEM-768), BLAKE3, XChaCha20-Poly1305 | hybrid: holds while either X25519 or ML-KEM-768 holds |
 | Outgoing TLS of the server (OIDC, object store) | rustls with *ring*, X25519 | key exchange; inside the operator's network |
 
 The standards are now final: ML-KEM (FIPS 203) and ML-DSA (FIPS 204). National bodies such

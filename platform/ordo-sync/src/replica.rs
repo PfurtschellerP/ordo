@@ -13,7 +13,7 @@ use ordo_crypto::{CHAIN_GENESIS, EventSigner, chain_next, event_hash};
 
 use crate::SyncError;
 use crate::applied::{AppliedEvent, Entropy, StreamKey, random_u128};
-use crate::message::{ClientMessage, Hello, KeyGrant, Rejected, ServerMessage, Subscription};
+use crate::message::{ClientMessage, Hello, Rejected, ServerMessage, StoredKey, Subscription};
 use crate::version::{SYNC as SYNC_VERSIONS, Version};
 
 /// The most a [`Replica::push`] carries, in bytes of events (an event is at most 1 MiB);
@@ -56,7 +56,7 @@ pub struct ReplicaState {
     /// Streams the server denied.
     pub denied: Vec<StreamKey>,
     /// Data keys.
-    pub keys: Vec<KeyGrant>,
+    pub keys: Vec<StoredKey>,
     /// Ordered events per stream.
     pub streams: Vec<(StreamKey, Vec<SequencedEvent>)>,
     /// Unconfirmed events.
@@ -142,6 +142,10 @@ struct Decoded {
 pub struct Replica {
     author: Author,
     signer: EventSigner,
+    /// The device's X-Wing key, which opens the data keys sealed for it (ADR-0080).
+    kem: ordo_crypto::kem::DeviceKem,
+    /// Its public half, sent with every hello.
+    kem_public: Vec<u8>,
     clock: HlcClock,
     entropy: Box<dyn Entropy>,
     wanted: BTreeSet<StreamKey>,
@@ -178,9 +182,13 @@ impl Replica {
         signer: EventSigner,
         entropy: impl Entropy + 'static,
     ) -> Self {
+        let kem = signer.device_kem();
+        let kem_public = kem.public_key();
         Self {
             author: Author { user, device },
             signer,
+            kem,
+            kem_public,
             clock: HlcClock::new(device),
             entropy: Box::new(entropy),
             wanted: BTreeSet::new(),
@@ -236,7 +244,7 @@ impl Replica {
             keys: self
                 .keys
                 .iter()
-                .map(|((incident, compartment), (key_id, key))| KeyGrant {
+                .map(|((incident, compartment), (key_id, key))| StoredKey {
                     incident: incident.clone(),
                     compartment: compartment.clone(),
                     key_id: key_id.clone(),
@@ -333,12 +341,17 @@ impl Replica {
         let challenge = self.challenge.take()?;
         // A new connection: whatever was sent on the last one goes again.
         self.in_flight.clear();
-        let proof = self
-            .signer
-            .sign_hello(&challenge, &self.author.device, &self.author.user);
+        // [impl->dsn~sealed-key-grants~1]
+        let proof = self.signer.sign_hello(
+            &challenge,
+            &self.author.device,
+            &self.kem_public,
+            &self.author.user,
+        );
         Some(ClientMessage::Hello(Hello {
             user: self.author.user.clone(),
             device: self.author.device,
+            kem_key: self.kem_public.clone(),
             proof,
             version: Some(self.asked),
             subscriptions: self
@@ -532,6 +545,30 @@ impl Replica {
                 Ok(())
             }
             ServerMessage::Welcome(welcome) => {
+                // [impl->dsn~sealed-key-grants~1]
+                // The keys first: a grant this device cannot open changes nothing.
+                let device = self.author.device.ulid().to_bytes();
+                let mut keys = Vec::with_capacity(welcome.keys.len());
+                for grant in welcome.keys {
+                    let aad = ordo_crypto::kem::grant_aad(
+                        &device,
+                        grant.incident.as_str(),
+                        grant.compartment.as_str(),
+                        grant.key_id.as_str(),
+                    );
+                    let sealed = ordo_crypto::kem::SealedKey {
+                        encapsulated: grant.encapsulated,
+                        ciphertext: grant.ciphertext,
+                    };
+                    let key = self
+                        .kem
+                        .open(&sealed, &aad)
+                        .map_err(|e| SyncError::Invalid(e.to_string()))?;
+                    keys.push((
+                        (grant.incident, grant.compartment),
+                        (grant.key_id, DataKey::from_bytes(key)),
+                    ));
+                }
                 self.version = welcome.version;
                 self.protected = Some(welcome.protected);
                 self.valid_until = welcome.valid_until;
@@ -552,12 +589,7 @@ impl Replica {
                     self.keys.remove(&key);
                     self.denied.insert(key);
                 }
-                for grant in welcome.keys {
-                    self.keys.insert(
-                        (grant.incident, grant.compartment),
-                        (grant.key_id, DataKey::from_bytes(grant.key)),
-                    );
-                }
+                self.keys.extend(keys);
                 Ok(())
             }
             ServerMessage::Refused(reason) => Err(SyncError::Refused(reason)),
@@ -792,7 +824,7 @@ mod stored_state_tests {
             wanted: Vec<StreamKey>,
             granted: Vec<StreamKey>,
             denied: Vec<StreamKey>,
-            keys: Vec<KeyGrant>,
+            keys: Vec<StoredKey>,
             streams: Vec<(StreamKey, Vec<SequencedEvent>)>,
             outbox: Vec<(StreamKey, SignedEvent)>,
         }

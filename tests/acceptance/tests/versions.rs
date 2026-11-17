@@ -1,5 +1,6 @@
 //! Protocol versions (ADR-0052): the server announces its range, devices old and new keep
-//! working, and a version outside the range is refused clearly.
+//! working, and a version outside the range is refused clearly. Versions before 1.4 carried
+//! data keys in plain text and are no longer supported (ADR-0080).
 
 use ordo_acceptance::World;
 use ordo_sync::message::{ClientMessage, Rejection, ServerMessage};
@@ -24,7 +25,7 @@ fn connect(
 
 // [itest->dsn~protocol-versions~1]
 #[test]
-fn the_oldest_version_and_no_version_work_and_others_are_refused() {
+fn the_oldest_version_works_and_others_or_none_are_refused() {
     let mut world = World::new();
     world.sync();
 
@@ -45,9 +46,18 @@ fn the_oldest_version_and_no_version_work_and_others_are_refused() {
     let oldest = connect(&mut world, "ben", 802, |v| *v = Some(version::SYNC.min));
     assert!(matches!(&oldest, ServerMessage::Welcome(w) if w.version == Some(version::SYNC.min)));
 
-    // A device from before versions existed sends none: it gets the oldest.
+    // A device from before versions existed sends none: version 1.0, no longer supported.
     let none = connect(&mut world, "clara", 803, |v| *v = None);
-    assert!(matches!(&none, ServerMessage::Welcome(w) if w.version == Some(version::SYNC.min)));
+    assert!(matches!(
+        none,
+        ServerMessage::Refused(Rejection::UnsupportedVersion)
+    ));
+    // Nor is 1.3, the last version with plain-text key grants.
+    let plain = connect(&mut world, "clara", 806, |v| *v = Some(Version::new(1, 3)));
+    assert!(matches!(
+        plain,
+        ServerMessage::Refused(Rejection::UnsupportedVersion)
+    ));
 
     // Newer than the server, or older than its range: refused, and nothing else is sent.
     let newer = Version::new(version::SYNC.max.major + 1, 0);
@@ -67,7 +77,7 @@ fn the_oldest_version_and_no_version_work_and_others_are_refused() {
 
 // [utest->dsn~connection-liveness~1]
 #[test]
-fn a_ping_is_answered_from_version_1_2_on() {
+fn a_ping_is_answered() {
     let mut world = World::new();
     world.sync();
     let now = world.now;
@@ -75,11 +85,4 @@ fn a_ping_is_answered_from_version_1_2_on() {
     assert!(matches!(welcome, ServerMessage::Welcome(_)));
     let out = world.hub.handle(810, ClientMessage::Ping, now);
     assert!(matches!(&out[..], [o] if o.session == 810 && o.message == ServerMessage::Pong));
-
-    // A device on 1.1 does not know the answer: it gets none.
-    let older = connect(&mut world, "ben", 811, |v| {
-        *v = Some(version::Version::new(1, 1))
-    });
-    assert!(matches!(older, ServerMessage::Welcome(_)));
-    assert!(world.hub.handle(811, ClientMessage::Ping, now).is_empty());
 }

@@ -11,14 +11,16 @@ use ordo_core::{
 pub use ed25519_dalek;
 
 pub mod attachment;
+pub mod kem;
 pub mod seal;
 
 /// Prefix of every signed message: `ORDO event v1` followed by a zero byte.
 pub const SIGNING_CONTEXT: &[u8] = b"ORDO event v1\0";
 
-/// Prefix of a connection proof: `ORDO hello v1` followed by a zero byte. Different from
-/// [`SIGNING_CONTEXT`], so a proof can never be mistaken for an event signature.
-pub const HELLO_CONTEXT: &[u8] = b"ORDO hello v1\0";
+/// Prefix of a connection proof: `ORDO hello v2` followed by a zero byte. Different from
+/// [`SIGNING_CONTEXT`], so a proof can never be mistaken for an event signature. Version 2
+/// (sync protocol 1.4) also covers the device's X-Wing key (ADR-0080).
+pub const HELLO_CONTEXT: &[u8] = b"ORDO hello v2\0";
 
 /// BLAKE3 key-derivation context for event hashes.
 pub const EVENT_HASH_CONTEXT: &str = "ORDO event hash v1";
@@ -41,6 +43,10 @@ pub enum CryptoError {
     /// A sealed payload could not be decrypted: wrong key, changed data or wrong event.
     #[error("the sealed payload cannot be opened")]
     CannotOpen,
+    /// A sealed data key is not for this device or grant, was changed, or a public key is
+    /// not an X-Wing key (ADR-0080).
+    #[error("the sealed key cannot be used")]
+    KeyGrant,
 }
 
 /// Signs events with one Ed25519 key.
@@ -80,24 +86,46 @@ impl EventSigner {
 }
 
 // [impl->dsn~device-proof~1]
+// [impl->dsn~sealed-key-grants~1]
 /// What a device signs to prove its key when it connects (spec/sync/protocol.md §2): the
-/// context, the server's 32-byte challenge, the device ID (16 bytes) and the user ID. All
-/// parts but the last have a fixed length, so the message is unambiguous.
-pub fn hello_message(challenge: &[u8; 32], device: &DeviceId, user: &UserId) -> Vec<u8> {
-    let mut message = Vec::with_capacity(HELLO_CONTEXT.len() + 48 + user.as_str().len());
+/// context, the server's 32-byte challenge, the device ID (16 bytes), the device's public
+/// X-Wing key ([`kem::PUBLIC_KEY_SIZE`] bytes) and the user ID. All parts but the last
+/// have a fixed length ([`verify_hello`] refuses a KEM key of another length), so the
+/// message is unambiguous.
+pub fn hello_message(
+    challenge: &[u8; 32],
+    device: &DeviceId,
+    kem_key: &[u8],
+    user: &UserId,
+) -> Vec<u8> {
+    let mut message =
+        Vec::with_capacity(HELLO_CONTEXT.len() + 48 + kem_key.len() + user.as_str().len());
     message.extend_from_slice(HELLO_CONTEXT);
     message.extend_from_slice(challenge);
     message.extend_from_slice(&device.ulid().to_bytes());
+    message.extend_from_slice(kem_key);
     message.extend_from_slice(user.as_str().as_bytes());
     message
 }
 
 impl EventSigner {
-    /// Signs a connection challenge (see [`hello_message`]).
-    pub fn sign_hello(&self, challenge: &[u8; 32], device: &DeviceId, user: &UserId) -> [u8; 64] {
+    /// Signs a connection challenge (see [`hello_message`]) with the device's public X-Wing
+    /// key (from [`EventSigner::device_kem`]).
+    pub fn sign_hello(
+        &self,
+        challenge: &[u8; 32],
+        device: &DeviceId,
+        kem_key: &[u8],
+        user: &UserId,
+    ) -> [u8; 64] {
         self.key
-            .sign(&hello_message(challenge, device, user))
+            .sign(&hello_message(challenge, device, kem_key, user))
             .to_bytes()
+    }
+
+    /// The device's X-Wing key, derived from this signer's device key (ADR-0080).
+    pub fn device_kem(&self) -> kem::DeviceKem {
+        kem::DeviceKem::from_device_seed(&self.key.to_bytes())
     }
 }
 
@@ -107,11 +135,15 @@ pub fn verify_hello(
     key: &VerifyingKey,
     challenge: &[u8; 32],
     device: &DeviceId,
+    kem_key: &[u8],
     user: &UserId,
     proof: &[u8; 64],
 ) -> Result<(), CryptoError> {
+    if kem_key.len() != kem::PUBLIC_KEY_SIZE {
+        return Err(CryptoError::BadSignature);
+    }
     let signature = ed25519_dalek::Signature::from_bytes(proof);
-    key.verify_strict(&hello_message(challenge, device, user), &signature)
+    key.verify_strict(&hello_message(challenge, device, kem_key, user), &signature)
         .map_err(|_| CryptoError::BadSignature)
 }
 

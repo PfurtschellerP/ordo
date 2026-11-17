@@ -47,6 +47,16 @@ crates update.
 * **Open:** Dependabot's update of Garage (v2.1.0 to v2.5.0) waits as a pull request.
   MapLibre 6.18.0 (2026-11-11) waits for the cooldown and the weekly check.
 
+## Findings of 2026-11-17
+
+* **Added `x-wing`** for sealed key grants (ADR-0080). It brings `ml-kem`,
+  `module-lattice`, `x25519-dalek`, `sha3`, `keccak`, `kem` and `hybrid-array`, all
+  RustCrypto or dalek-cryptography, to server and app.
+* **Unmaintained, kept:** `chrono` (RUSTSEC-2026-0543) and `humantime`, which wraps it
+  (RUSTSEC-2026-0542). No known vulnerability. ORDO does not use them; they come with
+  Cedar, openidconnect and object_store on the server. `deny.toml` lists them until those
+  crates move to `jiff` or `time`.
+
 ## Direct dependencies
 
 "Personal" means the repository belongs to one person rather than an organisation: a
@@ -87,6 +97,7 @@ replace it.
 | ciborium | CBOR of events and messages (ADR-0005) | 2024-01 | enarx (repository active) | `minicbor` with serde; **watch**: the core format depends on it |
 | ed25519-dalek | Event signatures | 2026-07 | dalek-cryptography | – |
 | chacha20poly1305, blake3, zeroize | Encryption, hashes, wiping keys | 2026-06 – 2026-10 | RustCrypto, BLAKE3 team | – |
+| x-wing (with ml-kem, x25519-dalek, sha3) | Key grants sealed for each device, hybrid post-quantum (ADR-0080) | 2026-10 | RustCrypto | `libcrux-kem`; **watch**: version 0.1, not audited, X-Wing still an IETF draft |
 | thiserror | Error types | 2026-09 | personal (dtolnay) | – |
 | percent-encoding | URLs | 2025-08 | servo | – |
 
