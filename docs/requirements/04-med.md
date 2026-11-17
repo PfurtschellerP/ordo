@@ -68,9 +68,9 @@ Tags: should, med
 Needs: dsn
 
 #### PAT-8 — Photo for identification
-`req~pat-8~1`
+`req~pat-8~2`
 
-When a medic takes or uploads a photo of a patient, ORDO shall store it in the patient's record for identification only: downscaled, without camera or location metadata, and readable only by those who may read the record.
+When a medic takes or uploads a photo of a patient, ORDO shall store it in the patient's record for identification only: downscaled, without camera or location metadata, and readable only by those who may read the record. When a medic removes the photo, ORDO shall no longer show it in the record.
 
 Tags: should, med, m6
 

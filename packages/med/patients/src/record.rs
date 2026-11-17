@@ -28,6 +28,9 @@ pub const ENTRY_RECORDED: &str = "epcr.entryRecorded";
 /// Event type: a photo of a patient was attached (ADR-0033): a small preview inside the
 /// event, the full image as an encrypted attachment.
 pub const PHOTO_ATTACHED: &str = "epcr.photoAttached";
+/// Event type: a photo was taken off the record (a wrong patient, a useless picture). The
+/// attaching event stays (rule 3); the record no longer shows the photo.
+pub const PHOTO_REMOVED: &str = "epcr.photoRemoved";
 /// Largest preview inside an `epcr.photoAttached` event, in bytes.
 pub const MAX_PREVIEW_BYTES: usize = 16 * 1024;
 /// Largest full photo (plaintext) of an `epcr.photoAttached` event, in bytes.
@@ -614,6 +617,22 @@ impl PhotoAttached {
     }
 }
 
+/// Payload of `epcr.photoRemoved`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhotoRemoved {
+    /// Triage tag number of the patient.
+    pub tag: String,
+    /// The `epcr.photoAttached` event of the photo.
+    pub photo: String,
+}
+
+impl PhotoRemoved {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, String> {
+        codec::to_cbor(self).map_err(|e| e.to_string())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The record, computed from events
 // ---------------------------------------------------------------------------
@@ -670,7 +689,7 @@ pub struct Record {
     pub fields: BTreeMap<(String, String), Vec<Stamped<Value>>>,
     /// Series forms: entries, oldest first (corrected entries included, marked).
     pub entries: BTreeMap<String, Vec<Entry>>,
-    /// Photos, oldest first.
+    /// Photos not removed, oldest first.
     pub photos: Vec<Photo>,
 }
 
@@ -707,6 +726,7 @@ pub struct Records {
 enum Change {
     Entry(EntryRecorded),
     Attached(PhotoAttached),
+    Removed(PhotoRemoved),
 }
 
 impl Records {
@@ -720,6 +740,7 @@ impl Records {
                 let change = match e.body.event_type.as_str() {
                     ENTRY_RECORDED => Change::Entry(codec::from_cbor(&e.payload).ok()?),
                     PHOTO_ATTACHED => Change::Attached(codec::from_cbor(&e.payload).ok()?),
+                    PHOTO_REMOVED => Change::Removed(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
                 Some((e, change))
@@ -734,6 +755,12 @@ impl Records {
                 event.body.id.to_string(),
             );
             match change {
+                // [impl->dsn~patient-photo~3]
+                Change::Removed(removed) => {
+                    if let Some(record) = records.records.get_mut(&removed.tag) {
+                        record.photos.retain(|p| p.id != removed.photo);
+                    }
+                }
                 Change::Attached(photo) => {
                     if photo.check().is_ok() {
                         records
@@ -1240,7 +1267,7 @@ mod tests {
         assert!(record.entries["vitals"][0].replaced_by.is_some());
     }
 
-    // [utest->dsn~patient-photo~2]
+    // [utest->dsn~patient-photo~3]
     #[test]
     fn attached_photos_keep_a_small_preview_and_refer_to_the_full_photo() {
         let attached = |preview: usize, size: u64, media_type: &str| PhotoAttached {
@@ -1275,5 +1302,53 @@ mod tests {
             .expect("photo");
         assert_eq!(photo.data.len(), 1000, "the preview");
         assert_eq!(photo.full.as_ref().map(|f| f.size), Some(200_000));
+    }
+
+    // [utest->dsn~patient-photo~3]
+    #[test]
+    fn a_removed_photo_leaves_the_record_and_the_one_before_shows_again() {
+        let attached = PhotoAttached {
+            tag: "DE-0042".into(),
+            preview_type: "image/jpeg".into(),
+            preview: vec![0xff; 10],
+            photo: AttachmentRef {
+                hash: [1; 32],
+                size: 100,
+                media_type: "image/jpeg".into(),
+                key: [2; 32],
+            },
+        }
+        .encode()
+        .unwrap();
+        let first = event(1, PHOTO_ATTACHED, attached.clone());
+        let second = event(2, PHOTO_ATTACHED, attached);
+        let removed = |photo: &str| {
+            PhotoRemoved {
+                tag: "DE-0042".into(),
+                photo: photo.into(),
+            }
+            .encode()
+            .unwrap()
+        };
+        let second_id = second.body.id.to_string();
+        let mut events = vec![
+            first.clone(),
+            second,
+            event(3, PHOTO_REMOVED, removed(&second_id)),
+            event(4, PHOTO_REMOVED, removed("unknown")),
+        ];
+        let records = Records::from_events(&events);
+        let photo = records.get("DE-0042").and_then(Record::photo).unwrap();
+        assert_eq!(photo.id, first.body.id.to_string(), "the one before");
+        events.reverse();
+        assert_eq!(
+            Records::from_events(&events),
+            records,
+            "order does not matter"
+        );
+        let first_id = first.body.id.to_string();
+        events.push(event(5, PHOTO_REMOVED, removed(&first_id)));
+        let records = Records::from_events(&events);
+        assert!(records.get("DE-0042").and_then(Record::photo).is_none());
     }
 }

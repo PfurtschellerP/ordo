@@ -11,7 +11,7 @@ stage = "pretriage"
 description = "Primäres Ranking zur Initialen Orientierung im Rettungsdienst"
 publisher = "Bundesamt für Bevölkerungsschutz und Katastrophenhilfe (BBK) und Deutsche Gesellschaft für Katastrophenmedizin (DGKM)"
 edition = "überarbeitete Fassung 2018"
-url = "https://www.bbk.bund.de/DE/Themen/Gesundheitlicher-Bevoelkerungsschutz/Triage-Sichtung/Vorsichtungsalgorithmus-PRIOR/vorsichtungsalgorithmus-prior_node.html"
+url = "https://www.bbk.bund.de/SharedDocs/Downloads/DE/Mediathek/Publikationen/Gesundheit/Sichtung/prior-download.pdf?__blob=publicationFile&v=10"
 
 [[algorithm]]
 id = "mstart"

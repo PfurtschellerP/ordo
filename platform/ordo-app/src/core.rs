@@ -1636,7 +1636,7 @@ pub fn record_entry(
     )
 }
 
-// [impl->dsn~patient-photo~2]
+// [impl->dsn~patient-photo~3]
 /// Records a photo of a patient: the preview inside the event, the full photo encrypted
 /// with its own key as an attachment, kept on the device and queued for upload.
 pub fn add_photo(
@@ -1676,6 +1676,30 @@ pub fn add_photo(
     crate::attachments::add(core, incident, compartment, &reference, data);
     revision.update(|r| *r += 1);
     Ok(())
+}
+
+// [impl->dsn~patient-photo~3]
+/// Takes a photo off a patient's record (the attaching event stays).
+pub fn remove_photo(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    photo: &str,
+) -> Result<(), String> {
+    let payload = record::PhotoRemoved {
+        tag: tag.to_owned(),
+        photo: photo.to_owned(),
+    }
+    .encode()?;
+    self::record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        record::MODULE,
+        record::PHOTO_REMOVED,
+        &payload,
+        text::photo_removed(tag),
+    )
 }
 
 /// Display name of a UHS by ID (the ID if unknown).

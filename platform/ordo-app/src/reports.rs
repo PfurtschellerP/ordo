@@ -50,6 +50,41 @@ pub fn geo_uri([lon, lat]: [f64; 2]) -> String {
     format!("geo:{lat:.6},{lon:.6}")
 }
 
+/// An Apple Maps link to a point: iOS and iPadOS do not open `geo:` URIs, but open this
+/// one in their maps app.
+pub fn apple_maps_uri([lon, lat]: [f64; 2]) -> String {
+    format!("https://maps.apple.com/?ll={lat:.6},{lon:.6}&q={lat:.6},{lon:.6}")
+}
+
+/// The link that opens this device's maps app at a point: Apple Maps on Apple devices
+/// (an iPad also says "Mac"), `geo:` everywhere else.
+pub fn maps_app_uri(at: [f64; 2]) -> String {
+    let apple = web_sys::window()
+        .and_then(|w| w.navigator().platform().ok())
+        .is_some_and(|p| p.starts_with("Mac") || p.starts_with("iP"));
+    if apple {
+        apple_maps_uri(at)
+    } else {
+        geo_uri(at)
+    }
+}
+
+// [impl->dsn~reports~1]
+/// The situation map without the pins of closed reports: a report's place matters while it
+/// is open. The pins stay in the map's events; the log shows them.
+pub fn without_closed(core: Handle, mut map: ordo_map::SituationMap) -> ordo_map::SituationMap {
+    let reports = list(core);
+    map.objects.retain(|_, o| {
+        o.placed.kind != ObjectKind::Report
+            || o.placed
+                .reference
+                .as_deref()
+                .and_then(|r| reports.reports.get(r))
+                .is_none_or(ordo_reports::Report::is_open)
+    });
+    map
+}
+
 /// The patient case being registered from, shared by the cases and the registration form.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Case {
@@ -460,7 +495,7 @@ pub fn AssignedCases(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 <p>{text::case_for(&case.unit)}</p>
                                 {case.at.map(|at| view! {
                                     <crate::situation::PlaceMap core revision object />
-                                    <p><a href=geo_uri(at)><Icon name="map-pin" />{text::OPEN_IN_MAPS_APP}</a></p>
+                                    <p><a href=maps_app_uri(at)><Icon name="map-pin" />{text::OPEN_IN_MAPS_APP}</a></p>
                                 })}
                                 <Show when=move || may_register.get()>
                                     <div class="row">
@@ -486,5 +521,9 @@ mod tests {
     #[test]
     fn a_geo_uri_names_latitude_first() {
         assert_eq!(geo_uri([8.2473, 49.9929]), "geo:49.992900,8.247300");
+        assert_eq!(
+            apple_maps_uri([8.2473, 49.9929]),
+            "https://maps.apple.com/?ll=49.992900,8.247300&q=49.992900,8.247300"
+        );
     }
 }

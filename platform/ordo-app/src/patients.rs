@@ -880,6 +880,12 @@ fn StaySection(
         .into_iter()
         .map(|o| (o.id().to_owned(), text::outcome(o).to_owned()))
         .collect();
+    // Copy handles: the inputs are built again each time they show.
+    let (moving, submit, options) = (
+        StoredValue::new(tag.clone()),
+        StoredValue::new(submit),
+        StoredValue::new(options),
+    );
     view! {
         <section class="record__section" aria-labelledby="section-stay">
             <h3 id="section-stay" tabindex="-1">{text::STAY_TITLE}</h3>
@@ -913,9 +919,10 @@ fn StaySection(
                 fallback=move || view! { <Actions actions=readmit() /> }
             >
                 // [impl->dsn~patient-pathway~1]
-                <MoveForm core revision tag=tag.clone() patient />
-                <form class="form stay-form" novalidate on:submit=submit.clone()>
-                    <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.clone() value=outcome />
+                <SectionInputs id="section-stay" open_text=text::STAY_OPEN>
+                <MoveForm core revision tag=moving.get_value() patient />
+                <form class="form stay-form" novalidate on:submit=submit.get_value()>
+                    <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.get_value() value=outcome />
                     {move || {
                         (outcome.get() == Outcome::Transported.id())
                             .then(|| transport.get())
@@ -929,6 +936,7 @@ fn StaySection(
                         <button type="submit" class="button">{text::DISCHARGE}</button>
                     </div>
                 </form>
+                </SectionInputs>
             </Show>
         </section>
     }
@@ -1046,7 +1054,7 @@ enum PhotoKind {
     Unavailable,
 }
 
-// [impl->dsn~patient-photo~2]
+// [impl->dsn~patient-photo~3]
 #[component]
 fn PhotoSection(
     core: Handle,
@@ -1138,6 +1146,7 @@ fn PhotoSection(
         }
     };
     let alt = text::photo_alt(&tag);
+    let remove_tag = tag.clone();
     view! {
         <section class="record__section" aria-labelledby="section-photo">
             <h3 id="section-photo" tabindex="-1">{text::PHOTO_TITLE}</h3>
@@ -1162,6 +1171,19 @@ fn PhotoSection(
                 <input id="photo-upload" class="file-input visually-hidden" type="file" accept="image/*"
                     aria-describedby="photo-purpose" on:change=on_file />
                 <label for="photo-upload" class="button">{text::PHOTO_UPLOAD}</label>
+                // [impl->dsn~patient-photo~3]
+                {move || source.with(|s| s.as_ref().map(|(id, ..)| id.clone())).map(|id| {
+                    let tag = remove_tag.clone();
+                    view! {
+                        <button type="button" class="button button--quiet" id="photo-remove"
+                            aria-label=text::photo_remove_label(&tag)
+                            on:click=move |_| {
+                                let _ = core::remove_photo(core, revision, &tag, &id);
+                            }>
+                            {text::PHOTO_REMOVE}
+                        </button>
+                    }
+                })}
             </div>
             <p role="status" class="hint">{move || busy.get().then_some(text::PHOTO_BUSY)}</p>
             <p role="alert" class="error">{move || error.get()}</p>
@@ -1213,6 +1235,7 @@ fn TriageSection(
                 let current = current.clone();
                 move || current().map(|category| view! { <p><TriageBadge category /></p> })
             }
+            <SectionInputs id="section-triage" open_text=text::TRIAGE_OPEN>
             <TriageAid id="retriage-algorithm" />
             <fieldset class="choices">
                 <legend>{text::RETRIAGE_TO}</legend>
@@ -1239,6 +1262,7 @@ fn TriageSection(
             </fieldset>
             <TransportPriority core revision tag=tag.clone() />
             <PlaceChoice core revision tag=tag.clone() />
+            </SectionInputs>
             <h4>{text::TRIAGE_HISTORY}</h4>
             <ol class="history">
                 {move || {
@@ -1539,6 +1563,28 @@ fn FormSection(
             }}
             {content}
         </section>
+    }
+}
+
+/// The inputs of a section of the record, collapsed until opened, so the page first shows
+/// the patient's state (product owner, 2026-11-17). Panel ID: `{id}-inputs`.
+#[component]
+pub(crate) fn SectionInputs(
+    id: &'static str,
+    /// What the button opens, e.g. "Sichtung ändern".
+    open_text: &'static str,
+    children: ChildrenFn,
+) -> impl IntoView {
+    let open = RwSignal::new(false);
+    let panel = format!("{id}-inputs");
+    view! {
+        <crate::ui::DisclosureButton id=format!("{id}-open") controls=panel.clone() open
+            class="button button--small record__open">
+            {move || if open.get() { text::SECTION_CLOSE } else { open_text }}
+        </crate::ui::DisclosureButton>
+        <div id=panel class="record__inputs" hidden=move || !open.get()>
+            {children()}
+        </div>
     }
 }
 

@@ -1,4 +1,4 @@
-//! *Einsatzmittel – Besatzung* (UNIT-9, ADR-0079): the crew's own workspace. A unit's crew
+//! *Sanität – Besatzung* (UNIT-9, ADR-0079): the crew's own workspace. A unit's crew
 //! sets its status, moves its tasks and transports on and takes its patient cases over; it
 //! sees only the units whose crew names the person's account.
 
@@ -69,7 +69,7 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                     <ul class="task-list" data-keys="list">
                                         {open.into_iter().map(|task| {
                                             let assignee = name.clone();
-                                            view! { <crate::tasks::TaskItem core revision task assignee editable=true now /> }
+                                            view! { <crate::tasks::TaskItem core revision task assignee editable=true now crew=true /> }
                                         }).collect_view()}
                                     </ul>
                                 }.into_any()

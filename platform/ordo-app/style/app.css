@@ -683,8 +683,12 @@
   .helper-list__actions { margin-inline-start: auto; }
   /* The incident's people (ADR-0076): a card each, in short lines; qualifications and roles
      as chips that wrap. */
-  .helper-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); align-items: start; }
-  .person-card { display: grid; gap: var(--ordo-space-2); align-items: start; }
+  .helper-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); align-items: stretch; }
+  /* Cards of a row are equally tall and their actions sit at the bottom, however many
+     roles or qualifications a person has. */
+  .person-card { display: flex; flex-direction: column; gap: var(--ordo-space-2); }
+  .person-card .helper-list__actions { margin-block-start: auto; }
+  .person-card .roster__role { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .person-card p, .person-card ul { margin: 0; }
   .person-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-1) var(--ordo-space-2); }
   .person-card__duty { color: var(--ordo-color-text-secondary); }

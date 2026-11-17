@@ -87,7 +87,8 @@ pub const WORKSPACES: &[Workspace] = &[
     // A unit's crew: its status, tasks, patient cases and transports (UNIT-9, ADR-0079).
     Workspace {
         id: "units.crew",
-        package: text::TAB_RESOURCES,
+        // Under Sanität: medical units' crews (product owner, 2026-11-17).
+        package: text::TAB_MED,
         label: text::WS_CREW,
         requires: &["incident"],
         permission: Some("crew_work"),
@@ -408,8 +409,8 @@ mod tests {
         }
         assert_eq!(
             packages().len(),
-            4,
-            "Sanität, Einsatzmittel, Einsatzleitung, Administration"
+            3,
+            "Sanität, Einsatzleitung, Administration"
         );
     }
 }

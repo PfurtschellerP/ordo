@@ -213,7 +213,8 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
     });
     let map = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)))
+        let map = core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)));
+        crate::reports::without_closed(core, map)
     });
     let symbols = Memo::new(move |_| {
         revision.track();

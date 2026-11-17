@@ -388,6 +388,7 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                 }
                 .into_any()
             }}
+            <crate::patients::SectionInputs id="section-orders" open_text=text::ORDERS_OPEN>
             <form class="form order-form" novalidate on:submit=submit.clone()>
                 <Show when=move || can_give.get()>
                     <RadioChips legend=text::ORDER_WHO name="order-origin" value=origin options=vec![
@@ -467,6 +468,7 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                     </button>
                 </div>
             </form>
+            </crate::patients::SectionInputs>
         </section>
     }
 }

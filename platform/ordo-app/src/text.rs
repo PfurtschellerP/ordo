@@ -336,6 +336,16 @@ pub fn photo_alt(tag: &str) -> String {
 pub fn photo_added(tag: &str) -> String {
     format!("Foto für Patient {tag} gespeichert")
 }
+
+pub fn photo_removed(tag: &str) -> String {
+    format!("Foto für Patient {tag} entfernt")
+}
+
+pub const PHOTO_REMOVE: &str = "Foto entfernen";
+
+pub fn photo_remove_label(tag: &str) -> String {
+    format!("Foto entfernen – Patient {tag}")
+}
 pub const PHOTO_FAILED: &str = "Das Bild konnte nicht gelesen werden.";
 pub const PHOTO_TOO_LARGE: &str = "Das Bild ist auch verkleinert zu groß.";
 
@@ -866,6 +876,10 @@ pub fn ordered_by_order(giver: &str, at: &str) -> String {
 
 // Admission and discharge (UHS-3).
 pub const STAY_TITLE: &str = "Patientenweg";
+pub const STAY_OPEN: &str = "Verlegen oder entlassen";
+pub const TRIAGE_OPEN: &str = "Sichtung ändern";
+pub const ORDERS_OPEN: &str = "Neue Anordnung";
+pub const SECTION_CLOSE: &str = "Schließen";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
 pub const DISCHARGE: &str = "Entlassen";
 pub const DISCHARGE_CHOOSE: &str = "Bitte das Ergebnis der Entlassung wählen.";
@@ -1406,6 +1420,15 @@ pub fn task_status_set(status: ordo_tasks::TaskStatus) -> String {
 /// "Nachfragen um 10:42"
 pub fn follow_up_at(at: &str) -> String {
     format!("Nachfragen um {at}")
+}
+
+/// Time left until a follow-up, e.g. "noch 7:05 min"; "jetzt" at zero.
+pub fn countdown(left_ms: u64) -> String {
+    let secs = left_ms.div_ceil(1000);
+    if secs == 0 {
+        return "jetzt".to_owned();
+    }
+    format!("noch {}:{:02} min", secs / 60, secs % 60)
 }
 
 /// "Fällig: Nachfragen seit 10:42"

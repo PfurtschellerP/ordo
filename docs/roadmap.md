@@ -335,8 +335,8 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     the command puts on its staff list (UHS-15); vehicles and medical teams get
     *Einsatzmittel – Besatzung* to set their status, carry out their orders and transports
     and take their patient cases over (UNIT-9,
-    [ADR-0079](adr/0079-crew-workspace.md)). Open: crew members without a medical role
-    (e.g. drivers) need a role of their own to get the workspace.
+    [ADR-0079](adr/0079-crew-workspace.md)). A role for crew members without a medical
+    role is in the backlog (item 14).
 12. **Hospital capacities from the state's register** (e.g. ZLB) once its interface and an
     agreement are available (ADR-0050, regional profile).
 13. **People and roles** (product owner, 2026-11-14): part 1 is done (m61,
@@ -350,6 +350,28 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     get access to the incident by a one-time QR code the incident command makes for them,
     with the role chosen at registration (never *Einsatzleitung*), until their duty ends
     (HELP-7).
+14. **Demo feedback** (product owner, 2026-11-17), in this order:
+    1. *Quick fixes:* the crew's status list without a selectable placeholder; cancelling
+       a task and asking again later only for the incident command, with a countdown in
+       *Führung*; map links that open Apple Maps on iPhones and iPads; the map marker of a
+       closed report goes; guest cards with a steady layout and the QR code after the duty
+       starts; patient registration with *Anordnungen*, *Sichtung* and *Patientenweg*
+       collapsed, the picture deletable, the right PRIOR document and an open source for
+       mSTaRT; the profile's qualifications *Arzt*, *Einsatzsanitäter*, *Sanitätshelfer*,
+       *Verbandführer* and *Sprechfunker*; the crew workspace under *Sanität*.
+    2. *Reports as one card:* a report becomes the unit's order when assigned, with its
+       place and pin, the pin set and the address searched on the same page.
+    3. *People and duty:* guests' one-time codes valid until the duty ends or the incident
+       is closed (instead of 30 minutes); a duty can be paused; devices unused for 30 days
+       are removed; the bell for every role; a UHS asks for staff where its people see it.
+    4. *Einsatzmittel for all kinds:* types and their fields from the profile; UHS created,
+       edited and staffed in *Vorbereitung – Einsatzmittel*; the occupancy of treatment
+       areas per triage category in *Führung*.
+    5. *Führung & Raum:* the command structure and the situation map on one page in
+       *Vorbereitung* (Einsatz · Personal · Einsatzmittel · Führung & Raum).
+
+Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
+role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.
 
 Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 
@@ -365,7 +387,9 @@ Then:
    `encoding`, ADR-0073). Recorded per dependency, reviewed each release. First done
    2026-11-14: [dependencies.md](dependencies.md).
 2. Security hardening (ASVS 5.0 level 2, selected level 3 requirements for keys and
-   clinical data): hybrid post-quantum key grants and signatures as planned in ADR-0042;
+   clinical data): hybrid post-quantum key grants are done (m63, SEC-19,
+   [ADR-0080](adr/0080-key-grants-sealed-per-device-with-x-wing.md)); hybrid signatures as
+   planned in ADR-0042 once ML-DSA is mature;
    the first release (signed image, provenance, bills of materials: the release workflow
    is ready, ADR-0043; images for amd64 and arm64 since 2026-11-11); later the device lock with
    WebAuthn PRF or PIN (SEC-13).

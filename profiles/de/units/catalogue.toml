@@ -37,6 +37,10 @@ id = "emergency-physician"
 label = "Notärztin/Notarzt"
 
 [[qualification]]
+id = "physician"
+label = "Ärztin/Arzt"
+
+[[qualification]]
 id = "paramedic"
 label = "Notfallsanitäter/in"
 
@@ -45,8 +49,16 @@ id = "emt"
 label = "Rettungssanitäter/in"
 
 [[qualification]]
+id = "ems-volunteer"
+label = "Einsatzsanitäter/in"
+
+[[qualification]]
 id = "first-responder"
 label = "Sanitäter/in"
+
+[[qualification]]
+id = "medical-aide"
+label = "Sanitätshelfer/in"
 
 [[qualification]]
 id = "crew-leader"
@@ -57,12 +69,20 @@ id = "platoon-leader"
 label = "Zugführer/in"
 
 [[qualification]]
+id = "unit-leader"
+label = "Verbandführer/in"
+
+[[qualification]]
 id = "driver-operator"
 label = "Maschinist/in"
 
 [[qualification]]
 id = "breathing-apparatus"
 label = "Atemschutzgeräteträger/in"
+
+[[qualification]]
+id = "radio-operator"
+label = "Sprechfunker/in"
 
 # Special functions (UNIT-7): counted apart in the detailed strength after the BBK
 # recommendation "Taktische Zeichen im Bevölkerungsschutz" (2024, section 5.3), e.g.

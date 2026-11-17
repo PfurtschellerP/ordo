@@ -20,6 +20,7 @@ import {
   loginPair,
   openIncident,
   openRecord,
+  openSection,
   openView,
   openWorkspace,
   qrPair,
@@ -295,6 +296,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openRecord(anna, "DE-0044");
     expect(pathOf(anna), "the record has its own address").toBe("/med.uhs/patients/DE-0044");
     await expect(anna.locator("[aria-labelledby=section-triage] .history li").first(), "the algorithm used is recorded").toContainText("nach PRIOR");
+    await openSection(anna, "section-triage");
     await anna.getByRole("button", { name: "Nachsichtung DE-0044: SK I", exact: true }).click();
     await expect.poll(() => announced(anna), { message: "re-triage is announced to screen readers" }).toContain("nachgesichtet");
     await expect.poll(() => status(anna), { message: "re-triage is sent" }).toContain("Alles gesendet");
@@ -379,7 +381,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(givenBy, "any other name can be typed").toHaveValue("Dr. Extern");
     await anna.locator("[aria-labelledby=section-medication]").getByRole("button", { name: "Abbrechen" }).click();
 
-    // [itest->dsn~patient-photo~2]
+    // [itest->dsn~patient-photo~3]
     const png = await anna.evaluate(() => {
       const canvas = document.createElement("canvas");
       canvas.width = 3000;
@@ -411,6 +413,22 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(Number(bytes), "within the size limit").toBeLessThanOrEqual(1024 * 1024);
     expect(prefix, "re-encoded as JPEG").toBe("data:image/jpeg;base64,");
     await expect.poll(() => status(anna), { message: "record entries and photo are sent" }).toContain("Alles gesendet");
+    // PAT-8: a wrong photo is removed again; the one before shows.
+    const firstSrc = (await photo.getAttribute("src"))!;
+    const wrong = await anna.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 400;
+      canvas.height = 300;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#336";
+      ctx.fillRect(0, 0, 400, 300);
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    await anna.locator("#photo-upload").setInputFiles({ name: "wrong.png", mimeType: "image/png", buffer: Buffer.from(wrong, "base64") });
+    await expect(photo, "the new photo shows").not.toHaveAttribute("src", firstSrc, { timeout: 20_000 });
+    await anna.getByRole("button", { name: "Foto entfernen – Patient DE-0044" }).click();
+    await expect(photo, "removed: the photo before shows again").toHaveAttribute("src", firstSrc);
+    await expect.poll(() => status(anna), { message: "the removal is sent" }).toContain("Alles gesendet");
 
     // [itest->dsn~transport-request~1]
     const transport = anna.locator("[aria-labelledby=section-transport]");
@@ -439,6 +457,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~order-permission~2]
     // [itest->dsn~recorded-orders~1]
     const annaOrderForm = anna.locator(".order-form");
+    await openSection(anna, "section-orders");
     await expect(annaOrderForm.getByRole("button", { name: "Anordnen", exact: true }), "a medic gives no orders").toHaveCount(0);
     await expect(annaOrderForm, "she records spoken ones only").not.toContainText("Wer ordnet an?");
     await expect(annaOrderForm.getByRole("button", { name: "Anordnung erfassen" })).toBeVisible();
@@ -447,6 +466,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(petra, INCIDENT);
     await openView(petra, "Patienten");
     await openRecord(petra, "DE-0044");
+    await openSection(petra, "section-orders");
     await petra.locator("#order-substance").fill("Paracetamol");
     await petra.locator("#order-dose").fill("1 g");
     await petra.getByRole("button", { name: "Anordnen" }).click();
@@ -496,6 +516,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~recorded-orders~1]
     // ORDER-6: Petra orders by radio; Anna records it, carries it out and documents it,
     // Petra confirms it later on her device.
+    await openSection(anna, "section-orders");
     await anna.locator("#order-given-by").fill("petra@localhost");
     await annaOrderForm.getByLabel("per Funk").check();
     await annaOrderForm.getByLabel("Wiederholt und bestätigt (Closed Loop)").check();
@@ -681,6 +702,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~patient-pathway~1]
     await openRecord(anna, "DE-0045");
     const move = async (to: string) => {
+      await openSection(anna, "section-stay");
       await anna.locator("#move-to").selectOption({ label: to });
       await anna.getByRole("button", { name: "Verlegen", exact: true }).click();
     };
@@ -1023,6 +1045,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
     await task.getByRole("button", { name: /^In 10 Minuten nachfragen/ }).click();
     await expect(task.locator(".task-card__follow-up"), "postponed").toContainText("Nachfragen um");
+    await expect(task.locator(".task-card__countdown"), "with the time left, counted down").toHaveText(/^noch (9:[0-5]\d|10:00) min$/);
     await audit(ben, "Tasks");
     await task.getByRole("button", { name: "Erledigt: RTW 83/1 – Lagemeldung abgeben" }).click();
     await expect(ben.locator("#tasks-title"), "done tasks leave the list").toHaveText("Offene Aufträge (0)");
@@ -1594,6 +1617,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(medic, "Patienten");
     await openRecord(medic, "DE-0044");
     const stay = medic.locator("[aria-labelledby=section-stay]");
+    await openSection(medic, "section-stay");
     await expect(stay.locator(".history li"), "registration is the admission").toHaveCount(1);
     await expect(stay.getByLabel("Transportiert", { exact: true }), "the transport has left: transported is chosen").toBeChecked();
     await expect(stay.locator(".hint")).toHaveText("Mit dem Transport: RTW · RTW 83/1 → Klinikum Mitte");
@@ -1692,13 +1716,15 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~crew-workspace~1]
     // UNIT-9 (ADR-0079): the crew's own workspace: status, tasks, cases and transports.
     await openWorkspace(medic, "Besatzung");
-    await expect.poll(() => title(medic)).toContain("Einsatzmittel – Besatzung");
+    await expect.poll(() => title(medic)).toContain("Sanität – Besatzung");
     const crewUnit = medic.locator(".crew-unit[data-unit='SanTrp 1']");
     await expect(crewUnit.locator("h2"), "only the units whose crew names her").toHaveText("SanTrp 1");
     await expect(medic.locator(".crew-unit"), "her one unit").toHaveCount(1);
     await crewUnit.getByLabel("Status von SanTrp 1 setzen").selectOption({ label: "3 – Einsatz übernommen" });
     await expect(crewUnit.locator(".unit-status__current"), "the crew sets its status").toContainText("3 – Einsatz übernommen");
+    await expect(crewUnit.getByLabel("Status von SanTrp 1 setzen").locator("option[value='']"), "the prompt is no status").toHaveCount(0);
     const crewTask = crewUnit.locator(".task-card", { hasText: "Bühne Nord, links" });
+    await expect(crewTask.locator("button", { hasText: /Abbrechen|nachfragen/ }), "cancelling and asking again are the command's").toHaveCount(0);
     await crewTask.getByRole("button", { name: /^In Arbeit/ }).click();
     await expect(crewTask.locator(".task-card__status"), "and moves its task on").toContainText("In Arbeit");
     await openView(medic, "Transporte");
@@ -1710,7 +1736,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const assigned = cases.locator(".report-card", { hasText: "Bühne Nord, links" });
     await expect(assigned).toContainText("Zugewiesen an SanTrp 1");
     if (placed) {
-      await expect(assigned.getByRole("link", { name: "In der Karten-App öffnen" }), "the place for the device's maps app").toHaveAttribute("href", /^geo:48\.\d{6},10\.\d{6}$/);
+      await expect(assigned.getByRole("link", { name: "In der Karten-App öffnen" }), "the place for the device's maps app").toHaveAttribute("href", /^(geo:48\.\d{6},10\.\d{6}|https:\/\/maps\.apple\.com\/\?ll=48\.\d{6},10\.\d{6}&q=.+)$/);
       await expect(assigned.locator(".situation__map"), "and on a small map").toHaveCount(1);
     }
     await audit(medic, "Crew workspace");

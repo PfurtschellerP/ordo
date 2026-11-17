@@ -64,3 +64,8 @@ the crew's things in *UHS* and *Führung* is what the product owner found unclea
 
 Design item *Crew workspace* in
 [chapter 5](../architecture/05-building-block-view.md#crew-workspace); requirement UNIT-9.
+
+Update 2026-11-17 (product owner): the workspace is listed under *Sanität* (*Sanität –
+Besatzung*), as it serves medical units only; the decision is otherwise unchanged. The
+crew sets the status but cannot pick "Status setzen" as a status, and cancelling a task or
+asking again later stays with the incident command.

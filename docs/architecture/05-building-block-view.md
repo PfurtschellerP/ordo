@@ -229,11 +229,13 @@ ordo/
 #### Crew workspace
 `dsn~crew-workspace~1`
 
-*Einsatzmittel – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
+*Sanität – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
 incident permission `crew_work` (medical roles, `med.cedar`) and shows the units present
 whose crew names the person's account (`UnitRegister::crewed_by`). View *Aufträge*: per
 unit its status since when and the status select (`units.statusChanged`), its open tasks
-with their next steps (`tasks.updated`; giving tasks stays with the command), and its open
+with their next steps (`tasks.updated`; giving and cancelling tasks and the follow-up stay
+with the command, so the crew sees neither *Abbrechen* nor *In 10 Minuten nachfragen*, and
+the status select offers no "Status setzen" once a status is set), and its open
 patient cases ([Reports](#reports)) with place, map and "Patient aufnehmen", which opens
 *UHS – Patienten* with the case in the registration. View *Transporte*: the open
 transports assigned to the unit, from which UHS, with type, priority, needs and
@@ -313,7 +315,9 @@ structure, CMD-1), as free text, optionally from a template of the profile
 (`tasks/templates.toml`), and optionally with a time to follow up. `tasks.updated` moves
 it on (open → in progress → done, or cancelled; never back) and may set a new follow-up
 time; the latest update by hybrid logical clock counts, every update stays in its history
-with who and when. A follow-up is due once its time has passed and the task is open.
+with who and when. A follow-up is due once its time has passed and the task is open; until
+then the task card shows the time and counts the minutes and seconds left down (not
+announced to screen readers each second).
 
 Only the incident command gives and updates tasks (Cedar: medical roles may not write the
 module). The page *Disposition* (*Einsatzleitung – Führung*) lists the open tasks, due follow-ups
@@ -748,7 +752,8 @@ Crate `ordo-reports`, module `reports`, in the shared `incident` compartment
   version 4) names the report in `med.clinical`. The incident event carries neither the
   triage tag nor the category. Cedar: medical roles write no other event of the module.
 * **Close** (`reports.closed`): the incident command's. A closed report is not listed as
-  open; its events stay.
+  open; its events stay. The situation map no longer shows the pin of a closed report
+  (the map event stays).
 
 The register is computed from the events in clock order; events for unknown reports are
 ignored, a report recorded twice keeps its first version.
@@ -760,9 +765,10 @@ the map and close. The form records a report; its description field says to leav
 medical details.
 
 A crew member (by ORDO account in a unit's crew, UNIT-5) sees the open patient cases
-assigned to their units in *Einsatzmittel – Besatzung* ([Crew workspace](#crew-workspace)): place, description, time, a small map
-centred on the report's map object and a `geo:` link (RFC 5870) for the device's maps app
-where it is placed, and "Patient aufnehmen", which opens the registration with the case
+assigned to their units in *Sanität – Besatzung* ([Crew workspace](#crew-workspace)): place, description, time, a small map
+centred on the report's map object and a link for the device's maps app: Apple Maps on
+Apple devices (iOS does not open `geo:`), else a `geo:` link (RFC 5870), where it is
+placed; and "Patient aufnehmen", which opens the registration with the case
 linked. The UHS offered first is one under the unit's position in the command structure,
 else under the nearest position above it.
 
@@ -1085,7 +1091,7 @@ Needs: utest, itest
 Tags: should, m58
 
 #### Patient photo
-`dsn~patient-photo~2`
+`dsn~patient-photo~3`
 
 The device takes a photo with HTML media capture or reads an uploaded image, downscales
 it and re-encodes it as JPEG, which drops camera and location metadata: the full photo
@@ -1094,11 +1100,14 @@ it and re-encodes it as JPEG, which drops camera and location metadata: the full
 photo, an encrypted attachment (design item "Attachment transfer", chapter 8;
 [ADR-0033](../adr/0033-attachments-in-an-object-store.md)). The module rejects larger
 photos and other media types. The record shows the latest photo: the full photo once the
-device has it, the preview with a note until then.
+device has it, the preview with a note until then. Removing a photo is an
+`epcr.photoRemoved` event naming the attaching event; the record then shows the photo
+before it, if any. The attaching event and the attachment stay until the record's
+retention ends (events are immutable).
 
 Covers:
 
-* [req~pat-8~1](../requirements/04-med.md#pat-8--photo-for-identification)
+* [req~pat-8~2](../requirements/04-med.md#pat-8--photo-for-identification)
 
 Needs: impl, utest, itest
 

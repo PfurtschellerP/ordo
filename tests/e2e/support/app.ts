@@ -124,6 +124,13 @@ export async function openRecord(page: Page, tag: string): Promise<void> {
   await expect(page.locator("#record-title")).toHaveText(`Patient ${tag}`);
 }
 
+/** Opens the collapsed inputs of a record section (e.g. "section-triage"), if closed. */
+export async function openSection(page: Page, section: string): Promise<void> {
+  const button = page.locator(`#${section}-open`);
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(page.locator(`#${section}-inputs`)).toBeVisible();
+}
+
 /** Fills an open editor: text values by field ID, choices by option label. */
 export async function fillForm(page: Page, form: string, values: Record<string, string>, choices: [string, string][] = []) {
   for (const [field, value] of Object.entries(values)) await page.locator(`#f-${form}-${field}`).fill(value);

@@ -343,6 +343,9 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
             med::record::PHOTO_ATTACHED => {
                 text::photo_added(&decode::<med::record::PhotoAttached>(e)?.tag).into()
             }
+            med::record::PHOTO_REMOVED => {
+                text::photo_removed(&decode::<med::record::PhotoRemoved>(e)?.tag).into()
+            }
             med::hospitals::SET => {
                 text::hospital_saved(&decode::<med::hospitals::HospitalSet>(e)?.name).into()
             }

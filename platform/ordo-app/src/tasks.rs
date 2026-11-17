@@ -47,16 +47,20 @@ pub(crate) fn TaskItem(
     assignee: String,
     editable: bool,
     now: u64,
+    /// Shown to the unit's crew (UNIT-9): it moves the task on, but cancelling it and when
+    /// to ask again are the incident command's.
+    #[prop(optional)]
+    crew: bool,
 ) -> impl IntoView {
     let unit = assignee;
     let what = task.given.text.clone();
     let due = task.is_due(now);
-    let follow_up = task.follow_up.map(|at| {
-        let at = core::clock(at);
+    let follow_up = task.follow_up.filter(|_| !crew).map(|at| {
+        let clock = core::clock(at);
         if due {
-            text::follow_up_due(&at)
+            text::follow_up_due(&clock).into_any()
         } else {
-            text::follow_up_at(&at)
+            view! { <FollowUpCountdown at clock revision /> }.into_any()
         }
     });
     let by = {
@@ -74,6 +78,7 @@ pub(crate) fn TaskItem(
             .status
             .next()
             .into_iter()
+            .filter(|status| !(crew && *status == TaskStatus::Cancelled))
             .map(|status| {
                 let id = id.clone();
                 let step = text::task_step(status);
@@ -92,7 +97,7 @@ pub(crate) fn TaskItem(
                 }
             })
             .collect();
-        if task.follow_up.is_some() {
+        if task.follow_up.is_some() && !crew {
             list.push(Action {
                 text: text::FOLLOW_UP_LATER,
                 label: text::task_step_label(text::FOLLOW_UP_LATER, &unit, &what),
@@ -118,6 +123,33 @@ pub(crate) fn TaskItem(
             })}
             {actions.map(|actions| view! { <Actions actions /> })}
         </li>
+    }
+}
+
+// [impl->dsn~tasks~3]
+/// When the incident command asks the unit again: the time and the minutes and seconds
+/// left, counted down every second. Not announced each second (no live region); when it
+/// reaches zero, the views recompute and the task shows as due.
+#[component]
+fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl IntoView {
+    let now = RwSignal::new(core::now_ms());
+    if let Ok(tick) = set_interval_with_handle(
+        move || {
+            let t = core::now_ms();
+            now.set(t);
+            if t >= at {
+                revision.update(|r| *r += 1);
+            }
+        },
+        std::time::Duration::from_secs(1),
+    ) {
+        on_cleanup(move || tick.clear());
+    }
+    view! {
+        {text::follow_up_at(&clock)} " · "
+        <span class="task-card__countdown">
+            {move || text::countdown(at.saturating_sub(now.get()))}
+        </span>
     }
 }
 

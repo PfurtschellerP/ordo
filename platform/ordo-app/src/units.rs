@@ -803,7 +803,10 @@ pub(crate) fn StatusSelect(
                 let _ = core::set_status(core, revision, &unit, &value);
             }
         }>
-            <option value="" selected=current.is_empty()>{text::COL_SET_STATUS}</option>
+            // A prompt until the first status, never a choice of its own.
+            {current.is_empty().then(|| view! {
+                <option value="" disabled selected>{text::COL_SET_STATUS}</option>
+            })}
             {STATUS
                 .codes
                 .iter()
