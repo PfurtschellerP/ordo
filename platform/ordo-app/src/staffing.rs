@@ -86,13 +86,19 @@ pub fn StaffRequestPanel(
             })
             .collect::<Vec<_>>()
     });
+    // Always shown, so people find it; without a chosen UHS the buttons are off and the
+    // hint says what to choose (product owner, 2026-11-17).
+    let none = move || uhs.with(String::is_empty);
     view! {
-        <Show when=move || !uhs.get().is_empty()>
             <section class="card staff-requests" aria-labelledby="staff-requests-title">
                 <h2 id="staff-requests-title">{text::STAFF_REQUESTS_TITLE}</h2>
+                <p class="hint" id="staff-requests-hint">
+                    {move || if none() { text::STAFF_REQUEST_CHOOSE_UHS.to_owned() } else { text::staff_request_for(&core::uhs_name(core, &uhs.get())) }}
+                </p>
                 <div class="row">
                     {[Need::Physician, Need::Paramedic].into_iter().map(|need| view! {
-                        <button type="button" class="button" on:click=move |_| request(core, revision, &uhs.get_untracked(), need)>
+                        <button type="button" class="button" disabled=none aria-describedby="staff-requests-hint"
+                            on:click=move |_| request(core, revision, &uhs.get_untracked(), need)>
                             {text::staff_request_button(need)}
                         </button>
                     }).collect_view()}
@@ -106,7 +112,6 @@ pub fn StaffRequestPanel(
                     })
                 }}
             </section>
-        </Show>
     }
 }
 

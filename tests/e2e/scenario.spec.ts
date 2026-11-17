@@ -134,7 +134,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Incident list", [1200, 320]);
     await dora.locator("#plan-name").fill(INCIDENT);
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
-    await expect.poll(() => title(dora), { message: "the planner leads the new incident" }).toContain("Einsatzleitung");
+    await expect.poll(() => title(dora), { message: "a new incident opens where it is prepared: the menu follows the work" }).toContain("Einsatzleitung – Vorbereitung");
+    await openWorkspace(dora, "Führung");
     // [itest->dsn~workspaces-by-phase~4]
     // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, quick links.
     await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(5);
@@ -998,14 +999,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
 
-    // [itest->dsn~tasks~3]
+    // [itest->dsn~tasks~4]
     const strip = ben.locator(".tasks-strip");
-    await expect(strip, "Vorbereitung shows no open tasks at the top; Führung does").toHaveCount(0);
     const bell = ben.locator("#attention-button");
     await expect(bell, "the bell in the header says when something needs attention").toHaveAccessibleName("Hinweise: keine");
     await openWorkspace(ben, "Führung");
-    await expect(strip, "open tasks in short at the top of Führung").toHaveText("Aufträge: keine offenen");
-    await strip.getByRole("link").click();
+    await expect(strip, "no extra line about tasks on the pages of Führung").toHaveCount(0);
+    await openView(ben, "Disposition");
     await expect(ben.locator("#tasks-title"), "the page of all tasks").toHaveText("Offene Aufträge (0)");
     // ADR-0070: the units' status is set and their orders given in Führung – Disposition.
     const board = ben.locator(".unit-status__item[data-unit='RTW 83/1']");
@@ -1037,10 +1037,6 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(ben, "Attention", [1200, 320]);
     await attention.getByRole("link").click();
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (1)");
-    await openView(ben, "Übersicht");
-    await expect(strip, "Führung shows open and due tasks").toContainText("Aufträge: 1 offen, davon 1 fällig");
-    await expect(strip.locator(".tasks-strip__due"), "the due task by name").toContainText("Fällig: Lagemeldung abgeben");
-    await strip.getByRole("link").click();
     await task.getByRole("button", { name: "In Arbeit: RTW 83/1 – Lagemeldung abgeben" }).click();
     await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
     await task.getByRole("button", { name: /^In 10 Minuten nachfragen/ }).click();
@@ -1680,7 +1676,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await form.getByRole("button", { name: "Meldung aufnehmen" }).click();
     const report = ben.locator(".report-card", { hasText: "Bühne Nord, links" });
     await expect(report, "with kind and time it came in").toContainText(/Patient · Eingang \d\d:\d\d/);
-    // [itest->dsn~tasks~3]
+    // [itest->dsn~tasks~4]
     // A report no unit works on rings the bell until it is assigned.
     await expect(ben.locator("#attention-button")).toHaveAccessibleName("Hinweise: 1");
     await ben.locator("#attention-button").click();
@@ -1773,8 +1769,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(medic, INCIDENT);
     await openWorkspace(medic, "UHS");
     await openView(medic, "Patienten");
-    await medic.locator("#working-uhs").selectOption({ label: "UHS Bühne Nord" });
     const panel = medic.locator("[aria-labelledby=staff-requests-title]");
+    await medic.locator("#working-uhs").selectOption({ label: "Alle UHS" });
+    await expect(panel.getByRole("button", { name: "Arzt/Ärztin anfordern" }), "shown, but off without a UHS").toBeDisabled();
+    await expect(panel.locator(".hint"), "and says what to choose").toContainText("Meine UHS");
+    await medic.locator("#working-uhs").selectOption({ label: "UHS Bühne Nord" });
     await panel.getByRole("button", { name: "Arzt/Ärztin anfordern" }).click();
     await expect(panel.locator(".staff-requests__list li").first(), "the request, open").toContainText(/^Arzt\/Ärztin · \d\d:\d\d · offen$/);
     await audit(medic, "Staff request");

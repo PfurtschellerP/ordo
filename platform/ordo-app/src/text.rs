@@ -513,14 +513,6 @@ pub fn summary_map(objects: usize) -> String {
         n => format!("{n} Objekte auf der Karte."),
     }
 }
-/// The open tasks in short (the strip above the command's views).
-pub fn tasks_strip(open: usize, due: usize) -> String {
-    match (open, due) {
-        (0, _) => "Aufträge: keine offenen".to_owned(),
-        (n, 0) => format!("Aufträge: {n} offen"),
-        (n, d) => format!("Aufträge: {n} offen, davon {d} fällig"),
-    }
-}
 pub const START_INCIDENT: &str = "Einsatz beginnen";
 pub const CLOSE_INCIDENT: &str = "Einsatz abschließen";
 
@@ -1218,6 +1210,12 @@ pub fn uhs_renamed(name: &str) -> String {
 
 // A UHS asks for staff (UHS-15).
 pub const STAFF_REQUESTS_TITLE: &str = "Personal anfordern";
+pub const STAFF_REQUEST_CHOOSE_UHS: &str =
+    "Wählen Sie oben unter „Meine UHS“ Ihre UHS, um für sie anzufordern.";
+
+pub fn staff_request_for(uhs: &str) -> String {
+    format!("Für {uhs}: die Einsatzleitung sieht die Anforderung und schickt jemanden.")
+}
 pub const STAFF_REQUEST_OPEN: &str = "offen";
 pub const STAFF_REQUEST_WITHDRAWN: &str = "zurückgenommen";
 pub const STAFF_REQUEST_CLOSED: &str = "Anforderung abgeschlossen";

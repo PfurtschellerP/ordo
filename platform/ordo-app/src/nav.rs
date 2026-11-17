@@ -109,34 +109,7 @@ pub const WORKSPACES: &[Workspace] = &[
         ],
         hidden: false,
     },
-    // The incident command (ADR-0061): leading the running incident …
-    Workspace {
-        id: "command.lead",
-        package: text::TAB_COMMAND,
-        label: text::WS_LEAD,
-        requires: &["incident"],
-        // The incident command's views; UHS crews do not see them.
-        permission: Some("view_situation"),
-        or_organisation: &[],
-        views: &[
-            view(
-                "overview",
-                text::OVERVIEW,
-                "overview summary",
-                "layout-grid",
-            ),
-            view("map", text::MAP_TITLE, "situation map", "map"),
-            view(
-                "dispatch",
-                text::DISPATCH,
-                "dispatch tasks orders",
-                "clipboard-list",
-            ),
-            view("transports", text::TRANSPORTS, "transports", "ambulance"),
-        ],
-        hidden: false,
-    },
-    // … and what is set up before and adjusted during it.
+    // The incident command (ADR-0061): what is set up before and adjusted during it …
     Workspace {
         id: "command.prepare",
         package: text::TAB_COMMAND,
@@ -166,6 +139,33 @@ pub const WORKSPACES: &[Workspace] = &[
                 "people helpers roles roster devices command structure",
                 "id-card",
             ),
+        ],
+        hidden: false,
+    },
+    // … and leading it while it runs (the menu follows the order of the work).
+    Workspace {
+        id: "command.lead",
+        package: text::TAB_COMMAND,
+        label: text::WS_LEAD,
+        requires: &["incident"],
+        // The incident command's views; UHS crews do not see them.
+        permission: Some("view_situation"),
+        or_organisation: &[],
+        views: &[
+            view(
+                "overview",
+                text::OVERVIEW,
+                "overview summary",
+                "layout-grid",
+            ),
+            view("map", text::MAP_TITLE, "situation map", "map"),
+            view(
+                "dispatch",
+                text::DISPATCH,
+                "dispatch tasks orders",
+                "clipboard-list",
+            ),
+            view("transports", text::TRANSPORTS, "transports", "ambulance"),
         ],
         hidden: false,
     },

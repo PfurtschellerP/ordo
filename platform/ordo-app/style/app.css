@@ -73,8 +73,10 @@
 
   label, legend { font-weight: var(--ordo-font-weight-bold); }
 
-  /* Every text-like input looks the same: phone numbers and date-times too. */
-  input[type="text"], input[type="password"], input[type="tel"], input[type="datetime-local"] {
+  /* Every text-like input looks the same: phone numbers, numbers, searches (the address
+     search) and date-times too. */
+  input:is([type="text"], [type="password"], [type="tel"], [type="email"], [type="url"],
+    [type="search"], [type="number"], [type="datetime-local"]) {
     min-height: var(--ordo-component-input-min-height);
     padding: 0 var(--ordo-space-3);
     background: var(--ordo-component-input-background);
@@ -251,7 +253,7 @@
   .form--inline { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ordo-space-3); margin-top: var(--ordo-space-4); }
   .field { display: grid; gap: var(--ordo-space-2); flex: 1 1 14rem; min-width: 0; }
   .field--small { flex: 0 1 10rem; }
-  .field input, .field select { width: 100%; }
+  .field input:not([type="checkbox"], [type="radio"]), .field select { width: 100%; }
 
   .load-list { list-style: none; margin: 0 0 var(--ordo-space-4); padding: 0; display: grid; gap: var(--ordo-space-2); }
   .load-list__item {
@@ -686,9 +688,12 @@
   .helper-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); align-items: stretch; }
   /* Cards of a row are equally tall and their actions sit at the bottom, however many
      roles or qualifications a person has. */
-  .person-card { display: flex; flex-direction: column; gap: var(--ordo-space-2); }
+  .person-card { display: flex; flex-direction: column; align-items: stretch; gap: var(--ordo-space-2); }
   .person-card .helper-list__actions { margin-block-start: auto; }
+  /* Not the roster's role list, which grows along a row: here it is a row of chips. */
+  .person-card .roster__roles { flex: none; display: flex; flex-wrap: wrap; }
   .person-card .roster__role { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  .person-card .roster__role .button { margin-inline-start: 0; }
   .person-card p, .person-card ul { margin: 0; }
   .person-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-1) var(--ordo-space-2); }
   .person-card__duty { color: var(--ordo-color-text-secondary); }
@@ -727,10 +732,6 @@
   /* A guest's one-time code (ADR-0077): the link breaks anywhere on small screens. */
   .guest-pass__link { overflow-wrap: anywhere; }
   /* Open tasks in short above the command's views (TASK-3); the page Aufträge has them all. */
-  .tasks-strip { margin-block-end: var(--ordo-space-4); padding: var(--ordo-space-2) var(--ordo-space-3); border-inline-start: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); background: var(--ordo-color-surface-default); }
-  .tasks-strip__title { margin: 0; font-size: var(--ordo-font-size-3); }
-  .tasks-strip__due { margin: var(--ordo-space-1) 0 0; padding: 0; list-style: none; color: var(--ordo-color-feedback-warning-text); font-weight: var(--ordo-font-weight-bold); }
-  .tasks-strip__due li { display: flex; gap: var(--ordo-space-2); align-items: center; }
   /* The incident command's overview (ADR-0061): one card per page. */
   /* The command's overview (ADR-0067): tiles in a grid of twelve columns; on narrow
      screens two columns, on phones one. Sizes and colours from the design tokens. */

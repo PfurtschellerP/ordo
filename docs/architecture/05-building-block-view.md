@@ -307,7 +307,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~3`
+`dsn~tasks~4`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment. `tasks.given`
 gives a task a new ID (ULID): to a unit (call sign; sectors follow with the command
@@ -321,10 +321,10 @@ announced to screen readers each second).
 
 Only the incident command gives and updates tasks (Cedar: medical roles may not write the
 module). The page *Disposition* (*Einsatzleitung – Führung*) lists the open tasks, due follow-ups
-first, then by age, each with its unit and next steps, and gives new tasks. The other views
-of *Führung* show them in short at the top (TASK-3): how many are open, which are due,
-linked to the page; *Vorbereitung* does not (feedback of 2026-11-14). Instead, on every
-page, a bell in the header counts what needs the command's attention now: follow-ups that
+first, then by age, each with its unit and next steps, and gives new tasks. The overview's
+*Disposition* tile shows them in short (TASK-3); the other pages carry no extra line about
+them (feedback of 2026-11-14 and 2026-11-17). On every page, a bell in the header counts
+what needs the command's attention now: follow-ups that
 are due and open reports no unit is working on ([Reports](#reports)). Its number is text,
 its name says it ("Hinweise: 2"), and its panel lists each item, linked to *Disposition*.
 Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
@@ -334,7 +334,7 @@ Covers:
 
 * [req~task-1~1](../requirements/02-shared.md#task-1--give-tasks)
 * [req~task-2~1](../requirements/02-shared.md#task-2--task-status)
-* [req~task-3~1](../requirements/02-shared.md#task-3--open-tasks-always-visible)
+* [req~task-3~2](../requirements/02-shared.md#task-3--open-tasks-always-visible)
 * [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
 
 Needs: impl, utest, itest
@@ -823,7 +823,9 @@ Module `med.staffing` in the shared `incident` compartment (no patient data):
 `staffing.requested` (request ID, UHS, need: physician or paramedic) and `staffing.closed`
 (the person sent, or none: withdrawn). The register is computed in clock order; the first
 close counts. *UHS – Patienten* shows, for the UHS the person works at, "Arzt/Ärztin
-anfordern" and "Notfallsanitäter/in anfordern" and the latest requests with who comes.
+anfordern" and "Notfallsanitäter/in anfordern" and the latest requests with who comes;
+without a chosen UHS ("Alle UHS") the buttons are shown but off, with a hint to choose one
+under "Meine UHS".
 *Führung – Disposition* lists the open requests above the reports; the command names the
 person (suggesting the incident's people), the app puts them on the UHS's staff list
 (`uhs.updated`, allowed to the command by [UHS staff](#uhs-staff)) and closes the request;

@@ -1033,15 +1033,6 @@ fn Workspace(
               </div>
             </div>
             <main id="main" class="page" tabindex="-1">
-                // [impl->dsn~tasks~3]
-                // The open tasks, in short, at the top of the views of *Führung* (TASK-3); the
-                // whole list is the page *Disposition*. Elsewhere the bell in the header says
-                // what needs attention.
-                <Show when=move || {
-                    current.get() == Some("command.lead") && current_view.get() != Some("dispatch")
-                }>
-                    <crate::tasks::TasksStrip core revision />
-                </Show>
                 {move || match (current.get(), current_view.get()) {
                     (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
                     (Some("units.crew"), Some("transports")) => view! { <crate::crew::CrewTransports core revision /> }.into_any(),
