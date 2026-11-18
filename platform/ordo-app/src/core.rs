@@ -741,7 +741,7 @@ pub fn register(
     )
 }
 
-// [impl->dsn~guest-access~2]
+// [impl->dsn~guest-access~3]
 /// Asks for a guest of the chosen incident, or with `guest` a new code for one, whose access
 /// ends at `until` (ADR-0077); `tag` comes back with the answer.
 pub fn create_guest(core: Handle, guest: Option<UserId>, until: u64, tag: &str, name: &str) {
@@ -1137,7 +1137,7 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 /// Gives a task or records a report as an Auftrag (TASK-1, REP-1): a new ID, then the event
 /// in the shared incident compartment. Returns the ID.
 pub fn give_task(
@@ -1171,7 +1171,7 @@ pub fn give_task(
     Ok(id)
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 /// Names the one unit of an Auftrag that has not started (REP-2).
 pub fn assign_task(
     core: Handle,

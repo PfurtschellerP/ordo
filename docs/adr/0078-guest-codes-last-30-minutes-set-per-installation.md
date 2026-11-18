@@ -1,9 +1,11 @@
 ---
-status: accepted
+status: accepted; superseded by ADR-0083
 date: 2026-11-14
 ---
 
 # A guest's one-time code lasts 30 minutes, set per installation
+
+Superseded by [ADR-0083](0083-guest-codes-last-as-long-as-the-access.md).
 
 Partly supersedes [ADR-0077](0077-guest-access-by-one-time-qr-code.md): how long a
 guest's code works. Everything else in ADR-0077 stands.

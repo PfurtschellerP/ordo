@@ -203,7 +203,9 @@ fn ProviderItem(
             <span class="roster__id">{detail}</span>
             {editable.then(|| view! {
                 <div class="row">
-                    <button type="button" class="button button--small" aria-label=change_label disabled=move || pending.busy()
+                    // [impl->dsn~icon-rules~1]
+                    // Pencil and trash; removing still asks, as it cannot be undone.
+                    <button type="button" class="button button--small icon-button" aria-label=change_label.clone() data-tip=change_label disabled=move || pending.busy()
                         on:click={
                             let provider = provider.clone();
                             move |_| {
@@ -211,9 +213,9 @@ fn ProviderItem(
                                 after_render(|| focus("provider-name"));
                             }
                         }>
-                        {text::PROVIDER_CHANGE}
+                        <crate::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::PROVIDER_CHANGE}</span>
                     </button>
-                    <button id=delete_id.clone() type="button" class="button button--small" aria-label=delete_label disabled=move || pending.busy()
+                    <button id=delete_id.clone() type="button" class="button button--small icon-button" aria-label=delete_label.clone() data-tip=delete_label disabled=move || pending.busy()
                         on:click={
                             let (id, confirm_id) = (id.clone(), confirm_id.clone());
                             move |_| {
@@ -222,7 +224,7 @@ fn ProviderItem(
                                 after_render(move || focus(&confirm_id));
                             }
                         }>
-                        {text::PROVIDER_DELETE}
+                        <crate::ui::Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::PROVIDER_DELETE}</span>
                     </button>
                 </div>
             })}

@@ -197,6 +197,9 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     for (device, paired, name) in store.load_paired().await? {
         hub.set_paired(&device, paired, name);
     }
+    for (device, seen) in store.load_seen().await? {
+        hub.set_seen(&device, seen);
+    }
     for device in store.load_revoked().await? {
         hub.restore_revoked(device);
     }
@@ -243,7 +246,7 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         }
         None => None,
     };
-    let mut app = App::new(
+    let app = App::new(
         hub,
         store,
         master,
@@ -265,7 +268,6 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
         dex_api,
         stop.clone(),
     );
-    app.guest_code_ttl_ms = config.guest_code_minutes * 60_000;
     let app = Arc::new(app);
     tokio::spawn(app.clone().maintenance());
     let router = app.clone().router(config.app_dir.as_deref());

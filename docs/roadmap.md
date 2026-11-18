@@ -366,12 +366,17 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        its pin is set by address or on a small map on the same form and moved from the
        card; "Weiteres Einsatzmittel schicken" links a second Auftrag. Only a UHS's staff
        ask for staff, and the person sent gets an Auftrag. The map's object cards (MAP-11,
-       m64: pointer label, card on tap and in the list, qualifications in short from the
-       profile) and the icon rules (icon buttons with names and tooltips, words where
-       there is room, undo instead of questions) are done too.
-    3. *People and duty:* guests' one-time codes valid until the duty ends or the incident
-       is closed (instead of 30 minutes); a duty can be paused; devices unused for 30 days
-       are removed; the bell for every role; a UHS asks for staff where its people see it.
+       m64: a card at the object, on mouse hover, tap and from the list; qualifications in
+       short from the profile) and the icon rules (icon buttons with names and tooltips,
+       words where there is room, undo instead of questions) are done too. After the demo
+       of 2026-11-18: only a UHS's staff, or its creator while nobody is on its list, write
+       it ([ADR-0082](adr/0082-only-a-uhss-staff-writes-it.md)), and a read-only record
+       offers nothing to edit; the crew sees their own position on the Auftrag's map.
+    3. *People and duty* is done (m65, 2026-11-18): guests' one-time codes work until the
+       duty ends or, without an end, until the incident is closed
+       ([ADR-0083](adr/0083-guest-codes-last-as-long-as-the-access.md)); a duty can be
+       paused (HELP-8); devices unused for 30 days are removed (ORG-14); the bell for
+       every role (TASK-3).
     4. *Einsatzmittel for all kinds:* types and their fields from the profile; UHS created,
        edited and staffed in *Vorbereitung – Einsatzmittel*; the occupancy of treatment
        areas per triage category in *Führung*.

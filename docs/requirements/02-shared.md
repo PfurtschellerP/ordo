@@ -232,9 +232,9 @@ Tags: must, shared, m31
 Needs: dsn
 
 #### TASK-3 — Open tasks always visible
-`req~task-3~3`
+`req~task-3~4`
 
-While a leader works in an incident, ORDO shall show on every page how many items need their attention (due follow-ups, Aufträge without a unit, staff requests), and shall list the open Aufträge on the command's overview and on its task page.
+While a person works in an incident, ORDO shall show on every page how many items need their attention: for a leader due follow-ups, Aufträge without a unit and staff requests; for everyone else the Aufträge given to them or their unit that nobody has started yet. ORDO shall list the open Aufträge on the command's overview and on its task page.
 
 Tags: must, shared, m31
 
@@ -293,10 +293,11 @@ Tags: must, shared, m60
 Needs: dsn
 
 #### REP-4 — Place on the map
-`req~rep-4~2`
+`req~rep-4~3`
 
 While an Auftrag with a pin is open, ORDO shall show the pin on the situation map, and to
-the crew of its unit on a map and as a link for the device's maps app.
+the crew of its unit on a map and as a link for the device's maps app. When the crew asks
+for it, ORDO shall show their own position on that map, kept on the device.
 
 Tags: should, shared, m60
 
@@ -414,13 +415,14 @@ Tags: should, shared, m62
 Needs: dsn
 
 #### MAP-11 — What an object on the map is
-`req~map-11~1`
+`req~map-11~2`
 
-When a person points at an object on the situation map, ORDO shall show its name and
-state; when they tap or click it, or choose it in the list of objects, ORDO shall show a
-card with its details and the actions they may take: for an Auftrag its state and unit,
-for a unit its status, its Auftrag and its crew's strength and qualifications, for a UHS
-its occupancy per triage category.
+When a person points at an object on the situation map with a mouse, taps or clicks it, or
+chooses it in the list of objects, ORDO shall show a card at the object with its details
+and the actions they may take: for an Auftrag its state and unit, for a unit its status,
+its Auftrag and its crew's strength and qualifications, for a UHS its occupancy per
+triage category. A card shown by pointing shall stay while the pointer is on the object
+or on the card, and close with Escape.
 
 Tags: should, shared, m64
 
@@ -519,14 +521,26 @@ Tags: should, shared, m61
 Needs: dsn
 
 #### HELP-7 — Access without an account
-`req~help-7~1`
+`req~help-7~2`
 
 When the incident command registers a helper without an ORDO account with a role in the
 incident, ORDO shall give them access to that incident only, with that role, by a one-time
-code shown as QR code on the command's device, and shall end that access when the helper's
-duty ends; such a helper shall never lead the incident.
+code shown as QR code on the command's device. The code shall work until it is used or the
+access ends. ORDO shall end that access when the helper's duty ends, or, without an end of
+duty, when the incident is closed, and give it back when a new duty starts; such a helper
+shall never lead the incident.
 
 Tags: should, shared, m61
+
+Needs: dsn
+
+#### HELP-8 — Pause a duty
+`req~help-8~1`
+
+While a helper is on duty, ORDO shall let the incident command pause and resume the duty,
+and shall show since when the helper pauses.
+
+Tags: should, shared, m65
 
 Needs: dsn
 
@@ -691,5 +705,16 @@ planned start and end with the incident, and while an incident runs, ORDO shall 
 command pause and resume it, e.g. overnight at a festival over several days.
 
 Tags: should, shared, m56
+
+Needs: dsn
+
+#### ORG-14 — Unused devices removed
+`req~org-14~1`
+
+When a device has not connected to the server for 30 days, ORDO shall remove it as if it
+were blocked: it leaves every list of devices, and to be used again it must be paired
+again.
+
+Tags: should, shared, m65
 
 Needs: dsn

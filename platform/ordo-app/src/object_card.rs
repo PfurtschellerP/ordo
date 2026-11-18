@@ -1,7 +1,6 @@
-//! What an object on the situation map is (MAP-11): its short state for the map's pointer
-//! label, and the card a tap or the list opens, with details and the actions the person may
-//! take. The card's links lead to the object's place in another view, which shows it once
-//! it has opened.
+//! What an object on the situation map is (MAP-11): the card that pointing at it, a tap or
+//! the list opens, with details and the actions the person may take. The card's links
+//! lead to the object's place in another view, which shows it once it has opened.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -68,38 +67,6 @@ fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-// [impl->dsn~map-object-cards~1]
-/// The short state of each object, by object ID, for the pointer label: a unit's status,
-/// an Auftrag's state, a UHS's patients.
-pub fn states(core: Handle, map: &SituationMap) -> BTreeMap<String, String> {
-    let units = core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)));
-    let tasks = crate::tasks::task_list(core);
-    let counts = core.with_value(|c| {
-        ordo_med_patients::latest_counts(&c.events(ordo_med_patients::UHS_COMPARTMENT))
-    });
-    map.objects
-        .values()
-        .filter_map(|o| {
-            let reference = o.placed.reference.as_deref().unwrap_or_default();
-            let state = match o.placed.kind {
-                ObjectKind::Unit => units
-                    .units
-                    .get(reference)
-                    .and_then(|u| u.status.as_ref())
-                    .map(|s| text::status_label(&s.status)),
-                ObjectKind::Task | ObjectKind::Report => pinned(&tasks, o.placed.kind, reference)
-                    .first()
-                    .map(|t| shown_state(core, t)),
-                ObjectKind::Uhs => counts.get(reference).map(|c| {
-                    text::uhs_patients(crate::views::CATEGORIES.iter().map(|k| c.get(*k)).sum())
-                }),
-                _ => None,
-            }?;
-            Some((o.placed.object.clone(), state))
-        })
-        .collect()
-}
-
 /// The open Aufträge a pin stands for: a linked group, or those naming an old report.
 fn pinned(
     tasks: &ordo_tasks::TaskList,
@@ -133,7 +100,7 @@ fn shown_state(core: Handle, task: &ordo_tasks::Task) -> String {
     }
 }
 
-// [impl->dsn~map-object-cards~1]
+// [impl->dsn~map-object-cards~2]
 /// The card of one object (MAP-11): its details by kind and the actions this person may
 /// take. `on_close` closes it; the close button names the object.
 #[component]
@@ -171,7 +138,9 @@ pub fn ObjectCard(
                 view! { <UnitPart core revision unit=reference editable=editable.get() /> }
                     .into_any()
             }
-            ObjectKind::Uhs => view! { <UhsPart core uhs=reference /> }.into_any(),
+            ObjectKind::Uhs => {
+                view! { <UhsPart core uhs=reference editable=editable.get() /> }.into_any()
+            }
             kind => view! { <p>{text::map_kind(kind)}</p> }.into_any(),
         }
     };
@@ -322,10 +291,10 @@ fn UnitPart(core: Handle, revision: RwSignal<u64>, unit: String, editable: bool)
     .into_any()
 }
 
-/// A UHS: its patients per triage category, in words and numbers, and the way there for
-/// those who work with patients.
+/// A UHS: its patients per triage category, in words and numbers, the way there for those
+/// who work with patients, and to its place and staff for the incident command.
 #[component]
-fn UhsPart(core: Handle, uhs: String) -> impl IntoView {
+fn UhsPart(core: Handle, uhs: String, editable: bool) -> impl IntoView {
     let counts = core
         .with_value(|c| {
             ordo_med_patients::latest_counts(&c.events(ordo_med_patients::UHS_COMPARTMENT))
@@ -335,15 +304,28 @@ fn UhsPart(core: Handle, uhs: String) -> impl IntoView {
     let clinical = core::granted(core, ordo_med_patients::COMPARTMENT);
     let route = Route::view("med.uhs", "patients");
     let follow = crate::views::follow_route(route.clone());
+    let edit_selector = format!(".uhs-card[data-uhs={}]", quoted(&uhs));
+    let edit_route = Route::view("command.prepare", "units");
+    let follow_edit = crate::views::follow_route(edit_route.clone());
+    let name = core::uhs_name(core, &uhs);
     view! {
         <ul class="object-card__chips" aria-label=text::CARD_PATIENTS>
             {crate::views::CATEGORIES.into_iter().map(|k| view! {
                 <li><crate::views::TriageBadge category=k /> " " {counts.get(k)}</li>
             }).collect_view()}
         </ul>
-        {clinical.then(|| view! {
-            <p><a class="button button--small" href=route.to_path()
-                on:click=move |ev| { crate::patients::work_at(&uhs); follow(ev) }>{text::CARD_OPEN_UHS}</a></p>
-        })}
+        <div class="row">
+            {editable.then(|| view! {
+                <a class="button button--small" href=edit_route.to_path()
+                    aria-label=text::card_edit_label(&name) title=text::CARD_EDIT
+                    on:click=move |ev| { reveal_next(edit_selector.clone()); follow_edit(ev) }>
+                    <Icon name="pencil" /><span class="object-card__word">{text::CARD_EDIT}</span>
+                </a>
+            })}
+            {clinical.then(|| view! {
+                <a class="button button--small" href=route.to_path()
+                    on:click=move |ev| { crate::patients::work_at(&uhs); follow(ev) }>{text::CARD_OPEN_UHS}</a>
+            })}
+        </div>
     }
 }

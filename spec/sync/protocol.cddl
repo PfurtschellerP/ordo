@@ -127,11 +127,12 @@ device-block = {
   "device": device-id,
 }
 
-; Access for a helper without an account (ADR-0077).
+; Access for a helper without an account (ADR-0077, ADR-0083).
 guest-request = {
   "incident": incident-id,
   ? "guest": user-id,              ; a guest made before, for a new code
-  "until": uint,                   ; end of access (ms since 1970): the end of duty
+  "until": uint,                   ; end of access (ms since 1970): the end of duty, or
+                                   ; until-closed: until the incident is closed
   ? "name": tstr,                  ; the name the guest is shown by
   "tag": tstr .size (0..64),       ; returned in the answer
 }
@@ -148,8 +149,11 @@ guest-pass = {
   ? "guest": user-id,              ; absent: refused
   ? "link": tstr,                  ; <public address>/?guest=<code>
   ? "qr": tstr,                    ; the link as QR code (SVG)
-  "expires": uint,                 ; end of the code (ms since 1970); 0 if refused
+  "expires": uint,                 ; end of the code (ms since 1970): the end of access;
+                                   ; 0 if refused
 }
+
+until-closed = 9223372036854775807 ; the largest time the server stores
 
 ; Organisation roles (ORG-9): "admin", "planner".
 organisation-role = {

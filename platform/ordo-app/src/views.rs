@@ -160,7 +160,7 @@ fn Screens(
     }
 }
 
-// [impl->dsn~guest-access~2]
+// [impl->dsn~guest-access~3]
 /// A helper without an account pairs this device with the one-time code of the QR code the
 /// incident command showed them (ADR-0077): the device makes its own key, as for a login,
 /// and opens the incident with the role it was given.
@@ -650,7 +650,7 @@ fn Device(
         }
     };
     let has_incident = core.with_value(|c| c.incident.is_some());
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     // A guest cannot log in again: their access ended with their duty (ADR-0077).
     let guest = pairing
         .user
@@ -1456,13 +1456,13 @@ fn UhsDetailsPanel(
             id=format!("uhs-details-{slug}")
             open
             class="load-list__details"
-            button_class="button button--small button--quiet"
+            button_class="button button--small button--quiet button--with-icon"
             panel_class="load-list__details-panel"
             label=Some(Signal::derive({
                 let name = name.clone();
                 move || text::uhs_details_label(&name)
             }))
-            button=Box::new(|| view! { {text::UHS_DETAILS} }.into_any())
+            button=Box::new(|| view! { <crate::ui::Icon name="pencil" />{text::UHS_DETAILS} }.into_any())
         >
             <form class="form form--inline" novalidate on:submit=save>
                 <div class="field">
@@ -1725,10 +1725,13 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             .into_iter()
                             .enumerate()
                             .map(|(i, (id, name, n, cap, total, free, details))| {
-                                let editor = view! {
+                                // [impl->dsn~uhs-staff~2]
+                                // Others read a UHS's settings only (ADR-0082).
+                                let settable = crate::patients::may_set_up(core, &id);
+                                let editor = settable.then(|| view! {
                                     <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
                                         draft=draft(&id, &name, cap, &details) />
-                                };
+                                });
                                 // [impl->dsn~treatment-places~1]
                                 let count = RwSignal::new(total.to_string());
                                 let field = format!("places-{i}");
@@ -1744,13 +1747,16 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         <span>{text::COL_LOAD} ": " {text::load(n, cap)}</span>
                                         <meter min="0" max=cap value=n aria-hidden="true"></meter>
                                         <span class="load-list__places">{text::PLACES} ": " {text::places_free(free, total)}</span>
-                                        <form class="form form--inline" on:submit=set>
-                                            <div class="field field--small">
-                                                <label for=field.clone()>{text::places_of(&name)}</label>
-                                                <input id=field type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=count />
-                                            </div>
-                                            <button type="submit" class="button button--small">{text::PLACES_SET}</button>
-                                        </form>
+                                        {settable.then(|| view! {
+                                            <form class="form form--inline" on:submit=set>
+                                                <div class="field field--small">
+                                                    <label for=field.clone()>{text::places_of(&name)}</label>
+                                                    <input id=field type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=count />
+                                                </div>
+                                                <button type="submit" class="button button--small">{text::PLACES_SET}</button>
+                                            </form>
+                                        })}
+                                        {(!settable).then(|| view! { <span class="hint">{text::uhs_read_only(&name)}</span> })}
                                         {details.location.clone().map(|l| view! { <span class="load-list__location">{text::UHS_LOCATION} ": " {l}</span> })}
                                         {(!details.staff.is_empty()).then(|| view! {
                                             <span class="load-list__staff">{text::UHS_STAFF} ": " {crate::profile::naming({

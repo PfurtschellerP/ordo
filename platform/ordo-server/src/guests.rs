@@ -73,7 +73,7 @@ fn qr(link: &str) -> Option<String> {
 }
 
 impl App {
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     /// Answers `createGuest` and `setGuestAccess` (protocol 1.3) for those who may grant
     /// roles in the incident.
     pub(crate) async fn guests(
@@ -161,7 +161,9 @@ impl App {
         let Some(code) = new_code() else {
             return Ok(refused);
         };
-        let expires = now + self.guest_code_ttl_ms;
+        // [impl->dsn~guest-access~3]
+        // The code works as long as the access it gives (ADR-0083).
+        let expires = request.until;
         self.store
             .save_guest(&guest, &request.incident, request.until, user, now)
             .await?;
@@ -234,7 +236,7 @@ pub(crate) struct GuestPairing {
     name: Option<String>,
 }
 
-// [impl->dsn~guest-access~2]
+// [impl->dsn~guest-access~3]
 /// `POST /auth/guest` (HTTP API 1.1): pairs the device with the guest of the code, if the
 /// code is known, unused and not expired; any other code is refused the same way. Answers
 /// the guest's ID and incident.
@@ -286,7 +288,7 @@ pub(crate) async fn pair(
 mod tests {
     use super::*;
 
-    // [utest->dsn~guest-access~2]
+    // [utest->dsn~guest-access~3]
     #[test]
     fn codes_have_256_bits_and_are_kept_by_hash() {
         let (a, b) = (new_code().unwrap(), new_code().unwrap());
@@ -300,7 +302,7 @@ mod tests {
         assert_ne!(hash(&a), hash(&b));
     }
 
-    // [utest->dsn~guest-access~2]
+    // [utest->dsn~guest-access~3]
     #[test]
     fn refused_codes_are_braked_per_minute() {
         let r = Refusals::default();

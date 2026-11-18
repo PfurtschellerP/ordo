@@ -319,6 +319,24 @@ pub fn uhs_of_post(post: &ordo_units::Post) -> Option<&str> {
     post.id.strip_prefix("uhs:")
 }
 
+// [impl->dsn~uhs-staff~2]
+/// Who created each UHS (user ID by UHS ID): they write it while nobody is on its staff
+/// list (ADR-0082).
+pub fn uhs_creators(incident_events: &[AppliedEvent]) -> BTreeMap<String, String> {
+    let mut creators = BTreeMap::new();
+    for e in incident_events
+        .iter()
+        .filter(|e| e.body.event_type.as_str() == UHS_CREATED)
+    {
+        if let Ok(UhsCreated { id, .. }) = codec::from_cbor(&e.payload) {
+            creators
+                .entry(id)
+                .or_insert_with(|| e.body.author.user.to_string());
+        }
+    }
+    creators
+}
+
 // [impl->dsn~uhs-registry~1]
 // [impl->dsn~uhs-details~3]
 /// The on-site care units of an incident, in order of creation (first wins per ID), with

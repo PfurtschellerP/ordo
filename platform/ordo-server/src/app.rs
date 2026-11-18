@@ -52,7 +52,6 @@ pub struct App {
     /// Test logins through new or changed upstream providers (ORG-11).
     pub(crate) login_tests: crate::providers::Tests,
     /// How long a guest's one-time code works (ms; ADR-0078).
-    pub(crate) guest_code_ttl_ms: u64,
     /// Refused guest codes per minute (ADR-0077).
     pub(crate) guest_refusals: crate::guests::Refusals,
     /// Whether temporary connectors left from before the start were looked for.
@@ -109,7 +108,6 @@ impl App {
             dex_api,
             login_tests: crate::providers::Tests::default(),
             guest_refusals: crate::guests::Refusals::default(),
-            guest_code_ttl_ms: crate::config::GUEST_CODE_MINUTES * 60_000,
             tests_cleaned: AtomicBool::new(false),
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
@@ -162,7 +160,7 @@ impl App {
         Ok(true)
     }
 
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     /// Pairs a device with a guest (ADR-0077): like [`Self::register_device`], with the
     /// login ending at the guest's end of duty and no renewal.
     pub(crate) async fn register_guest_device(
@@ -223,6 +221,27 @@ impl App {
     // [impl->dsn~organisation-roles~1]
     /// Cuts the connections of people whose organisation role ran out since the last
     /// check: their devices reconnect with what they may do now.
+    // [impl->dsn~guest-access~3]
+    /// Ends the access of guests whose incident is closed (ADR-0083); their sessions are
+    /// cut with the expired ones.
+    pub(crate) async fn end_guests_of_closed_incidents(&self) -> Result<(), StoreError> {
+        let now = now_ms();
+        let guests = self.store.open_guests(now).await?;
+        for (guest, incident) in guests {
+            let closed = self.hub.lock().await.closed_at(&incident);
+            if closed.is_some() {
+                let by = UserId::new("ordo-system", &self.server)
+                    .map_err(|e| StoreError::Invalid(e.to_string()))?;
+                self.store
+                    .save_guest(&guest, &incident, now, &by, now)
+                    .await?;
+                self.set_valid_until(&guest, now).await?;
+                tracing::info!(%guest, %incident, "guest access ended with the incident");
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) async fn expire_roles(&self) {
         let now = now_ms();
         let since = self.roles_checked.swap(now, Ordering::Relaxed);
@@ -317,9 +336,26 @@ impl App {
         Ok(())
     }
 
-    /// Regular work: cut expired connections every minute; re-verify logins in the
-    /// background every 15 minutes (ADR-0040); delete streams past their retention every
-    /// hour (HELP-4).
+    // [impl->dsn~stale-devices~1]
+    /// Removes devices unused for [`IDLE_DEVICE_DAYS`] (ORG-14), stored as revoked.
+    pub(crate) async fn remove_idle_devices(&self, now: u64) -> Result<(), StoreError> {
+        let mut hub = self.hub.lock().await;
+        let removed = hub.remove_idle(now, IDLE_DEVICE_DAYS * 24 * 3600 * 1000);
+        if removed.is_empty() {
+            return Ok(());
+        }
+        let changes = hub.take_changes();
+        self.store.save(&changes, &self.master).await?;
+        drop(hub);
+        for device in removed {
+            tracing::info!(%device, "device removed after {IDLE_DEVICE_DAYS} days unused");
+        }
+        Ok(())
+    }
+
+    /// Regular work: cut expired connections and end the guests of closed incidents every
+    /// minute; re-verify logins in the background every 15 minutes (ADR-0040); delete
+    /// streams past their retention (HELP-4) and remove unused devices (ORG-14) every hour.
     pub(crate) async fn maintenance(self: Arc<Self>) {
         let mut minute = tokio::time::interval(std::time::Duration::from_secs(60));
         let mut quarter = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
@@ -329,6 +365,9 @@ impl App {
         loop {
             tokio::select! {
                 _ = minute.tick() => {
+                    if let Err(e) = self.end_guests_of_closed_incidents().await {
+                        tracing::error!(error = %e, "ending guests of closed incidents failed");
+                    }
                     self.expire_sessions().await;
                     self.expire_roles().await;
                     self.names_from_accounts().await;
@@ -338,6 +377,9 @@ impl App {
                 _ = hour.tick() => {
                     if let Err(e) = self.delete_expired(now_ms()).await {
                         tracing::error!(error = %e, "deleting streams after their retention failed");
+                    }
+                    if let Err(e) = self.remove_idle_devices(now_ms()).await {
+                        tracing::error!(error = %e, "removing unused devices failed");
                     }
                 }
                 () = &mut stop => return,
@@ -1372,6 +1414,9 @@ pub(crate) async fn stopped(mut receiver: watch::Receiver<bool>) {
 }
 
 /// Milliseconds since the Unix epoch.
+/// Days after which a device that has not connected is removed (ORG-14).
+pub const IDLE_DEVICE_DAYS: u64 = 30;
+
 pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

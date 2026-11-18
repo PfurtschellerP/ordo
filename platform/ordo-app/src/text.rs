@@ -949,7 +949,7 @@ pub fn sent(n: usize) -> String {
 }
 
 pub fn hospital_edit_label(name: &str) -> String {
-    format!("{name} bearbeiten")
+    format!("Bearbeiten: {name}")
 }
 
 pub fn capacity_save_label(name: &str) -> String {
@@ -1260,6 +1260,9 @@ pub fn attention_label(n: usize) -> String {
 pub fn attention_due(unit: &str, task: &str) -> String {
     format!("Rückfrage fällig: {unit} – {task}")
 }
+pub fn attention_new_task(task: &str) -> String {
+    format!("Neuer Auftrag: {task}")
+}
 pub fn attention_unassigned(task: &str) -> String {
     format!("Auftrag ohne Einsatzmittel: {task}")
 }
@@ -1382,13 +1385,6 @@ pub fn qualification_count(label: &str, n: usize) -> String {
 
 pub fn crew_names(n: usize) -> String {
     format!("Namen ({n})")
-}
-
-pub fn uhs_patients(n: u32) -> String {
-    match n {
-        1 => "1 Patient".to_owned(),
-        n => format!("{n} Patienten"),
-    }
 }
 
 pub fn pin_at(at: &str) -> String {
@@ -1600,6 +1596,10 @@ pub const MAP_LOCATE: &str = "Zu meinem Standort";
 pub const MAP_LOCATING: &str = "Standort wird bestimmt …";
 pub const MAP_LOCATED: &str = "Die Karte zeigt Ihren Standort.";
 pub const MAP_LOCATE_DENIED: &str = "Der Standort ist nicht freigegeben. Erlauben Sie ORDO den Standort in den Einstellungen des Browsers.";
+pub const MY_POSITION: &str = "Ich";
+pub const MY_POSITION_SHOW: &str = "Meinen Standort zeigen";
+pub const MY_POSITION_SHOWN: &str =
+    "Die Karte zeigt Ihren Standort (Punkt „Ich“) und den Pin. Er bleibt auf diesem Gerät.";
 pub const MAP_LOCATE_FAILED: &str = "Der Standort konnte nicht bestimmt werden.";
 pub const MAP_OBJECTS_NONE: &str = "Noch nichts auf der Karte.";
 pub const MAP_SHOW: &str = "Zeigen";
@@ -1867,6 +1867,18 @@ pub const ALL_UHS: &str = "Alle UHS";
 
 pub fn read_only_uhs(name: &str) -> String {
     format!("{name} (nur lesen)")
+}
+
+/// Next to a UHS whose settings the person may only read (ADR-0082).
+pub fn uhs_read_only(uhs: &str) -> String {
+    format!("Nur lesen: Sie stehen nicht auf der Personalliste von {uhs}.")
+}
+
+/// Above a record the person may only read (UHS-10).
+pub fn record_read_only(uhs: &str) -> String {
+    format!(
+        "Nur lesen: Sie stehen nicht auf der Personalliste von {uhs}. Die Einsatzleitung teilt Personal zu."
+    )
 }
 
 // Map region from the server (MAP-8)
@@ -2165,8 +2177,8 @@ pub const HELPER_TOWN: &str = "Ort";
 pub const HELPER_ROLE: &str = "Rolle im Einsatz";
 pub const OR: &str = "oder";
 pub const ROLE_NONE: &str = "keine Rolle";
-pub const GUEST_NEEDS_DUTY_END: &str =
-    "Für den Zugang ohne Konto bitte das Dienstende angeben: Der Zugang endet mit ihm.";
+pub const GUEST_DUTY_ENDED: &str = "Das Dienstende ist vorbei. Für einen Zugang ohne Konto den Dienst neu beginnen oder das Dienstende ändern.";
+pub const GUEST_UNTIL_CLOSED: &str = "Gast-Zugang bis zum Einsatzende";
 pub const GUEST_NO_COMMAND: &str = "Die Einsatzleitung braucht ein ORDO-Konto.";
 pub const GUEST_PAIR_TITLE: &str = "Zugang für Helfende";
 pub const GUEST_ENDED_TITLE: &str = "Zugang beendet";
@@ -2180,7 +2192,10 @@ pub const GUEST_CODE_ALT: &str = "QR-Code, der dieses Gerät des Helfers mit dem
 pub const GUEST_LINK: &str = "Oder diesen Link auf dem Gerät öffnen:";
 pub const GUEST_CODE_CLOSE: &str = "Fertig";
 pub fn guest_code_for(name: &str, expires: &str) -> String {
-    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis {expires} Uhr.")
+    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis {expires}.")
+}
+pub fn guest_code_until_closed(name: &str) -> String {
+    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis zum Einsatzende.")
 }
 pub fn guest_access_label(name: &str) -> String {
     format!("{GUEST_ACCESS}: {name}")
@@ -2235,6 +2250,18 @@ pub fn helper_edit_title(name: &str) -> String {
 }
 pub fn helper_saved(name: &str) -> String {
     format!("Angaben zu {name} gespeichert.")
+}
+pub const DUTY_PAUSE: &str = "Dienst pausieren";
+pub const DUTY_RESUME: &str = "Dienst fortsetzen";
+pub fn duty_pause_label(name: &str) -> String {
+    format!("{DUTY_PAUSE}: {name}")
+}
+pub fn duty_resume_label(name: &str) -> String {
+    format!("{DUTY_RESUME}: {name}")
+}
+/// "in Pause seit 14:02"
+pub fn paused_since(at: &str) -> String {
+    format!("in Pause seit {at}")
 }
 pub fn on_duty_since(at: &str) -> String {
     format!("im Dienst seit {at}")

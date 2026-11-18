@@ -1,9 +1,12 @@
 ---
-status: accepted
+status: accepted; partly superseded by ADR-0082
 date: 2026-11-11
 ---
 
 # A UHS's patients are written by its staff, checked by the server per event
+
+Superseded where it keeps a UHS without a staff list open:
+[ADR-0082](0082-only-a-uhss-staff-writes-it.md).
 
 ## Context and Problem Statement
 

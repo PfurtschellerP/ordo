@@ -93,6 +93,10 @@ pub struct MapRegionRequest {
     pub radius_m: u32,
 }
 
+/// A guest's access without an end of duty: it lasts until the incident is closed
+/// (ADR-0083). The largest value the server stores.
+pub const UNTIL_CLOSED: u64 = i64::MAX as u64;
+
 /// A request for a guest's access (ADR-0077).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuestRequest {
@@ -101,7 +105,8 @@ pub struct GuestRequest {
     /// A guest made before, for a new code; none for a new guest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guest: Option<UserId>,
-    /// When the guest's access ends (ms since the Unix epoch): their end of duty.
+    /// When the guest's access ends (ms since the Unix epoch): their end of duty, or
+    /// [`UNTIL_CLOSED`]. Their one-time code works until then too (ADR-0083).
     pub until: u64,
     /// The name the guest is shown by in the incident, like a login's name (ORG-7).
     #[serde(default, skip_serializing_if = "Option::is_none")]

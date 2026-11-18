@@ -109,11 +109,19 @@ fn RoleList(core: Handle, list: Vec<OrganisationRole>, me: UserId) -> impl IntoV
                                                     <strong>{text::org_role(&r.role).to_owned()}</strong>
                                                     {(!facts.is_empty()).then(|| format!(" · {}", facts.join(" · ")))}
                                                 </span>
-                                                {(!r.fixed && !own_admin).then(|| view! {
-                                                    <button type="button" class="button button--small" aria-label=label
-                                                        on:click=move |_| core::set_organisation_role(core, change.clone())>
-                                                        {text::ORG_ROLE_WITHDRAW}
-                                                    </button>
+                                                // [impl->dsn~icon-rules~1]
+                                                // × withdraws; the role can be given back.
+                                                {(!r.fixed && !own_admin).then(|| {
+                                                    let back = OrganisationRoleChange { grant: true, valid_until: r.valid_until, ..change.clone() };
+                                                    let message = text::removed(text::org_role(&r.role));
+                                                    view! {
+                                                        <crate::ui::IconButton icon="x" word=text::ORG_ROLE_WITHDRAW label quiet=true
+                                                            on_click=Callback::new(move |()| {
+                                                                core::set_organisation_role(core, change.clone());
+                                                                let back = back.clone();
+                                                                crate::ui::offer_undo(message.clone(), move || core::set_organisation_role(core, back.clone()));
+                                                            }) />
+                                                    }
                                                 })}
                                             </li>
                                         }

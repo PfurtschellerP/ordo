@@ -227,7 +227,7 @@ ordo/
 ### 5.5.1 Shared module `units`
 
 #### Crew workspace
-`dsn~crew-workspace~2`
+`dsn~crew-workspace~3`
 
 *Sanität – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
 incident permission `crew_work` (medical roles, `med.cedar`) and shows the units present
@@ -239,7 +239,10 @@ and the link for the maps app where it has a pin, the next steps (`tasks.updated
 cancelling and the follow-up stay with the command, so the crew sees neither *Abbrechen*
 nor *In 10 Minuten nachfragen*, and the status select offers no "Status setzen" once a
 status is set) and, on a patient Auftrag the unit has not taken a patient from yet,
-"Patient aufnehmen", which opens *UHS – Patienten* with the Auftrag in the registration. View *Transporte*: the open
+"Patient aufnehmen", which opens *UHS – Patienten* with the Auftrag in the registration.
+"Meinen Standort zeigen" under the small map follows the device's position (browser
+geolocation, asked for only then) as a dot named "Ich" and fits the map to it and the pin;
+the position is never sent. View *Transporte*: the open
 transports assigned to the unit, from which UHS, with type, priority, needs and
 destination, and their next steps (`transport.updated`). Without a crew, each view says so.
 Cedar lets medical roles write `units.statusChanged`, `tasks.updated` and
@@ -249,7 +252,7 @@ Covers:
 
 * [req~unit-9~1](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
 * [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
-* [req~rep-4~2](../requirements/02-shared.md#rep-4--place-on-the-map)
+* [req~rep-4~3](../requirements/02-shared.md#rep-4--place-on-the-map)
 
 Needs: impl, utest, itest
 
@@ -311,7 +314,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~5`
+`dsn~tasks~6`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment
 ([ADR-0081](../adr/0081-one-einsatzauftrag.md)). `tasks.given` (schema version 3) gives
@@ -334,10 +337,13 @@ only `tasks.updated` and `tasks.patientRegistered`). The page *Disposition*
 one card each with kind, place, description, unit, state and next steps, and has one form
 "Neuer Auftrag" for reports and tasks alike. The overview's
 *Disposition* tile shows them in short (TASK-3); the other pages carry no extra line about
-them (feedback of 2026-11-14 and 2026-11-17). On every page, a bell in the header counts
-what needs the command's attention now: follow-ups that
-are due, Aufträge without anyone, and open staff requests. Its number is text,
-its name says it ("Hinweise: 2"), and its panel lists each item, linked to *Disposition*.
+them (feedback of 2026-11-14 and 2026-11-17). On every page, everyone in an incident has a
+bell in the header (since 2026-11-18 for every role). For the command (`view_situation`)
+it counts what needs attention now: follow-ups that are due, Aufträge without anyone, and
+open staff requests, each linked to *Disposition*. For everyone else it counts the
+Aufträge given to them or to a unit whose crew names them that are assigned but not
+started, each linked to *Sanität – Besatzung*. Its number is text, its name says it
+("Hinweise: 2"), and its panel lists each item.
 Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
 colour alone.
 
@@ -345,7 +351,7 @@ Covers:
 
 * [req~task-1~2](../requirements/02-shared.md#task-1--give-tasks)
 * [req~task-2~2](../requirements/02-shared.md#task-2--task-status)
-* [req~task-3~3](../requirements/02-shared.md#task-3--open-tasks-always-visible)
+* [req~task-3~4](../requirements/02-shared.md#task-3--open-tasks-always-visible)
 * [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
 
 Needs: impl, utest, itest
@@ -463,16 +469,20 @@ Needs: impl, utest, itest
 Tags: must, m33, m54, m55, m56
 
 #### Map object cards
-`dsn~map-object-cards~1`
+`dsn~map-object-cards~2`
 
 *Führung – Lagekarte* tells what each object is, without leaving the map (MAP-11,
-proposal agreed with the product owner on 2026-11-18). Each object carries its name and a
-short state for the glue: a unit's status, an Auftrag's state, a UHS's occupancy.
+proposal agreed with the product owner on 2026-11-18, card at the object since the demo
+feedback of the same day). The card sits at its object, with an arrow pointing there:
+above it, below it where there is no room above, and at the bottom of the map where it
+fits neither way. It follows the map while it moves (glue `pinCard`), and a ring marks the
+object.
 
-* **Pointing** (mouse): a label next to the pointer with name and state; it goes when the
-  pointer leaves the object or Escape is pressed (WCAG 1.4.13).
-* **Tap or click:** a ring marks the object, and a card opens over the bottom of the map,
-  so it is never cut off on a phone. It stays until it is closed (×, Escape, or a tap on
+* **Pointing** (mouse only; the glue tells the page which object the mouse is on): the
+  card opens at once. It stays while the pointer is on the object or on the card, and
+  closes 0.3 s after it left both, or with Escape (WCAG 1.4.13). A click on the card or
+  the object keeps it open.
+* **Tap or click:** the card opens and stays until it is closed (×, Escape, or a tap on
   the empty map).
 * **The list** *Auf der Karte* opens the same card for each object ("Details"), so
   keyboard and screen-reader users reach everything (WCAG 2.1.1).
@@ -485,14 +495,16 @@ qualifications as abbreviations with their count; the names fold out. A pencil l
 the unit in *Vorbereitung – Einsatzmittel*; "Status setzen" is the status select, and
 "Auftrag geben" opens the form in *Disposition* for the unit. For a **UHS**: its patients
 per triage category, in words and numbers (from the counts the command reads, never
-clinical data), and "UHS öffnen" for those who work with patients. For anything
+clinical data), "UHS öffnen" for those who work with patients (the incident command has
+no access to them) and a pencil to its place and staff in *Vorbereitung – Einsatzmittel*
+for those who may edit units. For anything
 else: its name and kind. The abbreviations come from the profile (`short` next to each
 qualification in `units/catalogue.toml`); the full term is the accessible name and the
 tooltip. Only those who may edit units (`edit_units`) see the actions.
 
 Covers:
 
-* [req~map-11~1](../requirements/02-shared.md#map-11--what-an-object-on-the-map-is)
+* [req~map-11~2](../requirements/02-shared.md#map-11--what-an-object-on-the-map-is)
 
 Needs: impl, utest, itest
 
@@ -694,6 +706,25 @@ Needs: impl, utest, itest
 
 Tags: should, m59, m61
 
+#### Duty pause
+`dsn~duty-pause~1`
+
+While a helper is on duty, their card in *Vorbereitung – Personal* offers "Dienst
+pausieren", then "Dienst fortsetzen" (HELP-8). The field `paused` of the helper (start of
+the pause, ms; schema version 4 of `helpers.registered` and `helpers.updated`) is set, and
+cleared with 0 on resuming, ending the duty or starting a new one. A pause counts only
+while on duty and if it started within the current duty. The card's duty line says "in
+Pause seit …" instead of "im Dienst seit …"; the helper stays on duty and keeps their
+access.
+
+Covers:
+
+* [req~help-8~1](../requirements/02-shared.md#help-8--pause-a-duty)
+
+Needs: impl, utest, itest
+
+Tags: should, m65
+
 #### Crews from the register
 `dsn~crews-from-register~2`
 
@@ -824,7 +855,7 @@ Covers:
 * [req~rep-1~2](../requirements/02-shared.md#rep-1--record-reports)
 * [req~rep-2~2](../requirements/02-shared.md#rep-2--assign-reports-to-units)
 * [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
-* [req~rep-4~2](../requirements/02-shared.md#rep-4--place-on-the-map)
+* [req~rep-4~3](../requirements/02-shared.md#rep-4--place-on-the-map)
 * [req~rep-5~2](../requirements/02-shared.md#rep-5--close-reports)
 
 Needs: impl, utest, itest
@@ -834,28 +865,33 @@ Tags: must, m60
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff
-`dsn~uhs-staff~1`
+`dsn~uhs-staff~2`
 
 The UHS module starts with *Meine UHS*: the person chooses the UHS they work at, or all;
 the device remembers it, and without a choice it starts with the UHS whose staff list
 names the person. The patient list shows the chosen UHS's patients, and registration
 offers only the UHS where the person may write, starting with the chosen one (UHS-9).
 
-A UHS with a staff list (`uhs.updated`) is written by its staff only (UHS-10,
-[ADR-0056](../adr/0056-uhs-staff-write-guard.md)). The server's hub asks the packages'
-write guards after the role check; the Med guard keeps each UHS's staff lists and each
-patient's UHS over time and judges an event by the list valid at its clock. It accepts
-events about patients it does not know yet, events of UHS without a list, and events of
-people whose roles allow every UHS (`all_uhs`; DE: physicians). A move is judged by the
-UHS the patient leaves; a staff list, once set, is changed by its staff and by those who
-manage the incident's resources (`edit_units`). The app shows
-UHS where the person may not write as read-only and does not offer them for
-registration, so the server's refusal stays the exception.
+A UHS is written by its staff only (UHS-10,
+[ADR-0056](../adr/0056-uhs-staff-write-guard.md),
+[ADR-0082](../adr/0082-only-a-uhss-staff-writes-it.md)). The server's hub asks the
+packages' write guards after the role check; the Med guard keeps each UHS's creator, its
+staff lists and each patient's UHS over time and judges an event by the list valid at its
+clock. Clinical events, `uhs.updated` and `uhs.placesSet` need the author on the list, or
+the UHS's creator while nobody is on it; the incident command (`edit_units`) also changes
+the settings and staff. Roles allowed at every UHS (`all_uhs`; DE: physicians) pass, and
+so do events about a patient or a UHS the guard does not know yet. A move is judged by the
+UHS the patient leaves.
+
+The app offers nothing the guard would refuse: the patient record of a UHS the person may
+not write says so at the top, and its sections are in a disabled fieldset whose controls
+are hidden; *UHS verwalten* shows another UHS's settings without forms; registration lists
+only writable UHS. A refusal by the server stays the exception.
 
 Covers:
 
 * [req~uhs-9~1](../requirements/04-med.md#uhs-9--working-uhs)
-* [req~uhs-10~1](../requirements/04-med.md#uhs-10--only-a-uhss-staff-writes-its-patients)
+* [req~uhs-10~2](../requirements/04-med.md#uhs-10--only-a-uhss-staff-writes-its-patients)
 
 Needs: impl, utest, itest
 

@@ -196,7 +196,7 @@ fn TaskHead(task: Task, assignee: String) -> impl IntoView {
     }
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 // [impl->dsn~reports~2]
 /// One open Auftrag as a card: what, where, for whom, its state, the follow-up, patients
 /// taken over, and the next steps. For the command: assign it, send a further unit, set or
@@ -348,7 +348,7 @@ pub(crate) fn TaskItem(
     }
 }
 
-// [impl->dsn~crew-workspace~2]
+// [impl->dsn~crew-workspace~3]
 /// The crew's part of a card (REP-3, REP-4): the pin on a small map with the link for the
 /// maps app, and on a patient Auftrag the unit has not taken a patient from yet, "Patient
 /// aufnehmen", which opens the registration in *UHS – Patienten* with it.
@@ -526,7 +526,7 @@ fn PinEditor(
     }
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 /// When the incident command asks the unit again: the time and the minutes and seconds
 /// left, counted down every second. Not announced each second (no live region); when it
 /// reaches zero, the views recompute and the task shows as due.
@@ -553,10 +553,12 @@ fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl In
     }
 }
 
-// [impl->dsn~tasks~5]
-/// The bell in the header (TASK-3): for the incident command, on every page, what needs its
-/// attention now: follow-ups that are due, Aufträge without anyone (REP-2), and staff
-/// requests. The number is text, never colour alone; each item links to *Disposition*.
+// [impl->dsn~tasks~6]
+/// The bell in the header (TASK-3), for everyone in an incident, on every page: for the
+/// incident command what needs its attention now (follow-ups that are due, Aufträge without
+/// anyone, staff requests), each linking to *Disposition*; for everyone else the Aufträge
+/// given to them or their unit that nobody has started yet, linking to their crew view.
+/// The number is text, never colour alone.
 #[component]
 pub fn AttentionBell(
     core: Handle,
@@ -564,39 +566,70 @@ pub fn AttentionBell(
     /// Called before opening, to close the other header menus.
     on_open: Callback<()>,
 ) -> impl IntoView {
-    let leads = Memo::new(move |_| {
+    let in_incident = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "view_situation"))
-        })
+        core.with_value(|c| c.incident.is_some())
     });
     let items = Memo::new(move |_| {
         revision.track();
         let now = core::now_ms();
+        let (leads, me) = core.with_value(|c| {
+            let leads = c
+                .incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, "view_situation"));
+            (leads, c.replica.user().to_string())
+        });
         let tasks = task_list(core);
-        let structure = crate::command::structure(core);
-        let mut items: Vec<String> = Vec::new();
-        for t in tasks.open(now) {
-            if t.is_due(now) {
-                items.push(text::attention_due(
-                    &assignee(core, t, &structure),
-                    &label(t),
-                ));
-            } else if t.phase() == Phase::Received {
-                items.push(text::attention_unassigned(&label(t)));
+        let mut items: Vec<(String, crate::nav::Route)> = Vec::new();
+        if leads {
+            let dispatch = crate::nav::Route::view("command.lead", "dispatch");
+            let structure = crate::command::structure(core);
+            for t in tasks.open(now) {
+                if t.is_due(now) {
+                    items.push((
+                        text::attention_due(&assignee(core, t, &structure), &label(t)),
+                        dispatch.clone(),
+                    ));
+                } else if t.phase() == Phase::Received {
+                    items.push((text::attention_unassigned(&label(t)), dispatch.clone()));
+                }
+            }
+            // [impl->dsn~uhs-staff-request~2]
+            items.extend(crate::staffing::list(core).open().into_iter().map(|r| {
+                (
+                    text::staff_requested(
+                        &core::uhs_name(core, &r.requested.uhs),
+                        r.requested.need,
+                    ),
+                    dispatch.clone(),
+                )
+            }));
+        } else {
+            // Not started yet: given to this person, or to a unit whose crew names them.
+            let crew = crate::nav::Route::view("units.crew", "tasks");
+            let units: Vec<String> = core.with_value(|c| {
+                ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
+                    .crewed_by(&me)
+                    .map(|u| u.unit.clone())
+                    .collect()
+            });
+            let mine = tasks
+                .of_person(&me)
+                .into_iter()
+                .chain(units.iter().flat_map(|u| tasks.of_unit(u)));
+            let mut seen = std::collections::BTreeSet::new();
+            for t in mine {
+                if t.phase() == Phase::Assigned && seen.insert(t.given.task.clone()) {
+                    items.push((text::attention_new_task(&label(t)), crew.clone()));
+                }
             }
         }
-        // [impl->dsn~uhs-staff-request~2]
-        items.extend(crate::staffing::list(core).open().into_iter().map(|r| {
-            text::staff_requested(&core::uhs_name(core, &r.requested.uhs), r.requested.need)
-        }));
         items
     });
     let open = RwSignal::new(false);
     view! {
-        <Show when=move || leads.get()>
+        <Show when=move || in_incident.get()>
             <crate::ui::Disclosure id="attention" open class="attention"
                 button_class="attention__button" panel_class="attention__panel"
                 on_open=Some(on_open)
@@ -614,11 +647,9 @@ pub fn AttentionBell(
                     if list.is_empty() {
                         return view! { <p>{text::ATTENTION_NONE}</p> }.into_any();
                     }
-                    let dispatch = crate::nav::Route::view("command.lead", "dispatch");
                     view! {
                         <ul class="attention__list">
-                            {list.into_iter().map(|item| {
-                                let route = dispatch.clone();
+                            {list.into_iter().map(|(item, route)| {
                                 view! {
                                     <li><a href=route.to_path() on:click={
                                         let follow = crate::views::follow_route(route.clone());
@@ -635,7 +666,7 @@ pub fn AttentionBell(
     }
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 // [impl->dsn~reports~2]
 /// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; the form
 /// "Neuer Auftrag" for reports and tasks; below, the units with their status, set here
@@ -676,7 +707,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             request_animation_frame(|| crate::views::focus("task-template"));
         });
     });
-    // [impl->dsn~map-object-cards~1]
+    // [impl->dsn~map-object-cards~2]
     // Opened from a card on the map: the Auftrag comes into view, or the form opens for the
     // unit.
     crate::object_card::reveal_pending();
@@ -751,7 +782,7 @@ impl NewKind {
     }
 }
 
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 // [impl->dsn~reports~2]
 /// "Neuer Auftrag" (TASK-1, REP-1): the kind; for a report the place, what is going on and
 /// when it came in, the unit optional; for another task whom it is for and a template; a
@@ -912,16 +943,16 @@ fn NewTask(
                     <input id="task-text" type="text" autocomplete="off" aria-describedby="task-text-hint" bind:value=text_value />
                     <p id="task-text-hint" class="hint">{text::TASK_WHAT_HINT}</p>
                 </div>
-                <div class="form--inline">
+                <div class="task-times">
                     <Show when=reported>
-                        <div class="field field--small">
+                        <div class="field">
                             <label for="task-received">{text::TASK_RECEIVED}</label>
                             <input id="task-received" type="time" autocomplete="off"
                                 aria-describedby="task-received-hint" bind:value=received />
                             <p id="task-received-hint" class="hint">{text::TASK_RECEIVED_HINT}</p>
                         </div>
                     </Show>
-                    <div class="field field--small">
+                    <div class="field">
                         <label for="task-follow-up">{text::TASK_FOLLOW_UP}</label>
                         <input id="task-follow-up" type="text" inputmode="numeric" autocomplete="off" bind:value=minutes />
                     </div>

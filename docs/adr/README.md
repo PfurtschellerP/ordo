@@ -60,7 +60,7 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0053](0053-verbal-orders.md) | Orders given by voice or radio are recorded by the crew and confirmed later | accepted | 2026-11-13 |
 | [0054](0054-tactical-symbols-generated.md) | Tactical symbols: generated at build time with `@taktische-zeichen/core`, kept in the profile | accepted | 2026-11-10 |
 | [0055](0055-licence-notices.md) | Licence notices: `cargo-about` for the crates, a list for the other parts | accepted | 2026-11-10 |
-| [0056](0056-uhs-staff-write-guard.md) | A UHS's patients are written by its staff, checked by the server per event | accepted | 2026-11-11 |
+| [0056](0056-uhs-staff-write-guard.md) | A UHS's patients are written by its staff, checked by the server per event | accepted; partly superseded by 0082 | 2026-11-11 |
 | [0057](0057-map-region-cut-on-the-server.md) | Map regions are cut on the server from the open world map | accepted | 2026-11-11 |
 | [0058](0058-drawing-at-the-map-centre.md) | Drawing on the map: corners set at the map's centre, no drawing library yet | superseded by 0064 | 2026-11-11 |
 | [0059](0059-fuzzing-with-cargo-fuzz-and-clusterfuzzlite.md) | Fuzzing with cargo-fuzz, run continuously by ClusterFuzzLite | accepted | 2026-11-11 |
@@ -81,10 +81,12 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0074](0074-no-vehicles-file.md) | No file of the installation's vehicles | accepted | 2026-11-14 |
 | [0075](0075-reports-recorded-in-dispatch.md) | Reports are recorded in *Disposition*, assigned as tasks, and become patients through the crew | accepted; superseded by 0081 | 2026-11-14 |
 | [0076](0076-people-and-roles-in-one-list.md) | The incident's people and their roles in one list and one form | accepted | 2026-11-14 |
-| [0077](0077-guest-access-by-one-time-qr-code.md) | Helpers without an account get access by a one-time QR code, until their duty ends | accepted; partly superseded by 0078 | 2026-11-14 |
-| [0078](0078-guest-codes-last-30-minutes-set-per-installation.md) | A guest's one-time code lasts 30 minutes, set per installation | accepted | 2026-11-14 |
+| [0077](0077-guest-access-by-one-time-qr-code.md) | Helpers without an account get access by a one-time QR code, until their duty ends | accepted; partly superseded by 0078 and 0083 | 2026-11-14 |
+| [0078](0078-guest-codes-last-30-minutes-set-per-installation.md) | A guest's one-time code lasts 30 minutes, set per installation | accepted; superseded by 0083 | 2026-11-14 |
 | [0079](0079-crew-workspace.md) | Crews get a workspace of their own: status, tasks, patient cases and transports | accepted | 2026-11-14 |
 | [0080](0080-key-grants-sealed-per-device-with-x-wing.md) | Key grants are sealed for each device with X-Wing (X25519 and ML-KEM-768) | accepted | 2026-11-17 |
 | [0081](0081-one-einsatzauftrag.md) | Reports and tasks become one *Einsatzauftrag* | accepted | 2026-11-18 |
+| [0082](0082-only-a-uhss-staff-writes-it.md) | Only a UHS's staff writes it; an empty list leaves it to its creator | accepted | 2026-11-18 |
+| [0083](0083-guest-codes-last-as-long-as-the-access.md) | A guest's code works as long as the access it gives | accepted | 2026-11-18 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

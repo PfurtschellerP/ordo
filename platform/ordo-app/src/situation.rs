@@ -124,11 +124,7 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
 
 /// The objects as a GeoJSON FeatureCollection (RFC 7946) for the glue; `symbol` names the
 /// image the glue shows for a point.
-fn geojson(
-    map: &SituationMap,
-    symbols: &BTreeMap<String, Symbol>,
-    states: &BTreeMap<String, String>,
-) -> String {
+fn geojson(map: &SituationMap, symbols: &BTreeMap<String, Symbol>) -> String {
     let features: Vec<serde_json::Value> = map
         .objects
         .values()
@@ -141,11 +137,6 @@ fn geojson(
             });
             if let Some(symbol) = symbols.get(&o.placed.object) {
                 properties["symbol"] = serde_json::Value::from(symbol.id.clone());
-            }
-            // [impl->dsn~map-object-cards~1]
-            // The short state for the pointer's label (MAP-11).
-            if let Some(state) = states.get(&o.placed.object) {
-                properties["state"] = serde_json::Value::from(state.clone());
             }
             // A drawing's line pattern, from its category (MAP-4).
             if let Some(category) = o.placed.reference.as_deref().and_then(|r| DRAWINGS.get(r))
@@ -213,7 +204,6 @@ fn show_at(handle: MapHandle, at: [f64; 2]) {
 struct Situation {
     map: Memo<SituationMap>,
     symbols: Memo<BTreeMap<String, Symbol>>,
-    states: Memo<BTreeMap<String, String>>,
     editable: Memo<bool>,
 }
 
@@ -235,14 +225,9 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
         revision.track();
         map.with(|s| symbols_of(core, s))
     });
-    let states = Memo::new(move |_| {
-        revision.track();
-        map.with(|s| crate::object_card::states(core, s))
-    });
     Situation {
         map,
         symbols,
-        states,
         editable,
     }
 }
@@ -257,10 +242,7 @@ fn mount_map(
     s: Situation,
     cooperative: bool,
 ) -> (MapHandle, RwSignal<MapState>) {
-    let features = move || {
-        s.map
-            .with(|m| s.symbols.with(|y| s.states.with(|z| geojson(m, y, z))))
-    };
+    let features = move || s.map.with(|m| s.symbols.with(|y| geojson(m, y)));
     let state = RwSignal::new(MapState::Loading);
     let handle: MapHandle = StoredValue::new_local(None);
     Effect::new(move || {
@@ -592,27 +574,73 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s, false);
-    // [impl->dsn~map-object-cards~1]
-    // A tap on an object opens its card over the map; a tap on the empty map closes it.
+    // [impl->dsn~map-object-cards~2]
+    // A tap or click on an object opens its card at the object; a tap on the empty map
+    // closes it. A mouse resting on an object shows the card too, while the pointer is on
+    // the object or on the card (WCAG 1.4.13: it can be moved onto, Escape closes it).
     let chosen = RwSignal::new(None::<String>);
-    let tapping = StoredValue::new(false);
+    let hovered = RwSignal::new(None::<String>);
+    let on_card = StoredValue::new(false);
+    let generation = StoredValue::new(0u64);
+    // Hides the pointed-at card shortly after the pointer left, unless it went onto it.
+    let leave = move || {
+        let mine = generation.get_value() + 1;
+        generation.set_value(mine);
+        set_timeout(
+            move || {
+                if generation.try_get_value() == Some(mine)
+                    && on_card.try_get_value() == Some(false)
+                {
+                    let _ = hovered.try_set(None);
+                }
+            },
+            std::time::Duration::from_millis(300),
+        );
+    };
+    let listening = StoredValue::new(false);
     Effect::new(move || {
-        if !matches!(state.get(), MapState::Ready(_)) || tapping.get_value() {
+        if !matches!(state.get(), MapState::Ready(_)) || listening.get_value() {
             return;
         }
         let on_tap = wasm_bindgen::closure::Closure::<dyn FnMut(f64, f64, JsValue, bool)>::new(
-            move |_: f64, _: f64, hit: JsValue, _: bool| chosen.set(hit.as_string()),
+            move |_: f64, _: f64, hit: JsValue, _: bool| {
+                hovered.set(None);
+                chosen.set(hit.as_string());
+            },
         );
         let _ = with_map(handle, "onTap", &[on_tap.into_js_value()]);
-        tapping.set_value(true);
+        let on_hover = wasm_bindgen::closure::Closure::<dyn FnMut(JsValue)>::new(
+            move |hit: JsValue| match hit.as_string() {
+                Some(object) => {
+                    generation.update_value(|g| *g += 1);
+                    hovered.set(Some(object));
+                }
+                None => leave(),
+            },
+        );
+        let _ = with_map(handle, "onHover", &[on_hover.into_js_value()]);
+        listening.set_value(true);
     });
-    // A ring marks the chosen object.
+    // A clicked card stays; a pointed-at one shows while nothing is clicked.
+    let shown = Memo::new(move |_| chosen.get().or_else(|| hovered.get()));
+    let close = Callback::new(move |()| {
+        chosen.set(None);
+        hovered.set(None);
+    });
+    let keys = window_event_listener(leptos::ev::keydown, move |ev| {
+        if ev.key() == "Escape" && shown.with_untracked(Option::is_some) {
+            close.run(());
+        }
+    });
+    on_cleanup(move || keys.remove());
+    let anchor = move |id: &str| {
+        s.map
+            .with(|m| m.objects.get(id).and_then(|o| o.placed.geometry.anchor()))
+    };
+    // A ring marks the object whose card shows.
     Effect::new(move || {
         let ready = matches!(state.get(), MapState::Ready(_));
-        let at = chosen.get().and_then(|id| {
-            s.map
-                .with(|m| m.objects.get(&id).and_then(|o| o.placed.geometry.anchor()))
-        });
+        let at = shown.get().and_then(|id| anchor(&id));
         if ready {
             let features: Vec<serde_json::Value> = at
                 .map(|p| serde_json::json!({ "type": "Feature", "properties": { "chosen": true }, "geometry": Geometry::Point(p) }))
@@ -622,15 +650,50 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             let _ = with_map(handle, "setDraft", &[JsValue::from_str(&json.to_string())]);
         }
     });
-    let close = Callback::new(move |()| chosen.set(None));
+    // The card stays at its object while the map moves.
+    let card = NodeRef::<leptos::html::Div>::new();
+    Effect::new(move || {
+        let ready = matches!(state.get(), MapState::Ready(_));
+        let at = shown.get().and_then(|id| anchor(&id));
+        match (ready, at, card.get()) {
+            (true, Some([lng, lat]), Some(element)) => {
+                let _ = with_map(
+                    handle,
+                    "pinCard",
+                    &[
+                        element.into(),
+                        JsValue::from_f64(lng),
+                        JsValue::from_f64(lat),
+                    ],
+                );
+            }
+            _ => {
+                let _ = with_map(handle, "unpinCard", &[]);
+            }
+        }
+    });
     view! {
         <section class="card situation" aria-labelledby="situation-title">
             <h2 id="situation-title">{text::MAP_TITLE}</h2>
             <MapStateLine state />
             <div class="situation__stage">
                 <MapFrame node state />
-                {move || chosen.get().map(|object| view! {
-                    <div class="situation__card">
+                {move || shown.get().map(|object| view! {
+                    <div class="situation__card" node_ref=card data-side="sheet"
+                        on:mouseenter=move |_| {
+                            on_card.set_value(true);
+                            generation.update_value(|g| *g += 1);
+                        }
+                        on:mouseleave=move |_| {
+                            on_card.set_value(false);
+                            if chosen.get_untracked().is_none() {
+                                leave();
+                            }
+                        }
+                        on:click=move |_| if chosen.get_untracked().is_none() {
+                            // Clicked into: it stays until closed.
+                            chosen.set(hovered.get_untracked());
+                        }>
                         <crate::object_card::ObjectCard core revision object on_close=close />
                     </div>
                 })}
@@ -652,21 +715,71 @@ pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl I
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s, true);
+    let pin = s.map.with_untracked(|m| {
+        m.objects
+            .get(&object)
+            .and_then(|o| o.placed.geometry.anchor())
+    });
     Effect::new(move || {
         if matches!(state.get(), MapState::Ready(_))
-            && let Some(at) = s.map.with_untracked(|m| {
-                m.objects
-                    .get(&object)
-                    .and_then(|o| o.placed.geometry.anchor())
-            })
+            && let Some(at) = pin
         {
             show_at(handle, at);
         }
     });
+    // [impl->dsn~crew-workspace~3]
+    // The crew sees where they are in relation to the pin; the position stays on the device.
+    let following = RwSignal::new(false);
+    let said = RwSignal::new(None::<&'static str>);
+    let toggle = move |_| {
+        let Some((module, map)) = handle.with_value(Clone::clone) else {
+            return;
+        };
+        if following.get_untracked() {
+            let _ = call(&module, "stopFollowingMe", &[map]);
+            following.set(false);
+            said.set(None);
+            return;
+        }
+        let Some([lng, lat]) = pin else { return };
+        following.set(true);
+        said.set(Some(text::MAP_LOCATING));
+        leptos::task::spawn_local(async move {
+            let args = [
+                map,
+                JsValue::from_f64(lng),
+                JsValue::from_f64(lat),
+                JsValue::from_str(text::MY_POSITION),
+            ];
+            let result = call_async(&module, "followMe", &args).await;
+            let _ = said.try_set(match result {
+                Ok(_) => Some(text::MY_POSITION_SHOWN),
+                Err(e) => {
+                    let _ = following.try_set(false);
+                    Some(if e.as_string().as_deref() == Some("denied") {
+                        text::MAP_LOCATE_DENIED
+                    } else {
+                        text::MAP_LOCATE_FAILED
+                    })
+                }
+            });
+        });
+    };
     view! {
         <div class="place-map">
             <MapFrame node state />
         </div>
+        {pin.map(|_| view! {
+            <div class="row place-map__me">
+                <button type="button" class="button button--small button--with-icon"
+                    aria-pressed=move || following.get().to_string()
+                    disabled=move || !matches!(state.get(), MapState::Ready(_))
+                    on:click=toggle>
+                    <crate::ui::Icon name="crosshair" />{text::MY_POSITION_SHOW}
+                </button>
+                <p role="status" class="hint">{move || said.get()}</p>
+            </div>
+        })}
     }
 }
 

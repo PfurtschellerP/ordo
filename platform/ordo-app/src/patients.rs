@@ -218,10 +218,10 @@ pub fn work_at(uhs: &str) {
 #[derive(Clone, Copy)]
 pub struct WorkingUhs(pub RwSignal<String>);
 
-// [impl->dsn~uhs-staff~1]
-/// The UHS whose patients this person may write (UHS-10, ADR-0056): those without a staff
-/// list, those whose list names them, or all for roles allowed at every UHS. The server
-/// decides again for every event.
+// [impl->dsn~uhs-staff~2]
+/// The UHS this person may write (UHS-10, ADR-0082): those whose staff list names them,
+/// those they created while nobody is on the list, or all for roles allowed at every UHS.
+/// The server decides again for every event.
 pub fn writable_uhs(core: Handle) -> Vec<String> {
     core.with_value(|c| {
         let me = c.replica.user().to_string();
@@ -229,22 +229,40 @@ pub fn writable_uhs(core: Handle) -> Vec<String> {
             .incident
             .as_ref()
             .is_some_and(|i| c.replica.may(i, med::staff::ALL_UHS));
-        let details = med::uhs_details(&c.events(med::UHS_COMPARTMENT));
-        med::uhs_list(&c.events(med::UHS_COMPARTMENT))
+        let events = c.events(med::UHS_COMPARTMENT);
+        let details = med::uhs_details(&events);
+        let created = med::uhs_creators(&events);
+        med::uhs_list(&events)
             .into_iter()
             .filter(|u| {
+                let staff = details
+                    .get(&u.id)
+                    .map(|d| d.staff.as_slice())
+                    .unwrap_or_default();
                 everywhere
-                    || details.get(&u.id).is_none_or(|d| {
-                        d.staff.is_empty()
-                            || d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me))
-                    })
+                    || staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me))
+                    || (staff.is_empty()
+                        && created
+                            .get(&u.id)
+                            .is_some_and(|c| c.eq_ignore_ascii_case(&me)))
             })
             .map(|u| u.id)
             .collect()
     })
 }
 
-// [impl->dsn~uhs-staff~1]
+/// Whether this person may change the settings and staff of `uhs`: its staff, roles
+/// allowed at every UHS, and those who manage the incident's resources (ADR-0082).
+pub fn may_set_up(core: Handle, uhs: &str) -> bool {
+    let command = core.with_value(|c| {
+        c.incident
+            .as_ref()
+            .is_some_and(|i| c.replica.may(i, "edit_units"))
+    });
+    command || writable_uhs(core).iter().any(|u| u == uhs)
+}
+
+// [impl->dsn~uhs-staff~2]
 /// "Meine UHS" at the top of the UHS module (UHS-9): the person chooses where they work;
 /// registration and the patient list follow. The device remembers the choice.
 #[component]
@@ -745,6 +763,15 @@ fn PatientRecord(
         }
         .into_any();
     }
+    // The UHS's name when this person may only read the patient's record (UHS-10).
+    let read_only = {
+        let tag = tag.clone();
+        Memo::new(move |_| {
+            revision.track();
+            let uhs = register.with(|r| r.patient(&tag).map(|p| p.uhs.clone()))?;
+            (!writable_uhs(core).contains(&uhs)).then(|| core::uhs_name(core, &uhs))
+        })
+    };
     let sections: Vec<(String, String)> = [
         ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
         ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
@@ -788,16 +815,24 @@ fn PatientRecord(
                     })
                     .collect_view()}
             </nav>
-            <PhotoSection core revision tag=tag.clone() records />
-            <TriageSection core revision tag=tag.clone() register />
-            <crate::orders::OrdersSection core revision tag=tag.clone() />
-            <StaySection core revision tag=tag.clone() register />
-            {FORMS
-                .forms
-                .iter()
-                .map(|form| view! { <FormSection core revision tag=tag.clone() form records /> })
-                .collect_view()}
-            <crate::transports::TransportSection core revision tag=tag.clone() />
+            {move || read_only.get().map(|uhs| view! {
+                <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
+            })}
+            // [impl->dsn~uhs-staff~2]
+            // Where the person may not write (UHS-10), nothing offers it: the disabled
+            // fieldset turns off every control, and the style hides them.
+            <fieldset class="record__body" disabled=move || read_only.get().is_some()>
+                <PhotoSection core revision tag=tag.clone() records />
+                <TriageSection core revision tag=tag.clone() register />
+                <crate::orders::OrdersSection core revision tag=tag.clone() />
+                <StaySection core revision tag=tag.clone() register />
+                {FORMS
+                    .forms
+                    .iter()
+                    .map(|form| view! { <FormSection core revision tag=tag.clone() form records /> })
+                    .collect_view()}
+                <crate::transports::TransportSection core revision tag=tag.clone() />
+            </fieldset>
         </article>
     }
     .into_any()
@@ -1532,20 +1567,22 @@ fn FormSection(
         FormKind::Snapshot => text::edit_label(&form.label),
         FormKind::Series => text::new_entry_label(&form.label),
     };
-    let open_text = match form.kind {
-        FormKind::Snapshot => text::EDIT,
-        FormKind::Series => text::NEW_ENTRY,
+    let (open_icon, open_text) = match form.kind {
+        FormKind::Snapshot => ("pencil", text::EDIT),
+        FormKind::Series => ("plus", text::NEW_ENTRY),
     };
     let opener_id = opener.clone();
     view! {
         <section class="record__section" aria-labelledby=heading.clone()>
             <div class="record__section-head">
                 <h3 id=heading.clone() tabindex="-1">{form.label.clone()}</h3>
+                // [impl->dsn~icon-rules~1]
                 <button
                     id=opener.clone()
                     type="button"
-                    class="button button--small"
-                    aria-label=open_label
+                    class="button button--small icon-button"
+                    aria-label=open_label.clone()
+                    data-tip=open_label
                     hidden=move || editing.get().is_some()
                     on:click={
                         let heading = heading.clone();
@@ -1559,7 +1596,7 @@ fn FormSection(
                         }
                     }
                 >
-                    {open_text}
+                    <crate::ui::Icon name=open_icon /><span class="icon-button__word" aria-hidden="true">{open_text}</span>
                 </button>
             </div>
             {move || {
@@ -1710,14 +1747,9 @@ fn EntryView(
             </p>
             <Facts facts />
             {(!corrected).then(|| view! {
-                <button
-                    type="button"
-                    class="button button--small"
-                    aria-label=format!("{} {} {}", form.label, time, text::CORRECT)
-                    on:click=move |_| editing.set(Some(Mode::Correct(id.clone())))
-                >
-                    {text::CORRECT}
-                </button>
+                <crate::ui::IconButton icon="pencil" word=text::CORRECT
+                    label=format!("{}: {} {}", text::CORRECT, form.label, time)
+                    on_click=Callback::new(move |()| editing.set(Some(Mode::Correct(id.clone())))) />
             })}
         </li>
     }

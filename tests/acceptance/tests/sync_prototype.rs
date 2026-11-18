@@ -946,6 +946,52 @@ fn revoked_devices_are_cut_off_and_refused() {
     assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
 }
 
+// [itest->dsn~stale-devices~1]
+/// A device that has not connected for 30 days is removed as if revoked: it leaves the
+/// lists and must be paired again. One that connected in between stays.
+#[test]
+fn devices_unused_for_30_days_are_removed() {
+    use ordo_sync::Change;
+    use ordo_sync::message::ServerMessage;
+    let day = 24 * 3600 * 1000;
+    let mut world = World::new();
+    world.sync();
+    let anna = world.replica("anna").device();
+    let ben = world.replica("ben").device();
+    let seen = world.hub.take_changes();
+    assert!(
+        seen.iter()
+            .any(|c| matches!(c, Change::Seen { device, .. } if *device == anna)),
+        "each connection is stored: {seen:?}"
+    );
+    world.set_online("anna", false);
+    world.set_online("ben", false);
+    world.tick(20 * day);
+    world.set_online("ben", true);
+    world.sync();
+    world.set_online("ben", false);
+    world.tick(10 * day);
+    assert_eq!(world.hub.remove_idle(world.now, 30 * day), [anna]);
+    assert!(
+        world
+            .hub
+            .take_changes()
+            .iter()
+            .any(|c| matches!(c, Change::Revoked { device } if *device == anna)),
+        "stored like a revocation"
+    );
+    let hello = world.hello("anna", 90);
+    let now = world.now;
+    let out = world.hub.handle(90, hello, now);
+    assert_eq!(out[0].message, ServerMessage::Refused(Rejection::Revoked));
+    let hello = world.hello("ben", 91);
+    let out = world.hub.handle(91, hello, now);
+    assert!(
+        matches!(&out[0].message, ServerMessage::Welcome(_)),
+        "{ben} connected 10 days ago and stays"
+    );
+}
+
 fn transport_priority(world: &mut World, user: &str, tag: &str, level: Option<&str>) {
     let payload = patients::TransportPrioritySet {
         tag: tag.into(),
@@ -1279,7 +1325,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
     );
 }
 
-// [itest->dsn~tasks~5]
+// [itest->dsn~tasks~6]
 /// A task given by the command reaches every device; its status moves on and a due
 /// follow-up comes first in the open list.
 #[test]

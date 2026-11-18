@@ -46,9 +46,6 @@ pub struct Config {
     /// Days after an incident is closed until its helpers' data (compartment `people`) is
     /// deleted (`ORDO_PEOPLE_RETENTION_DAYS`, default 90, from 1 to 3650; HELP-4, ADR-0071).
     pub people_retention_days: u64,
-    /// How long a guest's one-time code works, in minutes (`ORDO_GUEST_CODE_MINUTES`,
-    /// default 30, from 5 to 1440; ADR-0078).
-    pub guest_code_minutes: u64,
     /// How long a device's login lasts without re-verification (`ORDO_ACCESS_TIMEOUT_HOURS`,
     /// default 48, from 24 to 720 hours, i.e. 1 to 30 days; ADR-0040).
     pub access_timeout: std::time::Duration,
@@ -101,8 +98,6 @@ impl std::fmt::Debug for S3Config {
 pub const ACCESS_TIMEOUT_HOURS: u64 = 48;
 /// Default days until the helpers' data of a closed incident is deleted (HELP-4).
 pub const PEOPLE_RETENTION_DAYS: u64 = 90;
-/// Default minutes a guest's one-time code works (ADR-0078).
-pub const GUEST_CODE_MINUTES: u64 = 30;
 /// Allowed access timeouts in hours: 1 to 30 days.
 pub const ACCESS_TIMEOUT_RANGE: std::ops::RangeInclusive<u64> = 24..=720;
 
@@ -283,21 +278,6 @@ impl Config {
                     )
                 })?,
         };
-        // [impl->dsn~guest-access~2]
-        let guest_code_minutes = match get("ORDO_GUEST_CODE_MINUTES") {
-            None => GUEST_CODE_MINUTES,
-            Some(text) => text
-                .trim()
-                .parse::<u64>()
-                .ok()
-                .filter(|m| (5..=1440).contains(m))
-                .ok_or_else(|| {
-                    ConfigError::invalid(
-                        "ORDO_GUEST_CODE_MINUTES",
-                        "expected minutes from 5 to 1440",
-                    )
-                })?,
-        };
         let admins = get("ORDO_ADMINS")
             .unwrap_or_default()
             .split(',')
@@ -364,7 +344,6 @@ impl Config {
             admins,
             access_timeout: std::time::Duration::from_secs(timeout_hours * 3600),
             people_retention_days,
-            guest_code_minutes,
             server_name,
             listen,
             data_dir,
@@ -535,30 +514,6 @@ mod tests {
         assert_eq!(hours(config(Some("720")).unwrap()), 720);
         for wrong in ["23", "721", "0", "two days"] {
             assert!(config(Some(wrong)).is_err(), "{wrong}");
-        }
-    }
-
-    // [utest->dsn~guest-access~2]
-    #[test]
-    fn a_guest_code_works_30_minutes_and_5_to_1440_as_set() {
-        let dir = std::env::temp_dir().join(format!("ordo-config-guest-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let key = dir.join("master.key");
-        std::fs::write(&key, "00".repeat(32)).unwrap();
-        let key = key.to_string_lossy().into_owned();
-        let with = |minutes: Option<&str>| {
-            Config::from_lookup(|name| match name {
-                "ORDO_SERVER_NAME" => Some("ordo.example.org".into()),
-                "ORDO_MASTER_KEY_FILE" => Some(key.clone()),
-                "ORDO_GUEST_CODE_MINUTES" => minutes.map(str::to_owned),
-                _ => None,
-            })
-        };
-        assert_eq!(with(None).unwrap().guest_code_minutes, 30);
-        assert_eq!(with(Some(" 5 ")).unwrap().guest_code_minutes, 5);
-        assert_eq!(with(Some("1440")).unwrap().guest_code_minutes, 1440);
-        for wrong in ["4", "1441", "0", "half an hour"] {
-            assert!(with(Some(wrong)).is_err(), "{wrong}");
         }
     }
 }

@@ -1,5 +1,5 @@
 ---
-status: accepted; partly superseded by ADR-0078
+status: accepted; partly superseded by ADR-0078 and ADR-0083
 date: 2026-11-14
 ---
 

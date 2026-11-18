@@ -344,7 +344,7 @@ pub struct TaskList {
 }
 
 impl TaskList {
-    // [impl->dsn~tasks~5]
+    // [impl->dsn~tasks~6]
     /// Computes the list. The result doesn't depend on the order of `events`: a task given
     /// twice keeps its first version, updates apply in clock order and never go back,
     /// updates for unknown tasks are ignored.
@@ -428,7 +428,7 @@ impl TaskList {
         Self { tasks }
     }
 
-    // [impl->dsn~tasks~5]
+    // [impl->dsn~tasks~6]
     /// The open tasks (TASK-3): due follow-ups first (earliest due first), then the oldest.
     pub fn open(&self, now_ms: u64) -> Vec<&Task> {
         let mut open: Vec<&Task> = self.tasks.values().filter(|t| t.status.is_open()).collect();
@@ -600,7 +600,7 @@ mod tests {
         event(n, "ben", UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~5]
+    // [utest->dsn~tasks~6]
     #[test]
     fn tasks_move_forward_with_history_and_never_back() {
         let mut events = vec![
@@ -622,7 +622,7 @@ mod tests {
         assert!(list.open(0).is_empty());
     }
 
-    // [utest->dsn~tasks~5]
+    // [utest->dsn~tasks~6]
     #[test]
     fn due_follow_ups_come_first_and_a_new_time_postpones_them() {
         let events = vec![
@@ -703,7 +703,7 @@ mod tests {
         event(n, "ben", ASSIGNED, a.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~5]
+    // [utest->dsn~tasks~6]
     // [utest->dsn~reports~2]
     #[test]
     fn a_report_is_received_then_assigned_to_one_unit_before_it_starts() {
@@ -748,7 +748,7 @@ mod tests {
         assert!(!TaskList::from_events(&events).pin_needed("r1"));
     }
 
-    // [utest->dsn~tasks~5]
+    // [utest->dsn~tasks~6]
     #[test]
     fn a_person_finds_the_auftrag_for_them() {
         let t = TaskGiven {

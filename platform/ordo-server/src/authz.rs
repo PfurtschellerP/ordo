@@ -298,7 +298,7 @@ impl RolePolicy {
                     roles.into_iter().map(RestrictedExpression::new_string),
                 ),
             ),
-            // [impl->dsn~guest-access~2]
+            // [impl->dsn~guest-access~3]
             (
                 "guest".to_owned(),
                 RestrictedExpression::new_bool(user.is_guest()),
@@ -630,12 +630,12 @@ mod tests {
             "hospitals.set",
             &commander
         ));
-        // [utest->dsn~tasks~5]
+        // [utest->dsn~tasks~6]
         assert!(
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"
         );
-        // [utest->dsn~crew-workspace~2]
+        // [utest->dsn~crew-workspace~3]
         // A crew moves its tasks on and sets its status (UNIT-9, ADR-0079).
         assert!(p.can_write(&erik, &incident, &shared, "tasks", "tasks.updated", &medic));
         assert!(p.can_write(
@@ -680,7 +680,7 @@ mod tests {
             !p.can_write(&erik, &incident, &shared, "map", "map.objectPlaced", &medic),
             "the situation map is the command's"
         );
-        // [utest->dsn~guest-access~2]
+        // [utest->dsn~guest-access~3]
         // A guest never leads, even with the commander role (ADR-0077); other roles work.
         let guest = user("guest-01jd0000000000000000000000");
         assert!(

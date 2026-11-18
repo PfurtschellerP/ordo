@@ -27,8 +27,9 @@ pub const REGISTERED: &str = "helpers.registered";
 /// Event type: fields of a helper changed.
 pub const UPDATED: &str = "helpers.updated";
 /// Schema version of both event types. Version 2 adds the diet, version 3 the address as
-/// street, postcode and town (HELP-1); older versions decode without them.
-pub const SCHEMA: u32 = 3;
+/// street, postcode and town (HELP-1), version 4 the start of a pause (HELP-8); older
+/// versions decode without them.
+pub const SCHEMA: u32 = 4;
 /// Longest text of a field, in characters.
 pub const TEXT_MAX: usize = 200;
 
@@ -74,6 +75,9 @@ pub struct Fields {
     /// End of duty (ms since the Unix epoch).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duty_end: Option<u64>,
+    /// Start of a pause of the duty (ms since the Unix epoch; schema version 4, HELP-8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<u64>,
     /// The helper's ORDO account (HELP-2), as a user ID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account: Option<String>,
@@ -201,10 +205,20 @@ impl Helper {
         }
     }
 
-    /// Whether the helper is on duty at `now_ms`: duty started and not ended.
+    /// Whether the helper is on duty at `now_ms`: duty started and not ended, also while
+    /// paused.
     pub fn on_duty(&self, now_ms: u64) -> bool {
         self.fields.duty_start.is_some_and(|s| s <= now_ms)
             && self.fields.duty_end.is_none_or(|e| e > now_ms)
+    }
+
+    // [impl->dsn~duty-pause~1]
+    /// Since when the helper pauses their duty at `now_ms`, if on duty and paused (HELP-8).
+    pub fn paused_since(&self, now_ms: u64) -> Option<u64> {
+        self.fields
+            .paused
+            .filter(|p| *p <= now_ms && self.on_duty(now_ms))
+            .filter(|p| self.fields.duty_start.is_none_or(|s| s <= *p))
     }
 }
 
@@ -234,6 +248,7 @@ fn apply(into: &mut Fields, change: Fields) {
     );
     take(&mut into.duty_start, change.duty_start, |t| *t == 0);
     take(&mut into.duty_end, change.duty_end, |t| *t == 0);
+    take(&mut into.paused, change.paused, |t| *t == 0);
     take(&mut into.account, trimmed(change.account), text);
 }
 
@@ -427,6 +442,55 @@ mod tests {
         );
         assert!(!later.helpers["h1"].on_duty(8000));
         assert!(!later.helpers.contains_key("h9"));
+    }
+
+    // [utest->dsn~duty-pause~1]
+    #[test]
+    fn a_pause_counts_while_on_duty_and_ends_when_cleared() {
+        let anna = change(
+            "h1",
+            Fields {
+                name: Some("Anna".into()),
+                duty_start: Some(1000),
+                ..Fields::default()
+            },
+        );
+        let pause = |at| {
+            change(
+                "h1",
+                Fields {
+                    paused: Some(at),
+                    ..Fields::default()
+                },
+            )
+        };
+        let paused = HelperRegister::from_events(&[
+            event(1, REGISTERED, &anna),
+            event(2, UPDATED, &pause(2000)),
+        ]);
+        let a = &paused.helpers["h1"];
+        assert_eq!(a.paused_since(3000), Some(2000));
+        assert!(a.on_duty(3000), "a pause is still duty");
+        let resumed = HelperRegister::from_events(&[
+            event(1, REGISTERED, &anna),
+            event(2, UPDATED, &pause(2000)),
+            event(3, UPDATED, &pause(0)),
+        ]);
+        assert_eq!(resumed.helpers["h1"].paused_since(3000), None);
+        // A pause of an earlier duty does not carry over to a new one.
+        let again = change(
+            "h1",
+            Fields {
+                duty_start: Some(5000),
+                ..Fields::default()
+            },
+        );
+        let new_duty = HelperRegister::from_events(&[
+            event(1, REGISTERED, &anna),
+            event(2, UPDATED, &pause(2000)),
+            event(3, UPDATED, &again),
+        ]);
+        assert_eq!(new_duty.helpers["h1"].paused_since(6000), None);
     }
 
     #[test]

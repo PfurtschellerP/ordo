@@ -83,7 +83,7 @@ pub const WORKSPACES: &[Workspace] = &[
         ],
         hidden: false,
     },
-    // [impl->dsn~crew-workspace~2]
+    // [impl->dsn~crew-workspace~3]
     // A unit's crew: its status, tasks, patient cases and transports (UNIT-9, ADR-0079).
     Workspace {
         id: "units.crew",

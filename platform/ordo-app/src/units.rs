@@ -775,10 +775,12 @@ fn UnitCard(
                 id=format!("crew-{}", core::slug(&name))
                 open=crew_open
                 class="unit-card__crew"
-                button_class="button button--small button--quiet"
+                button_class="button button--small button--quiet button--with-icon"
                 panel_class="unit-card__crew-panel"
                 label=Some(Signal::derive(move || crew_label.clone()))
-                button=Box::new(|| view! { {text::CREW} }.into_any())
+                button=Box::new(move || view! {
+                    <crate::ui::Icon name=if editable { "pencil" } else { "users" } />{text::CREW}
+                }.into_any())
             >
                 <CrewEditor core revision unit=u.clone() editable draft />
             </Disclosure>
@@ -832,7 +834,7 @@ pub(crate) fn StatusSelect(
 }
 
 // [impl->dsn~workspaces-by-phase~4]
-// [impl->dsn~tasks~5]
+// [impl->dsn~tasks~6]
 /// The units on scene in *Führung – Disposition* (ADR-0070): status since when, set here, and
 /// their open tasks, each with a way to give one (UNIT-3, TASK-3).
 #[component]
@@ -919,7 +921,7 @@ pub fn UnitStatusBoard(
 /// units. Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    // [impl->dsn~map-object-cards~1]
+    // [impl->dsn~map-object-cards~2]
     // Opened from a unit's card on the map: that unit comes into view.
     crate::object_card::reveal_pending();
     let can_edit = Memo::new(move |_| {

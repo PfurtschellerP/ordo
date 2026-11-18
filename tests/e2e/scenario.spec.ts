@@ -272,7 +272,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(aid, "the person decides the category").toContainText("ORDO schlägt keine vor");
     await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
     await anna.locator("#triage-algorithm").selectOption({ label: "PRIOR (Vorsichtung)" });
-    // [itest->dsn~uhs-staff~1]
+    // [itest->dsn~uhs-staff~2]
     await expect(anna.locator("#working-uhs option:checked"), "UHS-9: the UHS whose staff list names her").toHaveText("UHS Eingang");
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     for (const [tag, category, uhs] of [["DE-0042", 0, "UHS Bühne Nord"], ["DE-0043", 1, "UHS Bühne Nord"], ["DE-0044", 1, "UHS Eingang"]] as const) {
@@ -999,7 +999,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
 
-    // [itest->dsn~tasks~5]
+    // [itest->dsn~tasks~6]
     const strip = ben.locator(".tasks-strip");
     const bell = ben.locator("#attention-button");
     await expect(bell, "the bell in the header says when something needs attention").toHaveAccessibleName("Hinweise: keine");
@@ -1194,8 +1194,6 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#helper-birth-date").fill("1990-05-01");
     await form.getByLabel("Notfallsanitäter/in").check();
     await ben.locator("#helper-role").selectOption({ label: "Notfallsanitäter/in" });
-    await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
-    await expect(form.locator("[role=alert]"), "a role without an account is a guest's, whose access needs the end of duty").toContainText("bitte das Dienstende angeben");
     await ben.locator("#helper-account").fill("lena@localhost");
     await ben.locator("#helper-phone").fill("0170 76543x1");
     await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
@@ -1219,6 +1217,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(lena.locator(".roster__role"), "HELP-6: with the role granted in the same form").toContainText("Notfallsanitäter/in");
     await lena.getByRole("button", { name: "Dienst beginnen: Lena Berger" }).click();
     await expect(lena, "on duty from now").toContainText("im Dienst seit");
+    // [itest->dsn~duty-pause~1]
+    // HELP-8: a pause, and back on duty.
+    await lena.getByRole("button", { name: "Dienst pausieren: Lena Berger" }).click();
+    await expect(lena.locator(".person-card__duty"), "paused since now").toContainText("in Pause seit");
+    await lena.getByRole("button", { name: "Dienst fortsetzen: Lena Berger" }).click();
+    await expect(lena.locator(".person-card__duty")).toContainText("im Dienst seit");
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
     await expect(ben.locator("#helper-phone"), "the form holds the helper, the number in international form").toHaveValue("+491707654321");
     await expect(ben.locator("#helper-diet-other")).toHaveValue("halal");
@@ -1249,23 +1253,25 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" })).toContainText("BRK Bereitschaft Mitte, Augsburg-Stadt");
     // [itest->dsn~helper-register~3]
     await expect(helpers.locator(".helper-diets"), "diets counted for catering").toContainText("1 × vegetarisch");
-    // [itest->dsn~guest-access~2]
-    // HELP-7 (ADR-0077): Jonas has no account; a role gives him access to this incident by a
-    // one-time QR code, until his duty ends, and never as Einsatzleitung.
+    // [itest->dsn~guest-access~3]
+    // HELP-7 (ADR-0077, ADR-0083): Jonas has no account; a role gives him access to this
+    // incident by a one-time QR code, until his duty ends or, without an end, until the
+    // incident is closed, and never as Einsatzleitung.
     const jonas = helpers.locator(".helper-list [data-helper]", { hasText: "Jonas Sommer" });
     await jonas.getByRole("button", { name: "Bearbeiten: Jonas Sommer" }).click();
     await expect(ben.locator("#helper-role option", { hasText: "Einsatzleitung" }), "without an account, no Einsatzleitung").toHaveCount(0);
     await ben.locator("#helper-role").selectOption({ label: "Sanitätsdienst" });
+    await ben.locator("#helper-duty-end").fill("2020-06-20T20:00");
     await form.getByRole("button", { name: "Speichern", exact: true }).click();
-    await expect(form.locator("[role=alert]"), "access ends with duty, so it needs its end").toHaveText("Für den Zugang ohne Konto bitte das Dienstende angeben: Der Zugang endet mit ihm.");
-    await ben.locator("#helper-duty-end").fill("2030-06-20T20:00");
+    await expect(form.locator("[role=alert]"), "an end of duty that has passed gives no access").toContainText("Das Dienstende ist vorbei.");
+    await ben.locator("#helper-duty-end").fill("");
     await form.getByRole("button", { name: "Speichern", exact: true }).click();
     const pass = ben.locator(".guest-pass");
-    await expect(pass, "the QR code for his phone").toContainText("Für Jonas Sommer: mit der Kamera des Handys scannen. Gilt einmal, bis");
+    await expect(pass, "the QR code for his phone, without an end of duty").toContainText("Für Jonas Sommer: mit der Kamera des Handys scannen. Gilt einmal, bis zum Einsatzende.");
     await expect(pass.locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml;base64,/);
     const link = (await pass.locator("a.guest-pass__link").getAttribute("href"))!;
     expect(link, "a code of 256 bits").toMatch(/\/\?guest=[A-Za-z0-9_-]{43}$/);
-    await expect(jonas, "his access ends with his duty").toContainText("Gast-Zugang bis 20.06.2030");
+    await expect(jonas, "his access ends with the incident").toContainText("Gast-Zugang bis zum Einsatzende");
     await expect(jonas.locator(".roster__role")).toContainText("Sanitätsdienst");
     await audit(ben, "Guest code");
     await pass.getByRole("button", { name: "Fertig" }).click();
@@ -1519,7 +1525,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
-    // [itest->dsn~map-object-cards~1]
+    // [itest->dsn~map-object-cards~2]
     // MAP-11: the list opens each object's card, as a tap on the map does.
     const rtw = objects.filter({ hasText: "RTW 83/1" });
     await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
@@ -1581,7 +1587,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
-    await hospital.getByRole("button", { name: "Klinikum Mitte bearbeiten" }).click();
+    await hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }).click();
     await hospital.getByLabel("Stroke Unit").check();
     await hospital.getByRole("button", { name: "Klinik speichern" }).click();
     await expect(hospital, "the entry is changed").toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
@@ -1717,7 +1723,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const report = ben.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(report, "with kind and time it came in").toContainText(/Patient · Eingang \d\d:\d\d/);
     await expect(report.locator(".task-card__status"), "received, nobody on it yet").toContainText("Eingegangen");
-    // [itest->dsn~tasks~5]
+    // [itest->dsn~tasks~6]
     // An Auftrag no unit works on rings the bell until it is assigned.
     await expect(ben.locator("#attention-button")).toHaveAccessibleName("Hinweise: 1");
     await ben.locator("#attention-button").click();
@@ -1744,7 +1750,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const medic = await newDevice(browser);
     await loginPair(medic, server, "anna@example.org");
     await openIncident(medic, INCIDENT);
-    // [itest->dsn~crew-workspace~2]
+    // [itest->dsn~crew-workspace~3]
     // UNIT-9 (ADR-0079): the crew's own workspace: status, Aufträge and transports.
     await openWorkspace(medic, "Besatzung");
     await expect.poll(() => title(medic)).toContain("Sanität – Besatzung");
@@ -1756,6 +1762,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(crewUnit.getByLabel("Status von SanTrp 1 setzen").locator("option[value='']"), "the prompt is no status").toHaveCount(0);
     const crewTask = crewUnit.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(crewTask.locator("button", { hasText: /Abbrechen|nachfragen/ }), "cancelling and asking again are the command's").toHaveCount(0);
+    // [itest->dsn~tasks~6]
+    // TASK-3: the crew's bell counts the Auftrag not started yet, and leads to it.
+    await expect(medic.locator("#attention-button"), "a bell for every role").toHaveAccessibleName(/^Hinweise: [1-9]/);
+    await medic.locator("#attention-button").click();
+    await expect(medic.locator(".attention__list")).toContainText("Neuer Auftrag: ");
+    await medic.keyboard.press("Escape");
     await crewTask.getByRole("button", { name: /^In Arbeit/ }).click();
     await expect(crewTask.locator(".task-card__status"), "and moves its Auftrag on").toContainText("In Arbeit");
     await openView(medic, "Transporte");
@@ -1767,6 +1779,8 @@ test("ORDO in the browser", async ({ browser }) => {
     if (placed) {
       await expect(crewTask.getByRole("link", { name: "In der Karten-App öffnen" }), "the place for the device's maps app").toHaveAttribute("href", /^(geo:48\.\d{6},10\.\d{6}|https:\/\/maps\.apple\.com\/\?ll=48\.\d{6},10\.\d{6}&q=.+)$/);
       await expect(crewTask.locator(".situation__map"), "and on a small map").toHaveCount(1);
+      // REP-4: where the crew is, kept on the device; this browser has no position to give.
+      await expect(crewTask.getByRole("button", { name: "Meinen Standort zeigen" })).toBeVisible();
     }
     await audit(medic, "Crew workspace");
     await crewTask.getByRole("button", { name: "Patient aufnehmen" }).click();
@@ -1903,7 +1917,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByLabel("Gültig bis (optional)").fill(`${tomorrow.getFullYear()}-${day(tomorrow.getMonth() + 1)}-${day(tomorrow.getDate())}`);
     await dora.getByRole("button", { name: "Vergeben" }).click();
     const benPlanner = dora.locator(".role-list [data-user='ben@localhost'] [data-role='planner']");
-    await expect(benPlanner, "granted, with its end, shown by name").toHaveText(`Einsatzplanung (alle Einsätze) · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}Entziehen`);
+    await expect(benPlanner.locator("span").first(), "granted, with its end, shown by name").toHaveText(`Einsatzplanung (alle Einsätze) · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}`);
     await expect(dora.locator(".role-list [data-user='ben@localhost'] .roster__person")).toHaveText("Ben Weber");
     await audit(dora, "Organisation roles");
     await expect.poll(benMayPlan, { message: "Ben's devices may plan at once" }).toBe(true);
@@ -1911,6 +1925,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await benPlanner.getByRole("button", { name: "Einsatzplanung (alle Einsätze) entziehen: ben@localhost" }).click();
     await expect(benPlanner, "withdrawn").toHaveCount(0);
     await expect.poll(benMayPlan, { message: "and no longer" }).toBe(false);
+    // [itest->dsn~icon-rules~1]
+    await dora.locator(".undo-bar").getByRole("button", { name: "Rückgängig" }).click();
+    await expect(benPlanner, "undone: given back").toHaveCount(1);
+    await expect.poll(benMayPlan, { message: "and may plan again" }).toBe(true);
+    await benPlanner.getByRole("button", { name: "Einsatzplanung (alle Einsätze) entziehen: ben@localhost" }).click();
+    await expect(benPlanner).toHaveCount(0);
     await openIncident(ben, INCIDENT);
   });
 

@@ -604,15 +604,15 @@ async fn sync_over_websocket_survives_a_restart() {
     running.stop().await.unwrap();
 }
 
-// [itest->dsn~uhs-staff~1]
+// [itest->dsn~uhs-staff~2]
 #[tokio::test(flavor = "multi_thread")]
-async fn only_a_uhs_staff_registers_its_patients_once_it_has_a_staff_list() {
+async fn only_a_uhs_staff_registers_its_patients() {
     let dir = tempfile::tempdir().unwrap();
     write_setup(dir.path(), [7; 32]);
     let running = start_server(dir.path()).await.unwrap();
     let addr = running.addr;
 
-    // Without a staff list, every medic registers (as before).
+    // A UHS the server has not seen created cannot be judged (recorded offline).
     let mut clara = Client::connect(addr, replica("clara")).await;
     clara.register("DE-0001", Urgent);
     clara.push_and_settle().await;
@@ -1088,7 +1088,7 @@ impl Client {
     }
 }
 
-// [itest->dsn~guest-access~2]
+// [itest->dsn~guest-access~3]
 /// A helper without an account (ADR-0077): the incident command makes a guest and a
 /// one-time code; a medic may not; the code pairs one device once; the guest's device
 /// connects and is cut off when the command ends their access.
@@ -1098,10 +1098,11 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
     write_setup(dir.path(), [9; 32]);
     let running = start_server(dir.path()).await.unwrap();
     let addr = running.addr;
+    let until = now() + 3_600_000;
     let request = |tag: &str| message::GuestRequest {
         incident: incident(),
         guest: None,
-        until: now() + 3_600_000,
+        until,
         name: Some("Jonas Sommer".into()),
         tag: tag.into(),
     };
@@ -1119,7 +1120,22 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
     let code = link.split_once("?guest=").unwrap().1.to_owned();
     assert!(link.starts_with(&format!("https://{SERVER}/?guest=")));
     assert!(pass.qr.as_deref().is_some_and(|q| q.contains("<svg")));
-    assert!(pass.expires > now() + 29 * 60_000 && pass.expires <= now() + 30 * 60_000);
+    // [itest->dsn~guest-access~3]
+    assert_eq!(
+        pass.expires, until,
+        "the code works as long as the access (ADR-0083)"
+    );
+    let open = ben
+        .guest(message::GuestRequest {
+            until: message::UNTIL_CLOSED,
+            ..request("h2")
+        })
+        .await;
+    assert_eq!(
+        open.expires,
+        message::UNTIL_CLOSED,
+        "without an end of duty: until the incident is closed"
+    );
 
     // The guest's phone pairs with the code, once.
     let key = SigningKey::from_bytes(&[42; 32]);

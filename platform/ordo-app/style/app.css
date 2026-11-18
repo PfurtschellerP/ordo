@@ -9,6 +9,9 @@
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
+  /* Hidden stays hidden, whatever display a component's class sets (an important rule of
+     the first layer wins over every later one). */
+  [hidden]:not([hidden="until-found"]) { display: none !important; }
 
   html {
     background: var(--ordo-component-body-background);
@@ -638,6 +641,9 @@
   .record { display: grid; gap: var(--ordo-space-5); }
   .record h2 { margin: 0; }
   .record__index { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .record__body { display: grid; gap: var(--ordo-space-5); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+  /* Read only (UHS-10): nothing to start editing with; the notice above says why. */
+  .record__body:disabled :is(button, form, select, input, textarea, label.button, .photo-actions) { display: none; }
   .record__section { display: grid; gap: var(--ordo-space-3); padding-top: var(--ordo-space-4); border-top: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
   .record__section h3, .record__section h4 { margin: 0; font-size: var(--ordo-font-size-4); }
   .record__section h4 { font-size: var(--ordo-font-size-3); }
@@ -735,6 +741,10 @@
   .task-card__taken { font-weight: var(--ordo-font-weight-bold); }
   .task-card__assign { align-items: end; }
   .task-card__more > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  /* Received and follow-up side by side: labels, inputs and hints each on one line. */
+  .task-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); column-gap: var(--ordo-space-3); }
+  .task-times > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--ordo-space-1); align-content: start; }
+  .task-times > .field > * { margin: 0; }
   .task-card__panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .tasks-panel__give > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .new-task { display: grid; gap: var(--ordo-space-3); }
@@ -972,18 +982,24 @@
   }
 
   /* MAP-11: the label next to the pointer, and the card over the bottom of the map. */
-  .map-tip {
-    position: absolute; z-index: 5; pointer-events: none; max-inline-size: 18rem;
-    padding: var(--ordo-space-1) var(--ordo-space-2);
-    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
-    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
-    font-size: var(--ordo-font-size-1);
-  }
   .situation__stage { position: relative; }
+  /* The card of an object (MAP-11) at the object, its arrow pointing there; where it fits
+     neither above nor below, at the bottom of the map. The glue sets the side and place. */
   .situation__card {
-    position: absolute; inset-inline: var(--ordo-space-2); inset-block-end: var(--ordo-space-2); z-index: 6;
-    max-block-size: 70%; overflow: auto; max-inline-size: 28rem;
+    position: absolute; z-index: 6; inline-size: min(22rem, calc(100% - 2 * var(--ordo-space-2)));
   }
+  .situation__card[data-side="sheet"] {
+    inset-inline: var(--ordo-space-2); inset-block-end: var(--ordo-space-2); inline-size: auto;
+    max-inline-size: 28rem; max-block-size: 70%; overflow: auto;
+  }
+  .situation__card:is([data-side="above"], [data-side="below"])::after {
+    content: ""; position: absolute; inset-inline-start: calc(var(--arrow-x, 50%) - var(--ordo-space-2));
+    inline-size: var(--ordo-space-4); block-size: var(--ordo-space-4); rotate: 45deg;
+    background: var(--ordo-color-surface-raised);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+  }
+  .situation__card[data-side="above"]::after { inset-block-end: calc(-1 * var(--ordo-space-2)); border-block-start: 0; border-inline-start: 0; }
+  .situation__card[data-side="below"]::after { inset-block-start: calc(-1 * var(--ordo-space-2)); border-block-end: 0; border-inline-end: 0; }
   .object-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3);
     background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);

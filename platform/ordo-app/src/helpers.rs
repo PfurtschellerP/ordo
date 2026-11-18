@@ -50,6 +50,10 @@ fn duty(h: &Helper, now: u64) -> Option<String> {
     let (start, end) = (h.fields.duty_start, h.fields.duty_end);
     let at = |ms: u64| core::date_time(ms);
     match (start, end) {
+        // [impl->dsn~duty-pause~1]
+        _ if h.paused_since(now).is_some() => Some(text::paused_since(&at(h
+            .paused_since(now)
+            .unwrap_or_default()))),
         _ if h.on_duty(now) => Some(text::on_duty_since(&at(start.unwrap_or_default()))),
         (Some(s), Some(e)) => Some(text::duty_from_to(&at(s), &at(e))),
         (Some(s), None) => Some(text::duty_from(&at(s))),
@@ -206,7 +210,7 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let editing = RwSignal::new(None::<Person>);
     let error = RwSignal::new(None::<String>);
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     // The server's answer to a guest code asked on this device (ADR-0077): the role chosen
     // goes to the guest's ID, the helper is linked to it, and the code is shown.
     let shown_pass = RwSignal::new(None::<(ordo_sync::message::GuestPass, String)>);
@@ -306,6 +310,36 @@ fn PersonEntry(
         .as_deref()
         .and_then(|a| a.parse::<ordo_core::UserId>().ok())
         .filter(ordo_core::UserId::is_guest);
+    // [impl->dsn~duty-pause~1]
+    // While on duty: a pause and its end, with when (HELP-8).
+    let pause_action = person.helper.as_ref().filter(|h| h.on_duty(now)).map(|h| {
+        let paused = h.paused_since(now).is_some();
+        let id = h.id.clone();
+        let name = name.clone();
+        Action {
+            text: if paused {
+                text::DUTY_RESUME
+            } else {
+                text::DUTY_PAUSE
+            },
+            label: if paused {
+                text::duty_resume_label(&name)
+            } else {
+                text::duty_pause_label(&name)
+            },
+            quiet: true,
+            run: Callback::new(move |()| {
+                let change = HelperChange {
+                    helper: id.clone(),
+                    fields: Fields {
+                        paused: Some(if paused { 0 } else { core::now_ms() }),
+                        ..Fields::default()
+                    },
+                };
+                let _ = core::helper_event(core, revision, false, &change, &name);
+            }),
+        }
+    });
     let duty_action = person.helper.as_ref().map(|h| {
         let on_duty = h.on_duty(now);
         let id = h.id.clone();
@@ -325,9 +359,11 @@ fn PersonEntry(
             quiet: true,
             run: Callback::new(move |()| {
                 let now = core::now_ms();
+                // A pause ends with the duty, and a new duty starts without one.
                 let fields = if on_duty {
                     Fields {
                         duty_end: Some(now),
+                        paused: Some(0),
                         ..Fields::default()
                     }
                 } else {
@@ -335,6 +371,7 @@ fn PersonEntry(
                     Fields {
                         duty_start: Some(now),
                         duty_end: Some(0),
+                        paused: Some(0),
                         ..Fields::default()
                     }
                 };
@@ -343,10 +380,16 @@ fn PersonEntry(
                     fields,
                 };
                 let _ = core::helper_event(core, revision, false, &change, &name);
-                // [impl->dsn~guest-access~2]
-                // A guest's access ends with their duty (ADR-0077).
-                if on_duty && let Some(guest) = guest.clone() {
-                    core::set_guest_access(core, guest, now);
+                // [impl->dsn~guest-access~3]
+                // A guest's access ends with their duty (ADR-0077) and comes back with a new
+                // one, until the incident is closed (ADR-0083).
+                if let Some(guest) = guest.clone() {
+                    let until = if on_duty {
+                        now
+                    } else {
+                        ordo_sync::message::UNTIL_CLOSED
+                    };
+                    core::set_guest_access(core, guest, until);
                 }
             }),
         }
@@ -359,20 +402,28 @@ fn PersonEntry(
             text: text::GUEST_ACCESS,
             label: text::guest_access_label(&name),
             quiet: true,
-            run: Callback::new(
-                move |()| match h.fields.duty_end.filter(|e| *e > core::now_ms()) {
-                    Some(until) => {
-                        core::create_guest(core, Some(user.clone()), until, &h.id, h.name())
-                    }
-                    None => error.set(Some(text::GUEST_NEEDS_DUTY_END.to_owned())),
-                },
-            ),
+            // [impl->dsn~guest-access~3]
+            run: Callback::new(move |()| {
+                let now = core::now_ms();
+                match h.fields.duty_end {
+                    Some(end) if end <= now => error.set(Some(text::GUEST_DUTY_ENDED.to_owned())),
+                    end => core::create_guest(
+                        core,
+                        Some(user.clone()),
+                        end.unwrap_or(ordo_sync::message::UNTIL_CLOSED),
+                        &h.id,
+                        h.name(),
+                    ),
+                }
+            }),
         });
     let guest_until = guest
         .as_ref()
         .and(person.helper.as_ref())
-        .and_then(|h| h.fields.duty_end)
-        .map(|e| text::guest_until(&core::date_time(e)));
+        .map(|h| match h.fields.duty_end {
+            Some(e) => text::guest_until(&core::date_time(e)),
+            None => text::GUEST_UNTIL_CLOSED.to_owned(),
+        });
     let edit = person.clone();
     let registered = person.helper.is_some();
     let edit_label = if registered {
@@ -487,8 +538,9 @@ fn PersonEntry(
                     </button>
                 </Show>
                 {
-                    let actions: Vec<Action> = duty_action
+                    let actions: Vec<Action> = pause_action
                         .into_iter()
+                        .chain(duty_action)
                         .chain(guest_action.filter(|_| manage.get_untracked()))
                         .collect();
                     (!actions.is_empty()).then(|| view! { <Actions actions /> })
@@ -498,7 +550,7 @@ fn PersonEntry(
     }
 }
 
-// [impl->dsn~guest-access~2]
+// [impl->dsn~guest-access~3]
 /// The one-time code of a guest (ADR-0077), as QR code and link, for their phone; shown
 /// only on this device, until closed.
 #[component]
@@ -518,7 +570,12 @@ fn GuestPassView(
     view! {
         <section class="notice guest-pass" aria-labelledby="guest-pass-title">
             <h3 id="guest-pass-title" tabindex="-1">{text::GUEST_CODE_TITLE}</h3>
-            <p>{text::guest_code_for(&name, &core::clock(pass.expires))}</p>
+            // [impl->dsn~guest-access~3]
+            <p>{if pass.expires >= ordo_sync::message::UNTIL_CLOSED {
+                text::guest_code_until_closed(&name)
+            } else {
+                text::guest_code_for(&name, &core::date_time(pass.expires))
+            }}</p>
             {image.map(|src| view! { <img class="pairing-qr__code" src=src alt=text::GUEST_CODE_ALT width="256" height="256" /> })}
             <p>{text::GUEST_LINK} " " <a href=link.clone() class="guest-pass__link">{link.clone()}</a></p>
             <div class="row">
@@ -641,7 +698,7 @@ fn HelperForm(
         ev.prevent_default();
         let chosen_role = role.get_untracked();
         let account_value = account.get_untracked().trim().to_owned();
-        // [impl->dsn~guest-access~2]
+        // [impl->dsn~guest-access~3]
         // A role without an account: a guest, with access until the end of duty (ADR-0077).
         let guest = !chosen_role.is_empty() && account_value.is_empty();
         if !chosen_role.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err()
@@ -665,8 +722,11 @@ fn HelperForm(
         }
         let duty_end = core::local_time_ms(end.get_untracked().trim())
             .filter(|_| !end.get_untracked().trim().is_empty());
-        if guest && duty_end.is_none_or(|e| e <= core::now_ms()) {
-            error.set(Some(text::GUEST_NEEDS_DUTY_END));
+        // [impl->dsn~guest-access~3]
+        // An end of duty that has passed gives no access; none lasts until the incident is
+        // closed (ADR-0083).
+        if guest && duty_end.is_some_and(|e| e <= core::now_ms()) {
+            error.set(Some(text::GUEST_DUTY_ENDED));
             crate::views::focus("helper-duty-end");
             return;
         }
@@ -704,16 +764,22 @@ fn HelperForm(
                 }
             }
         }
-        // A guest of an earlier save keeps their access to the end of duty.
-        if let (Some(a), Some(until)) = (before.account.as_deref(), duty_end)
+        // A guest of an earlier save keeps their access to the end of duty, or to the
+        // incident's end without one.
+        if let Some(a) = before.account.as_deref()
             && let Ok(user) = a.parse::<ordo_core::UserId>()
             && user.is_guest()
-            && before.duty_end != Some(until)
+            && before.duty_end != duty_end
         {
-            core::set_guest_access(core, user, until);
+            core::set_guest_access(
+                core,
+                user,
+                duty_end.unwrap_or(ordo_sync::message::UNTIL_CLOSED),
+            );
         }
         if guest {
-            if let (Some(helper), Some(until)) = (saved, duty_end) {
+            if let Some(helper) = saved {
+                let until = duty_end.unwrap_or(ordo_sync::message::UNTIL_CLOSED);
                 PENDING_ROLES.with_borrow_mut(|p| p.insert(helper.clone(), chosen_role.clone()));
                 core::create_guest(core, None, until, &helper, &name.get_untracked());
             }
@@ -1023,6 +1089,7 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static st
             qualifications: (!quals.is_empty()).then_some(quals),
             duty_start,
             duty_end,
+            paused: None,
         }
     } else {
         let was_quals = before.qualifications.clone().unwrap_or_default();
@@ -1049,6 +1116,7 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static st
             qualifications: (quals != was_quals).then_some(quals),
             duty_start: time_changed(duty_start, before.duty_start),
             duty_end: time_changed(duty_end, before.duty_end),
+            paused: None,
         }
     };
     let helper = match &d.id {

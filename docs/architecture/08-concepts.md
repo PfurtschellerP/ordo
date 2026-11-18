@@ -575,25 +575,30 @@ Needs: impl, itest
 Tags: must, m8
 
 #### Guest access
-`dsn~guest-access~2`
+`dsn~guest-access~3`
 
 Helpers without an account get access to one incident by a one-time code
 ([ADR-0077](../adr/0077-guest-access-by-one-time-qr-code.md)). In *Vorbereitung – Personal*
-the incident command registers the helper with a role and an end of duty, and no account.
+the incident command registers the helper with a role and no account; an end of duty is
+optional.
 The device asks the server for a guest (`createGuest`, sync protocol 1.3, with the
 helper's name and ID as tag); the server checks `assign_role`, makes the user ID
-`guest-<ULID>@<server>` and a code of 256 random bits, keeps its SHA-256 hash for the
-installation's time (`ORDO_GUEST_CODE_MINUTES`, default 30, 5 to 1440;
-[ADR-0078](../adr/0078-guest-codes-last-30-minutes-set-per-installation.md)), sets the guest's login to end at the end of duty, and answers the link
+`guest-<ULID>@<server>` and a code of 256 random bits, keeps its SHA-256 hash until the
+access ends ([ADR-0083](../adr/0083-guest-codes-last-as-long-as-the-access.md)), sets the
+guest's login to end at the end of duty, or without one at `UNTIL_CLOSED` (the largest
+time the server stores), and answers the link
 `<public address>/?guest=<code>` with its QR code. The command's device then grants the
 role to the guest's ID, links the helper to it, and shows the QR code until closed; the
-list shows "Gast-Zugang bis …" and "Zugang per QR-Code" for a new code.
+list shows "Gast-Zugang bis …" (or "bis zum Einsatzende") and "Zugang per QR-Code" for a
+new code.
 
 The helper scans it; the app makes a device key and pairs with `POST /auth/guest`, which
 uses the code up in one step and registers the device with the guest's ID, its login ending
 at the end of duty, with no renewal. Ending the duty or moving its end sends
-`setGuestAccess`; once the end has passed, the server cuts the guest's connections
-(`loginExpired`). Logins never map to a name starting with `guest-` (they get `u-`
+`setGuestAccess`, and so does starting a new duty (access until the new end, or
+`UNTIL_CLOSED`); once the end has passed, the server cuts the guest's connections
+(`loginExpired`). Every minute the server ends the access of the guests of closed
+incidents (`guests.until_ms` set to now). Logins never map to a name starting with `guest-` (they get `u-`
 before it). The Cedar context carries `guest`; `command.guests-never-command` forbids
 everything to a guest who holds `commander`, and the form does not offer it without an
 account. Refused codes are counted (429 after 20 a minute); codes are never logged, codes
@@ -601,7 +606,7 @@ made and used are, with who and the guest's ID.
 
 Covers:
 
-* [req~help-7~1](../requirements/02-shared.md#help-7--access-without-an-account)
+* [req~help-7~2](../requirements/02-shared.md#help-7--access-without-an-account)
 
 Needs: impl, utest, itest
 
@@ -652,6 +657,24 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m9
+
+#### Unused devices
+`dsn~stale-devices~1`
+
+The hub notes when each device last said hello (`Change::Seen`, stored as
+`devices.last_seen_ms`, migration 0009). Every hour the server removes the devices that
+have not connected for 30 days (`IDLE_DEVICE_DAYS`), counting from their pairing where they
+never connected since: as a revocation, so they leave every device list, and one that
+comes back is told `revoked`, deletes its data and must be paired again (ORG-14). A device
+with an open connection stays; devices from the seed file have no pairing time and stay.
+
+Covers:
+
+* [req~org-14~1](../requirements/02-shared.md#org-14--unused-devices-removed)
+
+Needs: impl, itest
+
+Tags: should, m65
 
 #### Incident devices
 `dsn~incident-devices~1`

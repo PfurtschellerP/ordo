@@ -187,9 +187,9 @@ Tags: must, med, m37
 Needs: dsn
 
 #### UHS-10 — Only a UHS's staff writes its patients
-`req~uhs-10~1`
+`req~uhs-10~2`
 
-Where a UHS has a staff list, ORDO shall accept registering, documenting and changing that UHS's patients, and changing its staff list, only from people on that list and from roles allowed at every UHS, judged by the staff list valid at the time of the change, so that documentation made offline is not refused because of a later change.
+ORDO shall accept registering, documenting and changing a UHS's patients only from people on its staff list, from whoever created the UHS while nobody is on that list, and from roles allowed at every UHS, and changing its settings and staff list only from them and from the incident command, judged by the staff list valid at the time of the change, so that documentation made offline is not refused because of a later change. Where a person may only read a UHS, ORDO shall not offer them to change anything there.
 
 Tags: must, med, m37
 

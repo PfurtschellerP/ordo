@@ -197,6 +197,9 @@ pub fn DisclosureButton(
     label: Option<Signal<String>>,
     children: Children,
 ) -> impl IntoView {
+    // [impl->dsn~icon-rules~1]
+    // An icon button's name is its tooltip too.
+    let tip = class.split_whitespace().any(|c| c == "icon-button");
     view! {
         <button
             id=id
@@ -205,6 +208,7 @@ pub fn DisclosureButton(
             aria-expanded=move || open.get().to_string()
             aria-controls=controls
             aria-label=move || label.map(|l| l.get())
+            data-tip=move || label.filter(|_| tip).map(|l| l.get())
             on:click=move |_| {
                 if !open.get_untracked()
                     && let Some(f) = on_open

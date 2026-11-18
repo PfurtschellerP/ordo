@@ -195,7 +195,7 @@ export async function create(element, centre, label, incident, ticket, cooperati
   map.addLayer({ id: "ordo-draft-corners", type: "circle", source: DRAFT, filter: corner, paint: { "circle-radius": 5, "circle-color": halo, "circle-stroke-width": 2, "circle-stroke-color": text } });
   // The chosen object: a ring around it, its name says the rest in the tool panel.
   map.addLayer({ id: "ordo-chosen", type: "circle", source: DRAFT, filter: ["has", "chosen"], paint: { "circle-radius": SYMBOL_HEIGHT * 0.75, "circle-opacity": 0, "circle-stroke-width": 3, "circle-stroke-color": text } });
-  const handle = { map, from: source.from, tap: null, draw: null, objects: null, hidden: null, escape: null };
+  const handle = { map, from: source.from, tap: null, hover: null, pinned: null, draw: null, objects: null, hidden: null };
   // [impl->dsn~map-drawing~2]
   // Taps go to the editor page, with the object hit, if any (none while Terra Draw edits).
   map.on("click", (e) => {
@@ -206,38 +206,91 @@ export async function create(element, centre, label, incident, ticket, cooperati
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
     handle.tap(e.lngLat.lng, e.lngLat.lat, hit?.properties?.object ?? null, hit?.geometry?.type === "Point");
   });
-  // [impl->dsn~map-object-cards~1]
-  // Pointing at an object names it and its state next to the pointer (MAP-11); it goes when
-  // the pointer leaves or Escape is pressed (WCAG 1.4.13). The list below the map says the
-  // same for keyboard and screen-reader users, so the label is hidden from them.
-  const tip = document.createElement("div");
-  tip.className = "map-tip";
-  tip.setAttribute("aria-hidden", "true");
-  tip.hidden = true;
-  map.getContainer().appendChild(tip);
-  const hide = () => {
-    tip.hidden = true;
-    map.getCanvas().style.cursor = "";
+  // [impl->dsn~map-object-cards~2]
+  // Pointing at an object with a mouse tells the page which one (MAP-11), so it opens the
+  // object's card at it; touch has no pointing, a tap opens the card instead.
+  let mouse = false;
+  let pointed = null;
+  const container = map.getContainer();
+  const kind = (e) => {
+    mouse = e.pointerType === "mouse";
+  };
+  container.addEventListener("pointermove", kind, true);
+  container.addEventListener("pointerdown", kind, true);
+  const point = (object) => {
+    if (object === pointed) return;
+    pointed = object;
+    map.getCanvas().style.cursor = object && handle.tap ? "pointer" : "";
+    handle.hover?.(object);
   };
   map.on("mousemove", (e) => {
-    if (handle.hidden) return hide();
+    if (!mouse || handle.hidden) return point(null);
     const box = [[e.point.x - HIT_SLOP / 2, e.point.y - HIT_SLOP / 2], [e.point.x + HIT_SLOP / 2, e.point.y + HIT_SLOP / 2]];
     const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
-    const p = hit?.properties;
-    if (!p?.label) return hide();
-    tip.textContent = p.state ? `${p.label} · ${p.state}` : p.label;
-    tip.style.left = `${e.point.x + 16}px`;
-    tip.style.top = `${e.point.y + 16}px`;
-    tip.hidden = false;
-    if (handle.tap) map.getCanvas().style.cursor = "pointer";
+    point(hit?.properties?.object ?? null);
   });
-  map.on("mouseout", hide);
-  handle.escape = (e) => {
-    if (e.key === "Escape") hide();
-  };
-  document.addEventListener("keydown", handle.escape);
+  map.on("mouseout", () => point(null));
   return handle;
+}
+
+/** Calls `callback(object ID or null)` when a mouse starts or stops pointing at an object;
+ *  `null` stops it. */
+export function onHover(handle, callback) {
+  handle.hover = callback;
+}
+
+// [impl->dsn~map-object-cards~2]
+/** Keeps `element` (a card inside the map's stage) at the point `lng`, `lat`: above it, or
+ *  below it where there is no room above; where neither fits, the card sits at the bottom
+ *  of the map (`data-side="sheet"`). It follows the map while it moves. */
+export function pinCard(handle, element, lng, lat) {
+  unpinCard(handle);
+  const map = handle.map;
+  const GAP = SYMBOL_HEIGHT * 0.75 + 12;
+  const MARGIN = 8;
+  const place = () => {
+    const stage = element.parentElement;
+    if (!stage || !element.isConnected) return;
+    const frame = map.getContainer().getBoundingClientRect();
+    const box = stage.getBoundingClientRect();
+    const p = map.project([lng, lat]);
+    const x = frame.left - box.left + p.x;
+    const y = frame.top - box.top + p.y;
+    const w = element.offsetWidth;
+    const h = element.offsetHeight;
+    let side = "above";
+    let top = y - GAP - h;
+    if (top < MARGIN) {
+      side = "below";
+      top = y + GAP;
+      if (top + h > frame.height - MARGIN) side = "sheet";
+    }
+    element.dataset.side = side;
+    if (side === "sheet") {
+      element.style.left = element.style.top = "";
+      return;
+    }
+    const left = Math.min(Math.max(x - w / 2, MARGIN), Math.max(MARGIN, box.width - w - MARGIN));
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
+    element.style.setProperty("--arrow-x", `${Math.min(Math.max(x - left, 16), w - 16)}px`);
+  };
+  const resized = new ResizeObserver(place);
+  resized.observe(element);
+  map.on("move", place);
+  map.on("resize", place);
+  handle.pinned = { place, resized };
+  place();
+}
+
+/** Stops keeping a card at its point. */
+export function unpinCard(handle) {
+  if (!handle.pinned) return;
+  handle.map.off("move", handle.pinned.place);
+  handle.map.off("resize", handle.pinned.place);
+  handle.pinned.resized.disconnect();
+  handle.pinned = null;
 }
 
 /** Shows the shape being drawn (a GeoJSON FeatureCollection as text; empty to clear). */
@@ -292,6 +345,60 @@ export function locate(handle) {
   });
 }
 
+const ME = "ordo-me";
+
+// [impl->dsn~crew-workspace~3]
+/** Shows the device's position as a dot named `label` and keeps it current (browser
+ *  geolocation; the position stays on the device). The first fix fits the map to the
+ *  position and the point `lng`, `lat` (the Auftrag's pin), so both are in view. Resolves
+ *  with the first fix; fails with "denied" or "unavailable". */
+export function followMe(handle, lng, lat, label) {
+  stopFollowingMe(handle);
+  const map = handle.map;
+  if (!map.getSource(ME)) {
+    const accent = token("--ordo-color-action-primary-background");
+    const text = token("--ordo-color-text-primary");
+    const halo = token("--ordo-color-surface-default");
+    map.addSource(ME, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({ id: "ordo-me", type: "circle", source: ME, paint: { "circle-radius": 9, "circle-color": accent, "circle-stroke-width": 4, "circle-stroke-color": halo } });
+    map.addLayer({
+      id: "ordo-me-label",
+      type: "symbol",
+      source: ME,
+      layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Medium"], "text-size": 14, "text-offset": [0, 1.2], "text-anchor": "top" },
+      paint: { "text-color": text, "text-halo-color": halo, "text-halo-width": 2 },
+    });
+  }
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject("unavailable");
+    let first = true;
+    handle.me = navigator.geolocation.watchPosition(
+      (p) => {
+        const at = [p.coords.longitude, p.coords.latitude];
+        map.getSource(ME)?.setData({ type: "FeatureCollection", features: [{ type: "Feature", properties: { label }, geometry: { type: "Point", coordinates: at } }] });
+        if (first) {
+          first = false;
+          const bounds = new libs.maplibre.LngLatBounds(at, at).extend([lng, lat]);
+          map.fitBounds(bounds, { padding: 48, maxZoom: 17, animate: false });
+          resolve(at);
+        }
+      },
+      (e) => {
+        stopFollowingMe(handle);
+        reject(e.code === e.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 },
+    );
+  });
+}
+
+/** Stops showing the device's position. */
+export function stopFollowingMe(handle) {
+  if (handle.me != null) navigator.geolocation?.clearWatch(handle.me);
+  handle.me = null;
+  handle.map.getSource(ME)?.setData({ type: "FeatureCollection", features: [] });
+}
+
 /** Shows ORDO's objects (a GeoJSON FeatureCollection as text), except the one being
  *  reshaped, which Terra Draw shows meanwhile. */
 export function setObjects(handle, geojson) {
@@ -313,7 +420,8 @@ export function onTap(handle, callback) {
 
 /** Removes the map and everything it holds. */
 export function destroy(handle) {
-  if (handle.escape) document.removeEventListener("keydown", handle.escape);
+  unpinCard(handle);
+  if (handle.me != null) navigator.geolocation?.clearWatch(handle.me);
   try {
     handle.draw?.stop();
   } catch {

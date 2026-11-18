@@ -205,11 +205,10 @@ pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
                                         <crate::ui::Suggestions id=format!("{field}-people") values=people core />
                                     </div>
                                     <button type="submit" class="button button--small">{text::STAFF_ASSIGN}</button>
-                                    <button type="button" class="button button--small button--quiet"
-                                        aria-label=text::staff_withdraw_label(&label)
-                                        on:click=move |_| close(core, revision, &drop_id, None)>
-                                        {text::STAFF_WITHDRAW}
-                                    </button>
+                                    // [impl->dsn~icon-rules~1]
+                                    <crate::ui::IconButton icon="x" word=text::STAFF_WITHDRAW quiet=true
+                                        label=text::staff_withdraw_label(&label)
+                                        on_click=Callback::new(move |()| close(core, revision, &drop_id, None)) />
                                 </form>
                             </li>
                         }

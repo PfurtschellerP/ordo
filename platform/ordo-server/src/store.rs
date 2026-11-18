@@ -126,6 +126,14 @@ impl Store {
                     .execute(&mut *tx)
                     .await?;
                 }
+                // [impl->dsn~stale-devices~1]
+                Change::Seen { device, at } => {
+                    sqlx::query("UPDATE devices SET last_seen_ms = ? WHERE device_id = ?")
+                        .bind(ms(*at))
+                        .bind(device.ulid().to_string())
+                        .execute(&mut *tx)
+                        .await?;
+                }
                 // [impl->dsn~device-revocation~1]
                 Change::Revoked { device } => {
                     // Devices paired by hand (seed) have no row; they stay revoked in the
@@ -549,6 +557,30 @@ impl Store {
             .collect()
     }
 
+    /// When each device last connected (ms), where known (ORG-14).
+    pub async fn load_seen(&self) -> Result<Vec<(DeviceId, u64)>, StoreError> {
+        let rows = sqlx::query(
+            "SELECT device_id, last_seen_ms FROM devices
+             WHERE revoked_ms IS NULL AND last_seen_ms IS NOT NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                let device: String = row.get("device_id");
+                let seen: i64 = row.get("last_seen_ms");
+                Ok((
+                    DeviceId(
+                        device
+                            .parse::<Ulid>()
+                            .map_err(|e| StoreError::Invalid(e.to_string()))?,
+                    ),
+                    u64::try_from(seen).unwrap_or_default(),
+                ))
+            })
+            .collect()
+    }
+
     /// When each device was paired (ms), and its name (ORG-8).
     pub async fn load_paired(&self) -> Result<Vec<(DeviceId, u64, Option<String>)>, StoreError> {
         let rows =
@@ -572,7 +604,7 @@ impl Store {
             .collect()
     }
 
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     /// Stores a guest of `incident` (ADR-0077), or, if known, sets their end of access.
     pub async fn save_guest(
         &self,
@@ -616,7 +648,27 @@ impl Store {
         .transpose()
     }
 
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
+    /// The guests whose access has not ended at `now_ms`, with their incident.
+    pub async fn open_guests(&self, now_ms: u64) -> Result<Vec<(UserId, IncidentId)>, StoreError> {
+        let rows = sqlx::query("SELECT user_id, incident FROM guests WHERE until_ms > ?")
+            .bind(ms(now_ms))
+            .fetch_all(&self.pool)
+            .await?;
+        rows.into_iter()
+            .map(|row| {
+                let user: String = row.get("user_id");
+                let incident: String = row.get("incident");
+                let invalid = |e: ordo_core::IdError| StoreError::Invalid(e.to_string());
+                Ok((
+                    user.parse().map_err(invalid)?,
+                    incident.parse().map_err(invalid)?,
+                ))
+            })
+            .collect()
+    }
+
+    // [impl->dsn~guest-access~3]
     /// Stores a new one-time code of a guest by its hash; their unused codes stop working.
     pub async fn save_guest_code(
         &self,
@@ -639,7 +691,7 @@ impl Store {
         Ok(())
     }
 
-    // [impl->dsn~guest-access~2]
+    // [impl->dsn~guest-access~3]
     /// Uses up the code with this hash, if it is known, unused and not expired at `now_ms`:
     /// the guest, their incident and the end of their access. One statement, so a code
     /// works only once also when two devices try it at the same time.
@@ -863,11 +915,13 @@ pub fn random_nonce() -> [u8; 24] {
 mod tests {
     use super::*;
 
+    use ordo_sync::message::UNTIL_CLOSED;
+
     fn user(name: &str) -> UserId {
         format!("{name}@ordo.example.org").parse().unwrap()
     }
 
-    // [utest->dsn~guest-access~2]
+    // [utest->dsn~guest-access~3]
     #[tokio::test]
     async fn a_guest_code_works_once_and_only_until_it_expires() {
         let dir = tempfile::tempdir().unwrap();
@@ -910,6 +964,37 @@ mod tests {
         assert_eq!(store.guest(&user("anna")).await.unwrap(), None);
     }
 
+    // [utest->dsn~guest-access~3]
+    #[tokio::test]
+    async fn guests_whose_access_has_not_ended_are_listed_also_without_an_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
+        let incident: IncidentId = "01JD0000000000000000000009@ordo.example.org"
+            .parse()
+            .unwrap();
+        let (ended, open) = (
+            user("guest-01jd0000000000000000000001"),
+            user("guest-01jd0000000000000000000002"),
+        );
+        store
+            .save_guest(&ended, &incident, 2_000, &user("ben"), 1_000)
+            .await
+            .unwrap();
+        store
+            .save_guest(&open, &incident, UNTIL_CLOSED, &user("ben"), 1_000)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.open_guests(3_000).await.unwrap(),
+            [(open.clone(), incident.clone())]
+        );
+        assert_eq!(
+            store.guest(&open).await.unwrap(),
+            Some((incident, UNTIL_CLOSED)),
+            "the open end is kept as it was given"
+        );
+    }
+
     #[tokio::test]
     async fn the_schema_is_migrated_once_also_for_databases_from_before_the_first_release() {
         let dir = tempfile::tempdir().unwrap();
@@ -942,7 +1027,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 applied,
-                [1, 2, 3, 4, 5, 6, 7, 8],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
                 "each migration, applied once"
             );
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")

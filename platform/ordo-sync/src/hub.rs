@@ -65,6 +65,13 @@ pub enum Change {
         /// The stream.
         stream: StreamKey,
     },
+    /// A device connected (ms): devices unused for long are removed (ORG-14).
+    Seen {
+        /// The device.
+        device: DeviceId,
+        /// When.
+        at: u64,
+    },
 }
 
 /// Stored data could not be restored.
@@ -113,6 +120,8 @@ struct RegisteredDevice {
     paired: Option<u64>,
     /// Its name, as chosen at pairing (ORG-8).
     name: Option<String>,
+    /// When it last connected (ms), if known (ORG-14).
+    seen: Option<u64>,
 }
 
 impl RegisteredDevice {
@@ -202,6 +211,12 @@ impl<P: AccessPolicy> Hub<P> {
     /// Restores a stream deleted at the end of its retention period (HELP-4).
     pub fn restore_deleted(&mut self, stream: StreamKey) {
         self.deleted.insert(stream);
+    }
+
+    // [impl->dsn~guest-access~3]
+    /// When `incident` was closed, if it is (a guest's access ends then, ADR-0083).
+    pub fn closed_at(&self, incident: &IncidentId) -> Option<u64> {
+        self.registry.get(incident).and_then(|i| i.closed_at)
     }
 
     // [impl->dsn~helper-retention~1]
@@ -339,10 +354,10 @@ impl<P: AccessPolicy> Hub<P> {
         key: VerifyingKey,
         valid_until: Option<u64>,
     ) {
-        let (paired, name) = self
+        let (paired, name, seen) = self
             .devices
             .get(&device)
-            .map_or((None, None), |d| (d.paired, d.name.clone()));
+            .map_or((None, None, None), |d| (d.paired, d.name.clone(), d.seen));
         self.devices.insert(
             device,
             RegisteredDevice {
@@ -351,6 +366,7 @@ impl<P: AccessPolicy> Hub<P> {
                 valid_until,
                 paired,
                 name,
+                seen,
             },
         );
         self.revoked.remove(&device);
@@ -364,6 +380,38 @@ impl<P: AccessPolicy> Hub<P> {
                 d.name = name;
             }
         }
+    }
+
+    // [impl->dsn~stale-devices~1]
+    /// Records when a device last connected (from storage).
+    pub fn set_seen(&mut self, device: &DeviceId, at_ms: u64) {
+        if let Some(d) = self.devices.get_mut(device) {
+            d.seen = Some(at_ms);
+        }
+    }
+
+    // [impl->dsn~stale-devices~1]
+    /// Removes the devices that have not connected for `idle_ms` at `now_ms` (paired then
+    /// and never used counts from the pairing), as if revoked: they leave every list, and
+    /// one that comes back deletes its data and must be paired again (ORG-14). Devices
+    /// without a known pairing (seed) stay. Returns the devices removed.
+    pub fn remove_idle(&mut self, now_ms: u64, idle_ms: u64) -> Vec<DeviceId> {
+        let idle: Vec<DeviceId> = self
+            .devices
+            .iter()
+            .filter(|(id, d)| {
+                d.seen
+                    .or(d.paired)
+                    .is_some_and(|last| last.saturating_add(idle_ms) <= now_ms)
+                    && !self.sessions.values().any(|s| s.device == **id)
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        let mut out = Vec::new();
+        for device in &idle {
+            self.cut_off(*device, &mut out);
+        }
+        idle
     }
 
     /// Restores a revoked device (from storage).
@@ -853,6 +901,14 @@ impl<P: AccessPolicy> Hub<P> {
             return refuse(Rejection::LoginExpired);
         }
         let valid_until = device.valid_until;
+        // [impl->dsn~stale-devices~1]
+        if let Some(d) = self.devices.get_mut(&hello.device) {
+            d.seen = Some(now_ms);
+        }
+        self.changes.push(Change::Seen {
+            device: hello.device,
+            at: now_ms,
+        });
         let mut welcome = Welcome {
             granted: Vec::new(),
             denied: Vec::new(),
@@ -1127,7 +1183,7 @@ impl<P: AccessPolicy> Hub<P> {
             body,
             payload,
         };
-        // [impl->dsn~uhs-staff~1]
+        // [impl->dsn~uhs-staff~2]
         // The packages' own rules (ADR-0056), after the roles.
         if self.guards.iter().any(|g| g.observes(&key.1)) {
             let permissions = self.policy.incident_permissions(user, &key.0, &roles);

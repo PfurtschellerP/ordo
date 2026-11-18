@@ -507,10 +507,10 @@ fn HospitalCard(
                 id=format!("hospital-{id}")
                 open=editing
                 class="hospital-card__edit"
-                button_class="button button--small button--quiet"
+                button_class="button button--small icon-button"
                 panel_class="hospital-card__form"
                 label=Some(Signal::derive(move || text::hospital_edit_label(&name)))
-                button=Box::new(|| view! { {text::HOSPITAL_EDIT} }.into_any())
+                button=Box::new(|| view! { <crate::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::HOSPITAL_EDIT}</span> }.into_any())
             >
                 <HospitalForm core revision entry done />
             </Disclosure>
