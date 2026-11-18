@@ -29,6 +29,7 @@ fn clinical(world: &mut World, user: &str, event_type: &str, payload: &[u8]) {
 fn register(world: &mut World, user: &str, tag: &str, category: TriageCategory) {
     let payload = Registered {
         report: None,
+        task: None,
         tag: tag.into(),
         category,
         uhs: "UHS 1".into(),
@@ -750,6 +751,7 @@ fn several_uhs_and_units_in_one_incident() {
     ] {
         let payload = Registered {
             report: None,
+            task: None,
             tag: tag.into(),
             category,
             uhs: uhs.into(),
@@ -1277,7 +1279,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
     );
 }
 
-// [itest->dsn~tasks~4]
+// [itest->dsn~tasks~5]
 /// A task given by the command reaches every device; its status moves on and a due
 /// follow-up comes first in the open list.
 #[test]
@@ -1303,13 +1305,11 @@ fn tasks_reach_every_device_with_status_and_follow_up() {
     };
     for (id, follow_up) in [("t1", None), ("t2", Some(1))] {
         let t = TaskGiven {
-            report: None,
             task: id.into(),
             unit: Some("RTW 1".into()),
-            sector: None,
             text: "Lagemeldung abgeben".into(),
-            template: None,
             follow_up,
+            ..TaskGiven::default()
         };
         record(&mut world, tasks::GIVEN, t.encode().unwrap());
     }

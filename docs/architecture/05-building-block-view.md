@@ -227,25 +227,29 @@ ordo/
 ### 5.5.1 Shared module `units`
 
 #### Crew workspace
-`dsn~crew-workspace~1`
+`dsn~crew-workspace~2`
 
 *Sanität – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
 incident permission `crew_work` (medical roles, `med.cedar`) and shows the units present
-whose crew names the person's account (`UnitRegister::crewed_by`). View *Aufträge*: per
-unit its status since when and the status select (`units.statusChanged`), its open tasks
-with their next steps (`tasks.updated`; giving and cancelling tasks and the follow-up stay
-with the command, so the crew sees neither *Abbrechen* nor *In 10 Minuten nachfragen*, and
-the status select offers no "Status setzen" once a status is set), and its open
-patient cases ([Reports](#reports)) with place, map and "Patient aufnehmen", which opens
-*UHS – Patienten* with the case in the registration. View *Transporte*: the open
+whose crew names the person's account (`UnitRegister::crewed_by`). View *Aufträge*: first
+the open Aufträge that name the person ([Tasks](#tasks)), then per unit its status since
+when and the status select (`units.statusChanged`) and its open Aufträge, one card each
+([ADR-0081](../adr/0081-one-einsatzauftrag.md)): kind, place and description, a small map
+and the link for the maps app where it has a pin, the next steps (`tasks.updated`; giving,
+cancelling and the follow-up stay with the command, so the crew sees neither *Abbrechen*
+nor *In 10 Minuten nachfragen*, and the status select offers no "Status setzen" once a
+status is set) and, on a patient Auftrag the unit has not taken a patient from yet,
+"Patient aufnehmen", which opens *UHS – Patienten* with the Auftrag in the registration. View *Transporte*: the open
 transports assigned to the unit, from which UHS, with type, priority, needs and
 destination, and their next steps (`transport.updated`). Without a crew, each view says so.
-Cedar lets medical roles write `units.statusChanged` and `tasks.updated`; the server does
-not check that it is their own unit.
+Cedar lets medical roles write `units.statusChanged`, `tasks.updated` and
+`tasks.patientRegistered`; the server does not check that it is their own unit.
 
 Covers:
 
 * [req~unit-9~1](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
+* [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
+* [req~rep-4~2](../requirements/02-shared.md#rep-4--place-on-the-map)
 
 Needs: impl, utest, itest
 
@@ -307,34 +311,41 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~4`
+`dsn~tasks~5`
 
-Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment. `tasks.given`
-gives a task a new ID (ULID): to a unit (call sign; sectors follow with the command
-structure, CMD-1), as free text, optionally from a template of the profile
-(`tasks/templates.toml`), and optionally with a time to follow up. `tasks.updated` moves
-it on (open → in progress → done, or cancelled; never back) and may set a new follow-up
-time; the latest update by hybrid logical clock counts, every update stays in its history
-with who and when. A follow-up is due once its time has passed and the task is open; until
+Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment
+([ADR-0081](../adr/0081-one-einsatzauftrag.md)). `tasks.given` (schema version 3) gives
+an Auftrag a new ID (ULID): to a unit (call sign), a position of the command structure
+(CMD-1) or a person (`person`, an account), as free text, optionally from a template of
+the profile (`tasks/templates.toml`), and optionally with a time to follow up. A report
+([Reports](#reports)) is an Auftrag with a kind (`event` or `patient`), a place and the
+time it came in; it may come without anyone and waits for its unit. `tasks.assigned`
+names the unit of an Auftrag that has not started (one unit per Auftrag; the latest by
+clock counts). `tasks.updated` moves it on (open → in progress → done, or cancelled; never
+back) and may set a new follow-up time; the latest update by hybrid logical clock counts,
+every step stays in its history with who and when. Shown states: *Eingegangen* (open,
+nobody), *Zugewiesen* (open, someone), *In Arbeit*, *Erledigt*, *Abgebrochen*. A follow-up is due once its time has passed and the task is open; until
 then the task card shows the time and counts the minutes and seconds left down (not
 announced to screen readers each second).
 
-Only the incident command gives and updates tasks (Cedar: medical roles may not write the
-module). The page *Disposition* (*Einsatzleitung – Führung*) lists the open tasks, due follow-ups
-first, then by age, each with its unit and next steps, and gives new tasks. The overview's
+Only the incident command gives, assigns and cancels Aufträge (Cedar: medical roles write
+only `tasks.updated` and `tasks.patientRegistered`). The page *Disposition*
+(*Einsatzleitung – Führung*) lists the open Aufträge, due follow-ups first, then by age,
+one card each with kind, place, description, unit, state and next steps, and has one form
+"Neuer Auftrag" for reports and tasks alike. The overview's
 *Disposition* tile shows them in short (TASK-3); the other pages carry no extra line about
 them (feedback of 2026-11-14 and 2026-11-17). On every page, a bell in the header counts
 what needs the command's attention now: follow-ups that
-are due and open reports no unit is working on ([Reports](#reports)). Its number is text,
+are due, Aufträge without anyone, and open staff requests. Its number is text,
 its name says it ("Hinweise: 2"), and its panel lists each item, linked to *Disposition*.
 Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
 colour alone.
 
 Covers:
 
-* [req~task-1~1](../requirements/02-shared.md#task-1--give-tasks)
-* [req~task-2~1](../requirements/02-shared.md#task-2--task-status)
-* [req~task-3~2](../requirements/02-shared.md#task-3--open-tasks-always-visible)
+* [req~task-1~2](../requirements/02-shared.md#task-1--give-tasks)
+* [req~task-2~2](../requirements/02-shared.md#task-2--task-status)
+* [req~task-3~3](../requirements/02-shared.md#task-3--open-tasks-always-visible)
 * [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
 
 Needs: impl, utest, itest
@@ -735,52 +746,50 @@ Tags: should, m59
 ### 5.5.1e Shared module `reports`
 
 #### Reports
-`dsn~reports~1`
+`dsn~reports~2`
 
-Crate `ordo-reports`, module `reports`, in the shared `incident` compartment
-([ADR-0075](../adr/0075-reports-recorded-in-dispatch.md)). No clinical data.
+Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
+[ADR-0081](../adr/0081-one-einsatzauftrag.md)). No clinical data.
 
-* **Record** (`reports.recorded`): a new ID (ULID), the kind (`event` or `patient`), the
-  place as text, a short description and the time the report came in (default: now).
-* **Assign:** a task (`tasks.given`, schema version 2) names the report in `report`; its
-  text starts from the report's place and description. A report lists every task that
-  names it, with the unit and the task's status.
-* **Place on the map:** a map object of the kind `report` (`map.objectPlaced`, schema
-  version 2, `reference` the report's ID), placed with the map editor like a unit.
-* **Patient from a case** (`reports.patientRegistered`: report and unit): written by the
-  device of a crew member when they register the patient; `patients.registered` (schema
-  version 4) names the report in `med.clinical`. The incident event carries neither the
-  triage tag nor the category. Cedar: medical roles write no other event of the module.
-* **Close** (`reports.closed`): the incident command's. A closed report is not listed as
-  open; its events stay. The situation map no longer shows the pin of a closed report
-  (the map event stays).
+* **Record:** the form "Neuer Auftrag" in *Führung – Disposition* takes the kind
+  (*Patient* or *Ereignis*, word and icon), the place as text, a short description (its
+  hint says to leave out medical details), the time it came in (default: now), optionally
+  the unit, and optionally a pin: an address search (ADR-0066) or a tap on a small map
+  sets it, "Pin in Kartenmitte setzen" sets it from the keyboard, and it can be removed
+  before saving.
+* **Pin:** a map object of the kind `task` (`map.objectPlaced`, schema version 4,
+  `reference` the Auftrag's ID). The card moves it in place, with the same small map. A
+  linked Auftrag ("Weiteres Einsatzmittel schicken", `follows`) uses the first one's pin.
+  The situation map shows a pin while one of its Aufträge is open; the map event stays.
+* **Patient from a patient Auftrag** (`tasks.patientRegistered`: Auftrag and unit):
+  written by the device of a crew member when they register the patient;
+  `patients.registered` (schema version 5) names the Auftrag in `task`, in `med.clinical`.
+  The incident event carries neither the triage tag nor the category.
+* **End:** the crew's "Erledigt" or the command's "Abbrechen" ends it; it is no longer
+  listed as open and its pin leaves the map.
+* **Old incidents:** the events of the module `reports` (ADR-0075) are still read. Each
+  task that names a report shows with the report's kind, place and description and its
+  pin of the kind `report`; an open report no task names shows as *Eingegangen*, and
+  assigning it gives an Auftrag that names it; "Abbrechen" closes it
+  (`reports.closed`).
 
-The register is computed from the events in clock order; events for unknown reports are
-ignored, a report recorded twice keeps its first version.
-
-*Führung – Disposition* shows the open reports above the open tasks, oldest first, each
-with kind (word and icon), time, place, description, its units and their task status,
-whether a patient was taken over and by which unit, and the actions to assign, place on
-the map and close. The form records a report; its description field says to leave out
-medical details.
-
-A crew member (by ORDO account in a unit's crew, UNIT-5) sees the open patient cases
-assigned to their units in *Sanität – Besatzung* ([Crew workspace](#crew-workspace)): place, description, time, a small map
-centred on the report's map object and a link for the device's maps app: Apple Maps on
-Apple devices (iOS does not open `geo:`), else a `geo:` link (RFC 5870), where it is
-placed; and "Patient aufnehmen", which opens the registration with the case
-linked. The UHS offered first is one under the unit's position in the command structure,
-else under the nearest position above it.
+A crew member (by ORDO account in a unit's crew, UNIT-5) sees the open Aufträge of their
+units in *Sanität – Besatzung* ([Crew workspace](#crew-workspace)): place, description,
+time, a small map centred on the pin and a link for the device's maps app: Apple Maps on
+Apple devices (iOS does not open `geo:`), else a `geo:` link (RFC 5870); and on a patient
+Auftrag "Patient aufnehmen", which opens the registration with the Auftrag linked. The UHS
+offered first is one under the unit's position in the command structure, else under the
+nearest position above it.
 
 The incident log names each report event in words.
 
 Covers:
 
-* [req~rep-1~1](../requirements/02-shared.md#rep-1--record-reports)
-* [req~rep-2~1](../requirements/02-shared.md#rep-2--assign-reports-to-units)
-* [req~rep-3~1](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
-* [req~rep-4~1](../requirements/02-shared.md#rep-4--place-on-the-map)
-* [req~rep-5~1](../requirements/02-shared.md#rep-5--close-reports)
+* [req~rep-1~2](../requirements/02-shared.md#rep-1--record-reports)
+* [req~rep-2~2](../requirements/02-shared.md#rep-2--assign-reports-to-units)
+* [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
+* [req~rep-4~2](../requirements/02-shared.md#rep-4--place-on-the-map)
+* [req~rep-5~2](../requirements/02-shared.md#rep-5--close-reports)
 
 Needs: impl, utest, itest
 
@@ -817,24 +826,27 @@ Needs: impl, utest, itest
 Tags: must, m37
 
 #### UHS staff requests
-`dsn~uhs-staff-request~1`
+`dsn~uhs-staff-request~2`
 
 Module `med.staffing` in the shared `incident` compartment (no patient data):
 `staffing.requested` (request ID, UHS, need: physician or paramedic) and `staffing.closed`
 (the person sent, or none: withdrawn). The register is computed in clock order; the first
-close counts. *UHS – Patienten* shows, for the UHS the person works at, "Arzt/Ärztin
+close counts. Only a person on the UHS's staff list at the request's clock may ask: the
+server's write guard ([UHS staff](#uhs-staff)) refuses anyone else, also roles allowed at
+every UHS. *UHS – Patienten* shows, for the UHS the person works at, "Arzt/Ärztin
 anfordern" and "Notfallsanitäter/in anfordern" and the latest requests with who comes;
-without a chosen UHS ("Alle UHS") the buttons are shown but off, with a hint to choose one
-under "Meine UHS".
-*Führung – Disposition* lists the open requests above the reports; the command names the
+without a chosen UHS ("Alle UHS"), or for someone not on its staff list, the buttons are
+shown but off (greyed out, dashed border, a "not allowed" cursor) with a hint saying why.
+*Führung – Disposition* lists the open requests above the Aufträge; the command names the
 person (suggesting the incident's people), the app puts them on the UHS's staff list
-(`uhs.updated`, allowed to the command by [UHS staff](#uhs-staff)) and closes the request;
+(`uhs.updated`, allowed to the command by [UHS staff](#uhs-staff)), gives them an Auftrag
+"Zur UHS … als …" ([Tasks](#tasks)) and closes the request;
 "Zurücknehmen" closes it without anyone. Open requests ring the bell in the header
 ([Tasks](#tasks)), and the incident log names each step.
 
 Covers:
 
-* [req~uhs-15~1](../requirements/04-med.md#uhs-15--request-a-physician-or-a-paramedic)
+* [req~uhs-15~2](../requirements/04-med.md#uhs-15--request-a-physician-or-a-paramedic)
 
 Needs: impl, utest, itest
 

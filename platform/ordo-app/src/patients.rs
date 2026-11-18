@@ -179,7 +179,7 @@ pub fn PatientsView(
         core::incident_people(core)
     });
     provide_context(IncidentPeople(people.into(), core));
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     // A patient case the registration fills in (REP-3).
     let pending = crate::reports::take_pending_case();
     if pending.is_some() {
@@ -190,7 +190,7 @@ pub fn PatientsView(
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
-                // [impl->dsn~uhs-staff-request~1]
+                // [impl->dsn~uhs-staff-request~2]
                 <crate::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
                 <PlacePlan core revision nav register working selected=record />
                 <RegisterForm core revision nav />
@@ -420,7 +420,7 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
             }
         });
     }
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     // From a patient case: the unit's UHS first, where the command structure names one.
     let case = use_context::<crate::reports::ActiveCase>().map(|c| c.0);
     if let Some(case) = case {
@@ -442,7 +442,7 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
             return;
         }
         let from = case.and_then(|c| c.get_untracked());
-        let from_case = from.as_ref().map(|c| (c.report.as_str(), c.unit.as_str()));
+        let from_case = from.as_ref().map(|c| (c.task.as_str(), c.unit.as_str()));
         match core::register(core, revision, &value, chosen, &uhs.get(), from_case) {
             Ok(()) => {
                 if let Some(case) = case {

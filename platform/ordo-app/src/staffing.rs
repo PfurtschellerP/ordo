@@ -1,6 +1,7 @@
 //! A UHS asks for a physician or a paramedic (UHS-15): its staff ask in *UHS – Patienten*;
 //! the incident command sees the request in *Disposition* and in the bell, puts a person on
-//! the UHS's staff list (which gives them access to its patients, UHS-10) and closes it.
+//! the UHS's staff list (which gives them access to its patients, UHS-10), gives them an
+//! Auftrag to go there, and closes it. Only the UHS's staff ask; the server checks it too.
 
 use leptos::prelude::*;
 use ordo_med_patients::staffing::{self, Closed, Need, Requested, StaffRequests};
@@ -12,6 +13,16 @@ use crate::text;
 /// The incident's staff requests, computed from the shared events.
 pub fn list(core: Handle) -> StaffRequests {
     core.with_value(|c| StaffRequests::from_events(&c.events(staffing::COMPARTMENT)))
+}
+
+/// Whether this person is on the staff list of `uhs`: only they ask for it (UHS-15).
+fn on_staff(core: Handle, uhs: &str) -> bool {
+    core.with_value(|c| {
+        let me = c.replica.user().to_string();
+        med::uhs_details(&c.events(med::UHS_COMPARTMENT))
+            .get(uhs)
+            .is_some_and(|d| d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me)))
+    })
 }
 
 /// Records a request of `uhs` for `need`.
@@ -54,7 +65,7 @@ fn close(core: Handle, revision: RwSignal<u64>, request: &str, person: Option<St
     }
 }
 
-// [impl->dsn~uhs-staff-request~1]
+// [impl->dsn~uhs-staff-request~2]
 /// In *UHS – Patienten*, for the UHS the person works at: ask for a physician or a
 /// paramedic, and see the requests and who comes.
 #[component]
@@ -86,18 +97,30 @@ pub fn StaffRequestPanel(
             })
             .collect::<Vec<_>>()
     });
-    // Always shown, so people find it; without a chosen UHS the buttons are off and the
-    // hint says what to choose (product owner, 2026-11-17).
-    let none = move || uhs.with(String::is_empty);
+    // Always shown, so people find it; without a chosen UHS, or for someone not on its
+    // staff list, the buttons are off and the hint says why (product owner, 2026-11-18).
+    let allowed = Memo::new(move |_| {
+        revision.track();
+        let uhs = uhs.get();
+        !uhs.is_empty() && on_staff(core, &uhs)
+    });
+    let hint = move || {
+        let chosen = uhs.get();
+        if chosen.is_empty() {
+            text::STAFF_REQUEST_CHOOSE_UHS.to_owned()
+        } else if allowed.get() {
+            text::staff_request_for(&core::uhs_name(core, &chosen))
+        } else {
+            text::staff_request_not_staff(&core::uhs_name(core, &chosen))
+        }
+    };
     view! {
             <section class="card staff-requests" aria-labelledby="staff-requests-title">
                 <h2 id="staff-requests-title">{text::STAFF_REQUESTS_TITLE}</h2>
-                <p class="hint" id="staff-requests-hint">
-                    {move || if none() { text::STAFF_REQUEST_CHOOSE_UHS.to_owned() } else { text::staff_request_for(&core::uhs_name(core, &uhs.get())) }}
-                </p>
+                <p class="hint" id="staff-requests-hint">{hint}</p>
                 <div class="row">
                     {[Need::Physician, Need::Paramedic].into_iter().map(|need| view! {
-                        <button type="button" class="button" disabled=none aria-describedby="staff-requests-hint"
+                        <button type="button" class="button" disabled=move || !allowed.get() aria-describedby="staff-requests-hint"
                             on:click=move |_| request(core, revision, &uhs.get_untracked(), need)>
                             {text::staff_request_button(need)}
                         </button>
@@ -115,9 +138,10 @@ pub fn StaffRequestPanel(
     }
 }
 
-// [impl->dsn~uhs-staff-request~1]
+// [impl->dsn~uhs-staff-request~2]
 /// In *Führung – Disposition*: the open requests of the UHS; the command names a person,
-/// who goes on the UHS's staff list, and the request is closed.
+/// who goes on the UHS's staff list and gets an Auftrag to go there, and the request is
+/// closed.
 #[component]
 pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let open = Memo::new(move |_| {
@@ -159,6 +183,15 @@ pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
                             staff.push(who.clone());
                             let update = UhsUpdated { id: uhs_id.clone(), staff: Some(staff), ..Default::default() };
                             if core::update_uhs(core, revision, &update).is_ok() {
+                                // The person sees where to go (product owner, 2026-11-18).
+                                let uhs = core::uhs_name(core, &uhs_id);
+                                let task = ordo_tasks::TaskGiven {
+                                    person: Some(who.clone()),
+                                    place: Some(uhs.clone()),
+                                    text: text::staff_task(&uhs, need),
+                                    ..ordo_tasks::TaskGiven::default()
+                                };
+                                let _ = core::give_task(core, revision, task);
                                 close(core, revision, &send_id, Some(who));
                             }
                         };

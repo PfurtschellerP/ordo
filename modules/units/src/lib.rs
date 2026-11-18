@@ -498,7 +498,7 @@ impl UnitRegister {
         self.units.values().filter(|u| u.is_present())
     }
 
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     /// The units present whose crew names `user` (a user ID): by the member's account, or
     /// by a name typed as a user ID.
     pub fn crewed_by<'a>(&'a self, user: &'a str) -> impl Iterator<Item = &'a Unit> {
@@ -830,7 +830,7 @@ mod tests {
         assert_eq!(Strength::from([0, 1, 8]).total(), 9);
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn a_person_finds_the_units_whose_crew_names_them() {
         let crew = CrewSet {

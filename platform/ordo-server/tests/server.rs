@@ -290,6 +290,7 @@ impl Client {
     fn register(&mut self, tag: &str, category: TriageCategory) {
         let payload = Registered {
             report: None,
+            task: None,
             tag: tag.into(),
             category,
             uhs: "UHS 1".into(),

@@ -211,27 +211,30 @@ Needs: dsn
 ### 4.4 Shared: tasks and orders
 
 #### TASK-1 — Give tasks
-`req~task-1~1`
+`req~task-1~2`
 
-Give a task to a unit or sector (free text + optional template)
+When the incident command gives a task (*Auftrag*), ORDO shall let it name one unit, one
+position of the command structure or one person, as free text or from a template of the
+profile; an Auftrag that came in as a report may wait for its unit.
 
 Tags: must, shared, m31
 
 Needs: dsn
 
 #### TASK-2 — Task status
-`req~task-2~1`
+`req~task-2~2`
 
-Task status: open → in progress → done / cancelled
+ORDO shall keep one status per Auftrag: received (nobody assigned yet), assigned, in
+progress, done, or cancelled by the incident command; a status never goes back.
 
 Tags: must, shared, m31
 
 Needs: dsn
 
 #### TASK-3 — Open tasks always visible
-`req~task-3~2`
+`req~task-3~3`
 
-While a leader works in an incident, ORDO shall show on every page how many items need their attention (due follow-ups, reports no unit works on), and shall list the open tasks on the command's overview and on its task page.
+While a leader works in an incident, ORDO shall show on every page how many items need their attention (due follow-ups, Aufträge without a unit, staff requests), and shall list the open Aufträge on the command's overview and on its task page.
 
 Tags: must, shared, m31
 
@@ -250,58 +253,61 @@ Needs: dsn
 
 Reports are what reaches the incident command by radio, phone or in person: an event on
 the site or a person who needs help. They carry a place and a short description, never
-clinical data ([ADR-0075](../adr/0075-reports-recorded-in-dispatch.md)).
+clinical data. A report is recorded as an Auftrag of its own, which a unit then takes on
+([ADR-0081](../adr/0081-one-einsatzauftrag.md), which supersedes
+[ADR-0075](../adr/0075-reports-recorded-in-dispatch.md)).
 
 #### REP-1 — Record reports
-`req~rep-1~1`
+`req~rep-1~2`
 
 When a report reaches the incident command, ORDO shall let the command record it in
-*Führung – Disposition* as an event or a patient case, with its place, a short
-description and the time it came in, in the shared incident data.
+*Führung – Disposition* as an Auftrag of the kind event or patient case, with its place, a
+short description, the time it came in and, on the same form, optionally a pin set on a
+map or found by address and the unit it goes to, in the shared incident data.
 
 Tags: must, shared, m60
 
 Needs: dsn
 
 #### REP-2 — Assign reports to units
-`req~rep-2~1`
+`req~rep-2~2`
 
-When the incident command assigns a report to a unit, ORDO shall give that unit a task
-linked to the report, and show every open report with its units and their task status
-until the command closes it.
+When the incident command assigns an Auftrag to a unit, ORDO shall give it to that one
+unit and show it with its unit and status until it ends; when the command sends a further
+unit, ORDO shall make a linked Auftrag for the same place and pin.
 
 Tags: must, shared, m60
 
 Needs: dsn
 
 #### REP-3 — Patient from a patient case
-`req~rep-3~1`
+`req~rep-3~2`
 
-When a member of a unit's crew opens a patient case assigned to that unit, ORDO shall let
-them register the patient from it, with the on-site care unit of their choice (the unit's
-own, where the command structure names one, offered first), link the patient to the case,
-and tell the incident command that the case has a patient, without clinical data.
+When a member of a unit's crew opens a patient Auftrag of that unit, ORDO shall let them
+register the patient from it, with the on-site care unit of their choice (the unit's own,
+where the command structure names one, offered first), link the patient to the Auftrag,
+and tell the incident command that it has a patient, without clinical data.
 
 Tags: must, shared, m60
 
 Needs: dsn
 
 #### REP-4 — Place on the map
-`req~rep-4~1`
+`req~rep-4~2`
 
-Where the incident command places a report on the situation map, ORDO shall show the
-place to the crews of the units it is assigned to, on a map and as a link for the device's
-maps app.
+While an Auftrag with a pin is open, ORDO shall show the pin on the situation map, and to
+the crew of its unit on a map and as a link for the device's maps app.
 
 Tags: should, shared, m60
 
 Needs: dsn
 
 #### REP-5 — Close reports
-`req~rep-5~1`
+`req~rep-5~2`
 
-When the incident command closes a report, ORDO shall keep it, with its tasks and its
-patient link, in the history and the incident log, and no longer list it as open.
+When the crew of its unit marks an Auftrag done or the incident command cancels it, ORDO
+shall keep it, with its history and its patient link, in the history and the incident log,
+no longer list it as open, and no longer show its pin.
 
 Tags: must, shared, m60
 

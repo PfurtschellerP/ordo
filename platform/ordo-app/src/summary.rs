@@ -73,9 +73,9 @@ fn overview(core: Handle) -> Overview {
             let due = t.is_due(now);
             NextTask {
                 id: t.given.task.clone(),
-                text: t.given.text.clone(),
-                assignee: crate::tasks::assignee(t, &structure),
-                status: text::task_status(t.status),
+                text: crate::tasks::label(t),
+                assignee: crate::tasks::assignee(core, t, &structure),
+                status: text::task_phase(t.phase()),
                 follow_up: t.follow_up.map(|at| {
                     let at = core::clock(at);
                     if due {

@@ -1,15 +1,21 @@
-//! Tasks (TASK-1…4): the incident command's open tasks, always at the top of its views,
-//! with their next steps, follow-ups, and the form to give a new one.
+//! Aufträge (TASK-1…4, REP-1…5, ADR-0081): what the incident command gives to a unit, a
+//! position or a person, and what reaches it as a report, in one list with one state each.
+//! Each card shows kind, place, description, unit and state, and the next steps; the form
+//! "Neuer Auftrag" records reports and gives tasks alike, with the pin set on the form.
 
 use std::sync::LazyLock;
 
 use leptos::prelude::*;
-use ordo_tasks::{Task, TaskGiven, TaskList, TaskStatus, TaskUpdated, TemplateCatalogue};
+use ordo_map::ObjectKind;
+use ordo_tasks::{
+    Phase, TakenOver, Task, TaskAssigned, TaskGiven, TaskKind, TaskList, TaskStatus, TaskStep,
+    TaskUpdated, TemplateCatalogue,
+};
 use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::text;
-use crate::ui::{Action, Actions, Disclosure};
+use crate::ui::{Action, Actions, Disclosure, Icon};
 
 /// Task templates from the profile (`tasks/templates.toml`, checked at build time).
 pub static TEMPLATES: LazyLock<TemplateCatalogue> = LazyLock::new(|| {
@@ -20,41 +26,200 @@ pub static TEMPLATES: LazyLock<TemplateCatalogue> = LazyLock::new(|| {
 /// Ten minutes, for "follow up later".
 const LATER_MS: u64 = 10 * 60 * 1000;
 
-/// The incident's tasks, computed from the shared events.
+/// The ID prefix of an open report (ADR-0075) that no task names yet, shown as received.
+const LEGACY: &str = "report:";
+
+// [impl->dsn~reports~2]
+/// The incident's Aufträge, computed from the shared events, with the reports of an
+/// incident recorded before ADR-0081: a task naming a report shows the report's kind, place
+/// and description, and an open report without a task shows as received.
 pub fn task_list(core: Handle) -> TaskList {
-    core.with_value(|c| TaskList::from_events(&c.events(ordo_tasks::COMPARTMENT)))
+    let mut list = core.with_value(|c| TaskList::from_events(&c.events(ordo_tasks::COMPARTMENT)));
+    for r in crate::reports::list(core).reports.values() {
+        let id = &r.recorded.report;
+        let mut named = false;
+        for t in list
+            .tasks
+            .values_mut()
+            .filter(|t| t.given.report.as_deref() == Some(id.as_str()))
+        {
+            named = true;
+            let g = &mut t.given;
+            if g.kind.is_none() {
+                g.kind = Some(crate::reports::task_kind(r.recorded.kind));
+                g.place = Some(r.recorded.place.clone());
+                g.text.clone_from(&r.recorded.text);
+                g.received_at = Some(r.recorded.received_at);
+            }
+            t.patients.extend(r.patients.iter().map(|p| TakenOver {
+                unit: p.unit.clone(),
+                at: p.at,
+                by: p.by.clone(),
+            }));
+        }
+        if !named && r.is_open() {
+            let task = format!("{LEGACY}{id}");
+            list.tasks.insert(
+                task.clone(),
+                Task {
+                    given: TaskGiven {
+                        task,
+                        kind: Some(crate::reports::task_kind(r.recorded.kind)),
+                        place: Some(r.recorded.place.clone()),
+                        text: r.recorded.text.clone(),
+                        received_at: Some(r.recorded.received_at),
+                        report: Some(id.clone()),
+                        ..TaskGiven::default()
+                    },
+                    status: TaskStatus::Open,
+                    follow_up: None,
+                    unit: None,
+                    patients: Vec::new(),
+                    history: vec![TaskStep {
+                        status: TaskStatus::Open,
+                        at: r.at,
+                        by: r.by.clone(),
+                    }],
+                },
+            );
+        }
+    }
+    list
 }
 
-/// Who a task is for: the unit's call sign, or the position's title.
-pub(crate) fn assignee(task: &Task, structure: &ordo_command::CommandStructure) -> String {
-    match (&task.given.unit, &task.given.sector) {
-        (Some(unit), _) => unit.clone(),
-        (None, Some(id)) => structure
-            .positions
-            .get(id)
-            .map_or_else(|| id.clone(), crate::command::position_title),
-        (None, None) => String::new(),
+/// Whether it stands for an open report no task names yet (ADR-0075).
+fn is_legacy(task: &Task) -> bool {
+    task.given.task.starts_with(LEGACY)
+}
+
+// [impl->dsn~reports~2]
+/// The map object of an Auftrag's pin: the first one's of a linked group, or the report's
+/// of an incident recorded before ADR-0081.
+pub fn pin_object(task: &Task) -> String {
+    match &task.given.report {
+        Some(report) => ObjectKind::Report.object_id(report),
+        None => ObjectKind::Task.object_id(task.pin_task()),
     }
 }
 
-/// One open task: what, for whom, status, follow-up, and the next steps.
+// [impl->dsn~reports~2]
+/// The situation map without the pins no open Auftrag needs (REP-5): the map events stay,
+/// and the log shows them.
+pub fn needed_pins(core: Handle, mut map: ordo_map::SituationMap) -> ordo_map::SituationMap {
+    let tasks = task_list(core);
+    let reports = crate::reports::list(core);
+    map.objects.retain(|_, o| {
+        let reference = o.placed.reference.as_deref().unwrap_or_default();
+        match o.placed.kind {
+            ObjectKind::Task => tasks.pin_needed(reference),
+            ObjectKind::Report => {
+                reports
+                    .reports
+                    .get(reference)
+                    .is_some_and(ordo_reports::Report::is_open)
+                    && tasks
+                        .tasks
+                        .values()
+                        .any(|t| t.status.is_open() && t.given.report.as_deref() == Some(reference))
+            }
+            _ => true,
+        }
+    });
+    map
+}
+
+/// An Auftrag in a few words, for the map, the bell and accessible names: "Patient: Bühne
+/// Nord", or its text.
+pub fn label(task: &Task) -> String {
+    match (task.given.kind, &task.given.place) {
+        (Some(kind), Some(place)) => text::task_label(kind, place),
+        _ => task.given.text.clone(),
+    }
+}
+
+/// Who an Auftrag is for: the unit's call sign, the position's title or the person's name;
+/// empty for nobody yet.
+pub(crate) fn assignee(
+    core: Handle,
+    task: &Task,
+    structure: &ordo_command::CommandStructure,
+) -> String {
+    match (&task.unit, &task.given.sector, &task.given.person) {
+        (Some(unit), _, _) => unit.clone(),
+        (None, Some(id), _) => structure
+            .positions
+            .get(id)
+            .map_or_else(|| id.clone(), crate::command::position_title),
+        (None, None, Some(person)) => crate::profile::display_text(core, person),
+        (None, None, None) => String::new(),
+    }
+}
+
+/// The call signs of the units present.
+fn present_units(core: Handle) -> Vec<String> {
+    core.with_value(|c| {
+        UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
+            .present()
+            .map(|u| u.unit.clone())
+            .collect()
+    })
+}
+
+/// What, where and when of a reported Auftrag, with a word and an icon for the kind (never
+/// colour alone).
+#[component]
+fn TaskHead(task: Task, assignee: String) -> impl IntoView {
+    let given = task.given;
+    match given.kind {
+        Some(kind) => {
+            let icon = match kind {
+                TaskKind::Event => "zap",
+                TaskKind::Patient => "users",
+            };
+            let received = given
+                .received_at
+                .map(|at| view! { " · " {text::task_received(&core::clock(at))} });
+            view! {
+                <p class="task-card__kind"><Icon name=icon />{text::task_kind(kind)}{received}</p>
+                <p class="task-card__what">
+                    <strong>{given.place.clone().unwrap_or_default()}</strong> " – " {given.text.clone()}
+                </p>
+            }
+            .into_any()
+        }
+        None => view! {
+            <p class="task-card__what">
+                <strong>{given.place.clone().unwrap_or(assignee)}</strong> " – " {given.text.clone()}
+            </p>
+        }
+        .into_any(),
+    }
+}
+
+// [impl->dsn~tasks~5]
+// [impl->dsn~reports~2]
+/// One open Auftrag as a card: what, where, for whom, its state, the follow-up, patients
+/// taken over, and the next steps. For the command: assign it, send a further unit, set or
+/// move its pin, move it on, cancel it and ask again later. For the crew (`crew`): its pin
+/// on a small map with the link for the maps app, "Patient aufnehmen" on a patient Auftrag,
+/// and moving it on.
 #[component]
 pub(crate) fn TaskItem(
     core: Handle,
     revision: RwSignal<u64>,
     task: Task,
-    /// Who it is for: a unit's call sign or a position's title.
-    assignee: String,
     editable: bool,
     now: u64,
-    /// Shown to the unit's crew (UNIT-9): it moves the task on, but cancelling it and when
-    /// to ask again are the incident command's.
+    /// Shown to the unit's crew or the person it is for (UNIT-9): they move it on, but
+    /// cancelling it and when to ask again are the incident command's.
     #[prop(optional)]
     crew: bool,
 ) -> impl IntoView {
-    let unit = assignee;
-    let what = task.given.text.clone();
+    let who = assignee(core, &task, &crate::command::structure(core));
+    let name = label(&task);
     let due = task.is_due(now);
+    let phase = task.phase();
+    let legacy = is_legacy(&task);
     let follow_up = task.follow_up.filter(|_| !crew).map(|at| {
         let clock = core::clock(at);
         if due {
@@ -72,37 +237,57 @@ pub(crate) fn TaskItem(
             text::task_given_by(&at, &crate::profile::display_name(core, &user))
         })
     };
+    let pin = pin_object(&task);
+    let placed = crate::situation::placed_at(core, &pin);
+    let taken: Vec<String> = task
+        .patients
+        .iter()
+        .map(|p| text::task_taken(&p.unit, &core::clock(p.at.wall_ms)))
+        .collect();
     let actions = editable.then(|| {
         let id = task.given.task.clone();
-        let mut list: Vec<Action> = task
-            .status
-            .next()
-            .into_iter()
-            .filter(|status| !(crew && *status == TaskStatus::Cancelled))
-            .map(|status| {
-                let id = id.clone();
-                let step = text::task_step(status);
-                Action {
-                    text: step,
-                    label: text::task_step_label(step, &unit, &what),
-                    quiet: status == TaskStatus::Cancelled,
-                    run: Callback::new(move |()| {
-                        let update = TaskUpdated {
-                            task: id.clone(),
-                            status: Some(status),
-                            follow_up: None,
-                        };
-                        let _ = core::update_task(core, revision, &update);
-                    }),
-                }
-            })
-            .collect();
-        // The command can ask again later on any open task, also one given without a
-        // follow-up (e.g. from a report).
+        let mut list: Vec<Action> = Vec::new();
+        if legacy {
+            // An open report without a task (ADR-0075): cancelling closes it.
+            let report = task.given.report.clone().unwrap_or_default();
+            list.push(Action {
+                text: text::task_step(TaskStatus::Cancelled),
+                label: text::task_step_label(text::task_step(TaskStatus::Cancelled), &name),
+                quiet: true,
+                run: Callback::new(move |()| {
+                    let _ = core::close_report(core, revision, &report);
+                }),
+            });
+            return list;
+        }
+        for status in task.status.next() {
+            // The crew never cancels, and a received Auftrag is assigned first.
+            if (crew && status == TaskStatus::Cancelled)
+                || (phase == Phase::Received && status != TaskStatus::Cancelled)
+            {
+                continue;
+            }
+            let id = id.clone();
+            let step = text::task_step(status);
+            list.push(Action {
+                text: step,
+                label: text::task_step_label(step, &name),
+                quiet: status == TaskStatus::Cancelled,
+                run: Callback::new(move |()| {
+                    let update = TaskUpdated {
+                        task: id.clone(),
+                        status: Some(status),
+                        follow_up: None,
+                    };
+                    let _ = core::update_task(core, revision, &update);
+                }),
+            });
+        }
+        // The command can ask again later on any open Auftrag.
         if !crew {
             list.push(Action {
                 text: text::FOLLOW_UP_LATER,
-                label: text::task_step_label(text::FOLLOW_UP_LATER, &unit, &what),
+                label: text::task_step_label(text::FOLLOW_UP_LATER, &name),
                 quiet: true,
                 run: Callback::new(move |()| {
                     let update = TaskUpdated {
@@ -116,19 +301,232 @@ pub(crate) fn TaskItem(
         }
         list
     });
+    let command = editable && !crew;
+    let reported = task.given.kind.is_some();
+    let status_line = if who.is_empty() {
+        view! { <strong>{text::task_phase(phase)}</strong> " · " {by} }.into_any()
+    } else {
+        view! { <strong>{text::task_phase(phase)}</strong> " · " {who.clone()} " · " {by} }
+            .into_any()
+    };
+    let crew_part = crew.then(|| view! { <CrewPart core revision task=task.clone() placed /> });
+    let command_part = command.then(|| {
+        let assign = (phase == Phase::Received)
+            .then(|| view! { <AssignForm core revision task=task.clone() further=false /> });
+        let further = (reported && phase != Phase::Received && !legacy).then(|| {
+            let open = RwSignal::new(false);
+            let id = format!("further-{}", core::slug(&task.given.task));
+            let task = task.clone();
+            view! {
+                <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
+                    panel_class="task-card__panel"
+                    button=Box::new(|| view! { <Icon name="plus" />{text::TASK_SEND_FURTHER} }.into_any())>
+                    <AssignForm core revision task further=true />
+                </Disclosure>
+            }
+        });
+        view! {
+            {placed.is_some().then(|| view! { <p class="hint"><Icon name="map-pin" />{text::TASK_ON_MAP}</p> })}
+            {assign}
+            <PinEditor core revision object=pin.clone() label=name.clone() placed />
+            {further}
+        }
+    });
     view! {
-        <li class="task-card" class:task-card--due=due data-task=task.given.task.clone()>
-            <p class="task-card__what"><strong>{unit.clone()}</strong> " – " {what.clone()}</p>
-            <p class="task-card__status">{text::task_status(task.status)} " · " {by}</p>
+        <li class="task-card" class:task-card--due=due class:task-card--patient=task.given.kind == Some(TaskKind::Patient)
+            data-task=task.given.task.clone() data-phase=text::task_phase(phase)>
+            <TaskHead task=task.clone() assignee=who.clone() />
+            <p class="task-card__status">{status_line}</p>
             {follow_up.map(|f| view! {
                 <p class="task-card__follow-up">{due.then(|| view! { <span class="task-card__due" aria-hidden="true">"⏰ "</span> })}{f}</p>
             })}
+            {taken.into_iter().map(|t| view! { <p class="task-card__taken">{t}</p> }).collect_view()}
+            {crew_part}
+            {command_part}
             {actions.map(|actions| view! { <Actions actions /> })}
         </li>
     }
 }
 
-// [impl->dsn~tasks~4]
+// [impl->dsn~crew-workspace~2]
+/// The crew's part of a card (REP-3, REP-4): the pin on a small map with the link for the
+/// maps app, and on a patient Auftrag the unit has not taken a patient from yet, "Patient
+/// aufnehmen", which opens the registration in *UHS – Patienten* with it.
+#[component]
+fn CrewPart(
+    core: Handle,
+    revision: RwSignal<u64>,
+    task: Task,
+    placed: Option<[f64; 2]>,
+) -> impl IntoView {
+    let nav = use_context::<crate::views::Nav>();
+    let may_register = Memo::new(move |_| {
+        revision.track();
+        core::granted(core, ordo_med_patients::COMPARTMENT)
+    });
+    let unit = task.unit.clone();
+    let patient = task.given.kind == Some(TaskKind::Patient)
+        && unit
+            .as_ref()
+            .is_some_and(|u| !task.patients.iter().any(|p| &p.unit == u));
+    let object = pin_object(&task);
+    let case = unit.map(|unit| crate::reports::Case {
+        task: task.given.task.clone(),
+        unit,
+        place: task.given.place.clone().unwrap_or_default(),
+    });
+    let take = move |_| {
+        if let Some(case) = case.clone() {
+            crate::reports::set_pending_case(case);
+        }
+        if let Some(nav) = nav {
+            nav.go(crate::nav::Route::view("med.uhs", "patients"));
+        }
+    };
+    view! {
+        {placed.map(|at| view! {
+            <crate::situation::PlaceMap core revision object />
+            <p><a href=crate::reports::maps_app_uri(at)><Icon name="map-pin" />{text::OPEN_IN_MAPS_APP}</a></p>
+        })}
+        {patient.then(|| view! {
+            <Show when=move || may_register.get()>
+                <div class="row">
+                    <button type="button" class="button button--primary" on:click=take.clone()>
+                        {text::CASE_REGISTER}
+                    </button>
+                </div>
+            </Show>
+        })}
+    }
+}
+
+// [impl->dsn~reports~2]
+/// Assigning a received Auftrag to its one unit (REP-2), or with `further` sending a
+/// further unit: a linked Auftrag for the same place and pin.
+#[component]
+fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) -> impl IntoView {
+    let unit = RwSignal::new(String::new());
+    let error = RwSignal::new(None::<&'static str>);
+    let units = Memo::new(move |_| {
+        revision.track();
+        present_units(core)
+    });
+    let field = format!(
+        "{}-{}",
+        if further { "further" } else { "assign" },
+        core::slug(&task.given.task)
+    );
+    let task = StoredValue::new(task);
+    let submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let chosen = unit.get_untracked();
+        if chosen.is_empty() {
+            error.set(Some(text::TASK_UNIT_MISSING));
+            return;
+        }
+        let t = task.get_value();
+        let done = if further || is_legacy(&t) {
+            // A new Auftrag for the same report: linked to the first, or naming the old
+            // report (ADR-0075).
+            let given = TaskGiven {
+                task: String::new(),
+                unit: Some(chosen),
+                follows: (!is_legacy(&t)).then(|| t.pin_task().to_owned()),
+                report: is_legacy(&t).then(|| t.given.report.clone()).flatten(),
+                follow_up: None,
+                template: None,
+                sector: None,
+                person: None,
+                ..t.given.clone()
+            };
+            core::give_task(core, revision, given).is_ok()
+        } else {
+            let assigned = TaskAssigned {
+                task: t.given.task.clone(),
+                unit: chosen,
+            };
+            core::assign_task(core, revision, &assigned).is_ok()
+        };
+        if done {
+            unit.set(String::new());
+            error.set(None);
+        }
+    };
+    let label = if further {
+        text::TASK_SEND_TO
+    } else {
+        text::TASK_ASSIGN_TO
+    };
+    view! {
+        <form class="form--inline task-card__assign" novalidate on:submit=submit>
+            <div class="field">
+                <label for=field.clone()>{label}</label>
+                <select id=field prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
+                    <option value="" disabled selected>{text::TASK_UNIT_ONLY}</option>
+                    {move || units.get().into_iter().map(|u| view! { <option value=u.clone()>{u.clone()}</option> }).collect_view()}
+                </select>
+            </div>
+            <button type="submit" class="button button--small">
+                {if further { text::TASK_SEND } else { text::TASK_ASSIGN }}
+            </button>
+            <p role="alert" class="error">{move || error.get()}</p>
+        </form>
+    }
+}
+
+// [impl->dsn~reports~2]
+/// Setting or moving the pin of an Auftrag in place (REP-4): the small map of the form,
+/// then "Pin speichern"; "Pin entfernen" takes it off the map.
+#[component]
+fn PinEditor(
+    core: Handle,
+    revision: RwSignal<u64>,
+    object: String,
+    label: String,
+    placed: Option<[f64; 2]>,
+) -> impl IntoView {
+    let open = RwSignal::new(false);
+    let pin = RwSignal::new(placed);
+    let id = format!("pin-{}", core::slug(&object));
+    let object = StoredValue::new(object);
+    let label = StoredValue::new(label);
+    let save = move |_| {
+        let done = match pin.get_untracked() {
+            Some(at) => crate::situation::set_pin(
+                core,
+                revision,
+                &object.get_value(),
+                &label.get_value(),
+                at,
+            ),
+            None => {
+                crate::situation::remove_pin(core, revision, &object.get_value());
+                true
+            }
+        };
+        if done {
+            open.set(false);
+        }
+    };
+    let picker = id.clone();
+    view! {
+        <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
+            panel_class="task-card__panel"
+            label=Some(Signal::derive(move || text::pin_edit_label(placed.is_some(), &label.get_value())))
+            button=Box::new(move || view! {
+                <Icon name="map-pin" />{if placed.is_some() { text::PIN_MOVE } else { text::PIN_SET }}
+            }.into_any())>
+            <Show when=move || open.get()>
+                <crate::situation::PinPicker core revision id=picker.clone() pin />
+                <div class="row">
+                    <button type="button" class="button button--small" on:click=save>{text::PIN_SAVE}</button>
+                </div>
+            </Show>
+        </Disclosure>
+    }
+}
+
+// [impl->dsn~tasks~5]
 /// When the incident command asks the unit again: the time and the minutes and seconds
 /// left, counted down every second. Not announced each second (no live region); when it
 /// reaches zero, the views recompute and the task shows as due.
@@ -155,10 +553,10 @@ fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl In
     }
 }
 
-// [impl->dsn~tasks~4]
+// [impl->dsn~tasks~5]
 /// The bell in the header (TASK-3): for the incident command, on every page, what needs its
-/// attention now: follow-ups that are due, and open reports no unit is working on (REP-2).
-/// The number is text, never colour alone; each item links to *Disposition*.
+/// attention now: follow-ups that are due, Aufträge without anyone (REP-2), and staff
+/// requests. The number is text, never colour alone; each item links to *Disposition*.
 #[component]
 pub fn AttentionBell(
     core: Handle,
@@ -178,27 +576,19 @@ pub fn AttentionBell(
         revision.track();
         let now = core::now_ms();
         let tasks = task_list(core);
-        let mut items: Vec<String> = tasks
-            .open(now)
-            .into_iter()
-            .filter(|t| t.is_due(now))
-            .map(|t| {
-                text::attention_due(t.given.unit.as_deref().unwrap_or_default(), &t.given.text)
-            })
-            .collect();
-        items.extend(
-            crate::reports::list(core)
-                .open()
-                .into_iter()
-                .filter(|r| {
-                    !tasks
-                        .of_report(&r.recorded.report)
-                        .iter()
-                        .any(|t| t.status.is_open())
-                })
-                .map(|r| text::attention_unassigned(&crate::reports::label(&r.recorded))),
-        );
-        // [impl->dsn~uhs-staff-request~1]
+        let structure = crate::command::structure(core);
+        let mut items: Vec<String> = Vec::new();
+        for t in tasks.open(now) {
+            if t.is_due(now) {
+                items.push(text::attention_due(
+                    &assignee(core, t, &structure),
+                    &label(t),
+                ));
+            } else if t.phase() == Phase::Received {
+                items.push(text::attention_unassigned(&label(t)));
+            }
+        }
+        // [impl->dsn~uhs-staff-request~2]
         items.extend(crate::staffing::list(core).open().into_iter().map(|r| {
             text::staff_requested(&core::uhs_name(core, &r.requested.uhs), r.requested.need)
         }));
@@ -245,9 +635,11 @@ pub fn AttentionBell(
     }
 }
 
-// [impl->dsn~tasks~4]
-/// The page *Disposition*: all open tasks, due follow-ups first; the command gives new tasks
-/// here (TASK-1); below, the units with their status, set here (ADR-0070).
+// [impl->dsn~tasks~5]
+// [impl->dsn~reports~2]
+/// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; the form
+/// "Neuer Auftrag" for reports and tasks; below, the units with their status, set here
+/// (ADR-0070).
 #[component]
 pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let editable = Memo::new(move |_| {
@@ -274,8 +666,10 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let giving = RwSignal::new(false);
     // Whom the next task is for, also chosen from a unit's "Auftrag geben".
     let chosen = RwSignal::new(String::new());
+    let kind = RwSignal::new(None::<NewKind>);
     let give = Callback::new(move |unit: String| {
         chosen.set(format!("unit:{unit}"));
+        kind.set(Some(NewKind::Other));
         // Opened after this click, which would otherwise close it as a click outside.
         request_animation_frame(move || {
             giving.set(true);
@@ -293,15 +687,9 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let editable = editable.get();
                 view! {
                     <ul class="task-list" data-keys="list">
-                        {
-                            let structure = crate::command::structure(core);
-                            list.into_iter()
-                                .map(|task| {
-                                    let assignee = assignee(&task, &structure);
-                                    view! { <TaskItem core revision task assignee editable now /> }
-                                })
-                                .collect_view()
-                        }
+                        {list.into_iter()
+                            .map(|task| view! { <TaskItem core revision task editable now /> })
+                            .collect_view()}
                     </ul>
                 }
                 .into_any()
@@ -313,9 +701,9 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     class="tasks-panel__give"
                     button_class="button button--small"
                     panel_class="tasks-panel__form"
-                    button=Box::new(|| view! { {text::TASK_GIVE} }.into_any())
+                    button=Box::new(|| view! { <Icon name="plus" />{text::TASK_NEW} }.into_any())
                 >
-                    <GiveTask core revision unit=chosen />
+                    <NewTask core revision unit=chosen kind />
                 </Disclosure>
             </Show>
         </section>
@@ -323,23 +711,62 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-/// Giving a task to a unit (TASK-1): a template fills in the text, which can be changed;
-/// optionally a time to follow up (TASK-4). `unit` is whom it is for (`unit:<call sign>` or
-/// `position:<ID>`).
+/// What a new Auftrag is: a report of a patient or an event, or another task.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NewKind {
+    Patient,
+    Event,
+    Other,
+}
+
+impl NewKind {
+    fn kind(self) -> Option<TaskKind> {
+        match self {
+            Self::Patient => Some(TaskKind::Patient),
+            Self::Event => Some(TaskKind::Event),
+            Self::Other => None,
+        }
+    }
+
+    fn id(self) -> &'static str {
+        match self {
+            Self::Patient => "patient",
+            Self::Event => "event",
+            Self::Other => "other",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self.kind() {
+            Some(kind) => text::task_kind(kind),
+            None => text::TASK_KIND_OTHER,
+        }
+    }
+}
+
+// [impl->dsn~tasks~5]
+// [impl->dsn~reports~2]
+/// "Neuer Auftrag" (TASK-1, REP-1): the kind; for a report the place, what is going on and
+/// when it came in, the unit optional; for another task whom it is for and a template; a
+/// time to follow up (TASK-4); and for a report a pin, by address or on a small map, on the
+/// same form. `unit` is whom it is for (`unit:<call sign>` or `position:<ID>`).
 #[component]
-fn GiveTask(core: Handle, revision: RwSignal<u64>, unit: RwSignal<String>) -> impl IntoView {
+fn NewTask(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: RwSignal<String>,
+    kind: RwSignal<Option<NewKind>>,
+) -> impl IntoView {
     let template = RwSignal::new(String::new());
+    let place = RwSignal::new(String::new());
     let text_value = RwSignal::new(String::new());
+    let received = RwSignal::new(String::new());
     let minutes = RwSignal::new(String::new());
+    let pin = RwSignal::new(None::<[f64; 2]>);
     let error = RwSignal::new(None::<&'static str>);
     let units = Memo::new(move |_| {
         revision.track();
-        core.with_value(|c| {
-            UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
-                .present()
-                .map(|u| u.unit.clone())
-                .collect::<Vec<_>>()
-        })
+        present_units(core)
     });
     // [impl->dsn~command-structure~1]
     // Tasks can also go to a position (CMD-1).
@@ -347,19 +774,37 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>, unit: RwSignal<String>) -> im
         revision.track();
         crate::command::position_choices(&crate::command::structure(core))
     });
+    let reported = move || kind.get().is_some_and(|k| k != NewKind::Other);
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
+        let Some(chosen_kind) = kind.get_untracked() else {
+            error.set(Some(text::TASK_KIND_MISSING));
+            return;
+        };
+        let now = core::now_ms();
         let minutes_text = minutes.get_untracked().trim().to_owned();
         let follow_up = if minutes_text.is_empty() {
             None
         } else {
             match minutes_text.parse::<u64>() {
-                Ok(m) => Some(core::now_ms() + m * 60 * 1000),
+                Ok(m) => Some(now + m * 60 * 1000),
                 Err(_) => {
                     error.set(Some(text::TASK_FOLLOW_UP_NUMBER));
                     return;
                 }
             }
+        };
+        let task_kind = chosen_kind.kind();
+        let received_at = match (task_kind, received.get_untracked().trim()) {
+            (None, _) => None,
+            (Some(_), "") => Some(now),
+            (Some(_), time) => match core::today_at(time, now) {
+                Some(at) => Some(at),
+                None => {
+                    error.set(Some(text::TASK_TIME_INVALID));
+                    return;
+                }
+            },
         };
         let chosen = template.get_untracked();
         let chosen_for = unit.get_untracked();
@@ -368,67 +813,125 @@ fn GiveTask(core: Handle, revision: RwSignal<u64>, unit: RwSignal<String>) -> im
             Some(("unit", call_sign)) => (Some(call_sign.to_owned()), None),
             _ => (None, None),
         };
+        let place_text = place.get_untracked().trim().to_owned();
         let task = TaskGiven {
-            report: None,
             task: String::new(),
             unit: for_unit,
             sector: for_sector,
             text: text_value.get_untracked().trim().to_owned(),
-            template: (!chosen.is_empty()).then_some(chosen),
+            template: (task_kind.is_none() && !chosen.is_empty()).then_some(chosen),
             follow_up,
+            kind: task_kind,
+            place: (!place_text.is_empty()).then_some(place_text),
+            received_at,
+            ..TaskGiven::default()
         };
-        if task.check().is_err() {
-            error.set(Some(text::TASK_MISSING));
+        if let Err(e) = task.check() {
+            error.set(Some(match e {
+                ordo_tasks::TaskError::NoText => text::TASK_TEXT_MISSING,
+                ordo_tasks::TaskError::NoAssignee => text::TASK_MISSING,
+                ordo_tasks::TaskError::NoPlace => text::TASK_PLACE_MISSING,
+                ordo_tasks::TaskError::TooLong => text::TASK_TOO_LONG,
+            }));
             return;
         }
-        if core::give_task(core, revision, task).is_ok() {
-            for s in [template, text_value, minutes] {
-                s.set(String::new());
-            }
-            error.set(None);
+        let shown = match (task.kind, &task.place) {
+            (Some(k), Some(p)) => text::task_label(k, p),
+            _ => task.text.clone(),
+        };
+        let Ok(id) = core::give_task(core, revision, task) else {
+            return;
+        };
+        if let Some(at) = pin.get_untracked().filter(|_| task_kind.is_some()) {
+            crate::situation::set_pin(core, revision, &ObjectKind::Task.object_id(&id), &shown, at);
         }
+        for s in [template, place, text_value, received, minutes, unit] {
+            s.set(String::new());
+        }
+        kind.set(None);
+        pin.set(None);
+        error.set(None);
     };
     view! {
-        <form class="form give-task" novalidate on:submit=submit>
-            <div class="form--inline">
-                <div class="field">
-                    <label for="task-unit">{text::TASK_UNIT}</label>
-                    <select id="task-unit" prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
-                        <option value="">{text::TASK_UNIT_CHOOSE}</option>
-                        <optgroup label=text::TAB_RESOURCES>
-                            {move || units.get().into_iter().map(|u| view! { <option value=format!("unit:{u}")>{u.clone()}</option> }).collect_view()}
-                        </optgroup>
-                        <optgroup label=text::STRUCTURE_TITLE>
-                            {move || positions.get().into_iter().map(|(id, title)| view! { <option value=format!("position:{id}")>{title}</option> }).collect_view()}
-                        </optgroup>
-                    </select>
+        <div class="new-task">
+            <form id="new-task" class="form new-task__form" novalidate on:submit=submit>
+                <fieldset class="choices">
+                    <legend>{text::TASK_KIND}</legend>
+                    {[NewKind::Patient, NewKind::Event, NewKind::Other].into_iter().map(|k| view! {
+                        <label class="choice">
+                            <input type="radio" name="task-kind" value=k.id()
+                                prop:checked=move || kind.get() == Some(k)
+                                on:change=move |_| kind.set(Some(k)) />
+                            {k.label()}
+                        </label>
+                    }).collect_view()}
+                </fieldset>
+                <div class="form--inline">
+                    <div class="field">
+                        <label for="task-unit">{text::TASK_UNIT}</label>
+                        <select id="task-unit" aria-describedby="task-unit-hint" prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
+                            <option value="">{move || if reported() { text::TASK_UNIT_LATER } else { text::TASK_UNIT_CHOOSE }}</option>
+                            <optgroup label=text::TAB_RESOURCES>
+                                {move || units.get().into_iter().map(|u| view! { <option value=format!("unit:{u}")>{u.clone()}</option> }).collect_view()}
+                            </optgroup>
+                            <optgroup label=text::STRUCTURE_TITLE>
+                                {move || positions.get().into_iter().map(|(id, title)| view! { <option value=format!("position:{id}")>{title}</option> }).collect_view()}
+                            </optgroup>
+                        </select>
+                        <p id="task-unit-hint" class="hint">{text::TASK_UNIT_HINT}</p>
+                    </div>
+                    <Show when=move || kind.get() == Some(NewKind::Other)>
+                        <div class="field">
+                            <label for="task-template">{text::TASK_TEMPLATE}</label>
+                            <select id="task-template" prop:value=move || template.get() on:change=move |ev| {
+                                let id = event_target_value(&ev);
+                                if let Some(t) = TEMPLATES.templates.iter().find(|t| t.id == id) {
+                                    text_value.set(t.text.clone());
+                                }
+                                template.set(id);
+                            }>
+                                <option value="">{text::TASK_TEMPLATE_NONE}</option>
+                                {TEMPLATES.templates.iter().map(|t| view! { <option value=t.id.clone()>{t.label.clone()}</option> }).collect_view()}
+                            </select>
+                        </div>
+                    </Show>
                 </div>
                 <div class="field">
-                    <label for="task-template">{text::TASK_TEMPLATE}</label>
-                    <select id="task-template" prop:value=move || template.get() on:change=move |ev| {
-                        let id = event_target_value(&ev);
-                        if let Some(t) = TEMPLATES.templates.iter().find(|t| t.id == id) {
-                            text_value.set(t.text.clone());
-                        }
-                        template.set(id);
-                    }>
-                        <option value="">{text::TASK_TEMPLATE_NONE}</option>
-                        {TEMPLATES.templates.iter().map(|t| view! { <option value=t.id.clone()>{t.label.clone()}</option> }).collect_view()}
-                    </select>
+                    <label for="task-place">{text::TASK_PLACE}</label>
+                    <input id="task-place" type="text" autocomplete="off" maxlength=ordo_tasks::PLACE_MAX bind:value=place />
                 </div>
-            </div>
-            <div class="field">
-                <label for="task-text">{text::TASK_TEXT}</label>
-                <input id="task-text" type="text" autocomplete="off" bind:value=text_value />
-            </div>
-            <div class="field field--small">
-                <label for="task-follow-up">{text::TASK_FOLLOW_UP}</label>
-                <input id="task-follow-up" type="text" inputmode="numeric" autocomplete="off" bind:value=minutes />
-            </div>
+                <div class="field">
+                    <label for="task-text">{move || if reported() { text::TASK_WHAT } else { text::TASK_TEXT }}</label>
+                    <input id="task-text" type="text" autocomplete="off" aria-describedby="task-text-hint" bind:value=text_value />
+                    <p id="task-text-hint" class="hint">{text::TASK_WHAT_HINT}</p>
+                </div>
+                <div class="form--inline">
+                    <Show when=reported>
+                        <div class="field field--small">
+                            <label for="task-received">{text::TASK_RECEIVED}</label>
+                            <input id="task-received" type="time" autocomplete="off"
+                                aria-describedby="task-received-hint" bind:value=received />
+                            <p id="task-received-hint" class="hint">{text::TASK_RECEIVED_HINT}</p>
+                        </div>
+                    </Show>
+                    <div class="field field--small">
+                        <label for="task-follow-up">{text::TASK_FOLLOW_UP}</label>
+                        <input id="task-follow-up" type="text" inputmode="numeric" autocomplete="off" bind:value=minutes />
+                    </div>
+                </div>
+            </form>
+            // The pin's search is a form of its own, so it stands between the fields and
+            // the button, which submits the form above.
+            <Show when=reported>
+                <fieldset class="new-task__pin">
+                    <legend>{text::PIN_TITLE}</legend>
+                    <crate::situation::PinPicker core revision id="task" pin />
+                </fieldset>
+            </Show>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" class="button">{text::TASK_GIVE}</button>
+                <button type="submit" form="new-task" class="button">{text::TASK_CREATE}</button>
             </div>
-        </form>
+        </div>
     }
 }

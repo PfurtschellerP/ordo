@@ -86,6 +86,7 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
     let uhs = crate::views::uhs_list(core);
     let structure = crate::command::structure(core);
     let reports = crate::reports::list(core);
+    let tasks = crate::tasks::task_list(core);
     map.objects
         .values()
         .filter_map(|o| {
@@ -105,10 +106,14 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
                     .positions
                     .get(reference)
                     .and_then(|p| SYMBOLS.for_position(&p.created.kind)),
-                ObjectKind::Report => reports
-                    .reports
+                ObjectKind::Report => reports.reports.get(reference).and_then(|r| {
+                    SYMBOLS.for_report(crate::reports::task_kind(r.recorded.kind).id())
+                }),
+                ObjectKind::Task => tasks
+                    .tasks
                     .get(reference)
-                    .and_then(|r| SYMBOLS.for_report(crate::reports::kind_id(r.recorded.kind))),
+                    .and_then(|t| t.given.kind)
+                    .and_then(|k| SYMBOLS.for_report(k.id())),
                 ObjectKind::Symbol => SYMBOLS.symbol(reference),
                 ObjectKind::Drawing => None,
             }?;
@@ -214,7 +219,7 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
     let map = Memo::new(move |_| {
         revision.track();
         let map = core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)));
-        crate::reports::without_closed(core, map)
+        crate::tasks::needed_pins(core, map)
     });
     let symbols = Memo::new(move |_| {
         revision.track();
@@ -551,8 +556,8 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~reports~1]
-/// A small map of the incident, centred on one object: a report's place for the crews sent
+// [impl->dsn~reports~2]
+/// A small map of the incident, centred on one object: an Auftrag's pin for the crew sent
 /// there (REP-4). It moves with two fingers, so one finger scrolls the page.
 #[component]
 pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl IntoView {
@@ -654,7 +659,7 @@ pub fn place_record(kind: ObjectKind, reference: &str) -> String {
 /// What to place, from a record made by [`place_record`].
 pub fn preset(record: &str) -> Option<(String, String)> {
     let (kind, reference) = record.strip_prefix(PLACE)?.split_once(':')?;
-    (["unit", "uhs", "position", "report"].contains(&kind) && !reference.is_empty())
+    (["unit", "uhs", "position", "report", "task"].contains(&kind) && !reference.is_empty())
         .then(|| (kind.to_owned(), reference.to_owned()))
 }
 
@@ -665,6 +670,7 @@ fn place_kind(kind: ObjectKind) -> &'static str {
         ObjectKind::Uhs => "uhs",
         ObjectKind::Position => "position",
         ObjectKind::Report => "report",
+        ObjectKind::Task => "task",
         ObjectKind::Symbol => "symbol",
         ObjectKind::Incident | ObjectKind::Drawing => "incident",
     }
@@ -1128,7 +1134,7 @@ pub fn MapEditor(
                         kind.set(event_target_value(&ev));
                         reference.set(String::new());
                     }>
-                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("report", text::REPORT), ("symbol", text::MAP_KIND_SYMBOL)]
+                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("task", text::TASK_TEXT), ("symbol", text::MAP_KIND_SYMBOL)]
                             .into_iter()
                             .map(|(id, name)| view! { <option value=id selected=move || kind.get() == id>{name}</option> })
                             .collect_view()}
@@ -1260,6 +1266,7 @@ fn object_kind(choice: &str) -> ObjectKind {
         "uhs" => ObjectKind::Uhs,
         "position" => ObjectKind::Position,
         "report" => ObjectKind::Report,
+        "task" => ObjectKind::Task,
         "symbol" => ObjectKind::Symbol,
         _ => ObjectKind::Incident,
     }
@@ -1288,6 +1295,13 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
                     crate::reports::label(&r.recorded),
                 )
             })
+            .collect(),
+        // The first Auftrag of each open group with a pin of its own (ADR-0081).
+        ObjectKind::Task => crate::tasks::task_list(core)
+            .tasks
+            .values()
+            .filter(|t| t.status.is_open() && t.given.follows.is_none() && t.given.report.is_none())
+            .map(|t| (t.given.task.clone(), crate::tasks::label(t)))
             .collect(),
         ObjectKind::Symbol => SYMBOLS
             .by_group()
@@ -1331,6 +1345,131 @@ fn refresh_state(core: Handle, module: JsValue, auto_save: Option<Callback<()>>)
             }
         }
     });
+}
+
+/// Where an object is on the map, if it is there: longitude, latitude.
+pub fn placed_at(core: Handle, object: &str) -> Option<[f64; 2]> {
+    core.with_value(|c| {
+        SituationMap::from_events(&c.events(ordo_map::COMPARTMENT))
+            .objects
+            .get(object)
+            .and_then(|o| o.placed.geometry.anchor())
+    })
+}
+
+// [impl->dsn~reports~2]
+/// Puts the pin of an Auftrag on the map, or moves it (REP-4): `object` is its map object
+/// ([`crate::tasks::pin_object`]).
+pub fn set_pin(
+    core: Handle,
+    revision: RwSignal<u64>,
+    object: &str,
+    label: &str,
+    at: [f64; 2],
+) -> bool {
+    let (kind, reference) = match object.split_once(':') {
+        Some(("report", r)) => (ObjectKind::Report, r),
+        Some(("task", r)) => (ObjectKind::Task, r),
+        _ => return false,
+    };
+    place(
+        core,
+        revision,
+        &ObjectPlaced {
+            object: object.to_owned(),
+            kind,
+            reference: Some(reference.to_owned()),
+            label: label.to_owned(),
+            geometry: Geometry::Point(at),
+        },
+    )
+}
+
+/// Takes the pin of an Auftrag off the map; the map event stays.
+pub fn remove_pin(core: Handle, revision: RwSignal<u64>, object: &str) {
+    remove(core, revision, object);
+}
+
+// [impl->dsn~reports~2]
+/// Sets a pin on the same form (REP-1): an address search, then a small map where a tap
+/// sets the pin and "Pin in Kartenmitte setzen" sets it from the keyboard. The map moves
+/// with two fingers, so one finger scrolls the page. `id` prefixes the element IDs.
+#[component]
+pub fn PinPicker(
+    core: Handle,
+    revision: RwSignal<u64>,
+    #[prop(into)] id: String,
+    pin: RwSignal<Option<[f64; 2]>>,
+) -> impl IntoView {
+    let s = situation(core, revision);
+    let node = NodeRef::<leptos::html::Div>::new();
+    let (handle, state) = mount_map(core, node, s, true);
+    let tapping = StoredValue::new(false);
+    Effect::new(move || {
+        if !matches!(state.get(), MapState::Ready(_)) || tapping.get_value() {
+            return;
+        }
+        let on_tap = wasm_bindgen::closure::Closure::<dyn FnMut(f64, f64, JsValue, bool)>::new(
+            move |lng: f64, lat: f64, _hit: JsValue, _point: bool| pin.set(Some([lng, lat])),
+        );
+        // The map owns the handler; it goes with the map.
+        let _ = with_map(handle, "onTap", &[on_tap.into_js_value()]);
+        tapping.set_value(true);
+        // A pin set before (moving one): the map starts there.
+        if let Some(at) = pin.get_untracked() {
+            show_at(handle, at);
+        }
+    });
+    // The pin, marked as the editor marks a chosen object.
+    Effect::new(move || {
+        let ready = matches!(state.get(), MapState::Ready(_));
+        let features: Vec<serde_json::Value> = pin
+            .get()
+            .map(|p| serde_json::json!({ "type": "Feature", "properties": { "chosen": true }, "geometry": Geometry::Point(p) }))
+            .into_iter()
+            .collect();
+        if ready {
+            let json = serde_json::json!({ "type": "FeatureCollection", "features": features });
+            let _ = with_map(handle, "setDraft", &[JsValue::from_str(&json.to_string())]);
+        }
+    });
+    let at_centre = move |_| {
+        if let Some(at) = map_centre(handle) {
+            pin.set(Some(at));
+        }
+    };
+    let choose = Callback::new(move |(at, _): crate::address::Chosen| {
+        pin.set(Some(at));
+        show_at(handle, at);
+    });
+    let hint = format!("{id}-pin-hint");
+    let described = hint.clone();
+    view! {
+        <div class="pin-picker">
+            <crate::address::AddressSearch core revision id=id.clone() on_choose=choose />
+            <p id=hint class="hint">{text::PIN_HINT}</p>
+            <div class="place-map">
+                <MapFrame node state crosshair=true />
+            </div>
+            <p role="status" class="pin-picker__state">
+                {move || pin.get().map_or_else(|| text::PIN_NONE.to_owned(), |p| text::pin_at(&coordinates(&Geometry::Point(p))))}
+            </p>
+            <div class="row">
+                <button id=format!("{id}-pin-centre") type="button" class="button button--small"
+                    aria-describedby=described
+                    disabled=move || !matches!(state.get(), MapState::Ready(_))
+                    on:click=at_centre>
+                    <Icon name="crosshair" />{text::PIN_AT_CENTRE}
+                </button>
+                <Show when=move || pin.with(Option::is_some)>
+                    <button type="button" class="button button--small button--quiet"
+                        on:click=move |_| pin.set(None)>
+                        {text::PIN_CLEAR}
+                    </button>
+                </Show>
+            </div>
+        </div>
+    }
 }
 
 // [impl->dsn~situation-map~5]

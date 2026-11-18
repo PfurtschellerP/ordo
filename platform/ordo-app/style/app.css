@@ -111,6 +111,15 @@
   }
   .button--quiet { margin-inline-start: auto; }
   .button--small { min-height: var(--ordo-component-button-min-height); padding: 0 var(--ordo-space-3); }
+  /* A button that is off says so by more than colour: greyed out, a dashed border and the
+     "not allowed" cursor; a hint next to it says why (feedback of 2026-11-18). */
+  .button:is(:disabled, [aria-disabled="true"]) {
+    border-style: dashed;
+    border-color: var(--ordo-color-border-strong);
+    background: var(--ordo-color-surface-sunken);
+    color: var(--ordo-color-text-secondary);
+    cursor: not-allowed;
+  }
   /* A link that looks like a button, e.g. "Karte bearbeiten": text and icon on one line. */
   a.button { display: inline-flex; align-items: center; gap: var(--ordo-space-2); text-decoration: none; }
 
@@ -718,6 +727,20 @@
   .task-card { display: grid; gap: var(--ordo-space-1); padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); background: var(--ordo-color-surface-default); }
   .task-card p { margin: 0; }
   .task-card--due { border-width: var(--ordo-size-border-thick); }
+  /* A patient Auftrag: a thick start border and the word "Patient" with an icon. */
+  .task-card--patient { border-inline-start-width: var(--ordo-size-border-thick); }
+  .task-card__kind { display: inline-flex; align-items: center; gap: var(--ordo-space-1); font-weight: var(--ordo-font-weight-bold); }
+  .task-card__taken { font-weight: var(--ordo-font-weight-bold); }
+  .task-card__assign { align-items: end; }
+  .task-card__more > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  .task-card__panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
+  .tasks-panel__give > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  .new-task { display: grid; gap: var(--ordo-space-3); }
+  .new-task__pin { display: grid; gap: var(--ordo-space-2); margin: 0; padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
+  .new-task__pin legend { font-weight: var(--ordo-font-weight-bold); padding-inline: var(--ordo-space-1); }
+  .pin-picker { display: grid; gap: var(--ordo-space-2); }
+  .pin-picker__state { margin: 0; font-family: var(--ordo-font-family-mono); }
+  .pin-picker .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
   .tasks-panel__form[hidden] { display: none; }
   /* Reports (REP-1…5): open ones in Disposition, patient cases for the crews. */

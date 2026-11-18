@@ -164,7 +164,7 @@ enum Change {
 }
 
 impl ReportList {
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     /// Computes the list. The result doesn't depend on the order of `events`: changes
     /// apply in clock order, a report recorded twice keeps its first version, and changes
     /// of unknown reports are ignored. A patient counts only for a patient case; it counts
@@ -223,7 +223,7 @@ impl ReportList {
         Self { reports }
     }
 
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     /// The open reports, oldest first by the time they came in.
     pub fn open(&self) -> Vec<&Report> {
         let mut open: Vec<&Report> = self.reports.values().filter(|r| r.is_open()).collect();
@@ -293,7 +293,7 @@ mod tests {
         event(n, "anna", PATIENT_REGISTERED, p.encode().unwrap())
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn a_report_needs_a_short_place_and_description() {
         let ok = Recorded {
@@ -321,7 +321,7 @@ mod tests {
         assert_eq!(long.check(), Err(ReportError::TooLong));
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn open_reports_oldest_first_and_closed_ones_kept() {
         let events = vec![
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(list.reports.len(), 3);
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn the_result_does_not_depend_on_the_order_of_events() {
         let mut events = vec![
@@ -361,7 +361,7 @@ mod tests {
         assert_eq!(r.patients[0].unit, "SanTrp 1");
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn a_report_recorded_twice_keeps_its_first_version() {
         let second = Recorded {
@@ -380,7 +380,7 @@ mod tests {
         assert_eq!(list.reports["r1"].recorded.place, "Ort r1");
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn only_a_patient_case_takes_a_patient() {
         let events = vec![
@@ -393,7 +393,7 @@ mod tests {
         assert_eq!(list.reports.len(), 1, "no report from a patient alone");
     }
 
-    // [utest->dsn~reports~1]
+    // [utest->dsn~reports~2]
     #[test]
     fn the_patient_event_names_only_the_case_and_the_unit() {
         let p = PatientRegistered {

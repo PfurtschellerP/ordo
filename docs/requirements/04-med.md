@@ -239,11 +239,13 @@ Tags: should, med, m57
 Needs: dsn
 
 #### UHS-15 — Request a physician or a paramedic
-`req~uhs-15~1`
+`req~uhs-15~2`
 
-When the staff of a UHS ask for a physician or a paramedic, ORDO shall show the request to
-the incident command until it is met or withdrawn, and when the command names the person
-who comes, put them on that UHS's staff list, which gives them access to its patients.
+When a person on the staff list of a UHS asks for a physician or a paramedic, ORDO shall
+show the request to the incident command until it is met or withdrawn, and when the
+command names the person who comes, put them on that UHS's staff list, which gives them
+access to its patients, and give that person an Auftrag to go there. ORDO shall refuse
+the request of anyone not on that staff list.
 
 Tags: should, med, m62
 

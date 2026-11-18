@@ -322,7 +322,8 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
    [ADR-0073](adr/0073-registration-cards-read-in-attempts-diet-kept.md)). A card is a
    convenience: one that does not fit is not taken, and the helper is typed in.
 10. **Reports** (*Führung – Disposition*) are done (m60,
-    [ADR-0075](adr/0075-reports-recorded-in-dispatch.md)): the incident command records
+    [ADR-0075](adr/0075-reports-recorded-in-dispatch.md), since 2026-11-18 one Auftrag
+    each, [ADR-0081](adr/0081-one-einsatzauftrag.md)): the incident command records
     reported events and patient cases (place, short description, the time they came in, no
     clinical data) and assigns them to units as linked tasks (REP-1, REP-2); a patient case
     can be placed on the situation map, and the crews of its units see it on a small map and
@@ -359,8 +360,13 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        collapsed, the picture deletable, the right PRIOR document and an open source for
        mSTaRT; the profile's qualifications *Arzt*, *Einsatzsanitäter*, *Sanitätshelfer*,
        *Verbandführer* and *Sprechfunker*; the crew workspace under *Sanität*.
-    2. *Reports as one card:* a report becomes the unit's order when assigned, with its
-       place and pin, the pin set and the address searched on the same page.
+    2. *Reports as one card* is done
+       ([ADR-0081](adr/0081-one-einsatzauftrag.md), decided 2026-11-18): a report is an
+       Auftrag of its own, with one unit and one state, ended by the crew's "Erledigt";
+       its pin is set by address or on a small map on the same form and moved from the
+       card; "Weiteres Einsatzmittel schicken" links a second Auftrag. Only a UHS's staff
+       ask for staff, and the person sent gets an Auftrag. Next: the map's pop-up cards
+       and the icon rules (proposals of 2026-11-18, agreed).
     3. *People and duty:* guests' one-time codes valid until the duty ends or the incident
        is closed (instead of 30 minutes); a duty can be paused; devices unused for 30 days
        are removed; the bell for every role; a UHS asks for staff where its people see it.

@@ -72,7 +72,11 @@ impl Context {
                 }
                 ordo_tasks::GIVEN => {
                     if let Some(p) = decode::<ordo_tasks::TaskGiven>(e) {
-                        c.tasks.insert(p.task, p.text);
+                        let name = match (p.kind, &p.place) {
+                            (Some(kind), Some(place)) => text::task_label(kind, place),
+                            _ => p.text.clone(),
+                        };
+                        c.tasks.insert(p.task, name);
                     }
                 }
                 ordo_reports::RECORDED => {
@@ -190,16 +194,37 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                 let p = decode::<ordo_units::CrewSet>(e)?;
                 text::log_crew(&p.unit, p.members.len()).into()
             }
+            // [impl->dsn~reports~2]
             ordo_tasks::GIVEN => {
                 let p = decode::<ordo_tasks::TaskGiven>(e)?;
+                let person = p.person.as_deref().map(name);
                 let to = p
                     .unit
                     .as_deref()
                     .or(p.sector.as_deref().map(|s| c.position(s)))
+                    .or(person.as_deref())
                     .unwrap_or_default();
-                text::log_task_given(to, &p.text).into()
+                match (p.kind, &p.place) {
+                    (Some(kind), Some(place)) => text::log_task_received(
+                        kind,
+                        &crate::core::clock(p.received_at.unwrap_or(e.body.hlc.wall_ms)),
+                        place,
+                        &p.text,
+                        to,
+                    )
+                    .into(),
+                    _ => text::log_task_given(to, &p.text).into(),
+                }
             }
-            // [impl->dsn~uhs-staff-request~1]
+            ordo_tasks::ASSIGNED => {
+                let p = decode::<ordo_tasks::TaskAssigned>(e)?;
+                text::log_task_assigned(Context::name(&c.tasks, &p.task), &p.unit).into()
+            }
+            ordo_tasks::PATIENT_REGISTERED => {
+                let p = decode::<ordo_tasks::PatientRegistered>(e)?;
+                text::log_report_patient(Context::name(&c.tasks, &p.task), &p.unit).into()
+            }
+            // [impl->dsn~uhs-staff-request~2]
             med::staffing::REQUESTED => {
                 let p = decode::<med::staffing::Requested>(e)?;
                 text::staff_requested(c.uhs(&p.uhs), p.need).into()
@@ -211,7 +236,7 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                     None => text::STAFF_REQUEST_WITHDRAWN.to_owned().into(),
                 }
             }
-            // [impl->dsn~reports~1]
+            // [impl->dsn~reports~2]
             ordo_reports::RECORDED => {
                 let p = decode::<ordo_reports::Recorded>(e)?;
                 text::log_report_recorded(&p).into()

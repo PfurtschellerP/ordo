@@ -630,12 +630,12 @@ mod tests {
             "hospitals.set",
             &commander
         ));
-        // [utest->dsn~tasks~4]
+        // [utest->dsn~tasks~5]
         assert!(
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"
         );
-        // [utest->dsn~crew-workspace~1]
+        // [utest->dsn~crew-workspace~2]
         // A crew moves its tasks on and sets its status (UNIT-9, ADR-0079).
         assert!(p.can_write(&erik, &incident, &shared, "tasks", "tasks.updated", &medic));
         assert!(p.can_write(
@@ -698,7 +698,7 @@ mod tests {
             "reports.patientRegistered",
             &medic
         ));
-        // [utest->dsn~reports~1]
+        // [utest->dsn~reports~2]
         for event in ["reports.recorded", "reports.closed"] {
             assert!(
                 !p.can_write(&erik, &incident, &shared, "reports", event, &medic),
@@ -716,6 +716,19 @@ mod tests {
                 &medic
             ),
             "the crew says it took a patient over"
+        );
+        // An Auftrag is the command's; the crew says it took a patient over (ADR-0081).
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "tasks",
+            "tasks.patientRegistered",
+            &medic
+        ));
+        assert!(
+            !p.can_write(&erik, &incident, &shared, "tasks", "tasks.assigned", &medic),
+            "assigning is the command's"
         );
     }
 

@@ -95,7 +95,7 @@ pub struct StaffRequests {
 }
 
 impl StaffRequests {
-    // [impl->dsn~uhs-staff-request~1]
+    // [impl->dsn~uhs-staff-request~2]
     /// Computes the requests. The result doesn't depend on the order of `events`: changes
     /// apply in clock order, a request made twice keeps its first version, the first close
     /// counts, and closes of unknown requests are ignored.
@@ -211,7 +211,7 @@ mod tests {
         event(n, CLOSED, c.encode().unwrap())
     }
 
-    // [utest->dsn~uhs-staff-request~1]
+    // [utest->dsn~uhs-staff-request~2]
     #[test]
     fn requests_stay_open_until_met_and_the_first_close_counts() {
         let mut events = vec![

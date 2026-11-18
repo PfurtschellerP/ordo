@@ -25,32 +25,46 @@ fn no_crew() -> AnyView {
     view! { <section class="card"><p>{text::CREW_NONE_HERE}</p></section> }.into_any()
 }
 
-// [impl->dsn~crew-workspace~1]
-/// View *Aufträge*: per unit its status, set here, and its open tasks, moved on here; then
-/// the patient cases assigned to the units (REP-3).
+// [impl->dsn~crew-workspace~2]
+/// View *Aufträge*: first the open Aufträge for this person (UHS-15), then per unit its
+/// status, set here, and its open Aufträge, one card each with place, map and, on a patient
+/// Auftrag, "Patient aufnehmen" (REP-3, REP-4).
 #[component]
 pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let units = Memo::new(move |_| {
+    let state = Memo::new(move |_| {
         revision.track();
         let now = core::now_ms();
         let tasks = crate::tasks::task_list(core);
-        my_units(core)
+        let me = core.with_value(|c| c.replica.user().to_string());
+        let mine: Vec<ordo_tasks::Task> = tasks.of_person(&me).into_iter().cloned().collect();
+        let units = my_units(core)
             .into_iter()
             .map(|u| {
                 let open: Vec<ordo_tasks::Task> =
                     tasks.of_unit(&u.unit).into_iter().cloned().collect();
-                (u, open, now)
+                (u, open)
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        (mine, units, now)
     });
     view! {
         {move || {
-            let list = units.get();
-            if list.is_empty() {
+            let (mine, units, now) = state.get();
+            if mine.is_empty() && units.is_empty() {
                 return no_crew();
             }
-            list.into_iter()
-                .map(|(u, open, now)| {
+            let mine = (!mine.is_empty()).then(|| view! {
+                <section class="card crew-mine" aria-labelledby="crew-mine-title">
+                    <h2 id="crew-mine-title">{text::MY_TASKS}</h2>
+                    <ul class="task-list" data-keys="list">
+                        {mine.into_iter().map(|task| view! {
+                            <crate::tasks::TaskItem core revision task editable=true now crew=true />
+                        }).collect_view()}
+                    </ul>
+                </section>
+            });
+            let units = units.into_iter()
+                .map(|(u, open)| {
                     let name = u.unit.clone();
                     let current = u.status.as_ref().map(|s| s.status.clone()).unwrap_or_default();
                     let title = format!("crew-{}", core::slug(&name));
@@ -67,9 +81,8 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                             } else {
                                 view! {
                                     <ul class="task-list" data-keys="list">
-                                        {open.into_iter().map(|task| {
-                                            let assignee = name.clone();
-                                            view! { <crate::tasks::TaskItem core revision task assignee editable=true now crew=true /> }
+                                        {open.into_iter().map(|task| view! {
+                                            <crate::tasks::TaskItem core revision task editable=true now crew=true />
                                         }).collect_view()}
                                     </ul>
                                 }.into_any()
@@ -77,14 +90,13 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         </section>
                     }
                 })
-                .collect_view()
-                .into_any()
+                .collect_view();
+            view! { {mine} {units} }.into_any()
         }}
-        <crate::reports::AssignedCases core revision />
     }
 }
 
-// [impl->dsn~crew-workspace~1]
+// [impl->dsn~crew-workspace~2]
 /// View *Transporte*: the open transports assigned to the person's units, with their next
 /// steps (TRANS-2).
 #[component]

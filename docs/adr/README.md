@@ -79,11 +79,12 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0072](0072-registration-cards-read-with-rqrr.md) | Registration cards are read from a photo with rqrr; their format is profile data | accepted; partly superseded by 0073 | 2026-11-13 |
 | [0073](0073-registration-cards-read-in-attempts-diet-kept.md) | Registration cards are read in several attempts, and their diet is kept | accepted | 2026-11-13 |
 | [0074](0074-no-vehicles-file.md) | No file of the installation's vehicles | accepted | 2026-11-14 |
-| [0075](0075-reports-recorded-in-dispatch.md) | Reports are recorded in *Disposition*, assigned as tasks, and become patients through the crew | accepted | 2026-11-14 |
+| [0075](0075-reports-recorded-in-dispatch.md) | Reports are recorded in *Disposition*, assigned as tasks, and become patients through the crew | accepted; superseded by 0081 | 2026-11-14 |
 | [0076](0076-people-and-roles-in-one-list.md) | The incident's people and their roles in one list and one form | accepted | 2026-11-14 |
 | [0077](0077-guest-access-by-one-time-qr-code.md) | Helpers without an account get access by a one-time QR code, until their duty ends | accepted; partly superseded by 0078 | 2026-11-14 |
 | [0078](0078-guest-codes-last-30-minutes-set-per-installation.md) | A guest's one-time code lasts 30 minutes, set per installation | accepted | 2026-11-14 |
 | [0079](0079-crew-workspace.md) | Crews get a workspace of their own: status, tasks, patient cases and transports | accepted | 2026-11-14 |
 | [0080](0080-key-grants-sealed-per-device-with-x-wing.md) | Key grants are sealed for each device with X-Wing (X25519 and ML-KEM-768) | accepted | 2026-11-17 |
+| [0081](0081-one-einsatzauftrag.md) | Reports and tasks become one *Einsatzauftrag* | accepted | 2026-11-18 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

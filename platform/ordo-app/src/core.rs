@@ -688,11 +688,11 @@ fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
     }
 }
 
-// [impl->dsn~reports~1]
-/// Registers a patient: stored locally at once, sent when connected. From a patient case
-/// (`case`: the report and the unit whose crew takes the patient over, REP-3) the record
-/// names the case, and the incident command learns that the case has a patient, without
-/// tag or category.
+// [impl->dsn~reports~2]
+/// Registers a patient: stored locally at once, sent when connected. From a patient
+/// Auftrag (`case`: the Auftrag and the unit whose crew takes the patient over, REP-3) the
+/// record names it, and the incident command learns that it has a patient, without tag or
+/// category.
 pub fn register(
     core: Handle,
     revision: RwSignal<u64>,
@@ -706,7 +706,8 @@ pub fn register(
         category,
         uhs: uhs.to_owned(),
         algorithm: triage_algorithm(),
-        report: case.map(|(report, _)| report.to_owned()),
+        report: None,
+        task: case.map(|(task, _)| task.to_owned()),
     }
     .encode()
     .map_err(|e| e.to_string())?;
@@ -720,11 +721,11 @@ pub fn register(
         &payload,
         announcement,
     )?;
-    let Some((report, unit)) = case else {
+    let Some((task, unit)) = case else {
         return Ok(());
     };
-    let taken = ordo_reports::PatientRegistered {
-        report: report.to_owned(),
+    let taken = ordo_tasks::PatientRegistered {
+        task: task.to_owned(),
         unit: unit.to_owned(),
     }
     .encode()
@@ -732,11 +733,11 @@ pub fn register(
     record(
         core,
         revision,
-        ordo_reports::COMPARTMENT,
-        ordo_reports::MODULE,
-        ordo_reports::PATIENT_REGISTERED,
+        ordo_tasks::COMPARTMENT,
+        ordo_tasks::MODULE,
+        ordo_tasks::PATIENT_REGISTERED,
         &taken,
-        text::REPORT_PATIENT_TAKEN.to_owned(),
+        text::TASK_PATIENT_TAKEN.to_owned(),
     )
 }
 
@@ -774,32 +775,7 @@ pub fn set_guest_access(core: Handle, guest: UserId, until: u64) {
     });
 }
 
-// [impl->dsn~reports~1]
-/// Records a report (REP-1) with a new ID.
-pub fn record_report(
-    core: Handle,
-    revision: RwSignal<u64>,
-    report: ordo_reports::Recorded,
-) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
-    let report = ordo_reports::Recorded {
-        report: id.to_string(),
-        ..report
-    };
-    report.check().map_err(|e| e.to_string())?;
-    let payload = report.encode().map_err(|e| e.to_string())?;
-    record(
-        core,
-        revision,
-        ordo_reports::COMPARTMENT,
-        ordo_reports::MODULE,
-        ordo_reports::RECORDED,
-        &payload,
-        text::report_recorded(&report.place),
-    )
-}
-
-/// Closes a report (REP-5).
+/// Closes a report of an incident recorded before ADR-0081 that no task names (REP-5).
 pub fn close_report(core: Handle, revision: RwSignal<u64>, report: &str) -> Result<(), String> {
     let payload = ordo_reports::Closed {
         report: report.to_owned(),
@@ -1161,19 +1137,28 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~4]
-/// Gives a task (TASK-1): a new ID, then the event in the shared incident compartment.
+// [impl->dsn~tasks~5]
+/// Gives a task or records a report as an Auftrag (TASK-1, REP-1): a new ID, then the event
+/// in the shared incident compartment. Returns the ID.
 pub fn give_task(
     core: Handle,
     revision: RwSignal<u64>,
     task: ordo_tasks::TaskGiven,
-) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+) -> Result<String, String> {
+    let id = new_ulid()
+        .ok_or("Keine Zufallszahlen verfügbar")?
+        .to_string();
     let task = ordo_tasks::TaskGiven {
-        task: id.to_string(),
+        task: id.clone(),
         ..task
     };
+    task.check().map_err(|e| e.to_string())?;
     let payload = task.encode().map_err(|e| e.to_string())?;
+    let announcement = match (&task.unit, &task.place) {
+        (Some(unit), _) => text::task_given(unit),
+        (None, Some(place)) if task.kind.is_some() => text::task_recorded(place),
+        _ => text::TASK_GIVEN.to_owned(),
+    };
     record(
         core,
         revision,
@@ -1181,7 +1166,27 @@ pub fn give_task(
         ordo_tasks::MODULE,
         ordo_tasks::GIVEN,
         &payload,
-        text::task_given(task.unit.as_deref().unwrap_or_default()),
+        announcement,
+    )?;
+    Ok(id)
+}
+
+// [impl->dsn~tasks~5]
+/// Names the one unit of an Auftrag that has not started (REP-2).
+pub fn assign_task(
+    core: Handle,
+    revision: RwSignal<u64>,
+    assigned: &ordo_tasks::TaskAssigned,
+) -> Result<(), String> {
+    let payload = assigned.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        ordo_tasks::COMPARTMENT,
+        ordo_tasks::MODULE,
+        ordo_tasks::ASSIGNED,
+        &payload,
+        text::task_given(&assigned.unit),
     )
 }
 

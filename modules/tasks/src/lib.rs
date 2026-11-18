@@ -1,5 +1,7 @@
-//! Shared module `tasks` (TASK-1…4): tasks the incident command gives to units, with
-//! status, history and follow-ups. Shared incident data, no patient data.
+//! Shared module `tasks` (TASK-1…4, REP-1…5, ADR-0081): the Aufträge of the incident
+//! command, given to a unit, a position or a person, with status, history and follow-ups.
+//! A report is an Auftrag with a kind, a place and the time it came in, which may wait for
+//! its unit. Shared incident data, no patient data.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -16,9 +18,39 @@ pub const COMPARTMENT: &str = "incident";
 pub const GIVEN: &str = "tasks.given";
 /// Event type: a task moved on, or got a new follow-up time.
 pub const UPDATED: &str = "tasks.updated";
-/// Schema version of `tasks.given`: 2 since it may name a report (REP-2, ADR-0075); older
-/// payloads decode unchanged.
-pub const GIVEN_SCHEMA: u32 = 2;
+/// Event type: a unit was named for an Auftrag that has not started (REP-2).
+pub const ASSIGNED: &str = "tasks.assigned";
+/// Event type: a unit's crew registered the patient of a patient Auftrag (REP-3).
+pub const PATIENT_REGISTERED: &str = "tasks.patientRegistered";
+/// Schema version of `tasks.given`: 2 since it may name a report (REP-2, ADR-0075), 3 since
+/// it may be a report itself, with kind, place and time, or be for a person (ADR-0081);
+/// older payloads decode unchanged.
+pub const GIVEN_SCHEMA: u32 = 3;
+
+/// Longest place, in characters.
+pub const PLACE_MAX: usize = 120;
+/// Longest description of a reported Auftrag, in characters: a report is short.
+pub const TEXT_MAX: usize = 280;
+
+/// What was reported (REP-1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskKind {
+    /// Something happening on the site, e.g. a fight at a gate.
+    Event,
+    /// A person who needs help: becomes a patient (REP-3).
+    Patient,
+}
+
+impl TaskKind {
+    /// The kind as the profile's symbol rules name it.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Event => "event",
+            Self::Patient => "patient",
+        }
+    }
+}
 
 /// Status of a task (TASK-2), in the order of the steps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -50,8 +82,8 @@ impl TaskStatus {
     }
 }
 
-/// Payload of `tasks.given` (TASK-1).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Payload of `tasks.given` (TASK-1, REP-1).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskGiven {
     /// Task ID (a ULID, made when the task is given).
     pub task: String,
@@ -69,9 +101,30 @@ pub struct TaskGiven {
     /// When to follow up (Unix time in milliseconds), if wanted (TASK-4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up: Option<u64>,
-    /// The report of the module `reports` the task is about, if any (REP-2).
+    /// The report of the module `reports` the task is about, if any (REP-2, ADR-0075; an
+    /// incident recorded before ADR-0081).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
+    /// The person it is for (an account), e.g. sent to a UHS (UHS-15). Since schema 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub person: Option<String>,
+    /// What was reported, if it came in as a report (REP-1). Since schema 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<TaskKind>,
+    /// Where, as said, e.g. "Bühne Nord, links vom Eingang". Since schema 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<String>,
+    /// When the report came in (Unix time in milliseconds). Since schema 3.
+    #[serde(
+        default,
+        rename = "receivedAt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub received_at: Option<u64>,
+    /// The Auftrag this one sends a further unit to, for the same place and pin (REP-2).
+    /// Since schema 3.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follows: Option<String>,
 }
 
 /// A task that can't be given.
@@ -81,22 +134,50 @@ pub enum TaskError {
     #[error("the task needs a text")]
     NoText,
     /// Nobody to do it.
-    #[error("the task needs a unit or a sector")]
+    #[error("the task needs a unit, a position or a person")]
     NoAssignee,
+    /// A report without a place.
+    #[error("the report needs a place")]
+    NoPlace,
+    /// Longer than a report is.
+    #[error("the place or the description is too long")]
+    TooLong,
+}
+
+fn named(value: Option<&String>) -> bool {
+    value.is_some_and(|v| !v.trim().is_empty())
 }
 
 impl TaskGiven {
-    /// Checks a new task: a text and someone to do it.
+    /// Checks a new task: a text and someone to do it; a report needs a place instead of
+    /// someone, and both are short.
     pub fn check(&self) -> Result<(), TaskError> {
         if self.text.trim().is_empty() {
             return Err(TaskError::NoText);
         }
-        if self.unit.as_deref().is_none_or(|u| u.trim().is_empty())
-            && self.sector.as_deref().is_none_or(|s| s.trim().is_empty())
-        {
+        if self.kind.is_some() {
+            if !named(self.place.as_ref()) {
+                return Err(TaskError::NoPlace);
+            }
+            if self.text.chars().count() > TEXT_MAX {
+                return Err(TaskError::TooLong);
+            }
+        } else if !self.is_assigned() {
             return Err(TaskError::NoAssignee);
         }
+        if self
+            .place
+            .as_ref()
+            .is_some_and(|p| p.chars().count() > PLACE_MAX)
+        {
+            return Err(TaskError::TooLong);
+        }
         Ok(())
+    }
+
+    /// Whether it names a unit, a position or a person.
+    pub fn is_assigned(&self) -> bool {
+        named(self.unit.as_ref()) || named(self.sector.as_ref()) || named(self.person.as_ref())
     }
 
     /// CBOR payload.
@@ -125,6 +206,65 @@ impl TaskUpdated {
     }
 }
 
+/// Payload of `tasks.assigned` (REP-2): the one unit of an Auftrag that has not started.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskAssigned {
+    /// The task.
+    pub task: String,
+    /// The unit (call sign).
+    pub unit: String,
+}
+
+impl TaskAssigned {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// Payload of `tasks.patientRegistered` (REP-3): only the Auftrag and the unit, never the
+/// triage tag, the category or anything else about the patient.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatientRegistered {
+    /// The patient Auftrag.
+    pub task: String,
+    /// The unit whose crew took the patient over (call sign).
+    pub unit: String,
+}
+
+impl PatientRegistered {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// A patient taken over from a patient Auftrag.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TakenOver {
+    /// By which unit.
+    pub unit: String,
+    /// When.
+    pub at: Hlc,
+    /// Who registered the patient.
+    pub by: UserId,
+}
+
+/// How far an Auftrag is, as shown (TASK-2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+    /// Open, nobody named yet (*Eingegangen*).
+    Received,
+    /// Open, someone named (*Zugewiesen*).
+    Assigned,
+    /// Being carried out.
+    InProgress,
+    /// Done.
+    Done,
+    /// Cancelled by the incident command.
+    Cancelled,
+}
+
 /// One change of a task.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TaskStep {
@@ -145,6 +285,10 @@ pub struct Task {
     pub status: TaskStatus,
     /// Current follow-up time.
     pub follow_up: Option<u64>,
+    /// The unit it is for now: as given, or as assigned since (REP-2).
+    pub unit: Option<String>,
+    /// Patients taken over from it (REP-3).
+    pub patients: Vec<TakenOver>,
     /// Every change, oldest first; the first is the task being given.
     pub history: Vec<TaskStep>,
 }
@@ -159,6 +303,37 @@ impl Task {
     pub fn is_due(&self, now_ms: u64) -> bool {
         self.status.is_open() && self.follow_up.is_some_and(|t| t <= now_ms)
     }
+
+    /// Whether it names someone now: a unit, a position or a person.
+    pub fn is_assigned(&self) -> bool {
+        named(self.unit.as_ref())
+            || named(self.given.sector.as_ref())
+            || named(self.given.person.as_ref())
+    }
+
+    /// How far it is (TASK-2): an open Auftrag without anyone has been received.
+    pub fn phase(&self) -> Phase {
+        match self.status {
+            TaskStatus::Open if self.is_assigned() => Phase::Assigned,
+            TaskStatus::Open => Phase::Received,
+            TaskStatus::InProgress => Phase::InProgress,
+            TaskStatus::Done => Phase::Done,
+            TaskStatus::Cancelled => Phase::Cancelled,
+        }
+    }
+
+    /// The Auftrag whose pin it shows: the first one of a linked group (REP-2).
+    pub fn pin_task(&self) -> &str {
+        self.given.follows.as_deref().unwrap_or(&self.given.task)
+    }
+
+    /// Whether `user` (an account) is the person it is for.
+    pub fn is_for(&self, user: &str) -> bool {
+        self.given
+            .person
+            .as_deref()
+            .is_some_and(|p| p.trim().eq_ignore_ascii_case(user.trim()))
+    }
 }
 
 /// All tasks of an incident, computed from events.
@@ -169,27 +344,29 @@ pub struct TaskList {
 }
 
 impl TaskList {
-    // [impl->dsn~tasks~4]
+    // [impl->dsn~tasks~5]
     /// Computes the list. The result doesn't depend on the order of `events`: a task given
     /// twice keeps its first version, updates apply in clock order and never go back,
     /// updates for unknown tasks are ignored.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
         let mut given: Vec<(Hlc, UserId, TaskGiven)> = Vec::new();
-        let mut updates: Vec<(Hlc, UserId, TaskUpdated)> = Vec::new();
+        let mut updates: Vec<(Hlc, UserId, Change)> = Vec::new();
         for e in events.iter().filter(|e| e.body.module.as_str() == MODULE) {
-            let who = (e.body.hlc, e.body.author.user.clone());
-            match e.body.event_type.as_str() {
+            let (at, by) = (e.body.hlc, e.body.author.user.clone());
+            let change = match e.body.event_type.as_str() {
                 GIVEN => {
                     if let Ok(t) = codec::from_cbor(&e.payload) {
-                        given.push((who.0, who.1, t));
+                        given.push((at, by, t));
                     }
+                    continue;
                 }
-                UPDATED => {
-                    if let Ok(u) = codec::from_cbor(&e.payload) {
-                        updates.push((who.0, who.1, u));
-                    }
-                }
-                _ => {}
+                UPDATED => codec::from_cbor(&e.payload).ok().map(Change::Updated),
+                ASSIGNED => codec::from_cbor(&e.payload).ok().map(Change::Assigned),
+                PATIENT_REGISTERED => codec::from_cbor(&e.payload).ok().map(Change::Patient),
+                _ => None,
+            };
+            if let Some(change) = change {
+                updates.push((at, by, change));
             }
         }
         given.sort_by_key(|(at, _, _)| *at);
@@ -204,6 +381,8 @@ impl TaskList {
                 t.task.clone(),
                 Task {
                     follow_up: t.follow_up,
+                    unit: t.unit.clone().filter(|u| !u.trim().is_empty()),
+                    patients: Vec::new(),
                     given: t,
                     status: TaskStatus::Open,
                     history: vec![TaskStep {
@@ -214,27 +393,42 @@ impl TaskList {
                 },
             );
         }
-        for (at, by, u) in updates {
-            let Some(t) = tasks.get_mut(&u.task) else {
+        for (at, by, change) in updates {
+            let Some(t) = tasks.get_mut(change.task()) else {
                 continue;
             };
             if at <= t.given_at() {
                 continue;
             }
-            if let Some(status) = u.status
-                && t.status.next().contains(&status)
-            {
-                t.status = status;
-                t.history.push(TaskStep { status, at, by });
-            }
-            if u.follow_up.is_some() {
-                t.follow_up = u.follow_up;
+            match change {
+                Change::Updated(u) => {
+                    if let Some(status) = u.status
+                        && t.status.next().contains(&status)
+                    {
+                        t.status = status;
+                        t.history.push(TaskStep { status, at, by });
+                    }
+                    if u.follow_up.is_some() {
+                        t.follow_up = u.follow_up;
+                    }
+                }
+                // One unit, named before the work starts.
+                Change::Assigned(a) => {
+                    if t.status == TaskStatus::Open && !a.unit.trim().is_empty() {
+                        t.unit = Some(a.unit);
+                    }
+                }
+                Change::Patient(p) => t.patients.push(TakenOver {
+                    unit: p.unit,
+                    at,
+                    by,
+                }),
             }
         }
         Self { tasks }
     }
 
-    // [impl->dsn~tasks~4]
+    // [impl->dsn~tasks~5]
     /// The open tasks (TASK-3): due follow-ups first (earliest due first), then the oldest.
     pub fn open(&self, now_ms: u64) -> Vec<&Task> {
         let mut open: Vec<&Task> = self.tasks.values().filter(|t| t.status.is_open()).collect();
@@ -248,7 +442,7 @@ impl TaskList {
         open
     }
 
-    // [impl->dsn~reports~1]
+    // [impl->dsn~reports~2]
     /// Every task about a report, open or not, oldest first.
     pub fn of_report(&self, report: &str) -> Vec<&Task> {
         let mut list: Vec<&Task> = self
@@ -265,10 +459,46 @@ impl TaskList {
         let mut list: Vec<&Task> = self
             .tasks
             .values()
-            .filter(|t| t.status.is_open() && t.given.unit.as_deref() == Some(unit))
+            .filter(|t| t.status.is_open() && t.unit.as_deref() == Some(unit))
             .collect();
         list.sort_by_key(|t| t.given_at());
         list
+    }
+
+    /// The open tasks for one person (an account), oldest first (UHS-15).
+    pub fn of_person(&self, user: &str) -> Vec<&Task> {
+        let mut list: Vec<&Task> = self
+            .tasks
+            .values()
+            .filter(|t| t.status.is_open() && t.is_for(user))
+            .collect();
+        list.sort_by_key(|t| t.given_at());
+        list
+    }
+
+    /// Whether the pin of `task` (the first of a linked group) is still needed: one of its
+    /// Aufträge is open (REP-4, REP-5).
+    pub fn pin_needed(&self, task: &str) -> bool {
+        self.tasks
+            .values()
+            .any(|t| t.status.is_open() && t.pin_task() == task)
+    }
+}
+
+/// A change to a given task, applied in clock order.
+enum Change {
+    Updated(TaskUpdated),
+    Assigned(TaskAssigned),
+    Patient(PatientRegistered),
+}
+
+impl Change {
+    fn task(&self) -> &str {
+        match self {
+            Self::Updated(u) => &u.task,
+            Self::Assigned(a) => &a.task,
+            Self::Patient(p) => &p.task,
+        }
     }
 }
 
@@ -346,13 +576,12 @@ mod tests {
 
     fn given(n: u64, id: &str, unit: &str, follow_up: Option<u64>) -> AppliedEvent {
         let t = TaskGiven {
-            report: None,
             task: id.into(),
             unit: Some(unit.into()),
-            sector: None,
             text: "Lagemeldung abgeben".into(),
             template: Some("situation-report".into()),
             follow_up,
+            ..TaskGiven::default()
         };
         event(n, "ben", GIVEN, t.encode().unwrap())
     }
@@ -371,7 +600,7 @@ mod tests {
         event(n, "ben", UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~4]
+    // [utest->dsn~tasks~5]
     #[test]
     fn tasks_move_forward_with_history_and_never_back() {
         let mut events = vec![
@@ -393,7 +622,7 @@ mod tests {
         assert!(list.open(0).is_empty());
     }
 
-    // [utest->dsn~tasks~4]
+    // [utest->dsn~tasks~5]
     #[test]
     fn due_follow_ups_come_first_and_a_new_time_postpones_them() {
         let events = vec![
@@ -425,20 +654,113 @@ mod tests {
     #[test]
     fn a_task_needs_a_text_and_someone_and_the_profile_is_valid() {
         let mut t = TaskGiven {
-            report: None,
             task: "t".into(),
             unit: Some("RTW 1".into()),
-            sector: None,
             text: " ".into(),
-            template: None,
-            follow_up: None,
+            ..TaskGiven::default()
         };
         assert_eq!(t.check(), Err(TaskError::NoText));
         t.text = "Erkundung".into();
         t.unit = None;
         assert_eq!(t.check(), Err(TaskError::NoAssignee));
+        t.person = Some("lena@ordo.example.org".into());
+        assert_eq!(t.check(), Ok(()), "a person is someone");
+        // A report waits for its unit, but needs a place, and both are short.
+        let mut r = TaskGiven {
+            task: "r".into(),
+            kind: Some(TaskKind::Patient),
+            text: "Person liegt am Boden".into(),
+            ..TaskGiven::default()
+        };
+        assert_eq!(r.check(), Err(TaskError::NoPlace));
+        r.place = Some("Bühne Nord".into());
+        assert_eq!(r.check(), Ok(()));
+        r.text = "x".repeat(TEXT_MAX + 1);
+        assert_eq!(r.check(), Err(TaskError::TooLong));
         let de: TemplateCatalogue =
             toml::from_str(include_str!("../../../profiles/de/tasks/templates.toml")).unwrap();
         de.check().unwrap();
+    }
+
+    fn report(n: u64, id: &str, follows: Option<&str>) -> AppliedEvent {
+        let t = TaskGiven {
+            task: id.into(),
+            kind: Some(TaskKind::Patient),
+            place: Some("Bühne Nord".into()),
+            text: "Person liegt am Boden".into(),
+            received_at: Some(900),
+            follows: follows.map(Into::into),
+            ..TaskGiven::default()
+        };
+        event(n, "ben", GIVEN, t.encode().unwrap())
+    }
+
+    fn assigned(n: u64, id: &str, unit: &str) -> AppliedEvent {
+        let a = TaskAssigned {
+            task: id.into(),
+            unit: unit.into(),
+        };
+        event(n, "ben", ASSIGNED, a.encode().unwrap())
+    }
+
+    // [utest->dsn~tasks~5]
+    // [utest->dsn~reports~2]
+    #[test]
+    fn a_report_is_received_then_assigned_to_one_unit_before_it_starts() {
+        let mut events = vec![
+            report(1, "r1", None),
+            assigned(2, "r1", "RTW 1"),
+            assigned(3, "r1", "RTW 2"), // changed before it started: counts
+            update(4, "r1", Some(TaskStatus::InProgress), None),
+            assigned(5, "r1", "RTW 3"), // started: ignored
+        ];
+        let list = TaskList::from_events(&events[..1]);
+        assert_eq!(list.tasks["r1"].phase(), Phase::Received);
+        assert!(list.of_unit("RTW 1").is_empty());
+        events.reverse();
+        let list = TaskList::from_events(&events);
+        let t = &list.tasks["r1"];
+        assert_eq!(t.unit.as_deref(), Some("RTW 2"));
+        assert_eq!(t.phase(), Phase::InProgress);
+        assert_eq!(list.of_unit("RTW 2").len(), 1);
+    }
+
+    // [utest->dsn~reports~2]
+    #[test]
+    fn a_linked_auftrag_shares_the_pin_until_all_of_them_end() {
+        let patient = PatientRegistered {
+            task: "r2".into(),
+            unit: "RTW 2".into(),
+        };
+        let mut events = vec![
+            report(1, "r1", None),
+            assigned(2, "r1", "RTW 1"),
+            report(3, "r2", Some("r1")),
+            assigned(4, "r2", "RTW 2"),
+            update(5, "r1", Some(TaskStatus::Done), None),
+            event(6, "anna", PATIENT_REGISTERED, patient.encode().unwrap()),
+        ];
+        let list = TaskList::from_events(&events);
+        assert_eq!(list.tasks["r2"].pin_task(), "r1");
+        assert!(list.pin_needed("r1"), "r2 is still open");
+        assert_eq!(list.tasks["r2"].patients[0].unit, "RTW 2");
+        events.push(update(7, "r2", Some(TaskStatus::Done), None));
+        assert!(!TaskList::from_events(&events).pin_needed("r1"));
+    }
+
+    // [utest->dsn~tasks~5]
+    #[test]
+    fn a_person_finds_the_auftrag_for_them() {
+        let t = TaskGiven {
+            task: "p1".into(),
+            person: Some("Lena@ordo.example.org".into()),
+            place: Some("UHS Nord".into()),
+            text: "Zur UHS Nord als Arzt/Ärztin".into(),
+            ..TaskGiven::default()
+        };
+        let list = TaskList::from_events(&[event(1, "ben", GIVEN, t.encode().unwrap())]);
+        assert_eq!(list.of_person("lena@ordo.example.org").len(), 1);
+        assert_eq!(list.tasks["p1"].phase(), Phase::Assigned);
+        assert!(list.of_person("ben@ordo.example.org").is_empty());
     }
 }

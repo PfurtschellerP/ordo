@@ -1257,94 +1257,21 @@ pub fn attention_label(n: usize) -> String {
 pub fn attention_due(unit: &str, task: &str) -> String {
     format!("Rückfrage fällig: {unit} – {task}")
 }
-pub fn attention_unassigned(report: &str) -> String {
-    format!("Meldung ohne Einsatzmittel: {report}")
+pub fn attention_unassigned(task: &str) -> String {
+    format!("Auftrag ohne Einsatzmittel: {task}")
 }
 
-// Reports (REP-1…5, ADR-0075).
-pub const REPORT: &str = "Meldung";
-pub const REPORTS_TITLE: &str = "Offene Meldungen";
-pub const REPORTS_EMPTY: &str = "Keine offenen Meldungen.";
-pub const REPORT_RECORD: &str = "Meldung aufnehmen";
-pub const REPORT_KIND: &str = "Art";
-pub const REPORT_PLACE: &str = "Ort";
-pub const REPORT_TEXT: &str = "Kurzbeschreibung";
-pub const REPORT_TEXT_HINT: &str = "Was gemeldet wurde, in wenigen Worten, ohne medizinische Angaben (die gehören in die Patientenakte).";
-pub const REPORT_RECEIVED: &str = "Eingang";
-pub const REPORT_RECEIVED_HINT: &str = "Leer lassen für jetzt.";
-pub const REPORT_KIND_MISSING: &str = "Bitte die Art der Meldung wählen.";
-pub const REPORT_PLACE_MISSING: &str = "Bitte den Ort angeben.";
-pub const REPORT_TEXT_MISSING: &str = "Bitte kurz beschreiben, was gemeldet wurde.";
-pub const REPORT_TOO_LONG: &str = "Ort oder Kurzbeschreibung sind zu lang.";
-pub const REPORT_TIME_INVALID: &str = "Bitte eine Uhrzeit angeben, z. B. 14:05.";
-pub const REPORT_ASSIGN_TO: &str = "Zuweisen an";
-pub const REPORT_ASSIGN: &str = "Zuweisen";
-pub const REPORT_UNIT_MISSING: &str = "Bitte ein Einsatzmittel wählen.";
-pub const REPORT_PLACE_ON_MAP: &str = "Auf der Karte setzen";
-pub const REPORT_MOVE_ON_MAP: &str = "Auf der Karte verschieben";
-pub const REPORT_ON_MAP: &str = "Auf der Lagekarte gesetzt";
-pub const REPORT_CLOSE: &str = "Abschließen";
+// Reports as Aufträge (REP-1…5, ADR-0081); events of ADR-0075 still read.
 pub const REPORT_CLOSED: &str = "Meldung abgeschlossen";
-pub const REPORT_PATIENT_TAKEN: &str = "Patient aus der Meldung aufgenommen";
-pub const ASSIGNED_CASES: &str = "Gemeldete Patienten für Ihr Einsatzmittel";
 pub const CASE_REGISTER: &str = "Patient aufnehmen";
-pub const CASE_CANCEL: &str = "Ohne Meldung aufnehmen";
+pub const CASE_CANCEL: &str = "Ohne Auftrag aufnehmen";
 pub const OPEN_IN_MAPS_APP: &str = "In der Karten-App öffnen";
-
-pub fn report_kind(kind: ordo_reports::ReportKind) -> &'static str {
-    match kind {
-        ordo_reports::ReportKind::Event => "Ereignis",
-        ordo_reports::ReportKind::Patient => "Patient",
-    }
-}
-
-pub fn reports_title(n: usize) -> String {
-    format!("{REPORTS_TITLE} ({n})")
-}
-
-pub fn report_label(kind: ordo_reports::ReportKind, place: &str) -> String {
-    format!("{}: {place}", report_kind(kind))
-}
-
-pub fn report_received(at: &str) -> String {
-    format!("Eingang {at}")
-}
-
-pub fn report_recorded(place: &str) -> String {
-    format!("Meldung aufgenommen: {place}")
-}
-
-pub fn report_taken(unit: &str, at: &str) -> String {
-    format!("Patient aufgenommen von {unit} ({at})")
-}
-
-pub fn report_place_label(placed: bool, report: &str) -> String {
-    let action = if placed {
-        REPORT_MOVE_ON_MAP
-    } else {
-        REPORT_PLACE_ON_MAP
-    };
-    format!("{action}: {report}")
-}
-
-pub fn report_close_label(report: &str) -> String {
-    format!("{REPORT_CLOSE}: {report}")
-}
-
-/// The text of the task a report gives a unit.
-pub fn report_task(r: &ordo_reports::Recorded) -> String {
-    format!("{}: {} – {}", report_kind(r.kind), r.place, r.text)
-}
-
-pub fn case_for(unit: &str) -> String {
-    format!("Zugewiesen an {unit}")
-}
 
 pub fn log_report_recorded(r: &ordo_reports::Recorded) -> String {
     format!(
         "Meldung aufgenommen: {}, {} – {} – {}",
-        report_kind(r.kind),
-        report_received(&crate::core::clock(r.received_at)),
+        task_kind(crate::reports::task_kind(r.kind)),
+        task_received(&crate::core::clock(r.received_at)),
         r.place,
         r.text
     )
@@ -1354,12 +1281,12 @@ pub fn log_report_closed(report: &str) -> String {
     format!("Meldung abgeschlossen: {report}")
 }
 
-pub fn log_report_patient(report: &str, unit: &str) -> String {
-    format!("Patient aus der Meldung {report} aufgenommen von {unit}")
+pub fn log_report_patient(task: &str, unit: &str) -> String {
+    format!("Patient aus dem Auftrag {task} aufgenommen von {unit}")
 }
 
 pub fn register_from_case(place: &str, unit: &str) -> String {
-    format!("Aus der Meldung „{place}“ für {unit}")
+    format!("Aus dem Auftrag „{place}“ für {unit}")
 }
 
 // Tasks (TASK-1…4).
@@ -1373,6 +1300,119 @@ pub const TASK_TEMPLATE_NONE: &str = "ohne Vorlage";
 pub const TASK_TEXT: &str = "Auftrag";
 pub const TASK_FOLLOW_UP: &str = "Nachfragen in (Minuten, optional)";
 pub const TASK_MISSING: &str = "Bitte Empfänger und Auftrag angeben.";
+pub const TASK_NEW: &str = "Neuer Auftrag";
+pub const TASK_CREATE: &str = "Auftrag anlegen";
+pub const TASK_GIVEN: &str = "Auftrag gegeben";
+pub const TASK_KIND: &str = "Art";
+pub const TASK_KIND_OTHER: &str = "Sonstiger Auftrag";
+pub const TASK_KIND_MISSING: &str = "Bitte die Art wählen.";
+pub const TASK_UNIT_LATER: &str = "Später zuweisen";
+pub const TASK_UNIT_ONLY: &str = "Einsatzmittel wählen";
+pub const TASK_UNIT_HINT: &str =
+    "Bei Patient und Ereignis optional: das Einsatzmittel lässt sich auch später zuweisen.";
+pub const TASK_PLACE: &str = "Ort";
+pub const TASK_WHAT: &str = "Was ist los?";
+pub const TASK_WHAT_HINT: &str =
+    "In wenigen Worten, ohne medizinische Angaben (die gehören in die Patientenakte).";
+pub const TASK_RECEIVED: &str = "Eingang";
+pub const TASK_RECEIVED_HINT: &str = "Leer lassen für jetzt.";
+pub const TASK_TEXT_MISSING: &str = "Bitte kurz beschreiben, worum es geht.";
+pub const TASK_PLACE_MISSING: &str = "Bitte den Ort angeben.";
+pub const TASK_TOO_LONG: &str = "Ort oder Beschreibung sind zu lang.";
+pub const TASK_TIME_INVALID: &str = "Bitte eine Uhrzeit angeben, z. B. 14:05.";
+pub const TASK_ASSIGN_TO: &str = "Zuweisen an";
+pub const TASK_ASSIGN: &str = "Zuweisen";
+pub const TASK_UNIT_MISSING: &str = "Bitte ein Einsatzmittel wählen.";
+pub const TASK_SEND_FURTHER: &str = "Weiteres Einsatzmittel schicken";
+pub const TASK_SEND_TO: &str = "Zusätzlich schicken";
+pub const TASK_SEND: &str = "Schicken";
+pub const TASK_ON_MAP: &str = "Pin auf der Lagekarte";
+pub const TASK_PATIENT_TAKEN: &str = "Patient aus dem Auftrag aufgenommen";
+pub const MY_TASKS: &str = "Meine Aufträge";
+pub const PIN_TITLE: &str = "Pin auf der Karte (optional)";
+pub const PIN_HINT: &str = "Adresse suchen oder in die Karte tippen. Mit der Tastatur: Karte mit den Pfeiltasten verschieben, dann „Pin in Kartenmitte setzen“.";
+pub const PIN_AT_CENTRE: &str = "Pin in Kartenmitte setzen";
+pub const PIN_CLEAR: &str = "Pin entfernen";
+pub const PIN_NONE: &str = "Kein Pin gesetzt.";
+pub const PIN_SET: &str = "Pin setzen";
+pub const PIN_MOVE: &str = "Pin verschieben";
+pub const PIN_SAVE: &str = "Pin speichern";
+
+pub fn pin_at(at: &str) -> String {
+    format!("Pin: {at}")
+}
+
+pub fn pin_edit_label(placed: bool, task: &str) -> String {
+    format!("{}: {task}", if placed { PIN_MOVE } else { PIN_SET })
+}
+
+pub fn task_kind(kind: ordo_tasks::TaskKind) -> &'static str {
+    match kind {
+        ordo_tasks::TaskKind::Event => "Ereignis",
+        ordo_tasks::TaskKind::Patient => "Patient",
+    }
+}
+
+/// "Patient: Bühne Nord"
+pub fn task_label(kind: ordo_tasks::TaskKind, place: &str) -> String {
+    format!("{}: {place}", task_kind(kind))
+}
+
+pub fn task_received(at: &str) -> String {
+    format!("Eingang {at}")
+}
+
+pub fn task_recorded(place: &str) -> String {
+    format!("Auftrag angelegt: {place}")
+}
+
+pub fn task_taken(unit: &str, at: &str) -> String {
+    format!("Patient aufgenommen von {unit} ({at})")
+}
+
+/// How far an Auftrag is (TASK-2).
+pub fn task_phase(phase: ordo_tasks::Phase) -> &'static str {
+    use ordo_tasks::Phase as P;
+    match phase {
+        P::Received => "Eingegangen",
+        P::Assigned => "Zugewiesen",
+        P::InProgress => "In Arbeit",
+        P::Done => "Erledigt",
+        P::Cancelled => "Abgebrochen",
+    }
+}
+
+/// The Auftrag of the person sent after a staff request (UHS-15).
+pub fn staff_task(uhs: &str, need: ordo_med_patients::staffing::Need) -> String {
+    format!("Als {} zu {uhs}", staff_need(need))
+}
+
+pub fn staff_request_not_staff(uhs: &str) -> String {
+    format!("Anfordern kann nur, wer auf der Personalliste von {uhs} steht.")
+}
+
+pub fn log_task_received(
+    kind: ordo_tasks::TaskKind,
+    at: &str,
+    place: &str,
+    task: &str,
+    to: &str,
+) -> String {
+    let line = format!(
+        "Auftrag eingegangen: {}, {} – {place} – {task}",
+        task_kind(kind),
+        task_received(at)
+    );
+    if to.is_empty() {
+        line
+    } else {
+        format!("{line} – an {to}")
+    }
+}
+
+pub fn log_task_assigned(task: &str, unit: &str) -> String {
+    format!("Auftrag „{task}“ an {unit} zugewiesen")
+}
 pub const TASK_FOLLOW_UP_NUMBER: &str = "Bitte die Minuten als ganze Zahl angeben.";
 pub const FOLLOW_UP_LATER: &str = "In 10 Minuten nachfragen";
 pub const FOLLOW_UP_LATER_DONE: &str = "Nachfrage verschoben";
@@ -1402,9 +1442,9 @@ pub fn task_step(status: ordo_tasks::TaskStatus) -> &'static str {
     }
 }
 
-/// "In Arbeit: RTW 83/1 – Lagemeldung abgeben"
-pub fn task_step_label(step: &str, unit: &str, text: &str) -> String {
-    format!("{step}: {unit} – {text}")
+/// "In Arbeit: Patient: Bühne Nord"
+pub fn task_step_label(step: &str, task: &str) -> String {
+    format!("{step}: {task}")
 }
 
 pub fn task_given(unit: &str) -> String {
@@ -1534,7 +1574,8 @@ pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
         K::Uhs => "UHS",
         K::Position => POSITION,
         K::Drawing => "Zeichnung",
-        K::Report => REPORT,
+        K::Report => "Meldung",
+        K::Task => TASK_TEXT,
         K::Symbol => MAP_KIND_SYMBOL,
     }
 }

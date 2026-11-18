@@ -1,7 +1,8 @@
 //! Only a UHS's staff writes its patients (UHS-10, ADR-0056): the server's write guard for
 //! the clinical compartment. A UHS without a staff list is open to every medical role, as
 //! before. Each event is judged by the staff list valid at its clock, so documentation made
-//! offline stays valid when the list changes in between.
+//! offline stays valid when the list changes in between. A staff request (UHS-15) is made
+//! only by someone on the UHS's staff list.
 
 use std::collections::BTreeMap;
 
@@ -62,6 +63,14 @@ impl Incident {
         }
     }
 
+    /// Whether `user` is on the staff list of `uhs` at `when` (an empty list names nobody).
+    fn on_list(&self, uhs: &str, user: &str, when: Hlc) -> bool {
+        self.staff
+            .get(uhs)
+            .and_then(|h| at(h, when))
+            .is_some_and(|list| list.iter().any(|s| s.trim().eq_ignore_ascii_case(user)))
+    }
+
     /// The UHS a clinical event is about, if known: the one registered at, the one a
     /// patient leaves, or the patient's UHS at the event's time.
     fn uhs_of(&self, e: &AppliedEvent) -> Option<String> {
@@ -98,6 +107,15 @@ impl WriteGuard for UhsStaffGuard {
     }
 
     fn allows(&self, e: &AppliedEvent, permissions: &[String]) -> bool {
+        // [impl->dsn~uhs-staff-request~2]
+        // A UHS asks through its staff only, whatever else the person may do.
+        if e.body.event_type.as_str() == crate::staffing::REQUESTED {
+            let user = e.body.author.user.to_string();
+            return codec::from_cbor::<crate::staffing::Requested>(&e.payload).is_ok_and(|r| {
+                self.incident(e)
+                    .is_some_and(|i| i.on_list(&r.uhs, &user, e.body.hlc))
+            });
+        }
         if permissions.iter().any(|p| p == ALL_UHS) {
             return true;
         }
@@ -197,6 +215,7 @@ mod tests {
     fn registered(n: u64, by: &str, tag: &str, uhs: &str) -> AppliedEvent {
         let r = Registered {
             report: None,
+            task: None,
             tag: tag.into(),
             category: TriageCategory::Minor,
             uhs: uhs.into(),
@@ -374,5 +393,43 @@ mod tests {
         };
         assert!(g.allows(&done("anna"), &[]));
         assert!(!g.allows(&done("carl"), &[]));
+    }
+
+    // [utest->dsn~uhs-staff-request~2]
+    #[test]
+    fn only_a_uhss_staff_asks_for_staff() {
+        let ask = |n, by: &str, uhs: &str| {
+            let r = crate::staffing::Requested {
+                request: format!("r{n}"),
+                uhs: uhs.into(),
+                need: crate::staffing::Need::Physician,
+            };
+            event(
+                n,
+                by,
+                crate::staffing::MODULE,
+                crate::staffing::COMPARTMENT,
+                crate::staffing::REQUESTED,
+                r.encode().unwrap(),
+            )
+        };
+        let g = guard(&[staff(2, "petra", "nord", &["anna"])]);
+        assert!(g.allows(&ask(3, "anna", "nord"), &[]), "on the list");
+        assert!(
+            !g.allows(&ask(1, "anna", "nord"), &[]),
+            "asked before she was on it"
+        );
+        assert!(!g.allows(&ask(3, "carl", "nord"), &[]), "not on the list");
+        assert!(
+            !g.allows(
+                &ask(3, "carl", "nord"),
+                &[ALL_UHS.into(), EDIT_UNITS.into()]
+            ),
+            "not even the command or roles allowed everywhere"
+        );
+        assert!(
+            !g.allows(&ask(3, "anna", "sued"), &[]),
+            "a UHS without a list"
+        );
     }
 }

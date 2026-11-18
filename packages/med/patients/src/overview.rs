@@ -123,6 +123,7 @@ mod tests {
     fn patient(n: u64, tag: &str, uhs: &str, category: TriageCategory) -> AppliedEvent {
         let r = Registered {
             report: None,
+            task: None,
             tag: tag.into(),
             category,
             uhs: uhs.into(),
