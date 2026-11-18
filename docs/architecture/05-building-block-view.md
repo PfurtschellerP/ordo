@@ -484,7 +484,8 @@ Auftrag, the strength (leaders / sub-leaders / crew / total) and the crew's
 qualifications as abbreviations with their count; the names fold out. A pencil links to
 the unit in *Vorbereitung – Einsatzmittel*; "Status setzen" is the status select, and
 "Auftrag geben" opens the form in *Disposition* for the unit. For a **UHS**: its patients
-per triage category, in words and numbers, the free places and "UHS öffnen". For anything
+per triage category, in words and numbers (from the counts the command reads, never
+clinical data), and "UHS öffnen" for those who work with patients. For anything
 else: its name and kind. The abbreviations come from the profile (`short` next to each
 qualification in `units/catalogue.toml`); the full term is the accessible name and the
 tooltip. Only those who may edit units (`edit_units`) see the actions.
