@@ -23,7 +23,7 @@ use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
-use crate::ui::{Action, Actions, IncidentPeople, RadioChips, Suggestions};
+use crate::ui::{Action, Actions, Icon, IncidentPeople, RadioChips, Suggestions};
 use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
 
 const WORKSPACE: &str = "med.uhs";
@@ -208,6 +208,11 @@ pub fn PatientsView(
 
 /// Where the device keeps the UHS its person works at (UHS-9); empty: all.
 const WORKING_UHS_KEY: &str = "ordo.working-uhs";
+
+/// Makes `uhs` the one this person works at on this device, e.g. opened from the map.
+pub fn work_at(uhs: &str) {
+    core::set_preference(WORKING_UHS_KEY, Some(uhs));
+}
 
 /// The UHS the person works at (UHS-9): its ID, or empty for all of them.
 #[derive(Clone, Copy)]
@@ -1167,20 +1172,28 @@ fn PhotoSection(
             <div class="row">
                 <input id="photo-camera" class="file-input visually-hidden" type="file" accept="image/*" capture="environment"
                     aria-describedby="photo-purpose" on:change=on_file.clone() />
-                <label for="photo-camera" class="button">{text::PHOTO_TAKE}</label>
+                <label for="photo-camera" class="button button--with-icon"><Icon name="camera" />{text::PHOTO_TAKE}</label>
                 <input id="photo-upload" class="file-input visually-hidden" type="file" accept="image/*"
                     aria-describedby="photo-purpose" on:change=on_file />
-                <label for="photo-upload" class="button">{text::PHOTO_UPLOAD}</label>
+                <label for="photo-upload" class="button button--with-icon"><Icon name="upload" />{text::PHOTO_UPLOAD}</label>
                 // [impl->dsn~patient-photo~3]
+                // [impl->dsn~icon-rules~1]
+                // A trash icon; removed at once, with undo instead of a question.
                 {move || source.with(|s| s.as_ref().map(|(id, ..)| id.clone())).map(|id| {
                     let tag = remove_tag.clone();
+                    let label = text::photo_remove_label(&tag);
                     view! {
-                        <button type="button" class="button button--quiet" id="photo-remove"
-                            aria-label=text::photo_remove_label(&tag)
+                        <button type="button" class="button button--quiet icon-button" id="photo-remove"
+                            aria-label=label.clone() data-tip=label
                             on:click=move |_| {
-                                let _ = core::remove_photo(core, revision, &tag, &id);
+                                if core::remove_photo(core, revision, &tag, &id).is_ok() {
+                                    let (tag, id) = (tag.clone(), id.clone());
+                                    crate::ui::offer_undo(text::photo_removed(&tag), move || {
+                                        let _ = core::restore_photo(core, revision, &tag, &id);
+                                    });
+                                }
                             }>
-                            {text::PHOTO_REMOVE}
+                            <Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::PHOTO_REMOVE_SHORT}</span>
                         </button>
                     }
                 })}

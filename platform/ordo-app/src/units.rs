@@ -67,6 +67,11 @@ pub(crate) fn special_text(special: &Special) -> Option<String> {
     (!listed.is_empty()).then(|| text::special_functions(&listed.join(", ")))
 }
 
+/// A qualification in short, from the profile (e.g. "NotSan").
+pub(crate) fn qualification_short(id: &str) -> String {
+    UnitCatalogue::short(&CATALOGUE.qualifications, id).to_owned()
+}
+
 /// Whether the chosen incident shows strengths in the detailed notation (UNIT-7).
 pub(crate) fn detailed(core: Handle) -> bool {
     core.with_value(|c| {
@@ -631,18 +636,24 @@ fn CrewEditor(
                                 .map(|q| UnitCatalogue::label(&CATALOGUE.qualifications, q).to_owned())
                                 .collect::<Vec<_>>()
                                 .join(", ");
+                            // [impl->dsn~icon-rules~1]
                             let remove = editable.then(|| {
-                                let (name, members) = (name.clone(), members.clone());
-                                vec![Action {
-                                    text: text::CREW_REMOVE,
-                                    label: text::crew_remove_label(&m.name),
-                                    quiet: true,
-                                    run: Callback::new(move |()| {
-                                        let mut list = members.clone();
-                                        list.remove(i);
-                                        let _ = core::set_crew(core, revision, &name, list);
-                                    }),
-                                }]
+                                let (name, members, who) = (name.clone(), members.clone(), m.name.clone());
+                                let label = text::crew_remove_label(&m.name);
+                                let run = Callback::new(move |()| {
+                                    let mut list = members.clone();
+                                    list.remove(i);
+                                    if core::set_crew(core, revision, &name, list).is_ok() {
+                                        let (name, back) = (name.clone(), members.clone());
+                                        crate::ui::offer_undo(text::removed(&who), move || {
+                                            let _ = core::set_crew(core, revision, &name, back.clone());
+                                        });
+                                    }
+                                });
+                                view! {
+                                    <crate::ui::IconButton icon="trash-2" word=text::CREW_REMOVE quiet=true
+                                        label on_click=run />
+                                }
                             });
                             view! {
                                 <li>
@@ -655,7 +666,7 @@ fn CrewEditor(
                                         })
                                     }</strong>
                                     {(!quals.is_empty()).then(|| format!(" · {quals}"))}
-                                    {remove.map(|actions| view! { <Actions actions /> })}
+                                    {remove}
                                 </li>
                             }
                         })
@@ -671,7 +682,8 @@ fn CrewEditor(
                     <input id=field.clone() type="text" autocomplete="off" list=format!("{field}-people") bind:value=person />
                     <Suggestions id=format!("{field}-people") values=people core />
                 </div>
-                <CheckChips legend=text::CREW_QUALIFICATIONS options=options.clone() value=qualifications />
+                // [impl->dsn~icon-rules~1]
+                <CheckChips legend=text::CREW_QUALIFICATIONS options=options.clone() value=qualifications short=qualification_short />
                 <div class="row">
                     <button type="submit" class="button button--small">{text::CREW_ADD}</button>
                 </div>
@@ -907,6 +919,9 @@ pub fn UnitStatusBoard(
 /// units. Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    // [impl->dsn~map-object-cards~1]
+    // Opened from a unit's card on the map: that unit comes into view.
+    crate::object_card::reveal_pending();
     let can_edit = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| {

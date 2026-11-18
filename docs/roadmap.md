@@ -365,8 +365,10 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        Auftrag of its own, with one unit and one state, ended by the crew's "Erledigt";
        its pin is set by address or on a small map on the same form and moved from the
        card; "Weiteres Einsatzmittel schicken" links a second Auftrag. Only a UHS's staff
-       ask for staff, and the person sent gets an Auftrag. Next: the map's pop-up cards
-       and the icon rules (proposals of 2026-11-18, agreed).
+       ask for staff, and the person sent gets an Auftrag. The map's object cards (MAP-11,
+       m64: pointer label, card on tap and in the list, qualifications in short from the
+       profile) and the icon rules (icon buttons with names and tooltips, words where
+       there is room, undo instead of questions) are done too.
     3. *People and duty:* guests' one-time codes valid until the duty ends or the incident
        is closed (instead of 30 minutes); a duty can be paused; devices unused for 30 days
        are removed; the bell for every role; a UHS asks for staff where its people see it.

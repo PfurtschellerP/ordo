@@ -1569,6 +1569,42 @@ Needs: impl, utest
 
 Tags: must, m0
 
+#### Icon rules
+`dsn~icon-rules~1`
+
+More icons and fewer words, by rules (agreed with the product owner on 2026-11-18):
+
+* **Icon only** for actions repeated on many items of a list that everyone knows: show on
+  the map, details, edit, remove, withdraw, close. Never for the main action of a form,
+  nor for a change of state with consequences (*Dienst beenden*, *Einsatz abschließen*,
+  *Gerät sperren*): those keep their words.
+* **A name with the item.** Every icon button's accessible name says the action and the
+  item ("Bearbeiten: RTW 83/1"); a tooltip shows the same name on hover and on keyboard
+  focus, not only as a browser `title`. The target is at least 44 × 44 px.
+* **One icon, one meaning**, from the Lucide set (`design/assets/icons/lucide/`):
+  map-pin = show on the map, info = details, pencil = edit, trash-2 = remove or dissolve,
+  x = withdraw or close, plus = add, undo-2 = undo, ellipsis = more actions,
+  camera = take a photo, upload = upload.
+* **Words where there is room.** A row's icon buttons show their word too where the row is
+  wide (container queries); main actions always keep their word.
+* **Removing by icon can be undone.** A short "… entfernt. Rückgängig" follows at the
+  bottom of the page, for ten seconds or until the next press elsewhere, so it never
+  stays over the page; undoing records a correcting event (events are never deleted).
+* **Abbreviations from the profile**, with the full term as accessible name and tooltip
+  ([Map object cards](../architecture/05-building-block-view.md#map-object-cards)).
+
+The browser test finds icon buttons by their accessible name, and the accessibility audit
+(axe-core) checks that each has one.
+
+Covers:
+
+* [req~a11y-3~1](../requirements/07-quality.md#a11y-3--not-colour-alone)
+* [req~a11y-4~1](../requirements/07-quality.md#a11y-4--keyboard-and-screen-readers)
+
+Needs: impl, itest
+
+Tags: should, m64
+
 ## 8.7 Open specifications
 
 All of ORDO's interfaces are published as **open, versioned specifications**,

@@ -1213,7 +1213,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
     const lena = helpers.locator(".helper-list [data-helper]", { hasText: "Lena Berger" });
     await expect(lena.locator(".person-card__duty"), "a line for duty and organisation").toHaveText("DRK Musterstadt");
-    await expect(lena.locator(".person-card__quals .tag"), "qualifications as chips").toHaveText(["Notfallsanitäter/in"]);
+    await expect(lena.locator(".person-card__quals abbr"), "qualifications as short chips").toHaveText(["NotSan"]);
+    await expect(lena.locator(".person-card__quals abbr"), "the full term as tooltip").toHaveAttribute("title", "Notfallsanitäter/in");
     await expect(lena, "HELP-2: linked to an account").toContainText("lena@localhost");
     await expect(lena.locator(".roster__role"), "HELP-6: with the role granted in the same form").toContainText("Notfallsanitäter/in");
     await lena.getByRole("button", { name: "Dienst beginnen: Lena Berger" }).click();
@@ -1487,6 +1488,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await shot(ben, "map-editor");
     await ben.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }).click();
     await expect(unit).toHaveCount(0);
+    // [itest->dsn~icon-rules~1]
+    // Removed by an icon, at once: undo instead of a question; undoing places it again.
+    await expect(ben.locator(".undo-bar"), "the removal can be undone").toContainText("RTW 83/1 entfernt.");
+    await ben.locator(".undo-bar").getByRole("button", { name: "Rückgängig" }).click();
+    await expect(unit, "back on the map").toHaveCount(1);
+    await expect(unit.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }), "a row action is an icon with its name").toHaveClass(/icon-button/);
     // [itest->dsn~uhs-details~3]
     // A UHS's place is its symbol on the map, set from its details panel.
     await openWorkspace(ben, "Vorbereitung");
@@ -1512,6 +1519,27 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
+    // [itest->dsn~map-object-cards~1]
+    // MAP-11: the list opens each object's card, as a tap on the map does.
+    const rtw = objects.filter({ hasText: "RTW 83/1" });
+    await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
+    const rtwCard = rtw.locator(".object-card");
+    await expect(rtwCard, "the unit's status").toContainText(/Status: \d – /);
+    await expect(rtwCard.locator(".object-card__chips abbr").first(), "the crew's qualifications in short, the full term as tooltip").toHaveAttribute("title", /.+/);
+    await expect(rtwCard.getByLabel("Status von RTW 83/1 setzen"), "the status set from the card").toBeVisible();
+    await audit(ben, "Map object card");
+    await rtwCard.getByRole("link", { name: "Bearbeiten: RTW 83/1" }).press("Escape");
+    await expect(rtwCard, "Escape closes it").toHaveCount(0);
+    const gateRow = objects.filter({ hasText: "UHS Eingang" });
+    await gateRow.getByRole("button", { name: "Details: UHS Eingang" }).click();
+    await expect(gateRow.locator(".object-card .triage"), "a UHS: its patients per triage category").toHaveCount(6);
+    await gateRow.getByRole("button", { name: "Schließen: UHS Eingang" }).click();
+    await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
+    await rtwCard.getByRole("link", { name: "Bearbeiten: RTW 83/1" }).click();
+    await expect.poll(() => title(ben), { message: "the pencil leads to the unit in Vorbereitung" }).toContain("Vorbereitung");
+    await expect(ben.locator(".unit-card[data-unit='RTW 83/1']").first(), "already in view and focused").toBeFocused();
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Lagekarte");
     await audit(ben, "Situation map");
     await shot(ben, "situation-map");
   });

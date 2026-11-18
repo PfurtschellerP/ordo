@@ -18,7 +18,7 @@ use wasm_bindgen_futures::JsFuture;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
-use crate::ui::{Action, Actions, Icon};
+use crate::ui::Icon;
 
 /// Where the glue is served (copied by Trunk, cached by the service worker).
 const GLUE: &str = "/map/ordo-map.js";
@@ -124,7 +124,11 @@ fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
 
 /// The objects as a GeoJSON FeatureCollection (RFC 7946) for the glue; `symbol` names the
 /// image the glue shows for a point.
-fn geojson(map: &SituationMap, symbols: &BTreeMap<String, Symbol>) -> String {
+fn geojson(
+    map: &SituationMap,
+    symbols: &BTreeMap<String, Symbol>,
+    states: &BTreeMap<String, String>,
+) -> String {
     let features: Vec<serde_json::Value> = map
         .objects
         .values()
@@ -137,6 +141,11 @@ fn geojson(map: &SituationMap, symbols: &BTreeMap<String, Symbol>) -> String {
             });
             if let Some(symbol) = symbols.get(&o.placed.object) {
                 properties["symbol"] = serde_json::Value::from(symbol.id.clone());
+            }
+            // [impl->dsn~map-object-cards~1]
+            // The short state for the pointer's label (MAP-11).
+            if let Some(state) = states.get(&o.placed.object) {
+                properties["state"] = serde_json::Value::from(state.clone());
             }
             // A drawing's line pattern, from its category (MAP-4).
             if let Some(category) = o.placed.reference.as_deref().and_then(|r| DRAWINGS.get(r))
@@ -204,6 +213,7 @@ fn show_at(handle: MapHandle, at: [f64; 2]) {
 struct Situation {
     map: Memo<SituationMap>,
     symbols: Memo<BTreeMap<String, Symbol>>,
+    states: Memo<BTreeMap<String, String>>,
     editable: Memo<bool>,
 }
 
@@ -225,9 +235,14 @@ fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
         revision.track();
         map.with(|s| symbols_of(core, s))
     });
+    let states = Memo::new(move |_| {
+        revision.track();
+        map.with(|s| crate::object_card::states(core, s))
+    });
     Situation {
         map,
         symbols,
+        states,
         editable,
     }
 }
@@ -242,7 +257,10 @@ fn mount_map(
     s: Situation,
     cooperative: bool,
 ) -> (MapHandle, RwSignal<MapState>) {
-    let features = move || s.map.with(|m| s.symbols.with(|y| geojson(m, y)));
+    let features = move || {
+        s.map
+            .with(|m| s.symbols.with(|y| s.states.with(|z| geojson(m, y, z))))
+    };
     let state = RwSignal::new(MapState::Loading);
     let handle: MapHandle = StoredValue::new_local(None);
     Effect::new(move || {
@@ -436,8 +454,10 @@ fn kind_label(placed: &ObjectPlaced) -> String {
     }
 }
 
-/// The list of everything on the map (A11Y-5). On the editor page each object can be
-/// chosen (`edit`) and removed.
+/// The list of everything on the map (A11Y-5). Each row shows the object on the map and,
+/// with `cards`, opens its card (MAP-11); on the editor page each object can be chosen
+/// (`edit`) and removed, and a removal can be undone. Repeated row actions are icon buttons
+/// with the object in their name (the icon rules).
 #[component]
 fn ObjectList(
     core: Handle,
@@ -445,7 +465,10 @@ fn ObjectList(
     s: Situation,
     handle: MapHandle,
     #[prop(default = None)] edit: Option<Callback<String>>,
+    #[prop(optional)] cards: bool,
 ) -> impl IntoView {
+    // The object whose card is open in the list.
+    let open = RwSignal::new(None::<String>);
     view! {
         <h3 id="objects-title">{text::MAP_OBJECTS}</h3>
         {move || {
@@ -460,31 +483,53 @@ fn ObjectList(
                     {list
                         .into_iter()
                         .map(|o| {
-                            let mut actions = Vec::new();
-                            if let Some(at) = o.placed.geometry.anchor() {
-                                actions.push(Action {
-                                    text: text::MAP_SHOW,
-                                    label: text::map_show_label(&o.placed.label),
-                                    quiet: false,
-                                    run: Callback::new(move |()| show_at(handle, at)),
+                            let label = o.placed.label.clone();
+                            let object = o.placed.object.clone();
+                            let show = o.placed.geometry.anchor().map(|at| view! {
+                                <crate::ui::IconButton icon="map-pin" word=text::MAP_SHOW
+                                    label=text::map_show_label(&label)
+                                    on_click=Callback::new(move |()| show_at(handle, at)) />
+                            });
+                            let details = cards.then(|| {
+                                let object = object.clone();
+                                let is_open = Signal::derive({
+                                    let object = object.clone();
+                                    move || open.with(|o| o.as_deref() == Some(object.as_str()))
                                 });
-                            }
-                            if let (true, Some(edit)) = (editing, edit) {
-                                let object = o.placed.object.clone();
-                                actions.push(Action {
-                                    text: text::MAP_EDIT_OBJECT,
-                                    label: text::map_edit_label(&o.placed.label),
-                                    quiet: false,
-                                    run: Callback::new(move |()| edit.run(object.clone())),
-                                });
-                                let object = o.placed.object.clone();
-                                actions.push(Action {
-                                    text: text::MAP_REMOVE,
-                                    label: text::map_remove_label(&o.placed.label),
-                                    quiet: true,
-                                    run: Callback::new(move |()| remove(core, revision, &object)),
-                                });
-                            }
+                                view! {
+                                    <crate::ui::IconButton icon="info" word=text::MAP_DETAILS
+                                        label=text::map_details_label(&label) expanded=is_open
+                                        on_click=Callback::new(move |()| open.update(|o| {
+                                            *o = (o.as_deref() != Some(object.as_str())).then(|| object.clone());
+                                        })) />
+                                }
+                            });
+                            let tools = editing.then(|| {
+                                let edit = edit.expect("editing has a callback");
+                                let (chosen, gone) = (object.clone(), o.placed.clone());
+                                view! {
+                                    <crate::ui::IconButton icon="pencil" word=text::MAP_EDIT_OBJECT
+                                        label=text::map_edit_label(&label)
+                                        on_click=Callback::new(move |()| edit.run(chosen.clone())) />
+                                    <crate::ui::IconButton icon="trash-2" word=text::MAP_REMOVE quiet=true
+                                        label=text::map_remove_label(&label)
+                                        on_click=Callback::new(move |()| {
+                                            remove(core, revision, &gone.object);
+                                            // [impl->dsn~icon-rules~1]
+                                            let placed = gone.clone();
+                                            crate::ui::offer_undo(text::map_removed(&placed.label), move || {
+                                                place(core, revision, &placed);
+                                            });
+                                        }) />
+                                }
+                            });
+                            let card = cards.then(|| {
+                                let object = object.clone();
+                                move || open.with(|o| o.as_deref() == Some(object.as_str())).then(|| view! {
+                                    <crate::object_card::ObjectCard core revision object=object.clone()
+                                        on_close=Callback::new(move |()| open.set(None)) />
+                                })
+                            });
                             // The symbol's name as its text, e.g. "Rettungswagen".
                             let symbol = symbols.get(&o.placed.object).and_then(|s| {
                                 symbol_url(&s.id).map(|url| view! {
@@ -492,12 +537,17 @@ fn ObjectList(
                                 })
                             });
                             view! {
-                                <li class="map-object" data-object=o.placed.object.clone()>
-                                    {symbol}
-                                    <strong>{o.placed.label.clone()}</strong> " · "
-                                    {kind_label(&o.placed)}
-                                    " · " <span class="map-object__at">{coordinates(&o.placed.geometry)}</span>
-                                    <Actions actions />
+                                <li class="map-object" data-object=object.clone()>
+                                    <div class="map-object__row">
+                                        {symbol}
+                                        <span class="map-object__name">
+                                            <strong>{label.clone()}</strong> " · "
+                                            {kind_label(&o.placed)}
+                                            " · " <span class="map-object__at">{coordinates(&o.placed.geometry)}</span>
+                                        </span>
+                                        <div class="map-object__actions">{show}{details}{tools}</div>
+                                    </div>
+                                    {card}
                                 </li>
                             }
                         })
@@ -542,15 +592,53 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s, false);
+    // [impl->dsn~map-object-cards~1]
+    // A tap on an object opens its card over the map; a tap on the empty map closes it.
+    let chosen = RwSignal::new(None::<String>);
+    let tapping = StoredValue::new(false);
+    Effect::new(move || {
+        if !matches!(state.get(), MapState::Ready(_)) || tapping.get_value() {
+            return;
+        }
+        let on_tap = wasm_bindgen::closure::Closure::<dyn FnMut(f64, f64, JsValue, bool)>::new(
+            move |_: f64, _: f64, hit: JsValue, _: bool| chosen.set(hit.as_string()),
+        );
+        let _ = with_map(handle, "onTap", &[on_tap.into_js_value()]);
+        tapping.set_value(true);
+    });
+    // A ring marks the chosen object.
+    Effect::new(move || {
+        let ready = matches!(state.get(), MapState::Ready(_));
+        let at = chosen.get().and_then(|id| {
+            s.map
+                .with(|m| m.objects.get(&id).and_then(|o| o.placed.geometry.anchor()))
+        });
+        if ready {
+            let features: Vec<serde_json::Value> = at
+                .map(|p| serde_json::json!({ "type": "Feature", "properties": { "chosen": true }, "geometry": Geometry::Point(p) }))
+                .into_iter()
+                .collect();
+            let json = serde_json::json!({ "type": "FeatureCollection", "features": features });
+            let _ = with_map(handle, "setDraft", &[JsValue::from_str(&json.to_string())]);
+        }
+    });
+    let close = Callback::new(move |()| chosen.set(None));
     view! {
         <section class="card situation" aria-labelledby="situation-title">
             <h2 id="situation-title">{text::MAP_TITLE}</h2>
             <MapStateLine state />
-            <MapFrame node state />
+            <div class="situation__stage">
+                <MapFrame node state />
+                {move || chosen.get().map(|object| view! {
+                    <div class="situation__card">
+                        <crate::object_card::ObjectCard core revision object on_close=close />
+                    </div>
+                })}
+            </div>
             <div class="row">
                 <LocateButton handle state />
             </div>
-            <ObjectList core revision s handle />
+            <ObjectList core revision s handle cards=true />
             <OfflineRegion core state handle />
         </section>
     }

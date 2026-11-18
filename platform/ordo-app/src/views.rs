@@ -713,6 +713,7 @@ fn Workspace(
 ) -> impl IntoView {
     let nav = Nav::new();
     provide_context(nav);
+    let undo = crate::ui::UndoSlot(RwSignal::new(None));
     provide_context(patients::Drafts::default());
     provide_context(crate::orders::Performers::default());
     let open = RwSignal::new(false);
@@ -1081,6 +1082,7 @@ fn Workspace(
                     _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
                 }}
             </main>
+            <crate::ui::UndoBar offer=undo />
         </div>
         <palette::Palette core revision nav open=palette theme />
         <p class="visually-hidden" role="status" aria-live="polite">
@@ -1415,26 +1417,38 @@ fn UhsDetailsPanel(
         .enumerate()
         .map(|(i, member)| {
             let (id, staff) = (id.clone(), staff.clone());
-            let actions = vec![crate::ui::Action {
-                text: text::CREW_REMOVE,
-                label: text::staff_remove_label(member),
-                quiet: true,
-                run: Callback::new(move |()| {
-                    let mut list = staff.clone();
-                    list.remove(i);
-                    let update = med::UhsUpdated {
+            let shown = crate::profile::display_text(core, member);
+            // [impl->dsn~icon-rules~1]
+            let remove = Callback::new(move |()| {
+                let mut list = staff.clone();
+                list.remove(i);
+                let update = med::UhsUpdated {
+                    id: id.clone(),
+                    staff: Some(list),
+                    ..Default::default()
+                };
+                if core::update_uhs(core, revision, &update).is_ok() {
+                    let back = med::UhsUpdated {
                         id: id.clone(),
-                        staff: Some(list),
+                        staff: Some(staff.clone()),
                         ..Default::default()
                     };
-                    let _ = core::update_uhs(core, revision, &update);
-                }),
-            }];
+                    crate::ui::offer_undo(text::removed(&shown), move || {
+                        let _ = core::update_uhs(core, revision, &back);
+                    });
+                }
+            });
             let name = {
                 let member = member.clone();
                 crate::profile::naming(move || crate::profile::display_text(core, &member))
             };
-            view! { <li><strong>{name}</strong> <crate::ui::Actions actions /></li> }
+            view! {
+                <li class="staff-member">
+                    <strong>{name}</strong>
+                    <crate::ui::IconButton icon="trash-2" word=text::CREW_REMOVE quiet=true
+                        label=text::staff_remove_label(member) on_click=remove />
+                </li>
+            }
         })
         .collect_view();
     view! {

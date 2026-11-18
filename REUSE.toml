@@ -47,10 +47,15 @@ SPDX-License-Identifier = "ISC"
 # ... except icons derived from Feather, which are also MIT.
 [[annotations]]
 path = [
+  "design/assets/icons/lucide/camera.svg",
   "design/assets/icons/lucide/crosshair.svg",
   "design/assets/icons/lucide/info.svg",
   "design/assets/icons/lucide/log-in.svg",
+  "design/assets/icons/lucide/plus.svg",
   "design/assets/icons/lucide/search.svg",
+  "design/assets/icons/lucide/trash-2.svg",
+  "design/assets/icons/lucide/upload.svg",
+  "design/assets/icons/lucide/x.svg",
 ]
 SPDX-FileCopyrightText = ["Lucide Icons and Contributors", "2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"

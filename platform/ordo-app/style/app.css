@@ -477,6 +477,8 @@
       border-right: 0; border-top: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
     }
     .views { flex: 1 1 auto; flex-direction: row; min-width: 0; gap: var(--ordo-space-1); }
+    /* Above the bar, which is about 5rem high. */
+    .undo-bar { inset-block-end: calc(6rem + env(safe-area-inset-bottom)); }
     /* Icon above a short label (Material navigation bar, iOS tab bar): five places fit a
        phone; the labels stay, icons alone are not understood reliably. */
     .views__item, .launcher__button {
@@ -947,8 +949,80 @@
     .map-tool[aria-pressed="true"] { outline: 3px solid Highlight; }
   }
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
-  .map-object { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); overflow-wrap: anywhere; }
-  .map-object .row { margin-inline-start: auto; }
+  .map-object { display: grid; gap: var(--ordo-space-2); overflow-wrap: anywhere; container: map-object / inline-size; }
+  .map-object__row { display: flex; align-items: center; gap: var(--ordo-space-2); }
+  .map-object__name { flex: 1 1 auto; min-inline-size: 0; }
+  .map-object__actions { display: flex; flex: none; gap: var(--ordo-space-1); }
+  .map-objects__undo p { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); margin: 0 0 var(--ordo-space-2); }
+
+  /* The icon rules: a repeated row action is its icon, with its word where the row is wide
+     enough, its full name as accessible name and as a tooltip on hover and keyboard focus. */
+  .icon-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--ordo-space-1); min-inline-size: var(--ordo-size-touch-target); min-block-size: var(--ordo-size-touch-target); padding: 0 var(--ordo-space-2); margin-inline-start: 0; }
+  .icon-button__word { display: none; }
+  @container map-object (min-width: 40rem) {
+    .icon-button__word { display: inline; }
+  }
+  .icon-button[data-tip]:is(:hover, :focus-visible)::after {
+    content: attr(data-tip);
+    position: absolute; inset-block-end: calc(100% + var(--ordo-space-1)); inset-inline-end: 0; z-index: 30;
+    padding: var(--ordo-space-1) var(--ordo-space-2); white-space: nowrap; pointer-events: none;
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
+    font-size: var(--ordo-font-size-1); font-weight: var(--ordo-font-weight-regular);
+  }
+
+  /* MAP-11: the label next to the pointer, and the card over the bottom of the map. */
+  .map-tip {
+    position: absolute; z-index: 5; pointer-events: none; max-inline-size: 18rem;
+    padding: var(--ordo-space-1) var(--ordo-space-2);
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
+    font-size: var(--ordo-font-size-1);
+  }
+  .situation__stage { position: relative; }
+  .situation__card {
+    position: absolute; inset-inline: var(--ordo-space-2); inset-block-end: var(--ordo-space-2); z-index: 6;
+    max-block-size: 70%; overflow: auto; max-inline-size: 28rem;
+  }
+  .object-card {
+    display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3);
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .object-card p { margin: 0; }
+  .object-card__head { display: flex; align-items: center; gap: var(--ordo-space-2); }
+  .object-card__head h3 { flex: 1 1 auto; margin: 0; }
+  .object-card__close { margin-inline-start: auto; }
+  .object-card__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .object-card__chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-1); }
+  .object-card .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  .button--icon { padding: 0; min-inline-size: var(--ordo-size-touch-target); min-block-size: var(--ordo-size-touch-target); justify-content: center; }
+  .button--with-icon { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  /* × inside a chip: withdraws what the chip names. */
+  .tag__remove { display: inline-flex; align-items: center; position: relative; border-width: var(--ordo-size-border-thin); }
+  .tag__remove[data-tip]:is(:hover, :focus-visible)::after {
+    content: attr(data-tip);
+    position: absolute; inset-block-end: calc(100% + var(--ordo-space-1)); inset-inline-end: 0; z-index: 30;
+    padding: var(--ordo-space-1) var(--ordo-space-2); white-space: nowrap; pointer-events: none;
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
+    font-size: var(--ordo-font-size-1); font-weight: var(--ordo-font-weight-regular);
+  }
+  .staff-member { display: flex; align-items: center; gap: var(--ordo-space-2); }
+  .crew-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
+  abbr[title] { text-decoration: none; }
+  /* The undo offer after a removal by icon: at the bottom of the page, above the phone's
+     tab bar, never over the content it refers to for long. */
+  .undo-bar { position: fixed; inset-inline: var(--ordo-space-4); inset-block-end: calc(var(--ordo-space-4) + env(safe-area-inset-bottom)); z-index: 40; display: flex; justify-content: center; pointer-events: none; }
+  .undo-bar__inner {
+    pointer-events: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2);
+    padding: var(--ordo-space-2) var(--ordo-space-3); max-inline-size: 36rem;
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .undo-bar .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  /* While it shows, the page keeps room below, so it covers nothing at the end. */
+  .layout:has(.undo-bar__inner) main { padding-block-end: 5rem; }
   /* The UHS one works at (UHS-9), at the top of the UHS module. */
   .uhs-chooser { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-3); }
   .uhs-chooser label { display: inline-flex; align-items: center; gap: var(--ordo-space-2); font-weight: var(--ordo-font-weight-bold); }
@@ -987,7 +1061,7 @@
   .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .load-list__details-panel h4 { margin: 0; }
   .record__discharged { margin: 0; }
-  .corrected summary, .history-list summary, .discharged-list summary, .released-list summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
+  .corrected summary, .history-list summary, .discharged-list summary, .released-list summary, .object-card__names summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   .field-block { display: grid; gap: var(--ordo-space-2); }

@@ -1707,6 +1707,40 @@ pub fn remove_photo(
     )
 }
 
+// [impl->dsn~patient-photo~3]
+/// Puts a removed photo back (undo, icon rules): attaches it again as a new event with the
+/// payload it was first attached with; the photo itself stays where it was stored.
+pub fn restore_photo(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    photo: &str,
+) -> Result<(), String> {
+    let (payload, schema) = core
+        .with_value(|c| {
+            c.events(patients::COMPARTMENT)
+                .iter()
+                .find(|e| {
+                    e.body.event_type.as_str() == record::PHOTO_ATTACHED
+                        && e.body.id.to_string() == photo
+                })
+                .map(|e| (e.payload.clone(), e.body.schema_version))
+        })
+        .ok_or("Foto nicht gefunden")?;
+    if schema != 1 {
+        return Err("Foto in einer anderen Version".into());
+    }
+    self::record(
+        core,
+        revision,
+        patients::COMPARTMENT,
+        record::MODULE,
+        record::PHOTO_ATTACHED,
+        &payload,
+        text::photo_restored(tag),
+    )
+}
+
 /// Display name of a UHS by ID (the ID if unknown).
 pub fn uhs_name(core: Handle, id: &str) -> String {
     core.with_value(|c| {

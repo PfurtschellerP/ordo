@@ -15,6 +15,7 @@ mod login_providers;
 mod map_region;
 mod nav;
 mod notices;
+mod object_card;
 mod orders;
 mod overview;
 mod palette;

@@ -413,6 +413,19 @@ Tags: should, shared, m62
 
 Needs: dsn
 
+#### MAP-11 — What an object on the map is
+`req~map-11~1`
+
+When a person points at an object on the situation map, ORDO shall show its name and
+state; when they tap or click it, or choose it in the list of objects, ORDO shall show a
+card with its details and the actions they may take: for an Auftrag its state and unit,
+for a unit its status, its Auftrag and its crew's strength and qualifications, for a UHS
+its occupancy per triage category.
+
+Tags: should, shared, m64
+
+Needs: dsn
+
 #### LOG-1 — Automatic log
 `req~log-1~1`
 

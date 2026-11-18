@@ -195,7 +195,7 @@ export async function create(element, centre, label, incident, ticket, cooperati
   map.addLayer({ id: "ordo-draft-corners", type: "circle", source: DRAFT, filter: corner, paint: { "circle-radius": 5, "circle-color": halo, "circle-stroke-width": 2, "circle-stroke-color": text } });
   // The chosen object: a ring around it, its name says the rest in the tool panel.
   map.addLayer({ id: "ordo-chosen", type: "circle", source: DRAFT, filter: ["has", "chosen"], paint: { "circle-radius": SYMBOL_HEIGHT * 0.75, "circle-opacity": 0, "circle-stroke-width": 3, "circle-stroke-color": text } });
-  const handle = { map, from: source.from, tap: null, draw: null, objects: null, hidden: null };
+  const handle = { map, from: source.from, tap: null, draw: null, objects: null, hidden: null, escape: null };
   // [impl->dsn~map-drawing~2]
   // Taps go to the editor page, with the object hit, if any (none while Terra Draw edits).
   map.on("click", (e) => {
@@ -206,6 +206,37 @@ export async function create(element, centre, label, incident, ticket, cooperati
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
     handle.tap(e.lngLat.lng, e.lngLat.lat, hit?.properties?.object ?? null, hit?.geometry?.type === "Point");
   });
+  // [impl->dsn~map-object-cards~1]
+  // Pointing at an object names it and its state next to the pointer (MAP-11); it goes when
+  // the pointer leaves or Escape is pressed (WCAG 1.4.13). The list below the map says the
+  // same for keyboard and screen-reader users, so the label is hidden from them.
+  const tip = document.createElement("div");
+  tip.className = "map-tip";
+  tip.setAttribute("aria-hidden", "true");
+  tip.hidden = true;
+  map.getContainer().appendChild(tip);
+  const hide = () => {
+    tip.hidden = true;
+    map.getCanvas().style.cursor = "";
+  };
+  map.on("mousemove", (e) => {
+    if (handle.hidden) return hide();
+    const box = [[e.point.x - HIT_SLOP / 2, e.point.y - HIT_SLOP / 2], [e.point.x + HIT_SLOP / 2, e.point.y + HIT_SLOP / 2]];
+    const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
+    const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
+    const p = hit?.properties;
+    if (!p?.label) return hide();
+    tip.textContent = p.state ? `${p.label} · ${p.state}` : p.label;
+    tip.style.left = `${e.point.x + 16}px`;
+    tip.style.top = `${e.point.y + 16}px`;
+    tip.hidden = false;
+    if (handle.tap) map.getCanvas().style.cursor = "pointer";
+  });
+  map.on("mouseout", hide);
+  handle.escape = (e) => {
+    if (e.key === "Escape") hide();
+  };
+  document.addEventListener("keydown", handle.escape);
   return handle;
 }
 
@@ -282,6 +313,7 @@ export function onTap(handle, callback) {
 
 /** Removes the map and everything it holds. */
 export function destroy(handle) {
+  if (handle.escape) document.removeEventListener("keydown", handle.escape);
   try {
     handle.draw?.stop();
   } catch {

@@ -540,6 +540,9 @@ pub struct Entry {
     pub id: String,
     /// Label.
     pub label: String,
+    /// A short form for tight places, e.g. "NotSan" (MAP-11); the label where there is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub short: Option<String>,
 }
 
 /// Services and qualifications of the profile (`units/catalogue.toml`).
@@ -580,6 +583,14 @@ impl UnitCatalogue {
         list.iter()
             .find(|e| e.id == id)
             .map_or(id, |e| e.label.as_str())
+    }
+
+    // [impl->dsn~map-object-cards~1]
+    /// The short form of an entry, else its label, else the ID.
+    pub fn short<'a>(list: &'a [Entry], id: &'a str) -> &'a str {
+        list.iter()
+            .find(|e| e.id == id)
+            .map_or(id, |e| e.short.as_deref().unwrap_or(&e.label))
     }
 }
 
@@ -1115,6 +1126,31 @@ mod tests {
         assert_eq!(
             UnitCatalogue::label(&de.services, "rescue"),
             "Rettungsdienst"
+        );
+    }
+
+    // [utest->dsn~map-object-cards~1]
+    #[test]
+    fn every_qualification_has_a_short_form_once() {
+        let de: UnitCatalogue =
+            toml_from(include_str!("../../../profiles/de/units/catalogue.toml"));
+        let mut seen = std::collections::HashSet::new();
+        for q in &de.qualifications {
+            let short = q.short.as_deref().expect("a short form");
+            assert!(!short.is_empty() && seen.insert(short), "{short} once");
+        }
+        assert_eq!(
+            UnitCatalogue::short(&de.qualifications, "paramedic"),
+            "NotSan"
+        );
+        assert_eq!(
+            UnitCatalogue::short(&de.services, "rescue"),
+            "Rettungsdienst",
+            "no short form: the label"
+        );
+        assert_eq!(
+            UnitCatalogue::short(&de.qualifications, "unknown"),
+            "unknown"
         );
     }
 

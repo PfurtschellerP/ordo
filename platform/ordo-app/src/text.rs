@@ -341,7 +341,11 @@ pub fn photo_removed(tag: &str) -> String {
     format!("Foto für Patient {tag} entfernt")
 }
 
-pub const PHOTO_REMOVE: &str = "Foto entfernen";
+pub const PHOTO_REMOVE_SHORT: &str = "Entfernen";
+
+pub fn photo_restored(tag: &str) -> String {
+    format!("Foto von Patient {tag} wiederhergestellt")
+}
 
 pub fn photo_remove_label(tag: &str) -> String {
     format!("Foto entfernen – Patient {tag}")
@@ -449,7 +453,6 @@ pub const PLAN_NAME: &str = "Name des Einsatzes";
 pub const PLAN_SUBMIT: &str = "Einsatz anlegen";
 pub const CHANGE_INCIDENT: &str = "Einsatz wechseln";
 pub const GRANT: &str = "Rolle vergeben";
-pub const WITHDRAW: &str = "Entziehen";
 pub const INCIDENT_STATE: &str = "Status";
 pub const INCIDENT_PAGE_TITLE: &str = "Einsatz";
 pub const INCIDENT_PREPARE: &str = "Vorbereiten: Lagekarte, Einsatzmittel und Personal mit Rollen und Führungsstruktur. Beginnen Sie den Einsatz, wenn er läuft.";
@@ -1337,6 +1340,56 @@ pub const PIN_NONE: &str = "Kein Pin gesetzt.";
 pub const PIN_SET: &str = "Pin setzen";
 pub const PIN_MOVE: &str = "Pin verschieben";
 pub const PIN_SAVE: &str = "Pin speichern";
+
+// Map object cards (MAP-11).
+pub const MAP_DETAILS: &str = "Details";
+pub const MAP_OBJECT_GONE: &str = "Nicht mehr auf der Karte.";
+pub const CARD_ASSIGN: &str = "Einsatzmittel zuweisen";
+pub const CARD_OPEN_TASK: &str = "Auftrag öffnen";
+pub const CARD_CURRENT_TASK: &str = "Auftrag";
+pub const CARD_EDIT: &str = "Bearbeiten";
+pub const CARD_PATIENTS: &str = "Patienten nach Sichtungskategorie";
+pub const CARD_OPEN_UHS: &str = "UHS öffnen";
+pub const QUALIFICATIONS_SHORT: &str = "Qualifikationen";
+pub const UNDO: &str = "Rückgängig";
+
+/// "Anna Schmidt entfernt."
+pub fn removed(what: &str) -> String {
+    format!("{what} entfernt.")
+}
+
+/// "Rolle Arzt/Ärztin von Anna Schmidt entzogen."
+pub fn role_removed(role: &str, who: &str) -> String {
+    format!("Rolle {} von {who} entzogen.", role_label(role))
+}
+
+pub fn close_label(what: &str) -> String {
+    format!("{SECTION_CLOSE}: {what}")
+}
+
+pub fn map_details_label(what: &str) -> String {
+    format!("{MAP_DETAILS}: {what}")
+}
+
+pub fn card_edit_label(unit: &str) -> String {
+    format!("{CARD_EDIT}: {unit}")
+}
+
+/// "Notfallsanitäter/in: 2"
+pub fn qualification_count(label: &str, n: usize) -> String {
+    format!("{label}: {n}")
+}
+
+pub fn crew_names(n: usize) -> String {
+    format!("Namen ({n})")
+}
+
+pub fn uhs_patients(n: u32) -> String {
+    match n {
+        1 => "1 Patient".to_owned(),
+        n => format!("{n} Patienten"),
+    }
+}
 
 pub fn pin_at(at: &str) -> String {
     format!("Pin: {at}")

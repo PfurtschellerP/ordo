@@ -68,16 +68,6 @@ fn details(h: &Helper, now: u64) -> String {
         .join(" · ")
 }
 
-/// A helper's qualifications, by their labels in the profile.
-fn qualifications(h: &Helper) -> Vec<String> {
-    h.fields
-        .qualifications
-        .iter()
-        .flatten()
-        .map(|id| UnitCatalogue::label(&CATALOGUE.qualifications, id).to_owned())
-        .collect()
-}
-
 /// The diets of the helpers whose duty has not ended, most frequent first, those without
 /// one last; spelling as first seen, counted without case. Empty if nobody gave one.
 fn diet_counts(helpers: &[Helper], now: u64) -> Vec<(String, usize)> {
@@ -391,10 +381,24 @@ fn PersonEntry(
         text::helper_complete_label(&name)
     };
     let roles = person.roles.clone();
-    let quals = person
+    // [impl->dsn~icon-rules~1]
+    // In short, with the full term as name and tooltip (the profile's abbreviations).
+    let quals: Vec<(String, String)> = person
         .helper
         .as_ref()
-        .map(qualifications)
+        .map(|h| {
+            h.fields
+                .qualifications
+                .iter()
+                .flatten()
+                .map(|id| {
+                    (
+                        UnitCatalogue::short(&CATALOGUE.qualifications, id).to_owned(),
+                        UnitCatalogue::label(&CATALOGUE.qualifications, id).to_owned(),
+                    )
+                })
+                .collect()
+        })
         .unwrap_or_default();
     view! {
         <li class="roster__entry person-card" data-helper=person.helper.as_ref().map(|h| h.id.clone()) data-user=account.clone()>
@@ -419,7 +423,12 @@ fn PersonEntry(
             {guest_until.map(|t| view! { <p class="person-card__duty helper-list__guest">{t}</p> })}
             {(!quals.is_empty()).then(|| view! {
                 <ul class="chip-row person-card__quals" aria-label=text::CREW_QUALIFICATIONS>
-                    {quals.into_iter().map(|q| view! { <li class="tag">{q}</li> }).collect_view()}
+                    {quals.into_iter().map(|(short, full)| view! {
+                        <li class="tag">
+                            <abbr title=full.clone() aria-hidden="true">{short}</abbr>
+                            <span class="visually-hidden">{full}</span>
+                        </li>
+                    }).collect_view()}
                 </ul>
             })}
             {(!roles.is_empty()).then(|| view! {
@@ -428,20 +437,28 @@ fn PersonEntry(
                         let user = account.clone().unwrap_or_default();
                         let label = text::withdraw_label(&user, &role);
                         let (u, r) = (user.clone(), role.clone());
+                        // [impl->dsn~icon-rules~1]
+                        // × in the chip; withdrawn at once, with undo instead of a question.
+                        let withdraw = Callback::new(move |()| {
+                            match core::change_role(core, revision, &u, &r, false) {
+                                Ok(()) => {
+                                    let (u, r) = (u.clone(), r.clone());
+                                    let who = crate::profile::display_text(core, &u);
+                                    crate::ui::offer_undo(text::role_removed(&r, &who), move || {
+                                        let _ = core::change_role(core, revision, &u, &r, true);
+                                    });
+                                }
+                                Err(e) => error.set(Some(e)),
+                            }
+                        });
                         view! {
                             <li class="tag roster__role">
                                 {text::role_label(&role)}
                                 <Show when=move || manage.get()>
-                                    <button type="button" class="button button--small" aria-label=label.clone()
-                                        on:click={
-                                            let (u, r) = (u.clone(), r.clone());
-                                            move |_| {
-                                                if let Err(e) = core::change_role(core, revision, &u, &r, false) {
-                                                    error.set(Some(e));
-                                                }
-                                            }
-                                        }>
-                                        {text::WITHDRAW}
+                                    <button type="button" class="button button--small button--icon tag__remove"
+                                        aria-label=label.clone() data-tip=label.clone()
+                                        on:click=move |_| withdraw.run(())>
+                                        <crate::ui::Icon name="x" />
                                     </button>
                                 </Show>
                             </li>
@@ -451,7 +468,10 @@ fn PersonEntry(
             })}
             <span class="row helper-list__actions">
                 <Show when=move || readable.get()>
-                    <button type="button" class="button button--small" aria-label=edit_label.clone()
+                    // [impl->dsn~icon-rules~1]
+                    // Editing a registered helper is a pencil; completing one keeps its words.
+                    <button type="button" class="button button--small" class:icon-button=registered
+                        aria-label=edit_label.clone() data-tip=registered.then(|| edit_label.clone())
                         on:click={
                             let edit = edit.clone();
                             move |_| {
@@ -459,7 +479,11 @@ fn PersonEntry(
                                 crate::views::focus("helper-name");
                             }
                         }>
-                        {if registered { text::EDIT } else { text::HELPER_COMPLETE }}
+                        {if registered {
+                            view! { <crate::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::EDIT}</span> }.into_any()
+                        } else {
+                            view! { {text::HELPER_COMPLETE} }.into_any()
+                        }}
                     </button>
                 </Show>
                 {

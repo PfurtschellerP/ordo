@@ -676,6 +676,13 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             request_animation_frame(|| crate::views::focus("task-template"));
         });
     });
+    // [impl->dsn~map-object-cards~1]
+    // Opened from a card on the map: the Auftrag comes into view, or the form opens for the
+    // unit.
+    crate::object_card::reveal_pending();
+    if let Some(unit) = crate::object_card::take_give() {
+        give.run(unit);
+    }
     view! {
         <section class="card tasks-panel" aria-labelledby="tasks-title">
             <h2 id="tasks-title">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>

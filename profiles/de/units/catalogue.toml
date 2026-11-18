@@ -35,54 +35,67 @@ label = "Polizei"
 [[qualification]]
 id = "emergency-physician"
 label = "Notärztin/Notarzt"
+short = "NA"
 
 [[qualification]]
 id = "physician"
 label = "Ärztin/Arzt"
+short = "Arzt"
 
 [[qualification]]
 id = "paramedic"
 label = "Notfallsanitäter/in"
+short = "NotSan"
 
 [[qualification]]
 id = "emt"
 label = "Rettungssanitäter/in"
+short = "RS"
 
 [[qualification]]
 id = "ems-volunteer"
 label = "Einsatzsanitäter/in"
+short = "ES"
 
 [[qualification]]
 id = "first-responder"
 label = "Sanitäter/in"
+short = "San"
 
 [[qualification]]
 id = "medical-aide"
 label = "Sanitätshelfer/in"
+short = "SanH"
 
 [[qualification]]
 id = "crew-leader"
 label = "Gruppenführer/in"
+short = "GF"
 
 [[qualification]]
 id = "platoon-leader"
 label = "Zugführer/in"
+short = "ZF"
 
 [[qualification]]
 id = "unit-leader"
 label = "Verbandführer/in"
+short = "VF"
 
 [[qualification]]
 id = "driver-operator"
 label = "Maschinist/in"
+short = "Ma"
 
 [[qualification]]
 id = "breathing-apparatus"
 label = "Atemschutzgeräteträger/in"
+short = "AGT"
 
 [[qualification]]
 id = "radio-operator"
 label = "Sprechfunker/in"
+short = "Sprf"
 
 # Special functions (UNIT-7): counted apart in the detailed strength after the BBK
 # recommendation "Taktische Zeichen im Bevölkerungsschutz" (2024, section 5.3), e.g.

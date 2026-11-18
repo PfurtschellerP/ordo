@@ -462,6 +462,41 @@ Needs: impl, utest, itest
 
 Tags: must, m33, m54, m55, m56
 
+#### Map object cards
+`dsn~map-object-cards~1`
+
+*Führung – Lagekarte* tells what each object is, without leaving the map (MAP-11,
+proposal agreed with the product owner on 2026-11-18). Each object carries its name and a
+short state for the glue: a unit's status, an Auftrag's state, a UHS's occupancy.
+
+* **Pointing** (mouse): a label next to the pointer with name and state; it goes when the
+  pointer leaves the object or Escape is pressed (WCAG 1.4.13).
+* **Tap or click:** a ring marks the object, and a card opens over the bottom of the map,
+  so it is never cut off on a phone. It stays until it is closed (×, Escape, or a tap on
+  the empty map).
+* **The list** *Auf der Karte* opens the same card for each object ("Details"), so
+  keyboard and screen-reader users reach everything (WCAG 2.1.1).
+
+The card shows, for an **Auftrag**: kind, place, description, state and unit, and
+"Auftrag öffnen" or, while nobody is on it, "Einsatzmittel zuweisen", both leading to its
+card in *Disposition*. For a **unit**: its symbol, status since when, its first open
+Auftrag, the strength (leaders / sub-leaders / crew / total) and the crew's
+qualifications as abbreviations with their count; the names fold out. A pencil links to
+the unit in *Vorbereitung – Einsatzmittel*; "Status setzen" is the status select, and
+"Auftrag geben" opens the form in *Disposition* for the unit. For a **UHS**: its patients
+per triage category, in words and numbers, the free places and "UHS öffnen". For anything
+else: its name and kind. The abbreviations come from the profile (`short` next to each
+qualification in `units/catalogue.toml`); the full term is the accessible name and the
+tooltip. Only those who may edit units (`edit_units`) see the actions.
+
+Covers:
+
+* [req~map-11~1](../requirements/02-shared.md#map-11--what-an-object-on-the-map-is)
+
+Needs: impl, utest, itest
+
+Tags: should, m64
+
 #### Address search
 `dsn~address-search~1`
 

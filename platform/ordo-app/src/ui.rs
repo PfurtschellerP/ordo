@@ -21,6 +21,7 @@ fn svg(name: &str) -> &'static str {
         "ambulance",
         "app-window",
         "bell",
+        "camera",
         "chart-column",
         "clipboard-list",
         "cloud-check",
@@ -41,13 +42,18 @@ fn svg(name: &str) -> &'static str {
         "notebook-text",
         "pencil",
         "pentagon",
+        "plus",
         "refresh-cw",
         "search",
         "spline",
         "tablet-smartphone",
         "tent",
+        "trash-2",
         "truck",
+        "undo-2",
+        "upload",
         "users",
+        "x",
         "zap",
     )
 }
@@ -57,6 +63,123 @@ fn svg(name: &str) -> &'static str {
 #[component]
 pub fn Icon(name: &'static str) -> impl IntoView {
     view! { <span class="icon" aria-hidden="true" inner_html=svg(name)></span> }
+}
+
+// [impl->dsn~icon-rules~1]
+/// A button for an action repeated on many items (the icon rules): its icon, a short word
+/// where its container is wide enough, and the action with the item as accessible name and
+/// as a tooltip on hover and keyboard focus.
+#[component]
+pub fn IconButton(
+    icon: &'static str,
+    /// The short word, e.g. "Bearbeiten".
+    word: &'static str,
+    /// The action with its item, e.g. "Bearbeiten: RTW 83/1".
+    #[prop(into)]
+    label: String,
+    #[prop(optional)] quiet: bool,
+    /// For a button that shows and hides something.
+    #[prop(optional, into)]
+    expanded: Option<Signal<bool>>,
+    on_click: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <button type="button" class="button button--small icon-button" class:button--quiet=quiet
+            aria-label=label.clone() data-tip=label
+            aria-expanded=move || expanded.map(|e| e.get().to_string())
+            on:click=move |_| on_click.run(())>
+            <Icon name=icon /><span class="icon-button__word" aria-hidden="true">{word}</span>
+        </button>
+    }
+}
+
+/// A removal that can be undone: what was removed, and how to put it back (a correcting
+/// event; events are never deleted).
+#[derive(Clone)]
+pub struct Undo {
+    pub message: String,
+    /// Not a `Callback`: that would belong to the row that offered it, which a list drops
+    /// as soon as the removal shows.
+    pub run: std::sync::Arc<dyn Fn() + Send + Sync>,
+}
+
+/// The app's one undo offer, shown at the bottom of the page.
+#[derive(Clone, Copy)]
+pub struct UndoSlot(pub RwSignal<Option<Undo>>);
+
+thread_local! {
+    /// The shown undo bar's offer: click handlers run outside the component tree, where
+    /// no context is found.
+    static UNDO: std::cell::Cell<Option<UndoSlot>> = const { std::cell::Cell::new(None) };
+}
+
+// [impl->dsn~icon-rules~1]
+/// Offers to undo a removal made by an icon button, instead of asking first.
+pub fn offer_undo(message: String, run: impl Fn() + Send + Sync + 'static) {
+    if let Some(slot) = UNDO.get() {
+        let _ = slot.0.try_set(Some(Undo {
+            message,
+            run: std::sync::Arc::new(run),
+        }));
+    }
+}
+
+// [impl->dsn~icon-rules~1]
+/// "RTW 83/1 entfernt. Rückgängig": until it is used, closed, or the next removal; announced
+/// politely to screen readers.
+#[component]
+pub fn UndoBar(offer: UndoSlot) -> impl IntoView {
+    UNDO.set(Some(offer));
+    on_cleanup(|| UNDO.set(None));
+    // It never stays over the page: it goes after ten seconds, or with the next press
+    // anywhere else (each new offer starts its own ten seconds).
+    let shown = StoredValue::new(0u64);
+    Effect::new(move || {
+        if offer.0.with(Option::is_some) {
+            let mine = shown.get_value() + 1;
+            shown.set_value(mine);
+            set_timeout(
+                move || {
+                    if shown.try_get_value() == Some(mine) {
+                        let _ = offer.0.try_set(None);
+                    }
+                },
+                std::time::Duration::from_secs(10),
+            );
+        }
+    });
+    let outside = window_event_listener(leptos::ev::pointerdown, move |ev| {
+        let inside = ev
+            .target()
+            .and_then(|t| wasm_bindgen::JsCast::dyn_into::<web_sys::Element>(t).ok())
+            .and_then(|e| e.closest(".undo-bar").ok().flatten())
+            .is_some();
+        if !inside && offer.0.with_untracked(Option::is_some) {
+            offer.0.set(None);
+        }
+    });
+    on_cleanup(move || outside.remove());
+    view! {
+        <div class="undo-bar" role="status">
+            {move || offer.0.get().map(|undo| {
+                let run = undo.run.clone();
+                view! {
+                    <div class="undo-bar__inner">
+                        <span>{undo.message.clone()}</span>
+                        <button type="button" class="button button--small" id="undo"
+                            on:click=move |_| { run(); offer.0.set(None); }>
+                            <Icon name="undo-2" />{crate::text::UNDO}
+                        </button>
+                        <button type="button" class="button button--small button--icon"
+                            aria-label=crate::text::close_label(&undo.message)
+                            on:click=move |_| offer.0.set(None)>
+                            <Icon name="x" />
+                        </button>
+                    </div>
+                }
+            })}
+        </div>
+    }
 }
 
 /// A disclosure button (WAI-ARIA APG): shows and hides the panel `controls`.
@@ -249,12 +372,15 @@ pub fn RadioChips(
     }
 }
 
-/// Choices as chips: any number of them (checkboxes) in a fieldset with a legend.
+/// Choices as chips: any number of them (checkboxes) in a fieldset with a legend. With
+/// `short`, each chip shows the short form (by ID) and keeps the full text for screen
+/// readers and as its tooltip, so many fit on a line (the icon rules).
 #[component]
 pub fn CheckChips(
     legend: &'static str,
     options: Vec<(String, String)>,
     value: RwSignal<BTreeSet<String>>,
+    #[prop(optional)] short: Option<fn(&str) -> String>,
 ) -> impl IntoView {
     view! {
         <fieldset class="choices">
@@ -262,6 +388,7 @@ pub fn CheckChips(
             {options
                 .into_iter()
                 .map(|(id, text)| {
+                    let shown = short.map(|f| f(&id));
                     let checked = {
                         let id = id.clone();
                         move || value.with(|s| s.contains(&id))
@@ -279,7 +406,13 @@ pub fn CheckChips(
                                         }
                                     });
                                 } />
-                            {text}
+                            {match shown.filter(|s| *s != text) {
+                                Some(s) => view! {
+                                    <abbr title=text.clone() aria-hidden="true">{s}</abbr>
+                                    <span class="visually-hidden">{text.clone()}</span>
+                                }.into_any(),
+                                None => view! { {text.clone()} }.into_any(),
+                            }}
                         </label>
                     }
                 })
