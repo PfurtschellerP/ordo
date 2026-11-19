@@ -12,36 +12,17 @@
 //! command has a stable English name, which is always searched besides the label.
 
 use leptos::prelude::*;
-use ordo_contracts::TriageCategory;
-use ordo_med_patients::{self as med, PatientRegister};
-use ordo_units::{self as units, UnitRegister};
 
-use crate::core::{self, Handle};
-use crate::med::patients::{FORMS, record_route};
-use crate::med::triage::CATEGORIES;
-use crate::med::uhs::uhs_list;
+use crate::core::Handle;
 use crate::shell::nav::{self, Route};
+use crate::shell::registry::PACKAGES;
 use crate::shell::views::{Nav, access, apply_theme, click, focus};
 use crate::text;
-use ordo_med_patients::record::FormKind;
 
 /// The shortcut, with English key names in every language (ADR-0036).
 pub const SHORTCUT: &str = "Ctrl+K";
 /// The shortcut on Apple devices.
 pub const SHORTCUT_MAC: &str = "⌘K";
-
-/// English core meanings of unit status codes, for typed commands (`status on scene`).
-/// English name of a triage category (its core meaning).
-fn category_name(category: TriageCategory) -> &'static str {
-    match category {
-        TriageCategory::Immediate => "immediate",
-        TriageCategory::Urgent => "urgent",
-        TriageCategory::Minor => "minor",
-        TriageCategory::Expectant => "expectant",
-        TriageCategory::Deceased => "deceased",
-        TriageCategory::Uninjured => "uninjured",
-    }
-}
 
 /// What an entry does.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,17 +33,40 @@ pub enum Action {
     GoFocus(Route, String),
     /// Go to a route, then click an element (e.g. "new entry").
     GoClick(Route, String),
-    /// Show the commands for one patient.
-    Patient(String),
-    /// Re-triage a patient.
-    Retriage(String, TriageCategory),
-    /// Show the commands for one unit.
-    Unit(String),
-    /// Set the status of a unit.
-    SetStatus(String, String),
+    /// Show the commands for one record, e.g. a patient or a unit.
+    Open(Record),
+    /// Run a package's command, e.g. a re-triage or a unit's status.
+    Run(Command),
     /// Switch the colour theme.
     Theme(&'static str),
 }
+
+/// A record a package offers commands for: its kind (e.g. `patient`) and its ID.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Record {
+    pub kind: &'static str,
+    pub id: String,
+}
+
+/// A package's command as data, so entries can be compared: its stable ID, what it runs
+/// and with what. Entries compare by ID and arguments.
+#[derive(Clone, Debug)]
+pub struct Command {
+    pub id: &'static str,
+    pub run: fn(Handle, RwSignal<u64>, &[String]),
+    pub args: Vec<String>,
+}
+
+impl PartialEq for Command {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.args == other.args
+    }
+}
+
+impl Eq for Command {}
+
+/// A record's title and its commands.
+pub type RecordPage = Option<(String, Vec<Item>)>;
 
 /// One entry of the palette.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -88,10 +92,8 @@ pub struct Item {
 pub enum Page {
     /// Everything.
     Root,
-    /// Commands for one patient.
-    Patient(String),
-    /// Commands for one unit.
-    Unit(String),
+    /// Commands for one record.
+    Record(Record),
 }
 
 /// Folds text for matching: lower case, accents and umlauts without marks, ß as ss.
@@ -171,7 +173,7 @@ fn group_icon(group: &str) -> &'static str {
     }
 }
 
-fn item(group: &'static str, label: String, action: Action) -> Item {
+pub(crate) fn item(group: &'static str, label: String, action: Action) -> Item {
     Item {
         group,
         label,
@@ -185,19 +187,16 @@ fn item(group: &'static str, label: String, action: Action) -> Item {
 
 impl Item {
     /// Sets the stable English name (ADR-0036).
-    fn named(mut self, name: impl Into<String>) -> Self {
+    pub(crate) fn named(mut self, name: impl Into<String>) -> Self {
         self.name = name.into();
         self
     }
 }
 
-/// All entries of a page, from the current state.
+// [impl->dsn~package-registry~1]
+/// All entries of a page, from the current state: the views, every package's actions, the
+/// themes and every package's records; or the commands of one record.
 fn items(core: Handle, page: &Page) -> Vec<Item> {
-    let med_access =
-        nav::workspace("med.uhs").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
-    let command_access =
-        nav::workspace("command.prepare").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w));
-    let events = |compartment: &str| core.with_value(|c| c.events(compartment));
     match page {
         Page::Root => {
             let mut list = Vec::new();
@@ -217,38 +216,7 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                     });
                 }
             }
-            let actions = [
-                (
-                    text::ACTION_REGISTER,
-                    "register patient",
-                    Route::view("med.uhs", "patients"),
-                    "tag",
-                    med_access,
-                ),
-                (
-                    text::ACTION_CREATE_UHS,
-                    "create uhs",
-                    // Set up by the incident command (ADR-0086).
-                    Route::view("command.prepare", "units"),
-                    "uhs-name",
-                    command_access,
-                ),
-                (
-                    text::ACTION_ADD_UNIT,
-                    "add unit",
-                    Route::view("command.prepare", "units"),
-                    "unit-call-sign",
-                    command_access,
-                ),
-            ];
-            for (label, name, route, target, allowed) in actions {
-                let go = Action::GoFocus(route, target.to_owned());
-                list.push(Item {
-                    disabled: allowed.err(),
-                    suggested: true,
-                    ..item(text::GROUP_ACTIONS, label.to_owned(), go).named(name)
-                });
-            }
+            list.extend(PACKAGES.iter().flat_map(|p| (p.palette.actions)(core)));
             for (id, label) in text::THEMES {
                 let name = format!("theme {}", if id.is_empty() { "auto" } else { id });
                 list.push(
@@ -260,110 +228,39 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                     .named(name),
                 );
             }
-            if med_access.is_ok() {
-                let names: std::collections::HashMap<String, String> =
-                    uhs_list(core).into_iter().map(|u| (u.id, u.name)).collect();
-                for p in PatientRegister::from_events(&events(med::COMPARTMENT)).patients() {
-                    let uhs = names.get(&p.uhs).unwrap_or(&p.uhs);
-                    list.push(Item {
-                        detail: format!("{} · {uhs}", text::label(p.category())),
-                        ..item(
-                            text::GROUP_PATIENTS,
-                            p.tag.clone(),
-                            Action::Patient(p.tag.clone()),
-                        )
-                    });
-                }
-            }
-            if command_access.is_ok() {
-                let register = UnitRegister::from_events(&events(units::COMPARTMENT));
-                for u in register.units.into_values() {
-                    let status = u.status.as_ref().map_or_else(
-                        || text::NO_STATUS.to_owned(),
-                        |s| text::status_label(&s.status),
-                    );
-                    list.push(Item {
-                        detail: format!("{} · {} · {status}", u.unit_type, u.organisation),
-                        ..item(
-                            text::GROUP_UNITS,
-                            u.unit.clone(),
-                            Action::Unit(u.unit.clone()),
-                        )
-                    });
-                }
-            }
+            list.extend(PACKAGES.iter().flat_map(|p| (p.palette.records)(core)));
             list
         }
-        Page::Patient(tag) => {
-            let record = record_route(tag);
-            let patient = PatientRegister::from_events(&events(med::COMPARTMENT))
-                .patient(tag)
-                .map(|p| (p.category(), p.uhs.clone()));
-            let current = patient.as_ref().map(|(c, _)| *c);
-            let group = text::GROUP_PATIENTS;
-            let mut list = vec![
-                item(
-                    group,
-                    text::ACTION_OPEN_RECORD.to_owned(),
-                    Action::Go(record.clone()),
-                )
-                .named("open record"),
-            ];
-            // [impl->dsn~uhs-staff~3]
-            // Where the person may only read the patient (UHS-10), only opening is offered.
-            let writable = patient
-                .is_some_and(|(_, uhs)| crate::med::patients::writable_uhs(core).contains(&uhs));
-            if !writable {
-                for i in &mut list {
-                    i.detail = text::patient_title(tag);
-                    i.suggested = true;
-                }
-                return list;
-            }
-            list.extend([item(
-                group,
-                text::ACTION_TAKE_PHOTO.to_owned(),
-                Action::GoFocus(record.clone(), "photo-camera".to_owned()),
-            )
-            .named("photo")]);
-            for f in FORMS.forms.iter().filter(|f| f.kind == FormKind::Series) {
-                let go = Action::GoClick(record.clone(), format!("new-{}", f.id));
-                list.push(
-                    item(group, text::action_entry(&f.label), go).named(format!("add {}", f.id)),
-                );
-            }
-            for c in CATEGORIES.into_iter().filter(|c| Some(*c) != current) {
-                let action = Action::Retriage(tag.clone(), c);
-                list.push(
-                    item(group, text::action_retriage(c), action)
-                        .named(format!("retriage {}", category_name(c))),
-                );
-            }
-            for i in &mut list {
-                i.detail = text::patient_title(tag);
-                i.suggested = true;
-            }
-            list
-        }
-        Page::Unit(unit) => {
-            let can_edit = core.with_value(|c| c.may(core::permission::EDIT_UNITS));
-            crate::shared::units::STATUS
-                .codes
-                .iter()
-                .map(|status| {
-                    let code = status.code.as_str();
-                    let name = format!("status {code} {}", status.name);
-                    let action = Action::SetStatus(unit.clone(), code.to_owned());
-                    Item {
-                        detail: unit.clone(),
-                        suggested: true,
-                        disabled: (!can_edit).then_some(text::REASON_NO_ACCESS),
-                        ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
-                    }
-                })
-                .collect()
-        }
+        Page::Record(record) => record_page(core, record)
+            .map(|(_, items)| items)
+            .unwrap_or_default(),
     }
+}
+
+/// The title and the commands of `record`, from the package that knows it.
+fn record_page(core: Handle, record: &Record) -> RecordPage {
+    PACKAGES
+        .iter()
+        .find_map(|p| (p.palette.record)(core, record))
+}
+
+/// Where a package's entries come from.
+pub struct PalettePart {
+    /// Its actions, e.g. "Patient registrieren".
+    pub actions: fn(Handle) -> Vec<Item>,
+    /// Its records to search, e.g. patients by triage tag number.
+    pub records: fn(Handle) -> Vec<Item>,
+    /// The title and commands of one of its records; none for another package's.
+    pub record: fn(Handle, &Record) -> RecordPage,
+}
+
+impl PalettePart {
+    /// A part with no entries.
+    pub const NONE: Self = Self {
+        actions: |_| Vec::new(),
+        records: |_| Vec::new(),
+        record: |_, _| None,
+    };
 }
 
 // [impl->dsn~command-palette~1]
@@ -422,14 +319,8 @@ pub fn Palette(
             return;
         }
         match item.action {
-            Action::Patient(tag) => {
-                page.set(Page::Patient(tag));
-                query.set(String::new());
-                active.set(0);
-                focus("palette-input");
-            }
-            Action::Unit(unit) => {
-                page.set(Page::Unit(unit));
+            Action::Open(record) => {
+                page.set(Page::Record(record));
                 query.set(String::new());
                 active.set(0);
                 focus("palette-input");
@@ -449,13 +340,9 @@ pub fn Palette(
                 nav.go(route);
                 after(Box::new(move || click(&target)));
             }
-            Action::Retriage(tag, category) => {
+            Action::Run(command) => {
                 open.set(false);
-                let _ = core::retriage(core, revision, &tag, category);
-            }
-            Action::SetStatus(unit, status) => {
-                open.set(false);
-                let _ = core::set_status(core, revision, &unit, &status);
+                (command.run)(core, revision, &command.args);
             }
             Action::Theme(id) => {
                 open.set(false);
@@ -498,8 +385,7 @@ pub fn Palette(
     };
     let breadcrumb = move || match page.get() {
         Page::Root => None,
-        Page::Patient(tag) => Some(text::patient_title(&tag)),
-        Page::Unit(unit) => Some(unit),
+        Page::Record(record) => record_page(core, &record).map(|(title, _)| title),
     };
     view! {
         <dialog

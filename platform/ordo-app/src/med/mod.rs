@@ -1,6 +1,7 @@
 //! The Med package's views (ADR-0019): patients and their records, orders, transports,
 //! treatment places, staff requests, and the UHS the incident command sets up.
 
+pub(crate) mod commands;
 pub(crate) mod orders;
 pub(crate) mod overview;
 pub(crate) mod patients;
@@ -46,6 +47,7 @@ pub(crate) const PACKAGE: Package = Package {
         provide_context(orders::Performers::default());
     },
     sections,
+    palette: commands::PALETTE,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {

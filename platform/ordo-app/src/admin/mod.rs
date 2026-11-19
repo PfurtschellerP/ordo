@@ -107,6 +107,7 @@ pub(crate) const PACKAGE: Package = Package {
     workspaces: WORKSPACES,
     provide: || {},
     sections,
+    palette: crate::shell::palette::PalettePart::NONE,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {

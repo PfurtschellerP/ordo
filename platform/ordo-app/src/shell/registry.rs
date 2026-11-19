@@ -32,6 +32,8 @@ pub struct Package {
     pub provide: fn(),
     /// Its sections of the page of `view` in `workspace` (any package's).
     pub sections: fn(&PageArgs, &str, &str) -> Vec<Section>,
+    /// Its entries in the command palette.
+    pub palette: crate::shell::palette::PalettePart,
 }
 
 /// The packages the app is built with: the one place that names them. Their order is the

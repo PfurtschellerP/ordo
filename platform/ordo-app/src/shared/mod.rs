@@ -2,6 +2,7 @@
 //! structure, Aufträge and reports, the situation map, the overview and the incident log.
 
 pub(crate) mod command;
+pub(crate) mod commands;
 pub(crate) mod crew;
 pub(crate) mod helpers;
 pub(crate) mod incidents;
@@ -137,6 +138,7 @@ pub(crate) const PACKAGE: Package = Package {
     workspaces: WORKSPACES,
     provide: || {},
     sections,
+    palette: commands::PALETTE,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
