@@ -211,7 +211,7 @@ fn UhsDetailsPanel(
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 error.set(None);
-                // [impl->dsn~treatment-places~2]
+                // [impl->dsn~treatment-places~3]
                 // The places follow the capacity: per category, or one per patient.
                 if !by_category.is_empty() {
                     if update.capacities.is_some() {

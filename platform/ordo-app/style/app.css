@@ -566,8 +566,11 @@
   .place-plan__places {
     list-style: none; margin: 0; padding: 0;
     display: grid; gap: var(--ordo-space-2);
-    grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
   }
+  /* One list (feedback of 2026-11-19): a taken place holds the patient's own card. */
+  .place-plan__summary { margin: 0; font-weight: var(--ordo-font-weight-bold); }
+  .place-tile--taken > .patient-card { block-size: 100%; }
   .place-tile > a, .place-tile--free {
     display: grid; gap: var(--ordo-space-1); block-size: 100%;
     padding: var(--ordo-space-2) var(--ordo-space-3);

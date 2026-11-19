@@ -585,7 +585,7 @@ impl UnitCatalogue {
             .map_or(id, |e| e.label.as_str())
     }
 
-    // [impl->dsn~map-object-cards~2]
+    // [impl->dsn~map-object-cards~3]
     /// The short form of an entry, else its label, else the ID.
     pub fn short<'a>(list: &'a [Entry], id: &'a str) -> &'a str {
         list.iter()
@@ -1159,7 +1159,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~map-object-cards~2]
+    // [utest->dsn~map-object-cards~3]
     #[test]
     fn every_qualification_has_a_short_form_once() {
         let de: UnitCatalogue =

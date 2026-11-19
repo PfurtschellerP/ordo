@@ -921,7 +921,7 @@ pub fn UnitStatusBoard(
 /// units. Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    // [impl->dsn~map-object-cards~2]
+    // [impl->dsn~map-object-cards~3]
     // Opened from a unit's card on the map: that unit comes into view.
     crate::shared::object_card::reveal_pending();
     let can_edit = core::permitted(core, revision, core::permission::EDIT_UNITS);

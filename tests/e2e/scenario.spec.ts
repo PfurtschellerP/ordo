@@ -317,34 +317,37 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-priority~1]
     await anna.getByRole("button", { name: "DE-0044: Transportpriorität setzen" }).click();
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .priority-badge"), "the list shows the transport priority").toHaveText(/Transportpriorität/);
-    // [itest->dsn~treatment-places~2]
+    // [itest->dsn~treatment-places~3]
     await anna.locator("#place").selectOption({ label: "Platz 2" });
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__meta"), "the list shows the treatment place").toContainText("Platz 2");
-    // [itest->dsn~place-plan~2]
-    // UHS-14: working at one UHS, the plan shows who lies where.
+    // [itest->dsn~place-plan~3]
+    // UHS-14: working at one UHS, *Patienten* shows who lies where, one list with the plan.
+    await expect(anna.locator("#place optgroup"), "the place by triage category first (here: none)").toHaveAttribute("label", "ohne Kategorie");
     await anna.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
-    const plan = anna.locator(".place-plan");
-    await expect(plan.locator("#place-plan-title")).toHaveText("Platzplan – UHS Eingang");
-    await expect(plan.locator(".place-tile[data-place='p2']"), "the patient on their place").toContainText("Platz 2DE-0044");
+    const plan = anna.locator("[aria-labelledby=board-title] .place-plan");
+    await expect(anna.locator("#board-title")).toHaveText("Patienten");
+    await expect(plan.locator(".place-tile[data-place='p2'] .patient-card"), "the patient's own card on their place").toHaveAttribute("data-tag", "DE-0044");
     await expect(plan.locator(".place-tile--free"), "the others are free").toHaveCount(4);
-    await expect(plan.locator(".place-plan__free")).toHaveText("4 von 5 frei");
-    // Patients without a place are listed below the plan; a free place takes one of them.
+    await expect(plan.locator(".place-plan__summary")).toHaveText("4 von 5 frei");
+    // Patients without a place are listed below the places; a free place takes one of them.
     await anna.locator("#place").selectOption({ label: "Kein Platz" });
     const waiting = plan.locator(".place-plan__waiting");
     await expect(waiting, "waiting for a place").toContainText("Ohne Platz");
-    await expect(waiting.locator(".place-plan__waiting-patient")).toHaveCount(1);
-    await expect(waiting.locator(".place-plan__waiting-patient")).toContainText("DE-0044");
+    await expect(waiting.locator(".patient-card"), "nobody is lost").toHaveCount(1);
+    await expect(waiting.locator(".patient-card")).toHaveAttribute("data-tag", "DE-0044");
+    await expect(plan.locator(".place-plan__summary")).toHaveText("5 von 5 frei · 1 ohne Platz");
     await plan.getByRole("button", { name: "Platz 2 belegen" }).click();
     await plan.getByRole("list", { name: "Platz 2 belegen" }).getByRole("button", { name: /DE-0044/ }).click();
-    await expect(plan.locator(".place-tile[data-place='p2']"), "put on the free place from the plan").toContainText("Platz 2DE-0044");
+    await expect(plan.locator(".place-tile[data-place='p2'] .patient-card"), "put on the free place").toHaveAttribute("data-tag", "DE-0044");
     await expect(waiting, "nobody waits").toHaveCount(0);
-    await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__place"), "the list names the same place").toHaveText("Platz 2");
+    await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__place"), "the card names the place").toHaveText("Platz 2");
     // Registration proposes the first free place of the chosen category.
     await anna.locator("input[name=category]").nth(2).check();
     await expect(anna.locator("#register-place"), "a free place proposed").toHaveValue("p1");
     await audit(anna, "Place plan");
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
-    await expect(plan, "only for one UHS").toHaveCount(0);
+    await expect(plan, "places only for one UHS; otherwise the list of all").toHaveCount(0);
+    await expect(anna.locator(".patient-card[data-tag='DE-0044']")).toBeVisible();
 
     // [itest->dsn~patient-care-record~1]
     await anna.locator("#edit-identity").click();
@@ -1590,7 +1593,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
-    // [itest->dsn~map-object-cards~2]
+    // [itest->dsn~map-object-cards~3]
     // MAP-11: the list opens each object's card, as a tap on the map does.
     const rtw = objects.filter({ hasText: "RTW 83/1" });
     await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();

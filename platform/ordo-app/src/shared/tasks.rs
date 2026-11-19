@@ -748,7 +748,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             request_animation_frame(|| crate::shell::views::focus("task-template"));
         });
     });
-    // [impl->dsn~map-object-cards~2]
+    // [impl->dsn~map-object-cards~3]
     // Opened from a card on the map: the Auftrag comes into view, or the form opens for the
     // unit.
     crate::shared::object_card::reveal_pending();

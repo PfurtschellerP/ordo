@@ -100,7 +100,7 @@ fn shown_state(core: Handle, task: &ordo_tasks::Task) -> String {
     }
 }
 
-// [impl->dsn~map-object-cards~2]
+// [impl->dsn~map-object-cards~3]
 /// The card of one object (MAP-11): its details by kind and the actions this person may
 /// take. `on_close` closes it; the close button names the object.
 #[component]

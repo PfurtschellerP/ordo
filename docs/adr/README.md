@@ -91,5 +91,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0084](0084-one-guest-code-pairs-all-their-devices.md) | One guest code pairs all of the guest's devices | accepted | 2026-11-19 |
 | [0085](0085-several-units-on-one-einsatzauftrag.md) | Several units on one Einsatzauftrag, each with its own state | accepted | 2026-11-19 |
 | [0086](0086-the-incident-command-sets-up-the-uhs.md) | The incident command sets up and manages every UHS | accepted | 2026-11-19 |
+| [0087](0087-patients-travel-between-units.md) | A patient is registered where they are found and handed over between units | proposed | 2026-11-19 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

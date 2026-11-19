@@ -657,10 +657,6 @@ pub fn patient_count(n: usize) -> String {
     }
 }
 
-pub fn place_plan_title(uhs: &str) -> String {
-    format!("Platzplan – {uhs}")
-}
-
 // Capacity per triage category (UHS-13)
 pub const UHS_CAPACITIES_LEGEND: &str = "Kapazität nach Sichtungskategorie (optional)";
 pub const UHS_CAPACITIES_HINT: &str = "Mit Zahlen hier ist die Kapazität ihre Summe, und die UHS bekommt ihre Behandlungsplätze je Sichtungskategorie.";

@@ -834,7 +834,7 @@ pub fn create_uhs(
     set_places(core, revision, &uhs, capacity)
 }
 
-// [impl->dsn~treatment-places~2]
+// [impl->dsn~treatment-places~3]
 /// Sets the number of treatment places of a unit: places 1..=`count`, keeping the labels
 /// of existing ones.
 pub fn set_places(

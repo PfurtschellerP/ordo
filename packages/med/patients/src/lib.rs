@@ -158,7 +158,7 @@ impl PlaceAssigned {
     }
 }
 
-// [impl->dsn~treatment-places~2]
+// [impl->dsn~treatment-places~3]
 /// The treatment places of every unit: the latest list per unit.
 pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> {
     let mut sets: Vec<(Hlc, PlacesSet)> = incident_events

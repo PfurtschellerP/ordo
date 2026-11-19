@@ -505,7 +505,7 @@ Needs: impl, utest, itest
 Tags: must, m33, m54, m55, m56
 
 #### Map object cards
-`dsn~map-object-cards~2`
+`dsn~map-object-cards~3`
 
 *Führung – Lagekarte* tells what each object is, without leaving the map (MAP-11,
 proposal agreed with the product owner on 2026-11-18, card at the object since the demo
@@ -514,7 +514,9 @@ above it, below it where there is no room above, and at the bottom of the map wh
 fits neither way. It follows the map while it moves (glue `pinCard`), and a ring marks the
 object.
 
-* **Pointing** (mouse only; the glue tells the page which object the mouse is on): the
+* **Pointing** (mouse only; the glue tells the page which object the mouse is on), for
+  forces only, units and UHS: their cards hold what the map does not show (feedback of
+  2026-11-19); other objects, areas and drawings above all, open by tap or click. The
   card opens at once. It stays while the pointer is on the object or on the card, and
   closes 0.3 s after it left both, or with Escape (WCAG 1.4.13). A click on the card or
   the object keeps it open.

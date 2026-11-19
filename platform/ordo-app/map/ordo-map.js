@@ -206,7 +206,7 @@ export async function create(element, centre, label, incident, ticket, cooperati
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
     handle.tap(e.lngLat.lng, e.lngLat.lat, hit?.properties?.object ?? null, hit?.geometry?.type === "Point");
   });
-  // [impl->dsn~map-object-cards~2]
+  // [impl->dsn~map-object-cards~3]
   // Pointing at an object with a mouse tells the page which one (MAP-11), so it opens the
   // object's card at it; touch has no pointing, a tap opens the card instead.
   let mouse = false;
@@ -240,7 +240,7 @@ export function onHover(handle, callback) {
   handle.hover = callback;
 }
 
-// [impl->dsn~map-object-cards~2]
+// [impl->dsn~map-object-cards~3]
 /** Keeps `element` (a card inside the map's stage) at the point `lng`, `lat`: above it, or
  *  below it where there is no room above; where neither fits, the card sits at the bottom
  *  of the map (`data-side="sheet"`). It follows the map while it moves. */

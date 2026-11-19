@@ -1044,7 +1044,7 @@ fn transport_priority_follows_the_profile_and_ends_on_downgrade() {
     );
 }
 
-// [itest->dsn~treatment-places~2]
+// [itest->dsn~treatment-places~3]
 /// Treatment places are shared incident data (command sees them); which patient lies on
 /// which place is clinical and reaches medics only.
 #[test]

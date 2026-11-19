@@ -1286,14 +1286,15 @@ Needs: impl, itest
 Tags: must, m13
 
 #### Treatment places
-`dsn~treatment-places~2`
+`dsn~treatment-places~3`
 
 A unit's treatment places are a list (`uhs.placesSet`: ID and label per place) in the
 shared incident compartment, created with the unit (one per patient it can take) and set
 again when the incident command changes its capacity; the latest list counts.
 Assignments (`patients.placeAssigned`, place or none) are clinical events; the register
 keeps each patient's place. The record shows the patient's place at its top, offers the
-places of the patient's unit and disables those taken by others; the patient list shows
+places of the patient's unit grouped under the triage category they are kept for (places
+for any category last), and disables those taken by others; the patient list shows
 the place; *Behandlungsplätze* shows free places. Labels come from the app (DE:
 "Platz 1"), never from the package.
 
@@ -1326,16 +1327,18 @@ Needs: impl, utest, itest
 Tags: should, m57
 
 #### Place plan
-`dsn~place-plan~2`
+`dsn~place-plan~3`
 
-The view *Patienten* of the Med workspace shows, when one UHS is chosen as the working UHS
-and it has places, a card *Platzplan* above the registration: one zone per triage category
-the places are kept for (places without one last), headed by the triage badge and the free
-places, and a tile per place. A taken tile names the place, the patient's tag and triage
-badge and links to the record; a free tile says "frei" with a dashed outline, never colour
-alone. Below the zones, *Ohne Platz* lists the UHS's present patients without a place, each
-a link to the record. It is computed from the places (shared) and the assignments
-(clinical), so only those who read clinical data see it.
+The view *Patienten* of the Med workspace is one list (feedback of 2026-11-19). When one UHS
+with places is chosen as the working UHS, its patients stand on their places: one zone per
+triage category the places are kept for (places without one last), headed by the triage
+badge and the free places, and a tile per place. A taken tile holds the patient's own card,
+a link to the record; a free tile says "frei" with a dashed outline, never colour alone.
+Below the zones, *Ohne Platz* holds the cards of the UHS's present patients without a
+place, so nobody is lost, and a line above the zones counts the free places and the
+patients without one. For all UHS, or a UHS without places, the cards stand in one list.
+It is computed from the places (shared) and the assignments (clinical), so only those who
+read clinical data see it.
 
 The plan is where patients get their places (feedback of 2026-11-19); the record keeps its
 choice of place for moves:
@@ -1347,7 +1350,7 @@ choice of place for moves:
   places. Choosing a triage category proposes the first free place kept for it (or for no
   category); the person can change it or choose *Kein Platz*. This is an organisational
   proposal from the documented category, not a triage decision.
-* A patient's card in the list shows the place first, so list and plan name the same place.
+* A patient's card shows the place first, also in the list of all UHS.
 
 Covers:
 
