@@ -201,7 +201,7 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
     match page {
         Page::Root => {
             let mut list = Vec::new();
-            for w in nav::WORKSPACES {
+            for w in nav::workspaces() {
                 let reason = access(core, w).err();
                 for v in w
                     .views

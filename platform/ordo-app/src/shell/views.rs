@@ -8,7 +8,7 @@ use leptos_router::hooks::{use_location, use_navigate};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
 use crate::shell::ui::{Disclosure, DisclosureButton, Icon, SettingSelect};
-use crate::{admin::devices, med::patients, shared::incidents, shell::nav, shell::palette, text};
+use crate::{shared::incidents, shell::nav, shell::palette, text};
 
 /// Pairing or workspace.
 /// The app: opens the encrypted device storage first (ADR-0041), then starts.
@@ -671,8 +671,7 @@ fn Workspace(
     let nav = Nav::new();
     provide_context(nav);
     let undo = crate::shell::ui::UndoSlot(RwSignal::new(None));
-    provide_context(patients::Drafts::default());
-    provide_context(crate::med::orders::Performers::default());
+    crate::shell::registry::provide();
     let open = RwSignal::new(false);
     let palette = RwSignal::new(false);
     let pathname = use_location().pathname;
@@ -693,9 +692,7 @@ fn Workspace(
             // Automatically only a workspace of the incident, never the device list: it is
             // reachable before the incident is, and would stay chosen.
             .or_else(|| {
-                nav::WORKSPACES
-                    .iter()
-                    .find(|w| !w.requires.is_empty() && access(core, w).is_ok())
+                nav::workspaces().find(|w| !w.requires.is_empty() && access(core, w).is_ok())
             })
             .map(|w| w.id)
     });
@@ -991,54 +988,18 @@ fn Workspace(
               </div>
             </div>
             <main id="main" class="page" tabindex="-1">
-                {move || match (current.get(), current_view.get()) {
-                    (Some("units.crew"), Some("transports")) => view! { <crate::shared::crew::CrewTransports core revision /> }.into_any(),
-                    (Some("units.crew"), _) => view! { <crate::shared::crew::CrewTasks core revision /> }.into_any(),
-                    (Some("med.uhs"), Some("orders")) => view! { <crate::med::orders::OrdersView core revision nav /> }.into_any(),
-                    // [impl->dsn~uhs-overview~3]
-                    // The places of every UHS; *UHS verwalten* is gone (ADR-0086), its
-                    // old links land here.
-                    (Some("med.uhs"), Some("places" | "overview" | "uhs")) => view! { <crate::med::overview::OverviewView core revision /> }.into_any(),
-                    (Some("med.uhs"), _) => {
-                        view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
+                // [impl->dsn~package-registry~1]
+                // Every package's sections of the page, in their places.
+                {move || {
+                    let (Some(workspace), Some(view)) = (current.get(), current_view.get()) else {
+                        return view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any();
+                    };
+                    let args = crate::shell::registry::PageArgs { core, revision, nav, record };
+                    let page = crate::shell::registry::page(&args, workspace, view);
+                    if page.is_empty() {
+                        return view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any();
                     }
-                    // [impl->dsn~workspaces-by-phase~4]
-                    // [impl->dsn~map-drawing~2]
-                    (Some("command.lead"), Some("map")) => view! {
-                        <crate::shared::situation::SituationView core revision />
-                        <crate::med::uhs::UhsCounts core revision />
-                    }.into_any(),
-                    // [impl->dsn~reports~3]
-                    (Some("command.lead"), Some("dispatch")) => view! {
-                        <crate::med::staffing::StaffRequestsBoard core revision />
-                        <crate::shared::tasks::OpenTasks core revision />
-                    }.into_any(),
-                    (Some("command.lead"), Some("transports")) => view! { <crate::med::transports::TransportsView core revision /> }.into_any(),
-                    (Some("command.lead"), _) => view! { <crate::shared::summary::CommandOverview core revision /> }.into_any(),
-                    (Some("command.prepare"), Some("units")) => view! { <crate::shared::units::ResourcesView core revision /> }.into_any(),
-                    // The command structure is prepared with the people (ADR-0067); old
-                    // links to its own view land here.
-                    (Some("command.prepare"), Some("people" | "structure")) => view! {
-                        // Who is there and taking people in first, the devices last
-                        // (feedback of 2026-11-14).
-                        <crate::shared::helpers::HelpersView core revision />
-                        <crate::shared::command::LeadershipView core revision />
-                        <crate::admin::devices::IncidentDevicesView core revision />
-                    }.into_any(),
-                    // The situation map prepared on one page: its region, then the editor,
-                    // also opened to place one object (`place:<kind>:<ID>`).
-                    (Some("command.prepare"), Some("map")) => view! {
-                        <crate::shared::situation::MapPreparation core revision preset=record.get_untracked().and_then(|r| crate::shared::situation::preset(&r)) />
-                    }.into_any(),
-                    (Some("command.prepare"), _) => view! { <crate::shared::incidents::IncidentPage core revision /> }.into_any(),
-                    (Some("incident.log"), _) => view! { <crate::shared::log::LogView core revision /> }.into_any(),
-                    (Some("admin.access"), Some("permissions")) => view! { <crate::admin::roles::RolesView core revision /> }.into_any(),
-                    (Some("admin.access"), Some("devices")) => view! { <devices::DevicesView core revision /> }.into_any(),
-                    (Some("admin.access"), Some("login")) => view! { <crate::admin::login_providers::LoginProvidersView core revision /> }.into_any(),
-                    (Some("admin.access"), _) => view! { <crate::admin::accounts::AccountsView core revision /> }.into_any(),
-                    (Some("admin.info"), _) => view! { <crate::admin::notices::InfoView /> }.into_any(),
-                    (Some("person.devices"), _) => view! { <devices::DevicesView core revision mine_only=true /> }.into_any(),
-                    _ => view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any(),
+                    page.collect_view().into_any()
                 }}
             </main>
             <crate::shell::ui::UndoBar offer=undo />

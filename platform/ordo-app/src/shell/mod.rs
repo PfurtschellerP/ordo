@@ -8,5 +8,6 @@ pub(crate) mod nav;
 pub(crate) mod palette;
 pub(crate) mod profile;
 pub(crate) mod qr;
+pub(crate) mod registry;
 pub(crate) mod ui;
 pub(crate) mod views;

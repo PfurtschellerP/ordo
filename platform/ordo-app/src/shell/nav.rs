@@ -5,12 +5,10 @@
 //! launcher; without access it stays in place, disabled, with the reason — so the
 //! layout is the same for every role. Packages that are not used do not appear.
 //!
-//! Prototype: the definitions are Rust constants; later they come from package and
-//! profile data, so organisations can adapt them without code.
+//! Each package declares its workspaces as data in its entry of the registry
+//! ([`crate::shell::registry`], ADR-0011); profiles may adapt them later.
 
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
-
-use crate::text;
 
 /// A view within a workspace.
 pub struct View {
@@ -50,7 +48,7 @@ pub struct Workspace {
     pub hidden: bool,
 }
 
-const fn view(
+pub(crate) const fn view(
     id: &'static str,
     label: &'static str,
     name: &'static str,
@@ -65,223 +63,23 @@ const fn view(
     }
 }
 
-// [impl->dsn~workspaces-by-phase~4]
-/// All workspaces of the packages in use, in launcher order (ADR-0061).
-pub const WORKSPACES: &[Workspace] = &[
-    Workspace {
-        id: "med.uhs",
-        package: text::TAB_MED,
-        label: "UHS",
-        requires: &["incident", "med.clinical"],
-        permission: None,
-        or_organisation: &[],
-        views: &[
-            view("patients", "Patienten", "patients", "users"),
-            view("orders", text::ORDERS, "orders", "clipboard-list"),
-            // The UHS are set up by the incident command (ADR-0086); here, their places.
-            view(
-                "places",
-                text::PLACES,
-                "treatment places overview uhs free full",
-                "tent",
-            ),
-        ],
-        hidden: false,
-    },
-    // [impl->dsn~crew-workspace~3]
-    // A unit's crew: its status, tasks, patient cases and transports (UNIT-9, ADR-0079).
-    Workspace {
-        id: "units.crew",
-        // Under Sanität: medical units' crews (product owner, 2026-11-17).
-        package: text::TAB_MED,
-        label: text::WS_CREW,
-        requires: &["incident"],
-        permission: Some(crate::core::permission::CREW_WORK),
-        or_organisation: &[],
-        views: &[
-            view(
-                "tasks",
-                text::CREW_TASKS,
-                "crew tasks status patient cases",
-                "clipboard-list",
-            ),
-            view(
-                "transports",
-                text::TRANSPORTS,
-                "crew transports",
-                "ambulance",
-            ),
-        ],
-        hidden: false,
-    },
-    // The incident command (ADR-0061): what is set up before and adjusted during it …
-    Workspace {
-        id: "command.prepare",
-        package: text::TAB_COMMAND,
-        label: text::WS_PREPARE,
-        requires: &["incident"],
-        permission: Some(crate::core::permission::VIEW_SITUATION),
-        or_organisation: &[],
-        views: &[
-            view(
-                "incident",
-                text::INCIDENT_PAGE,
-                "incident description date time start pause resume close",
-                "flag",
-            ),
-            // [impl->dsn~workspaces-by-phase~4]
-            // The map prepared on one page: its region and its objects (ADR-0067).
-            view(
-                "map",
-                text::MAP_TITLE,
-                "situation map region edit draw place units address",
-                "map",
-            ),
-            view("units", text::TAB_RESOURCES, "units", "truck"),
-            view(
-                "people",
-                text::PEOPLE,
-                "people helpers roles roster devices command structure",
-                "id-card",
-            ),
-        ],
-        hidden: false,
-    },
-    // … and leading it while it runs (the menu follows the order of the work).
-    Workspace {
-        id: "command.lead",
-        package: text::TAB_COMMAND,
-        label: text::WS_LEAD,
-        requires: &["incident"],
-        // The incident command's views; UHS crews do not see them.
-        permission: Some(crate::core::permission::VIEW_SITUATION),
-        or_organisation: &[],
-        views: &[
-            view(
-                "overview",
-                text::OVERVIEW,
-                "overview summary",
-                "layout-grid",
-            ),
-            view("map", text::MAP_TITLE, "situation map", "map"),
-            view(
-                "dispatch",
-                text::DISPATCH,
-                "dispatch tasks orders",
-                "clipboard-list",
-            ),
-            view("transports", text::TRANSPORTS, "transports", "ambulance"),
-        ],
-        hidden: false,
-    },
-    // [impl->dsn~incident-log~1]
-    // Everyone in the incident; each device shows only what its user may read (LOG-6).
-    Workspace {
-        id: "incident.log",
-        package: text::TAB_COMMAND,
-        label: text::LOG_TITLE,
-        requires: &["incident"],
-        permission: None,
-        or_organisation: &[],
-        views: &[view(
-            "log",
-            text::LOG_TITLE,
-            "incident log diary",
-            "notebook-text",
-        )],
-        hidden: false,
-    },
-    // Administration beyond one incident: only organisation roles open it, never a role in
-    // an incident; each view needs its own permission.
-    Workspace {
-        id: "admin.access",
-        package: text::TAB_ADMIN,
-        label: text::WS_ACCESS,
-        requires: &[],
-        permission: None,
-        or_organisation: &["manage_accounts", "manage_roles", "manage_devices"],
-        views: &[
-            // [impl->dsn~local-accounts~1]
-            View {
-                permission: Some("manage_accounts"),
-                ..view(
-                    "accounts",
-                    text::ACCOUNTS,
-                    "accounts login passwords users",
-                    "users",
-                )
-            },
-            // [impl->dsn~organisation-roles~1]
-            View {
-                permission: Some("manage_roles"),
-                ..view(
-                    "permissions",
-                    text::ORG_ROLES,
-                    "permissions roles administrators planners organisation",
-                    "key-round",
-                )
-            },
-            View {
-                permission: Some("manage_devices"),
-                ..view("devices", text::DEVICES, "devices", "tablet-smartphone")
-            },
-            // [impl->dsn~login-providers~1]
-            View {
-                permission: Some("manage_accounts"),
-                ..view(
-                    "login",
-                    text::LOGIN_PROVIDERS,
-                    "login providers single sign-on oidc entra keycloak",
-                    "log-in",
-                )
-            },
-        ],
-        hidden: false,
-    },
-    // [impl->dsn~licence-notices~2]
-    // Version, licences and source code, for everyone (LIC-1): no permission needed.
-    Workspace {
-        id: "admin.info",
-        package: text::TAB_ADMIN,
-        label: text::WS_INFO,
-        requires: &[],
-        permission: None,
-        or_organisation: &[],
-        views: &[view(
-            "info",
-            text::WS_INFO,
-            "info about version licences licenses source code notices",
-            "info",
-        )],
-        hidden: false,
-    },
-    // The person's own devices, for everyone (SEC-4): opened from the person's menu.
-    Workspace {
-        id: "person.devices",
-        package: text::TAB_PERSON,
-        label: text::MY_DEVICES,
-        requires: &[],
-        permission: None,
-        or_organisation: &[],
-        views: &[view(
-            "devices",
-            text::MY_DEVICES,
-            "my devices",
-            "tablet-smartphone",
-        )],
-        hidden: true,
-    },
-];
-
 /// The workspace with `id`.
 pub fn workspace(id: &str) -> Option<&'static Workspace> {
-    WORKSPACES.iter().find(|w| w.id == id)
+    workspaces().find(|w| w.id == id)
+}
+
+// [impl->dsn~package-registry~1]
+/// Every workspace of the registered packages, in launcher order (ADR-0011, ADR-0061).
+pub fn workspaces() -> impl Iterator<Item = &'static Workspace> {
+    crate::shell::registry::PACKAGES
+        .iter()
+        .flat_map(|p| p.workspaces.iter())
 }
 
 /// Packages in launcher order, each with its workspaces.
 pub fn packages() -> Vec<(&'static str, Vec<&'static Workspace>)> {
     let mut packages: Vec<(&'static str, Vec<&'static Workspace>)> = Vec::new();
-    for w in WORKSPACES.iter().filter(|w| !w.hidden) {
+    for w in workspaces().filter(|w| !w.hidden) {
         match packages.iter_mut().find(|(p, _)| *p == w.package) {
             Some((_, list)) => list.push(w),
             None => packages.push((w.package, vec![w])),
@@ -375,7 +173,7 @@ mod tests {
     // [utest->dsn~compact-navigation~2]
     #[test]
     fn every_workspace_fits_the_bottom_bar_and_every_view_has_an_icon() {
-        for w in WORKSPACES {
+        for w in workspaces() {
             assert!(
                 w.views.len() <= MAX_VIEWS,
                 "{}: {} views",
@@ -409,7 +207,7 @@ mod tests {
 
     #[test]
     fn every_workspace_has_views() {
-        for w in WORKSPACES {
+        for w in workspaces() {
             assert!(!w.views.is_empty(), "{}", w.id);
         }
         assert_eq!(
