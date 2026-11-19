@@ -140,6 +140,7 @@ pub(crate) const PACKAGE: Package = Package {
     sections,
     bell: tasks::bell,
     palette: commands::PALETTE,
+    log: log::PART,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {

@@ -37,6 +37,8 @@ pub struct Package {
     pub bell: fn(Handle) -> Vec<(String, crate::shell::nav::Route)>,
     /// Its entries in the command palette.
     pub palette: crate::shell::palette::PalettePart,
+    /// Its events in the incident log.
+    pub log: crate::shared::log::LogPart,
 }
 
 /// The packages the app is built with: the one place that names them. Their order is the

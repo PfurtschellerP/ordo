@@ -1,7 +1,8 @@
 //! The automatic incident log, *Einsatztagebuch* (LOG-1, LOG-3, LOG-6): every event this
 //! device holds for the incident, newest first, in words, with time, author and device.
 //! The log is computed from the events (`Replica::log`), so it can only grow; a
-//! correction is a new entry that links to the one it corrects.
+//! correction is a new entry that links to the one it corrects. Each package puts its own
+//! events into words ([`LogPart`], ADR-0010); this module is the shared modules' part.
 
 use std::collections::BTreeMap;
 
@@ -11,138 +12,56 @@ use ordo_sync::AppliedEvent;
 use serde::de::DeserializeOwned;
 
 use crate::core::{self, Handle};
+use crate::shell::registry::PACKAGES;
 use crate::text;
 
-/// What other entries of the log say about the things an entry names: names of UHS,
-/// positions, hospitals and places, task texts, the patient of an order.
+/// What other entries of the log say about the things an entry names, by kind and ID:
+/// names of UHS (`uhs`), positions, hospitals and places, task texts, the patient of an
+/// order. Every package fills in the kinds it knows and reads any.
 #[derive(Default)]
-struct Context {
-    uhs: BTreeMap<String, String>,
-    positions: BTreeMap<String, String>,
-    tasks: BTreeMap<String, String>,
-    reports: BTreeMap<String, String>,
-    orders: BTreeMap<String, String>,
-    transports: BTreeMap<String, (String, String)>,
-    hospitals: BTreeMap<String, String>,
-    places: BTreeMap<String, String>,
-    objects: BTreeMap<String, String>,
+pub(crate) struct Names {
+    names: BTreeMap<(&'static str, String), String>,
     /// Event ID → time, for the entries corrections refer to.
     times: BTreeMap<String, u64>,
 }
 
-fn decode<T: DeserializeOwned>(e: &AppliedEvent) -> Option<T> {
+impl Names {
+    /// Sets the name of `id` of `kind`; later names win.
+    pub(crate) fn set(&mut self, kind: &'static str, id: String, name: String) {
+        self.names.insert((kind, id), name);
+    }
+
+    /// The name of `id` of `kind`, or the ID itself.
+    pub(crate) fn get<'a>(&'a self, kind: &'static str, id: &'a str) -> &'a str {
+        self.names
+            .get(&(kind, id.to_owned()))
+            .map_or(id, String::as_str)
+    }
+
+    fn from_log(log: &[AppliedEvent]) -> Self {
+        let mut names = Self::default();
+        // Oldest first, so later names win.
+        for e in log.iter().rev() {
+            names
+                .times
+                .insert(e.body.id.to_string(), e.body.hlc.wall_ms);
+            for package in PACKAGES {
+                (package.log.learn)(e, &mut names);
+            }
+        }
+        names
+    }
+}
+
+/// The payload of `e`, if it reads as `T`.
+pub(crate) fn decode<T: DeserializeOwned>(e: &AppliedEvent) -> Option<T> {
     codec::from_cbor(&e.payload).ok()
 }
 
-impl Context {
-    fn from_log(log: &[AppliedEvent]) -> Self {
-        use ordo_med_patients as med;
-        let mut c = Self::default();
-        // Oldest first, so later names win.
-        for e in log.iter().rev() {
-            c.times.insert(e.body.id.to_string(), e.body.hlc.wall_ms);
-            match e.body.event_type.as_str() {
-                med::UHS_CREATED => {
-                    if let Some(p) = decode::<med::UhsCreated>(e) {
-                        c.uhs.insert(p.id, p.name);
-                    }
-                }
-                med::UHS_UPDATED => {
-                    if let Some(med::UhsUpdated {
-                        id,
-                        name: Some(name),
-                        ..
-                    }) = decode(e)
-                    {
-                        c.uhs.insert(id, name);
-                    }
-                }
-                med::UHS_PLACES => {
-                    if let Some(p) = decode::<med::PlacesSet>(e) {
-                        c.places
-                            .extend(p.places.into_iter().map(|p| (p.id, p.label)));
-                    }
-                }
-                ordo_command::POSITION_CREATED => {
-                    if let Some(p) = decode::<ordo_command::PositionCreated>(e) {
-                        let title = format!(
-                            "{} {}",
-                            crate::shared::command::STRUCTURE.label(&p.kind),
-                            p.name
-                        );
-                        c.positions.insert(p.position, title);
-                    }
-                }
-                ordo_tasks::GIVEN => {
-                    if let Some(p) = decode::<ordo_tasks::TaskGiven>(e) {
-                        let name = match (p.kind, &p.place) {
-                            (Some(kind), Some(place)) => text::task_label(kind, place),
-                            _ => p.text.clone(),
-                        };
-                        c.tasks.insert(p.task, name);
-                    }
-                }
-                ordo_reports::RECORDED => {
-                    if let Some(p) = decode::<ordo_reports::Recorded>(e) {
-                        c.reports
-                            .insert(p.report.clone(), crate::shared::reports::label(&p));
-                    }
-                }
-                med::orders::GIVEN => {
-                    if let Some(p) = decode::<med::orders::OrderGiven>(e) {
-                        c.orders.insert(p.order, p.tag);
-                    }
-                }
-                med::orders::RECORDED => {
-                    if let Some(p) = decode::<med::orders::OrderRecorded>(e) {
-                        c.orders.insert(p.order, p.tag);
-                    }
-                }
-                med::transport::REQUESTED => {
-                    if let Some(p) = decode::<med::transport::TransportRequested>(e) {
-                        c.transports.insert(p.request, (p.transport_type, p.uhs));
-                    }
-                }
-                med::hospitals::SET => {
-                    if let Some(p) = decode::<med::hospitals::HospitalSet>(e) {
-                        c.hospitals.insert(p.hospital, p.name);
-                    }
-                }
-                ordo_map::PLACED => {
-                    if let Some(p) = decode::<ordo_map::ObjectPlaced>(e) {
-                        c.objects.insert(p.object, p.label);
-                    }
-                }
-                _ => {}
-            }
-        }
-        c
-    }
-
-    fn name<'a>(map: &'a BTreeMap<String, String>, id: &'a str) -> &'a str {
-        map.get(id).map_or(id, String::as_str)
-    }
-
-    fn uhs<'a>(&'a self, id: &'a str) -> &'a str {
-        Self::name(&self.uhs, id)
-    }
-
-    fn position<'a>(&'a self, id: &'a str) -> &'a str {
-        Self::name(&self.positions, id)
-    }
-
-    fn transport(&self, id: &str) -> String {
-        self.transports.get(id).map_or_else(
-            || id.to_owned(),
-            |(kind, uhs)| text::log_transport(kind, self.uhs(uhs)),
-        )
-    }
-}
-
 /// One entry in words, and the entry it corrects (LOG-3), if any.
-struct Line {
-    text: String,
-    corrects: Option<String>,
+pub(crate) struct Line {
+    pub(crate) text: String,
+    pub(crate) corrects: Option<String>,
 }
 
 impl From<String> for Line {
@@ -154,241 +73,201 @@ impl From<String> for Line {
     }
 }
 
+/// How a person is named in the log, from their user ID or a written name.
+pub(crate) type Naming<'a> = &'a dyn Fn(&str) -> String;
+
+// [impl->dsn~package-registry~1]
+/// A package's part of the log: the names it learns from its events, and its events in
+/// words (none for another package's events).
+pub(crate) struct LogPart {
+    pub(crate) learn: fn(&AppliedEvent, &mut Names),
+    pub(crate) describe: fn(&AppliedEvent, &Names, Naming) -> Option<Line>,
+}
+
+impl LogPart {
+    /// A part with no events.
+    pub(crate) const NONE: Self = Self {
+        learn: |_, _| {},
+        describe: |_, _, _| None,
+    };
+}
+
 // [impl->dsn~incident-log~1]
-/// An event in words. An event type this app does not know, or cannot read, is shown
-/// with its module and type: the log leaves nothing out (LOG-1).
-fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Line {
-    use ordo_med_patients as med;
-    use ordo_sync::incidents as inc;
-    let unknown = || text::log_unknown(e.body.module.as_str(), e.body.event_type.as_str());
-    let line: Option<Line> = (|| {
-        Some(match e.body.event_type.as_str() {
-            inc::PLANNED => text::log_planned(&decode::<inc::Planned>(e)?.name).into(),
-            inc::STATE_CHANGED => {
-                text::incident_state_changed(decode::<inc::StateChanged>(e)?.state).into()
-            }
-            inc::DETAILS_CHANGED => {
-                decode::<inc::Details>(e)?;
-                text::INCIDENT_DETAILS_SAVED.to_owned().into()
-            }
-            inc::PAUSE_CHANGED => text::incident_paused(decode::<inc::PauseChange>(e)?.paused)
-                .to_owned()
-                .into(),
-            inc::ROLE_GRANTED => {
-                let p = decode::<inc::RoleChange>(e)?;
-                text::role_granted(&name(p.user.as_str()), &p.role).into()
-            }
-            inc::ROLE_WITHDRAWN => {
-                let p = decode::<inc::RoleChange>(e)?;
-                text::role_withdrawn(&name(p.user.as_str()), &p.role).into()
-            }
-            ordo_units::ADDED => {
-                let p = decode::<ordo_units::UnitAdded>(e)?;
-                text::log_unit_added(&p.unit, &p.unit_type, &p.organisation).into()
-            }
-            ordo_units::STATUS_CHANGED => {
-                let p = decode::<ordo_units::StatusChanged>(e)?;
-                text::status_set(&p.unit, &p.status).into()
-            }
-            ordo_units::RELEASED => {
-                text::unit_released(&decode::<ordo_units::Released>(e)?.unit).into()
-            }
-            ordo_units::CREW_SET => {
-                let p = decode::<ordo_units::CrewSet>(e)?;
-                text::log_crew(&p.unit, p.members.len()).into()
-            }
-            // [impl->dsn~reports~3]
-            ordo_tasks::GIVEN => {
-                let p = decode::<ordo_tasks::TaskGiven>(e)?;
-                let person = p.person.as_deref().map(name);
-                let to = p
-                    .unit
-                    .as_deref()
-                    .or(p.sector.as_deref().map(|s| c.position(s)))
-                    .or(person.as_deref())
-                    .unwrap_or_default();
-                match (p.kind, &p.place) {
-                    (Some(kind), Some(place)) => text::log_task_received(
-                        kind,
-                        &crate::core::clock(p.received_at.unwrap_or(e.body.hlc.wall_ms)),
-                        place,
-                        &p.text,
-                        to,
-                    )
-                    .into(),
-                    _ => text::log_task_given(to, &p.text).into(),
-                }
-            }
-            ordo_tasks::ASSIGNED => {
-                let p = decode::<ordo_tasks::TaskAssigned>(e)?;
-                text::log_task_assigned(Context::name(&c.tasks, &p.task), &p.unit).into()
-            }
-            ordo_tasks::PATIENT_REGISTERED => {
-                let p = decode::<ordo_tasks::PatientRegistered>(e)?;
-                text::log_report_patient(Context::name(&c.tasks, &p.task), &p.unit).into()
-            }
-            // [impl->dsn~uhs-staff-request~2]
-            med::staffing::REQUESTED => {
-                let p = decode::<med::staffing::Requested>(e)?;
-                text::staff_requested(c.uhs(&p.uhs), p.need).into()
-            }
-            med::staffing::CLOSED => {
-                let p = decode::<med::staffing::Closed>(e)?;
-                match p.person {
-                    Some(person) => text::staff_request_met(&name(&person)).into(),
-                    None => text::STAFF_REQUEST_WITHDRAWN.to_owned().into(),
-                }
-            }
-            // [impl->dsn~reports~3]
-            ordo_reports::RECORDED => {
-                let p = decode::<ordo_reports::Recorded>(e)?;
-                text::log_report_recorded(&p).into()
-            }
-            ordo_reports::CLOSED => {
-                let p = decode::<ordo_reports::Closed>(e)?;
-                text::log_report_closed(Context::name(&c.reports, &p.report)).into()
-            }
-            ordo_reports::PATIENT_REGISTERED => {
-                let p = decode::<ordo_reports::PatientRegistered>(e)?;
-                text::log_report_patient(Context::name(&c.reports, &p.report), &p.unit).into()
-            }
-            ordo_tasks::UPDATED => {
-                let p = decode::<ordo_tasks::TaskUpdated>(e)?;
-                let task = Context::name(&c.tasks, &p.task);
-                match &p.unit {
-                    Some(unit) => text::log_unit_step(task, unit, p.status.map(text::task_status)),
-                    None => text::log_task_updated(task, p.status.map(text::task_status)),
-                }
-                .into()
-            }
-            ordo_command::POSITION_CREATED => {
-                let p = decode::<ordo_command::PositionCreated>(e)?;
-                text::position_created(c.position(&p.position)).into()
-            }
-            ordo_command::POSITION_CLOSED => {
-                let p = decode::<ordo_command::PositionClosed>(e)?;
-                text::log_position_closed(c.position(&p.position)).into()
-            }
-            ordo_command::LEADER_SET => {
-                let p = decode::<ordo_command::LeaderSet>(e)?;
-                text::log_leader(c.position(&p.position), &name(&p.leader)).into()
-            }
-            ordo_command::ASSIGNED => {
-                let p = decode::<ordo_command::Assigned>(e)?;
-                let what = p
-                    .unit
-                    .as_deref()
-                    .or(p.uhs.as_deref().map(|u| c.uhs(u)))
-                    .unwrap_or_default();
-                text::log_assigned(what, p.position.as_deref().map(|p| c.position(p))).into()
-            }
-            ordo_map::PLACED => {
-                text::log_map_placed(&decode::<ordo_map::ObjectPlaced>(e)?.label).into()
-            }
-            ordo_map::REMOVED => {
-                let p = decode::<ordo_map::ObjectRemoved>(e)?;
-                text::log_map_removed(Context::name(&c.objects, &p.object)).into()
-            }
-            med::UHS_CREATED => text::uhs_created(&decode::<med::UhsCreated>(e)?.name).into(),
-            med::UHS_UPDATED => {
-                let p = decode::<med::UhsUpdated>(e)?;
-                match p.name {
-                    Some(name) => text::uhs_renamed(&name).into(),
-                    None => text::uhs_updated(c.uhs(&p.id)).into(),
-                }
-            }
-            med::UHS_PLACES => {
-                let p = decode::<med::PlacesSet>(e)?;
-                text::log_places(c.uhs(&p.uhs), p.places.len()).into()
-            }
-            med::REGISTERED => {
-                let p = decode::<med::Registered>(e)?;
-                text::registered(&p.tag, p.category, c.uhs(&p.uhs)).into()
-            }
-            med::RETRIAGED => {
-                let p = decode::<med::Retriaged>(e)?;
-                text::retriaged(&p.tag, p.category).into()
-            }
-            med::MOVED => {
-                let p = decode::<med::Moved>(e)?;
-                text::patient_moved(&p.tag, c.uhs(&p.uhs)).into()
-            }
-            med::DISCHARGED => {
-                let p = decode::<med::Discharged>(e)?;
-                text::discharged(&p.tag, p.outcome).into()
-            }
-            med::READMITTED => text::readmitted(&decode::<med::Readmitted>(e)?.tag).into(),
-            med::PLACE_ASSIGNED => {
-                let p = decode::<med::PlaceAssigned>(e)?;
-                let place = p.place.as_deref().map(|id| Context::name(&c.places, id));
-                text::place_assigned(&p.tag, place).into()
-            }
-            med::TRANSPORT_PRIORITY => {
-                let p = decode::<med::TransportPrioritySet>(e)?;
-                text::priority_changed(&p.tag, p.level.is_some()).into()
-            }
-            med::transport::LINKED => {
-                text::transport_requested(&decode::<med::transport::TransportLinked>(e)?.tag).into()
-            }
-            med::transport::REQUESTED => {
-                let p = decode::<med::transport::TransportRequested>(e)?;
-                text::log_transport_requested(&c.transport(&p.request)).into()
-            }
-            med::transport::UPDATED => {
-                let p = decode::<med::transport::TransportUpdated>(e)?;
-                text::log_transport_updated(
-                    &c.transport(&p.request),
-                    text::transport_status(p.status),
-                    p.unit.as_deref(),
-                )
-                .into()
-            }
-            med::orders::GIVEN => {
-                text::order_given(&decode::<med::orders::OrderGiven>(e)?.tag).into()
-            }
-            med::orders::RECORDED => {
-                text::order_recorded(&decode::<med::orders::OrderRecorded>(e)?.tag).into()
-            }
-            med::orders::CONFIRMED => {
-                let p = decode::<med::orders::OrderConfirmed>(e)?;
-                text::log_order_confirmed(Context::name(&c.orders, &p.order)).into()
-            }
-            med::orders::UPDATED => {
-                let p = decode::<med::orders::OrderUpdated>(e)?;
-                let tag = Context::name(&c.orders, &p.order);
-                let status = match &p.performed_by {
-                    Some(by) => text::order_status_performed(text::order_status(p.status), by),
-                    None => text::order_status(p.status).to_owned(),
-                };
-                text::log_order_updated(tag, &status).into()
-            }
-            med::record::ENTRY_RECORDED => {
-                let p = decode::<med::record::EntryRecorded>(e)?;
-                let form = crate::med::patients::FORMS
-                    .form(&p.form)
-                    .map_or(p.form.as_str(), |f| f.label.as_str());
-                Line {
-                    text: text::entry_saved(form, &p.tag),
-                    corrects: p.replaces,
-                }
-            }
-            med::record::PHOTO_ATTACHED => {
-                text::photo_added(&decode::<med::record::PhotoAttached>(e)?.tag).into()
-            }
-            med::record::PHOTO_REMOVED => {
-                text::photo_removed(&decode::<med::record::PhotoRemoved>(e)?.tag).into()
-            }
-            med::hospitals::SET => {
-                text::hospital_saved(&decode::<med::hospitals::HospitalSet>(e)?.name).into()
-            }
-            med::hospitals::CAPACITY_SET => {
-                let p = decode::<med::hospitals::CapacitySet>(e)?;
-                text::capacity_saved(Context::name(&c.hospitals, &p.hospital)).into()
-            }
-            _ => return None,
+/// An event in words, from the package that knows it. An event type no package knows, or
+/// cannot read, is shown with its module and type: the log leaves nothing out (LOG-1).
+fn describe(e: &AppliedEvent, c: &Names, name: Naming) -> Line {
+    PACKAGES
+        .iter()
+        .find_map(|p| (p.log.describe)(e, c, name))
+        .unwrap_or_else(|| {
+            text::log_unknown(e.body.module.as_str(), e.body.event_type.as_str()).into()
         })
-    })();
-    line.unwrap_or_else(|| unknown().into())
+}
+
+/// The shared modules' part of the log.
+pub(crate) const PART: LogPart = LogPart {
+    learn: learn_shared,
+    describe: describe_shared,
+};
+
+fn learn_shared(e: &AppliedEvent, c: &mut Names) {
+    match e.body.event_type.as_str() {
+        ordo_command::POSITION_CREATED => {
+            if let Some(p) = decode::<ordo_command::PositionCreated>(e) {
+                let title = format!(
+                    "{} {}",
+                    crate::shared::command::STRUCTURE.label(&p.kind),
+                    p.name
+                );
+                c.set("position", p.position, title);
+            }
+        }
+        ordo_tasks::GIVEN => {
+            if let Some(p) = decode::<ordo_tasks::TaskGiven>(e) {
+                let name = match (p.kind, &p.place) {
+                    (Some(kind), Some(place)) => text::task_label(kind, place),
+                    _ => p.text.clone(),
+                };
+                c.set("task", p.task, name);
+            }
+        }
+        ordo_reports::RECORDED => {
+            if let Some(p) = decode::<ordo_reports::Recorded>(e) {
+                c.set(
+                    "report",
+                    p.report.clone(),
+                    crate::shared::reports::label(&p),
+                );
+            }
+        }
+        ordo_map::PLACED => {
+            if let Some(p) = decode::<ordo_map::ObjectPlaced>(e) {
+                c.set("object", p.object, p.label);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn describe_shared(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
+    use ordo_sync::incidents as inc;
+    Some(match e.body.event_type.as_str() {
+        inc::PLANNED => text::log_planned(&decode::<inc::Planned>(e)?.name).into(),
+        inc::STATE_CHANGED => {
+            text::incident_state_changed(decode::<inc::StateChanged>(e)?.state).into()
+        }
+        inc::DETAILS_CHANGED => {
+            decode::<inc::Details>(e)?;
+            text::INCIDENT_DETAILS_SAVED.to_owned().into()
+        }
+        inc::PAUSE_CHANGED => text::incident_paused(decode::<inc::PauseChange>(e)?.paused)
+            .to_owned()
+            .into(),
+        inc::ROLE_GRANTED => {
+            let p = decode::<inc::RoleChange>(e)?;
+            text::role_granted(&name(p.user.as_str()), &p.role).into()
+        }
+        inc::ROLE_WITHDRAWN => {
+            let p = decode::<inc::RoleChange>(e)?;
+            text::role_withdrawn(&name(p.user.as_str()), &p.role).into()
+        }
+        ordo_units::ADDED => {
+            let p = decode::<ordo_units::UnitAdded>(e)?;
+            text::log_unit_added(&p.unit, &p.unit_type, &p.organisation).into()
+        }
+        ordo_units::STATUS_CHANGED => {
+            let p = decode::<ordo_units::StatusChanged>(e)?;
+            text::status_set(&p.unit, &p.status).into()
+        }
+        ordo_units::RELEASED => {
+            text::unit_released(&decode::<ordo_units::Released>(e)?.unit).into()
+        }
+        ordo_units::CREW_SET => {
+            let p = decode::<ordo_units::CrewSet>(e)?;
+            text::log_crew(&p.unit, p.members.len()).into()
+        }
+        // [impl->dsn~reports~3]
+        ordo_tasks::GIVEN => {
+            let p = decode::<ordo_tasks::TaskGiven>(e)?;
+            let person = p.person.as_deref().map(name);
+            let to = p
+                .unit
+                .as_deref()
+                .or(p.sector.as_deref().map(|s| c.get("position", s)))
+                .or(person.as_deref())
+                .unwrap_or_default();
+            match (p.kind, &p.place) {
+                (Some(kind), Some(place)) => text::log_task_received(
+                    kind,
+                    &crate::core::clock(p.received_at.unwrap_or(e.body.hlc.wall_ms)),
+                    place,
+                    &p.text,
+                    to,
+                )
+                .into(),
+                _ => text::log_task_given(to, &p.text).into(),
+            }
+        }
+        ordo_tasks::ASSIGNED => {
+            let p = decode::<ordo_tasks::TaskAssigned>(e)?;
+            text::log_task_assigned(c.get("task", &p.task), &p.unit).into()
+        }
+        ordo_tasks::PATIENT_REGISTERED => {
+            let p = decode::<ordo_tasks::PatientRegistered>(e)?;
+            text::log_report_patient(c.get("task", &p.task), &p.unit).into()
+        }
+        // [impl->dsn~reports~3]
+        ordo_reports::RECORDED => {
+            let p = decode::<ordo_reports::Recorded>(e)?;
+            text::log_report_recorded(&p).into()
+        }
+        ordo_reports::CLOSED => {
+            let p = decode::<ordo_reports::Closed>(e)?;
+            text::log_report_closed(c.get("report", &p.report)).into()
+        }
+        ordo_reports::PATIENT_REGISTERED => {
+            let p = decode::<ordo_reports::PatientRegistered>(e)?;
+            text::log_report_patient(c.get("report", &p.report), &p.unit).into()
+        }
+        ordo_tasks::UPDATED => {
+            let p = decode::<ordo_tasks::TaskUpdated>(e)?;
+            let task = c.get("task", &p.task);
+            match &p.unit {
+                Some(unit) => text::log_unit_step(task, unit, p.status.map(text::task_status)),
+                None => text::log_task_updated(task, p.status.map(text::task_status)),
+            }
+            .into()
+        }
+        ordo_command::POSITION_CREATED => {
+            let p = decode::<ordo_command::PositionCreated>(e)?;
+            text::position_created(c.get("position", &p.position)).into()
+        }
+        ordo_command::POSITION_CLOSED => {
+            let p = decode::<ordo_command::PositionClosed>(e)?;
+            text::log_position_closed(c.get("position", &p.position)).into()
+        }
+        ordo_command::LEADER_SET => {
+            let p = decode::<ordo_command::LeaderSet>(e)?;
+            text::log_leader(c.get("position", &p.position), &name(&p.leader)).into()
+        }
+        ordo_command::ASSIGNED => {
+            let p = decode::<ordo_command::Assigned>(e)?;
+            let what = p
+                .unit
+                .as_deref()
+                .or(p.uhs.as_deref().map(|u| c.get("uhs", u)))
+                .unwrap_or_default();
+            text::log_assigned(what, p.position.as_deref().map(|p| c.get("position", p))).into()
+        }
+        ordo_map::PLACED => {
+            text::log_map_placed(&decode::<ordo_map::ObjectPlaced>(e)?.label).into()
+        }
+        ordo_map::REMOVED => {
+            let p = decode::<ordo_map::ObjectRemoved>(e)?;
+            text::log_map_removed(c.get("object", &p.object)).into()
+        }
+        _ => return None,
+    })
 }
 
 /// The log of the open incident, as this device knows it.
@@ -407,7 +286,7 @@ pub fn LogView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let days = Memo::new(move |_| {
         revision.track();
         let log = log(core);
-        let context = Context::from_log(&log);
+        let context = Names::from_log(&log);
         let mut days: Vec<(String, Vec<(AppliedEvent, Line)>)> = Vec::new();
         for e in log {
             let day = core::date(e.body.hlc.wall_ms);

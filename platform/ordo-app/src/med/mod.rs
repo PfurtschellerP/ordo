@@ -2,6 +2,7 @@
 //! treatment places, staff requests, and the UHS the incident command sets up.
 
 pub(crate) mod commands;
+pub(crate) mod log;
 pub(crate) mod orders;
 pub(crate) mod overview;
 pub(crate) mod patients;
@@ -49,6 +50,7 @@ pub(crate) const PACKAGE: Package = Package {
     sections,
     bell: staffing::bell,
     palette: commands::PALETTE,
+    log: log::PART,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
