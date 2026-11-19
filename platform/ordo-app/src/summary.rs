@@ -11,8 +11,9 @@ use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::places::{Level, PlaceRow, TreatmentPlaces};
 use crate::text;
+use crate::triage::CATEGORIES;
 use crate::ui::Icon;
-use crate::views::{CATEGORIES, follow_route};
+use crate::views::follow_route;
 
 /// One open order as the tile shows it.
 #[derive(Clone, Debug, PartialEq)]
@@ -90,7 +91,7 @@ fn overview(core: Handle) -> Overview {
             med::overview::occupancies(&incident),
         )
     });
-    let uhs = crate::views::uhs_list(core)
+    let uhs = crate::uhs::uhs_list(core)
         .into_iter()
         .map(|u| {
             let c = counts.get(&u.id).cloned().unwrap_or_default();

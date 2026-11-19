@@ -10,7 +10,7 @@ use leptos::prelude::*;
 use ordo_med_patients::overview::{Occupancy, PlaceGroup};
 
 use crate::text;
-use crate::views::TriageBadge;
+use crate::triage::TriageBadge;
 
 /// One on-site care unit as the overview shows it.
 #[derive(Clone, Debug, PartialEq)]
@@ -127,7 +127,7 @@ fn AllUnits(occupancy: Occupancy, level: Level) -> impl IntoView {
                     let share = (g.taken * 100).checked_div(g.total).unwrap_or(0).min(100);
                     let class = format!(
                         "places__bar-fill places__box--{}",
-                        g.category.map_or("any", crate::views::css_key)
+                        g.category.map_or("any", crate::triage::css_key)
                     );
                     view! {
                         <li class="places__sum" class:places__sum--full=g.free() == 0>
@@ -193,7 +193,7 @@ fn UnitRow(row: PlaceRow, level: Level) -> impl IntoView {
 /// One category's places: its badge, a box per place, and how many are free.
 #[component]
 fn Strip(group: PlaceGroup) -> impl IntoView {
-    let kind = group.category.map_or("any", crate::views::css_key);
+    let kind = group.category.map_or("any", crate::triage::css_key);
     let boxes = (0..group.total)
         .map(|i| {
             let class = if i < group.taken {

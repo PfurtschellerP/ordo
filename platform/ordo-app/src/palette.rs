@@ -20,7 +20,9 @@ use crate::core::{self, Handle};
 use crate::nav::{self, Route};
 use crate::patients::{FORMS, record_route};
 use crate::text;
-use crate::views::{CATEGORIES, Nav, access, apply_theme, click, focus, uhs_list};
+use crate::triage::CATEGORIES;
+use crate::uhs::uhs_list;
+use crate::views::{Nav, access, apply_theme, click, focus};
 use ordo_med_patients::record::FormKind;
 
 /// The shortcut, with English key names in every language (ADR-0036).
@@ -309,8 +311,8 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
             ];
             // [impl->dsn~uhs-staff~3]
             // Where the person may only read the patient (UHS-10), only opening is offered.
-            let writable = patient
-                .is_some_and(|(_, uhs)| crate::patients::writable_uhs(core).contains(&uhs));
+            let writable =
+                patient.is_some_and(|(_, uhs)| crate::patients::writable_uhs(core).contains(&uhs));
             if !writable {
                 for i in &mut list {
                     i.detail = text::patient_title(tag);
@@ -318,14 +320,12 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                 }
                 return list;
             }
-            list.extend([
-                item(
-                    group,
-                    text::ACTION_TAKE_PHOTO.to_owned(),
-                    Action::GoFocus(record.clone(), "photo-camera".to_owned()),
-                )
-                .named("photo"),
-            ]);
+            list.extend([item(
+                group,
+                text::ACTION_TAKE_PHOTO.to_owned(),
+                Action::GoFocus(record.clone(), "photo-camera".to_owned()),
+            )
+            .named("photo")]);
             for f in FORMS.forms.iter().filter(|f| f.kind == FormKind::Series) {
                 let go = Action::GoClick(record.clone(), format!("new-{}", f.id));
                 list.push(
@@ -346,11 +346,7 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
             list
         }
         Page::Unit(unit) => {
-            let can_edit = core.with_value(|c| {
-                c.incident
-                    .as_ref()
-                    .is_some_and(|i| c.replica.may(i, "edit_units"))
-            });
+            let can_edit = core.with_value(|c| c.may(core::permission::EDIT_UNITS));
             crate::units::STATUS
                 .codes
                 .iter()

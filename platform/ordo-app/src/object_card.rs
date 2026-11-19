@@ -110,14 +110,7 @@ pub fn ObjectCard(
     object: String,
     on_close: Callback<()>,
 ) -> impl IntoView {
-    let editable = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
+    let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
     let id = format!("card-{}", core::slug(&object));
     let title = format!("{id}-title");
     let labelled = title.clone();
@@ -310,8 +303,8 @@ fn UhsPart(core: Handle, uhs: String, editable: bool) -> impl IntoView {
     let name = core::uhs_name(core, &uhs);
     view! {
         <ul class="object-card__chips" aria-label=text::CARD_PATIENTS>
-            {crate::views::CATEGORIES.into_iter().map(|k| view! {
-                <li><crate::views::TriageBadge category=k /> " " {counts.get(k)}</li>
+            {crate::triage::CATEGORIES.into_iter().map(|k| view! {
+                <li><crate::triage::TriageBadge category=k /> " " {counts.get(k)}</li>
             }).collect_view()}
         </ul>
         <div class="row">

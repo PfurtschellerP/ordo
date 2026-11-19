@@ -91,22 +91,12 @@ pub fn DevicesView(
     }
 }
 
-/// Incident permission to see and block the devices used in the incident.
-const BLOCK_DEVICES: &str = "block_devices";
-
 // [impl->dsn~incident-devices~1]
 /// The devices used in the open incident, for those who may block them (*Vorbereitung –
 /// Personal*); nothing for everyone else.
 #[component]
 pub fn IncidentDevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let allowed = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, BLOCK_DEVICES))
-        })
-    });
+    let allowed = core::permitted(core, revision, core::permission::BLOCK_DEVICES);
     let ready = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| c.replica.is_ready())

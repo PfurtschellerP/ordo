@@ -10,8 +10,6 @@ use crate::views::{after_render, focus};
 
 /// Permission to plan incidents and grant roles in all of them.
 const MANAGE_INCIDENTS: &str = "manage_incidents";
-/// Permission to prepare the map region (ADR-0057, ADR-0062).
-pub const MANAGE_MAP: &str = "manage_map";
 
 // [impl->dsn~incident-roles~1]
 /// The incidents the user may open, and — for planners — planning a new one.

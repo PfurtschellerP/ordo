@@ -32,6 +32,8 @@ mod summary;
 mod tasks;
 mod text;
 mod transports;
+mod triage;
+mod uhs;
 mod ui;
 mod units;
 mod vault;

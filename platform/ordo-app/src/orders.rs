@@ -75,11 +75,7 @@ pub fn is_ordered_by(form: &str, field: &str) -> bool {
 /// Whether this person's roles in the incident allow giving orders (the server decides
 /// again for every order).
 fn may_give(core: Handle) -> bool {
-    core.with_value(|c| {
-        c.incident
-            .as_ref()
-            .is_some_and(|i| c.replica.may(i, "give_orders"))
-    })
+    core.with_value(|c| c.may(core::permission::GIVE_ORDERS))
 }
 
 /// One order: what, status, who ordered it and when, history, and the next steps.

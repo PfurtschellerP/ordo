@@ -678,11 +678,10 @@ pub fn AttentionBell(
         revision.track();
         let now = core::now_ms();
         let (leads, me) = core.with_value(|c| {
-            let leads = c
-                .incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "view_situation"));
-            (leads, c.replica.user().to_string())
+            (
+                c.may(core::permission::VIEW_SITUATION),
+                c.replica.user().to_string(),
+            )
         });
         let tasks = task_list(core);
         let mut items: Vec<(String, crate::nav::Route)> = Vec::new();
@@ -784,14 +783,7 @@ pub fn AttentionBell(
 /// (ADR-0070).
 #[component]
 pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let editable = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
+    let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
     // The app's revision ticks every minute, so "due" follows the clock.
     let open = Memo::new(move |_| {
         revision.track();

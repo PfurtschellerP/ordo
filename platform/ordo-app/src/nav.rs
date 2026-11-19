@@ -96,7 +96,7 @@ pub const WORKSPACES: &[Workspace] = &[
         package: text::TAB_MED,
         label: text::WS_CREW,
         requires: &["incident"],
-        permission: Some("crew_work"),
+        permission: Some(crate::core::permission::CREW_WORK),
         or_organisation: &[],
         views: &[
             view(
@@ -120,7 +120,7 @@ pub const WORKSPACES: &[Workspace] = &[
         package: text::TAB_COMMAND,
         label: text::WS_PREPARE,
         requires: &["incident"],
-        permission: Some("view_situation"),
+        permission: Some(crate::core::permission::VIEW_SITUATION),
         or_organisation: &[],
         views: &[
             view(
@@ -154,7 +154,7 @@ pub const WORKSPACES: &[Workspace] = &[
         label: text::WS_LEAD,
         requires: &["incident"],
         // The incident command's views; UHS crews do not see them.
-        permission: Some("view_situation"),
+        permission: Some(crate::core::permission::VIEW_SITUATION),
         or_organisation: &[],
         views: &[
             view(

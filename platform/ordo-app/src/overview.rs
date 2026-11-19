@@ -9,7 +9,8 @@ use ordo_med_patients::{self as med, overview};
 use crate::core::Handle;
 use crate::places::{Level, PlaceRow, TreatmentPlaces};
 use crate::text;
-use crate::views::{CATEGORIES, uhs_list};
+use crate::triage::CATEGORIES;
+use crate::uhs::uhs_list;
 
 // [impl->dsn~uhs-overview~3]
 /// Every unit: its places per category, its patients without one, its open orders and

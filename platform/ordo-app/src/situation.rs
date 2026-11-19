@@ -83,7 +83,7 @@ fn symbol_url(id: &str) -> Option<String> {
 fn symbols_of(core: Handle, map: &SituationMap) -> BTreeMap<String, Symbol> {
     let units = core
         .with_value(|c| ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)));
-    let uhs = crate::views::uhs_list(core);
+    let uhs = crate::uhs::uhs_list(core);
     let structure = crate::command::structure(core);
     let reports = crate::reports::list(core);
     let tasks = crate::tasks::task_list(core);
@@ -208,14 +208,7 @@ struct Situation {
 }
 
 fn situation(core: Handle, revision: RwSignal<u64>) -> Situation {
-    let editable = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
+    let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
     let map = Memo::new(move |_| {
         revision.track();
         let map = core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)));
@@ -825,14 +818,7 @@ pub fn MapPreparation(
     #[prop(default = None)]
     preset: Option<(String, String)>,
 ) -> impl IntoView {
-    let manage_map = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, crate::incidents::MANAGE_MAP))
-        })
-    });
+    let manage_map = core::permitted(core, revision, core::permission::MANAGE_MAP);
     view! {
         <Show when=move || manage_map.get()>
             <crate::map_region::MapRegionView core revision />
@@ -1483,7 +1469,7 @@ fn place_choices(core: Handle, kind: ObjectKind) -> Vec<(String, String)> {
                 .map(|u| (u.unit.clone(), u.unit.clone()))
                 .collect()
         }),
-        ObjectKind::Uhs => crate::views::uhs_list(core)
+        ObjectKind::Uhs => crate::uhs::uhs_list(core)
             .into_iter()
             .map(|u| (u.id, u.name))
             .collect(),

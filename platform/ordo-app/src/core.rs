@@ -227,6 +227,14 @@ impl Core {
 
     /// The events of `compartment` in the chosen incident (none without one).
     // [impl->dsn~decoded-events~1]
+    /// Whether the person's roles give `permission` in the chosen incident (decided by the
+    /// server's policies; see [`permission`]).
+    pub fn may(&self, permission: &str) -> bool {
+        self.incident
+            .as_ref()
+            .is_some_and(|i| self.replica.may(i, permission))
+    }
+
     /// The chosen incident's events of `compartment`, decoded once and shared (no copy).
     pub fn events(&self, compartment: &str) -> std::sync::Arc<[AppliedEvent]> {
         self.incident
@@ -1796,6 +1804,34 @@ fn record(
         .unwrap_or_else(|| Err("App-Zustand nicht verfügbar".into()));
     revision.update(|r| *r += 1);
     result
+}
+
+/// The permissions the server decides per incident (Cedar actions on the incident's shared
+/// compartment, `ordo.cedarschema`), as the app asks for them.
+pub mod permission {
+    /// The incident command's views (situation, dispatch, overview).
+    pub const VIEW_SITUATION: &str = "view_situation";
+    /// Units, UHS and their staff (ADR-0070, ADR-0086).
+    pub const EDIT_UNITS: &str = ordo_med_patients::staff::EDIT_UNITS;
+    /// Medical orders (ORDER-3).
+    pub const GIVE_ORDERS: &str = "give_orders";
+    /// Work at every UHS (ADR-0056).
+    pub const ALL_UHS: &str = ordo_med_patients::staff::ALL_UHS;
+    /// The map region and the situation map's objects (ADR-0062).
+    pub const MANAGE_MAP: &str = "manage_map";
+    /// Blocking the incident's devices (ORG-12).
+    pub const BLOCK_DEVICES: &str = ordo_sync::BLOCK_DEVICES;
+    /// A unit's crew workspace (ADR-0079).
+    pub const CREW_WORK: &str = "crew_work";
+}
+
+/// Whether the person may `permission` in the chosen incident, following the roles as they
+/// change.
+pub fn permitted(core: Handle, revision: RwSignal<u64>, permission: &'static str) -> Memo<bool> {
+    Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| c.may(permission))
+    })
 }
 
 /// A new ULID: the time now and random bits.

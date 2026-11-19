@@ -23,8 +23,10 @@ use crate::attachments::Availability;
 use crate::core::{self, Handle};
 use crate::nav::Route;
 use crate::text;
+use crate::triage::{CATEGORIES, TriageBadge};
+use crate::uhs::uhs_list;
 use crate::ui::{Action, Actions, Icon, IncidentPeople, RadioChips, Suggestions};
-use crate::views::{CATEGORIES, Nav, TriageBadge, after_render, focus, uhs_list};
+use crate::views::{Nav, after_render, focus};
 
 const WORKSPACE: &str = "med.uhs";
 /// Patient photos: longest edge and JPEG quality, tried in this order (ADR-0028).
@@ -237,10 +239,7 @@ pub struct WorkingUhs(pub RwSignal<String>);
 pub fn writable_uhs(core: Handle) -> Vec<String> {
     core.with_value(|c| {
         let me = c.replica.user().to_string();
-        let everywhere = c
-            .incident
-            .as_ref()
-            .is_some_and(|i| c.replica.may(i, med::staff::ALL_UHS));
+        let everywhere = c.may(core::permission::ALL_UHS);
         let events = c.events(med::UHS_COMPARTMENT);
         let details = med::uhs_details(&events);
         med::uhs_list(&events)

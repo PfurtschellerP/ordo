@@ -153,21 +153,14 @@ fn position_item(
 /// and the roster below.
 #[component]
 pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let editable = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
+    let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
     let tree = Memo::new(move |_| {
         revision.track();
         structure(core)
     });
     let uhs_names = Memo::new(move |_| {
         revision.track();
-        crate::views::uhs_list(core)
+        crate::uhs::uhs_list(core)
             .into_iter()
             .map(|u| (u.id, u.name))
             .collect::<std::collections::HashMap<_, _>>()

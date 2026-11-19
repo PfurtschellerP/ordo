@@ -924,14 +924,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     // [impl->dsn~map-object-cards~2]
     // Opened from a unit's card on the map: that unit comes into view.
     crate::object_card::reveal_pending();
-    let can_edit = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| {
-            c.incident
-                .as_ref()
-                .is_some_and(|i| c.replica.may(i, "edit_units"))
-        })
-    });
+    let can_edit = core::permitted(core, revision, core::permission::EDIT_UNITS);
     let register = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
@@ -1045,7 +1038,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <AddUnitForm core revision />
             </Show>
         </section>
-        <crate::views::UhsResources core revision />
+        <crate::uhs::UhsResources core revision />
     }
 }
 
