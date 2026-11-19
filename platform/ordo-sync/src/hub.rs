@@ -681,6 +681,13 @@ impl<P: AccessPolicy> Hub<P> {
         self.derivers.push(Box::new(deriver));
     }
 
+    // [impl->dsn~package-registry~1]
+    /// Adds a service package's derivers and write guards.
+    pub fn add_package(&mut self, package: &crate::ServerPackage) {
+        self.derivers.extend((package.derivers)());
+        self.guards.extend((package.guards)());
+    }
+
     /// All ordered events of a stream (for persistence and tests).
     pub fn stream(&self, incident: &IncidentId, compartment: &CompartmentId) -> &[SequencedEvent] {
         self.streams

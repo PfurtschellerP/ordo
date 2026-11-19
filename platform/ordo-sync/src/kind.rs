@@ -1,8 +1,24 @@
 //! Kinds of event (MOD-2, ADR-0010): each module declares once, next to the payload, where
 //! an event of a kind goes and which schema version its payload has. Writers record by kind,
-//! so no shared table lists every module's events.
+//! so no shared table lists every module's events. A package's server parts come the same
+//! way, as one [`ServerPackage`].
 
-use crate::AppliedEvent;
+use crate::{AppliedEvent, Deriver, WriteGuard};
+
+// [impl->dsn~package-registry~1]
+/// What a service package brings to the server (ADR-0010): its Cedar policy files, its
+/// connector derivers and its write guards. The server loops over the packages it is built
+/// with and names none of them anywhere else.
+pub struct ServerPackage {
+    /// The package, e.g. `med`.
+    pub id: &'static str,
+    /// Its default policies: (file name, text).
+    pub policies: &'static [(&'static str, &'static str)],
+    /// New derivers of its connector events (ADR-0024).
+    pub derivers: fn() -> Vec<Box<dyn Deriver>>,
+    /// New write guards for its compartments.
+    pub guards: fn() -> Vec<Box<dyn WriteGuard>>,
+}
 
 // [impl->dsn~package-registry~1]
 /// One kind of event a module writes.

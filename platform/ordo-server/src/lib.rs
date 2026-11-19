@@ -22,8 +22,11 @@ use std::sync::Arc;
 use ordo_core::{Author, DeviceId, KeyId, UserId};
 use ordo_crypto::EventSigner;
 use ordo_crypto::ed25519_dalek::{SigningKey, VerifyingKey};
-use ordo_med_patients::PatientCountsDeriver;
-use ordo_sync::{Hub, HubConfig};
+use ordo_sync::{Hub, HubConfig, ServerPackage};
+
+// [impl->dsn~package-registry~1]
+/// The service packages this server is built with (ADR-0010): the one place that names them.
+pub const PACKAGES: &[&ServerPackage] = &[&ordo_med_patients::SERVER];
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -203,8 +206,9 @@ pub async fn start(config: Config) -> Result<Running, ServerError> {
     for device in store.load_revoked().await? {
         hub.restore_revoked(device);
     }
-    hub.add_deriver(PatientCountsDeriver::default());
-    hub.add_guard(ordo_med_patients::staff::UhsStaffGuard::default());
+    for package in PACKAGES {
+        hub.add_package(package);
+    }
 
     for stream in store.load_deleted().await? {
         hub.restore_deleted(stream);

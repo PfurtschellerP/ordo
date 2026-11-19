@@ -20,15 +20,21 @@ use ordo_sync::AccessPolicy;
 /// The schema every policy is checked against.
 pub const SCHEMA: &str = include_str!("../policies/ordo.cedarschema");
 
-/// Policies shipped with ORDO and its packages: (file name, text).
-pub const DEFAULT_POLICIES: [(&str, &str); 3] = [
+/// Policies of the platform and the shared modules: (file name, text). Each package brings
+/// its own ([`crate::PACKAGES`]).
+pub const PLATFORM_POLICIES: [(&str, &str); 2] = [
     ("admin.cedar", include_str!("../policies/admin.cedar")),
     ("command.cedar", include_str!("../policies/command.cedar")),
-    (
-        "med.cedar",
-        include_str!("../../../packages/med/patients/policies/med.cedar"),
-    ),
 ];
+
+/// The policies shipped with ORDO: the platform's, then each package's.
+pub fn default_policies() -> impl Iterator<Item = (&'static str, &'static str)> {
+    PLATFORM_POLICIES.into_iter().chain(
+        crate::PACKAGES
+            .iter()
+            .flat_map(|p| p.policies.iter().copied()),
+    )
+}
 
 /// The app's views and functions decided per incident (Cedar actions on the incident's
 /// shared compartment), see `ordo.cedarschema`.
@@ -223,9 +229,8 @@ impl RolePolicy {
             Schema::from_cedarschema_str(SCHEMA).map_err(|e| PolicyError::Schema(e.to_string()))?;
         let validator = Validator::new(schema.clone());
         let mut policies = PolicySet::new();
-        let files = DEFAULT_POLICIES
-            .iter()
-            .map(|(f, t)| ((*f).to_owned(), (*t).to_owned()))
+        let files = default_policies()
+            .map(|(f, t)| (f.to_owned(), t.to_owned()))
             .chain(extra.iter().cloned());
         for (file, text) in files {
             let invalid = |message: String| PolicyError::Invalid {

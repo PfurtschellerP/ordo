@@ -986,6 +986,16 @@ pub fn latest_counts(incident_events: &[AppliedEvent]) -> BTreeMap<String, Patie
 }
 
 // [impl->dsn~package-registry~1]
+/// What the Med package brings to the server: its policies, the patient-count deriver
+/// (ADR-0024) and the UHS staff guard (ADR-0056, ADR-0086).
+pub const SERVER: ordo_sync::ServerPackage = ordo_sync::ServerPackage {
+    id: "med",
+    policies: &[("med.cedar", include_str!("../policies/med.cedar"))],
+    derivers: || vec![Box::new(PatientCountsDeriver::default())],
+    guards: || vec![Box::new(staff::UhsStaffGuard::default())],
+};
+
+// [impl->dsn~package-registry~1]
 /// The kinds of event the Med package writes for patients, UHS and records, with their
 /// compartment and schema version; orders, transports, hospitals and staffing declare
 /// theirs in their own modules.
