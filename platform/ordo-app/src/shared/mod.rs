@@ -138,6 +138,7 @@ pub(crate) const PACKAGE: Package = Package {
     workspaces: WORKSPACES,
     provide: || {},
     sections,
+    bell: tasks::bell,
     palette: commands::PALETTE,
 };
 

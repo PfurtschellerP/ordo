@@ -3,6 +3,7 @@
 //! codes and the address search. It names no service package (ADR-0010).
 
 pub(crate) mod address;
+pub(crate) mod attention;
 pub(crate) mod images;
 pub(crate) mod nav;
 pub(crate) mod palette;

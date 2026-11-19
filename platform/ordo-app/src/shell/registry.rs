@@ -32,6 +32,9 @@ pub struct Package {
     pub provide: fn(),
     /// Its sections of the page of `view` in `workspace` (any package's).
     pub sections: fn(&PageArgs, &str, &str) -> Vec<Section>,
+    /// What needs the person's attention now, for the bell: the text and where it is dealt
+    /// with.
+    pub bell: fn(Handle) -> Vec<(String, crate::shell::nav::Route)>,
     /// Its entries in the command palette.
     pub palette: crate::shell::palette::PalettePart,
 }

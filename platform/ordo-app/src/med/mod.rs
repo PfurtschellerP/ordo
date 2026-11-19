@@ -47,6 +47,7 @@ pub(crate) const PACKAGE: Package = Package {
         provide_context(orders::Performers::default());
     },
     sections,
+    bell: staffing::bell,
     palette: commands::PALETTE,
 };
 

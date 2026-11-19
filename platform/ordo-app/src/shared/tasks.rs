@@ -658,127 +658,60 @@ fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl In
 }
 
 // [impl->dsn~tasks~7]
-/// The bell in the header (TASK-3), for everyone in an incident, on every page: for the
-/// incident command what needs its attention now (follow-ups that are due, Aufträge without
-/// anyone, staff requests), each linking to *Disposition*; for everyone else the Aufträge
-/// given to them or their unit that nobody has started yet, linking to their crew view.
-/// The number is text, never colour alone.
-#[component]
-pub fn AttentionBell(
-    core: Handle,
-    revision: RwSignal<u64>,
-    /// Called before opening, to close the other header menus.
-    on_open: Callback<()>,
-) -> impl IntoView {
-    let in_incident = Memo::new(move |_| {
-        revision.track();
-        core.with_value(|c| c.incident.is_some())
+/// The shared modules' items for the bell (TASK-3): for the incident command the follow-ups
+/// that are due and the Aufträge without anyone, linking to *Disposition*; for everyone else
+/// the Aufträge given to them or their unit that nobody has started yet.
+pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
+    let now = core::now_ms();
+    let (leads, me) = core.with_value(|c| {
+        (
+            c.may(core::permission::VIEW_SITUATION),
+            c.replica.user().to_string(),
+        )
     });
-    let items = Memo::new(move |_| {
-        revision.track();
-        let now = core::now_ms();
-        let (leads, me) = core.with_value(|c| {
-            (
-                c.may(core::permission::VIEW_SITUATION),
-                c.replica.user().to_string(),
-            )
-        });
-        let tasks = task_list(core);
-        let mut items: Vec<(String, crate::shell::nav::Route)> = Vec::new();
-        if leads {
-            let dispatch = crate::shell::nav::Route::view("command.lead", "dispatch");
-            let structure = crate::shared::command::structure(core);
-            for t in tasks.open(now) {
-                if t.is_due(now) {
-                    items.push((
-                        text::attention_due(&assignee(core, t, &structure), &label(t)),
-                        dispatch.clone(),
-                    ));
-                } else if t.phase() == Phase::Received {
-                    items.push((text::attention_unassigned(&label(t)), dispatch.clone()));
-                }
-            }
-            // [impl->dsn~uhs-staff-request~2]
-            items.extend(
-                crate::med::staffing::list(core)
-                    .open()
-                    .into_iter()
-                    .map(|r| {
-                        (
-                            text::staff_requested(
-                                &core::uhs_name(core, &r.requested.uhs),
-                                r.requested.need,
-                            ),
-                            dispatch.clone(),
-                        )
-                    }),
-            );
-        } else {
-            // Not started yet: given to this person, or to a unit whose crew names them.
-            let crew = crate::shell::nav::Route::view("units.crew", "tasks");
-            let units: Vec<String> = core.with_value(|c| {
-                ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
-                    .crewed_by(&me)
-                    .map(|u| u.unit.clone())
-                    .collect()
-            });
-            let mine = tasks
-                .of_person(&me)
-                .into_iter()
-                .filter(|t| t.phase() == Phase::Assigned)
-                .chain(units.iter().flat_map(|u| {
-                    // Their unit's part not started yet (ADR-0085).
-                    tasks
-                        .of_unit(u)
-                        .into_iter()
-                        .filter(|t| t.part(u).is_some_and(|p| p.status == TaskStatus::Open))
-                }));
-            let mut seen = std::collections::BTreeSet::new();
-            for t in mine {
-                if seen.insert(t.given.task.clone()) {
-                    items.push((text::attention_new_task(&label(t)), crew.clone()));
-                }
+    let tasks = task_list(core);
+    let mut items: Vec<(String, crate::shell::nav::Route)> = Vec::new();
+    if leads {
+        let dispatch = crate::shell::nav::Route::view("command.lead", "dispatch");
+        let structure = crate::shared::command::structure(core);
+        for t in tasks.open(now) {
+            if t.is_due(now) {
+                items.push((
+                    text::attention_due(&assignee(core, t, &structure), &label(t)),
+                    dispatch.clone(),
+                ));
+            } else if t.phase() == Phase::Received {
+                items.push((text::attention_unassigned(&label(t)), dispatch.clone()));
             }
         }
-        items
-    });
-    let open = RwSignal::new(false);
-    view! {
-        <Show when=move || in_incident.get()>
-            <crate::shell::ui::Disclosure id="attention" open class="attention"
-                button_class="attention__button" panel_class="attention__panel"
-                on_open=Some(on_open)
-                label=Some(Signal::derive(move || text::attention_label(items.with(Vec::len))))
-                button=Box::new(move || view! {
-                    <crate::shell::ui::Icon name="bell" />
-                    {move || {
-                        let n = items.with(Vec::len);
-                        (n > 0).then(|| view! { <span class="attention__count" aria-hidden="true">{n}</span> })
-                    }}
-                }.into_any())>
-                <h2 class="launcher__title">{text::ATTENTION}</h2>
-                {move || {
-                    let list = items.get();
-                    if list.is_empty() {
-                        return view! { <p>{text::ATTENTION_NONE}</p> }.into_any();
-                    }
-                    view! {
-                        <ul class="attention__list">
-                            {list.into_iter().map(|(item, route)| {
-                                view! {
-                                    <li><a href=route.to_path() on:click={
-                                        let follow = crate::shell::views::follow_route(route.clone());
-                                        move |ev| { open.set(false); follow(ev) }
-                                    }>{item}</a></li>
-                                }
-                            }).collect_view()}
-                        </ul>
-                    }
-                    .into_any()
-                }}
-            </crate::shell::ui::Disclosure>
-        </Show>
+    } else {
+        // Not started yet: given to this person, or to a unit whose crew names them.
+        let crew = crate::shell::nav::Route::view("units.crew", "tasks");
+        let units: Vec<String> = core.with_value(|c| {
+            ordo_units::UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))
+                .crewed_by(&me)
+                .map(|u| u.unit.clone())
+                .collect()
+        });
+        let mine = tasks
+            .of_person(&me)
+            .into_iter()
+            .filter(|t| t.phase() == Phase::Assigned)
+            .chain(units.iter().flat_map(|u| {
+                // Their unit's part not started yet (ADR-0085).
+                tasks
+                    .of_unit(u)
+                    .into_iter()
+                    .filter(|t| t.part(u).is_some_and(|p| p.status == TaskStatus::Open))
+            }));
+        let mut seen = std::collections::BTreeSet::new();
+        for t in mine {
+            if seen.insert(t.given.task.clone()) {
+                items.push((text::attention_new_task(&label(t)), crew.clone()));
+            }
+        }
     }
+    items
 }
 
 // [impl->dsn~tasks~7]

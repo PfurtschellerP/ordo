@@ -216,3 +216,26 @@ pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
         </Show>
     }
 }
+
+// [impl->dsn~uhs-staff-request~2]
+/// The Med package's items for the bell (TASK-3): open staff requests, for the incident
+/// command, linking to *Disposition*.
+pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
+    if !core.with_value(|c| c.may(crate::core::permission::VIEW_SITUATION)) {
+        return Vec::new();
+    }
+    let dispatch = crate::shell::nav::Route::view("command.lead", "dispatch");
+    list(core)
+        .open()
+        .into_iter()
+        .map(|r| {
+            (
+                text::staff_requested(
+                    &crate::core::uhs_name(core, &r.requested.uhs),
+                    r.requested.need,
+                ),
+                dispatch.clone(),
+            )
+        })
+        .collect()
+}

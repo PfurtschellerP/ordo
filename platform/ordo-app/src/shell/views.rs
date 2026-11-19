@@ -867,7 +867,7 @@ fn Workspace(
                 <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
             </button>
             <div class="app-header__end">
-                <crate::shared::tasks::AttentionBell core revision on_open=Callback::new(move |()| { open.set(false); profile_open.set(false); }) />
+                <crate::shell::attention::AttentionBell core revision on_open=Callback::new(move |()| { open.set(false); profile_open.set(false); }) />
                 <ConnectionStatus core revision />
                 <Disclosure id="profile" open=profile_open class="profile-menu"
                     button_class="profile-menu__button" panel_class="profile-menu__panel"

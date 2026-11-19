@@ -107,6 +107,7 @@ pub(crate) const PACKAGE: Package = Package {
     workspaces: WORKSPACES,
     provide: || {},
     sections,
+    bell: |_| Vec::new(),
     palette: crate::shell::palette::PalettePart::NONE,
 };
 
