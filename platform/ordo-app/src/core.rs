@@ -378,7 +378,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     c.names.insert(a.user.clone(), a.name.clone());
                     c.avatars.insert(
                         a.user.clone(),
-                        a.image.as_deref().map(crate::images::data_url),
+                        a.image.as_deref().map(crate::shell::images::data_url),
                     );
                 }
             }

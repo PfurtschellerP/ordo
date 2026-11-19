@@ -243,7 +243,7 @@ pub fn lost_update(unit: &str, overwritten: &str, kept: &str) -> String {
 }
 
 pub fn status_label(code: &str) -> String {
-    crate::units::STATUS
+    crate::shared::units::STATUS
         .get(code)
         .map_or_else(|| code.to_owned(), |c| format!("{} – {}", c.code, c.label))
 }
@@ -1314,7 +1314,7 @@ pub const OPEN_IN_MAPS_APP: &str = "In der Karten-App öffnen";
 pub fn log_report_recorded(r: &ordo_reports::Recorded) -> String {
     format!(
         "Meldung aufgenommen: {}, {} – {} – {}",
-        task_kind(crate::reports::task_kind(r.kind)),
+        task_kind(crate::shared::reports::task_kind(r.kind)),
         task_received(&crate::core::clock(r.received_at)),
         r.place,
         r.text

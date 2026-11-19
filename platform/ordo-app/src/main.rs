@@ -1,47 +1,18 @@
 //! ORDO web app (prototype). Build with Trunk, see Trunk.toml.
 
-mod accounts;
-mod address;
+mod admin;
 mod attachments;
-mod command;
 mod core;
-mod crew;
-mod devices;
-mod helpers;
-mod images;
-mod incidents;
-mod log;
-mod login_providers;
-mod map_region;
-mod nav;
-mod notices;
-mod object_card;
-mod orders;
-mod overview;
-mod palette;
-mod patients;
-mod places;
-mod profile;
-mod qr;
-mod reports;
-mod roles;
-mod situation;
-mod staffing;
+mod med;
+mod shared;
+mod shell;
 mod storage;
-mod summary;
-mod tasks;
 mod text;
-mod transports;
-mod triage;
-mod uhs;
-mod ui;
-mod units;
 mod vault;
-mod views;
 
 fn main() {
     log_panics();
-    leptos::mount::mount_to_body(views::App);
+    leptos::mount::mount_to_body(shell::views::App);
 }
 
 /// Writes a panic to the browser console with the JavaScript stack, where it can be found
