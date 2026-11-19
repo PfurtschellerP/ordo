@@ -29,7 +29,7 @@ pub struct Derived {
     pub payload: Vec<u8>,
 }
 
-// [impl->dsn~uhs-staff~2]
+// [impl->dsn~uhs-staff~3]
 /// Checks events a package's rules allow beyond the role policy (ADR-0056), e.g. that only
 /// a UHS's staff writes its patients. The hub shows a guard every ordered event of its
 /// compartments, also when it restores them, so the guard keeps the state it judges by.
@@ -45,7 +45,7 @@ pub trait WriteGuard: Send {
     fn observe(&mut self, event: &AppliedEvent);
 }
 
-// [impl->dsn~server-derived-connectors~1]
+// [impl->dsn~server-derived-connectors~2]
 /// Derives connector events on the server that orders the source compartment
 /// (ADR-0024). Called once for every newly ordered event of [`Deriver::source`].
 pub trait Deriver: Send {

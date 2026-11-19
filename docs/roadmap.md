@@ -377,9 +377,12 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        ([ADR-0083](adr/0083-guest-codes-last-as-long-as-the-access.md)); a duty can be
        paused (HELP-8); devices unused for 30 days are removed (ORG-14); the bell for
        every role (TASK-3).
-    4. *Einsatzmittel for all kinds:* types and their fields from the profile; UHS created,
-       edited and staffed in *Vorbereitung – Einsatzmittel*; the occupancy of treatment
-       areas per triage category in *Führung*.
+    4. *Einsatzmittel for all kinds:* types and their fields from the profile. Partly done
+       (m66, 2026-11-19): only the incident command creates, edits and staffs a UHS, in
+       *Vorbereitung – Einsatzmittel*
+       ([ADR-0086](adr/0086-the-incident-command-sets-up-the-uhs.md)); *Behandlungsplätze*
+       shows the free places per triage category of every UHS in *Führung* (UHS-16) and in
+       the UHS module (UHS-8).
     5. *Führung & Raum:* the command structure and the situation map on one page in
        *Vorbereitung* (Einsatz · Personal · Einsatzmittel · Führung & Raum).
 

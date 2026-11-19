@@ -1,72 +1,49 @@
-//! The Med workspace's overview for the medical lead (UHS-8): one card per on-site care
-//! unit with the numbers the device already holds. Numbers only; nothing is ranked.
+//! The UHS module's view *Behandlungsplätze* (UHS-8, ADR-0086): every on-site care unit
+//! the person may read with its free treatment places per category, so the staff see which
+//! unit is full and where else a patient could go. Computed from the numbers the device
+//! already holds; nothing is ranked. The units are set up by the incident command.
 
 use leptos::prelude::*;
 use ordo_med_patients::{self as med, overview};
 
 use crate::core::Handle;
+use crate::places::{Level, PlaceRow, TreatmentPlaces};
 use crate::text;
-use crate::views::{CountCard, uhs_list};
+use crate::views::{CATEGORIES, uhs_list};
 
-// [impl->dsn~uhs-overview~2]
-/// Every unit: patients by category against capacity, discharged, free places, open
-/// orders, open and planned transports.
+// [impl->dsn~uhs-overview~3]
+/// Every unit: its places per category, its patients without one, its open orders and
+/// its open and planned transports.
 #[component]
 pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let cards = Memo::new(move |_| {
+    let rows = Memo::new(move |_| {
         revision.track();
-        let (summaries, details) = core.with_value(|c| {
-            let incident = c.events(med::UHS_COMPARTMENT);
-            (
-                overview::summaries(&c.events(med::COMPARTMENT), &incident),
-                med::uhs_details(&incident),
-            )
+        let summaries = core.with_value(|c| {
+            overview::summaries(&c.events(med::COMPARTMENT), &c.events(med::UHS_COMPARTMENT))
         });
         uhs_list(core)
             .into_iter()
             .map(|u| {
-                let mut s = summaries.get(&u.id).cloned().unwrap_or_default();
-                s.counts.uhs.clone_from(&u.id);
-                let d = details.get(&u.id).cloned().unwrap_or_default();
-                (u.name, u.capacity, s, (d.location, d.capacities))
+                let s = summaries.get(&u.id).cloned().unwrap_or_default();
+                let patients = CATEGORIES.iter().map(|k| s.counts.get(*k)).sum();
+                PlaceRow {
+                    more: Some(format!(
+                        "{} · {}",
+                        text::open_orders(s.open_orders, s.unconfirmed_orders),
+                        text::transports_count(s.transports_open, s.transports_planned)
+                    )),
+                    occupancy: s.occupancy,
+                    load: (patients, u.capacity),
+                    id: u.id,
+                    name: u.name,
+                }
             })
             .collect::<Vec<_>>()
     });
     view! {
         <section aria-labelledby="overview-title" class="card">
-            <h2 id="overview-title">{text::OVERVIEW_TITLE}</h2>
-            {move || {
-                let list = cards.get();
-                if list.is_empty() {
-                    return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
-                }
-                // The whole incident first (MANV).
-                let all = overview::total(list.iter().map(|(_, _, s, _)| s));
-                let capacity: u32 = list.iter().map(|(_, c, _, _)| c).sum();
-                let list = std::iter::once((text::TOTAL_TITLE.to_owned(), capacity, all, (None, Default::default()))).chain(list);
-                view! {
-                    <ul class="count-list">
-                        {list
-                            .into_iter()
-                            .map(|(name, capacity, s, (location, capacities))| {
-                                let places = s.places.map(|(free, total)| text::places_free(free, total));
-                                view! {
-                                    <CountCard name capacity counts=s.counts.clone() capacities>
-                                        // [impl->dsn~uhs-details~3]
-                                        {location.map(|l| view! { <p class="count-card__location">{text::UHS_LOCATION} ": " {l}</p> })}
-                                        <p class="count-card__more">
-                                            {places.map(|p| format!("{}: {p} · ", text::PLACES))}
-                                            {text::open_orders(s.open_orders, s.unconfirmed_orders)} " · "
-                                            {text::transports_count(s.transports_open, s.transports_planned)}
-                                        </p>
-                                    </CountCard>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                }
-                .into_any()
-            }}
+            <h2 id="overview-title">{text::PLACES}</h2>
+            <TreatmentPlaces rows level=Level::H3 />
         </section>
     }
 }

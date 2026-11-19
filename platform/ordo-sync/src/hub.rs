@@ -1183,7 +1183,7 @@ impl<P: AccessPolicy> Hub<P> {
             body,
             payload,
         };
-        // [impl->dsn~uhs-staff~2]
+        // [impl->dsn~uhs-staff~3]
         // The packages' own rules (ADR-0056), after the roles.
         if self.guards.iter().any(|g| g.observes(&key.1)) {
             let permissions = self.policy.incident_permissions(user, &key.0, &roles);
@@ -1245,7 +1245,7 @@ impl<P: AccessPolicy> Hub<P> {
         sequenced
     }
 
-    // [impl->dsn~server-derived-connectors~1]
+    // [impl->dsn~server-derived-connectors~2]
     /// Runs the derivers for a newly ordered event and orders their output.
     fn derive(
         &mut self,

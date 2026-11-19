@@ -47,6 +47,7 @@ let anna: Page;
 let ben: Page;
 let phone: Page;
 let dora: Page;
+let petra: Page;
 let shots: string;
 let annaFrames: ReturnType<typeof recordFrames>;
 let patientPhoto: Buffer;
@@ -222,6 +223,28 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("button", { name: "Einsatz fortsetzen" }).click();
     await expect(dora.locator("#incident-state")).toHaveText("Laufend");
     await shot(dora, "roster");
+    // [itest->dsn~uhs-registry~2]
+    // [itest->dsn~uhs-resources~2]
+    // UHS-1, ADR-0086: the incident command sets up the UHS, among the resources.
+    await openView(dora, "Einsatzmittel");
+    await createUhs(dora, "UHS Bühne Nord", 10);
+    await createUhs(dora, "UHS Eingang", 5);
+    await expect(dora.locator(".uhs-card"), "two UHS are listed").toHaveCount(2);
+    // [itest->dsn~uhs-details~4]
+    const eingang = dora.locator(".uhs-card", { hasText: "UHS Eingang" });
+    await dora.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(eingang.locator(".uhs-on-map"), "its place is on the situation map").toHaveText("Auf der Lagekarte: noch nicht gesetzt");
+    await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
+    await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(eingang.locator(".uhs-card__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: 1 Person");
+    // A UHS can be renamed (and here back again).
+    await eingang.getByLabel("Name der UHS").fill("UHS Tor");
+    await eingang.getByRole("button", { name: "Speichern" }).click();
+    const tor = dora.locator(".uhs-card", { hasText: "UHS Tor" });
+    await expect(tor.locator("h3"), "renamed").toHaveText("UHS Tor");
+    await tor.getByLabel("Name der UHS").fill("UHS Eingang");
+    await tor.getByRole("button", { name: "Speichern" }).click();
+    await expect(eingang.locator("h3")).toHaveText("UHS Eingang");
   });
 
   await test.step("a medic registers patients at several UHS", async () => {
@@ -240,28 +263,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(anna), { message: "medic device connects" }).toContain("Verbunden");
     await expect.poll(() => title(anna), { message: "a medic starts in Sanität – UHS" }).toContain("Sanität – UHS");
 
-    await openView(anna, "UHS verwalten");
-    await createUhs(anna, "UHS Bühne Nord", 10);
-    await createUhs(anna, "UHS Eingang", 5);
-    // [itest->dsn~uhs-registry~1]
-    await expect(anna.locator(".load-list__item"), "two UHS are listed with their load").toHaveCount(2);
-    // [itest->dsn~uhs-details~3]
-    const eingang = anna.locator(".load-list__item", { hasText: "UHS Eingang" });
-    await anna.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(eingang.locator(".uhs-on-map"), "its place is on the situation map, set by the incident command").toHaveText("Auf der Lagekarte: noch nicht gesetzt");
-    await expect(eingang.getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }), "a medic does not edit the map").toHaveCount(0);
-    await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
-    await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
-    await expect(eingang.locator(".load-list__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: Anna Schmidt");
-    await expect(eingang.locator(".crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
-    // A UHS can be renamed (and here back again).
-    await eingang.getByLabel("Name der UHS").fill("UHS Tor");
-    await eingang.getByRole("button", { name: "Speichern" }).click();
-    const tor = anna.locator(".load-list__item", { hasText: "UHS Tor" });
-    await expect(tor.locator(".load-list__name"), "renamed").toHaveText("UHS Tor");
-    await tor.getByLabel("Name der UHS").fill("UHS Eingang");
-    await tor.getByRole("button", { name: "Speichern" }).click();
-    await expect(eingang.locator(".load-list__name")).toHaveText("UHS Eingang");
+    // ADR-0086: the UHS module neither sets up nor changes a UHS.
+    await expect(anna.getByRole("navigation", { name: "Ansichten" }).getByRole("link", { name: "UHS verwalten" }), "no UHS management in the UHS module").toHaveCount(0);
 
     await openView(anna, "Patienten");
     // [itest->dsn~triage-reference~1]
@@ -272,13 +275,23 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(aid, "the person decides the category").toContainText("ORDO schlägt keine vor");
     await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
     await anna.locator("#triage-algorithm").selectOption({ label: "PRIOR (Vorsichtung)" });
-    // [itest->dsn~uhs-staff~2]
+    // [itest->dsn~uhs-staff~3]
     await expect(anna.locator("#working-uhs option:checked"), "UHS-9: the UHS whose staff list names her").toHaveText("UHS Eingang");
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
-    for (const [tag, category, uhs] of [["DE-0042", 0, "UHS Bühne Nord"], ["DE-0043", 1, "UHS Bühne Nord"], ["DE-0044", 1, "UHS Eingang"]] as const) {
-      await register(anna, tag, category, uhs);
-      await expect(anna.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible();
+    await expect(anna.locator("#uhs option"), "UHS-10: she registers only where she is on the staff list").toHaveText(["UHS wählen", "UHS Eingang"]);
+    await register(anna, "DE-0044", 1, "UHS Eingang");
+    await expect(anna.locator(".patient-card[data-tag='DE-0044']")).toBeVisible();
+    // Nobody is on the staff list of UHS Bühne Nord yet: a physician works at every UHS.
+    petra = await newDevice(browser);
+    await loginPair(petra, server, "petra@example.org");
+    await openIncident(petra, INCIDENT);
+    await openView(petra, "Patienten");
+    for (const [tag, category] of [["DE-0042", 0], ["DE-0043", 1]] as const) {
+      await register(petra, tag, category, "UHS Bühne Nord");
+      await expect(petra.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible();
     }
+    await expect.poll(() => status(petra), { message: "Petra's registrations are sent" }).toContain("Alles gesendet");
+    for (const tag of ["DE-0042", "DE-0043"]) await expect(anna.locator(`.patient-card[data-tag='${tag}']`), "the medic reads them").toBeVisible();
     // UHS-9: the person chooses the UHS they work at; the list and registration follow.
     await anna.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
     await expect(anna.locator(".patient-card"), "only the chosen UHS's patients").toHaveCount(1);
@@ -304,7 +317,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-priority~1]
     await anna.getByRole("button", { name: "DE-0044: Transportpriorität setzen" }).click();
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .priority-badge"), "the list shows the transport priority").toHaveText(/Transportpriorität/);
-    // [itest->dsn~treatment-places~1]
+    // [itest->dsn~treatment-places~2]
     await anna.locator("#place").selectOption({ label: "Platz 2" });
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__meta"), "the list shows the treatment place").toContainText("Platz 2");
     // [itest->dsn~place-plan~2]
@@ -379,7 +392,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // Unsaved input survives switching views (UX-5).
     await anna.locator("#edit-history").click();
     await fillForm(anna, "history", { allergies: "Penicillin" });
-    await openView(anna, "UHS verwalten");
+    await openView(anna, "Behandlungsplätze");
     await openView(anna, "Patienten");
     await openRecord(anna, "DE-0044");
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
@@ -458,15 +471,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(transport.locator("form"), "no second request while one is open").toHaveCount(0);
 
     // [itest->dsn~planned-transports~1]
+    // At UHS Bühne Nord, by the physician: Anna only reads its patients (UHS-10).
     await openRecord(anna, "DE-0042");
-    const later = anna.locator("[aria-labelledby=section-transport]");
-    await later.getByLabel("KTW – Krankentransportwagen").check();
-    await later.getByLabel("Normal", { exact: true }).check();
-    await anna.locator("#transport-planned").fill("2030-05-01T18:30");
-    await later.getByRole("button", { name: "Transport anfordern" }).click();
-    await expect(later.locator(".transport-card__planned"), "a transport is planned for later").toHaveText("Geplant für 01.05.2030, 18:30");
+    await expect(anna.locator(".record__read-only"), "another UHS's record is read-only").toContainText("UHS Bühne Nord");
     await anna.goBack();
     await expect(anna.locator("#record-title")).toHaveText("Patient DE-0044");
+    await openRecord(petra, "DE-0042");
+    const later = petra.locator("[aria-labelledby=section-transport]");
+    await later.getByLabel("KTW – Krankentransportwagen").check();
+    await later.getByLabel("Normal", { exact: true }).check();
+    await petra.locator("#transport-planned").fill("2030-05-01T18:30");
+    await later.getByRole("button", { name: "Transport anfordern" }).click();
+    await expect(later.locator(".transport-card__planned"), "a transport is planned for later").toHaveText("Geplant für 01.05.2030, 18:30");
+    await petra.goBack();
 
     // [itest->dsn~medical-orders~2]
     // [itest->dsn~order-permission~2]
@@ -476,10 +493,6 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(annaOrderForm.getByRole("button", { name: "Anordnen", exact: true }), "a medic gives no orders").toHaveCount(0);
     await expect(annaOrderForm, "she records spoken ones only").not.toContainText("Wer ordnet an?");
     await expect(annaOrderForm.getByRole("button", { name: "Anordnung erfassen" })).toBeVisible();
-    const petra = await newDevice(browser);
-    await loginPair(petra, server, "petra@example.org");
-    await openIncident(petra, INCIDENT);
-    await openView(petra, "Patienten");
     await openRecord(petra, "DE-0044");
     await openSection(petra, "section-orders");
     await petra.locator("#order-substance").fill("Paracetamol");
@@ -610,14 +623,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("Control+k");
     await expect(anna.locator("#palette"), "Ctrl+K opens the command palette").toHaveAttribute("open", "");
     await expect(anna.locator("#palette-input"), "the search field has the focus").toBeFocused();
-    await anna.keyboard.type("0043");
-    await expect.poll(() => selectedOption(anna), { message: "part of a triage tag number finds the patient" }).toBe("DE-0043");
+    await anna.keyboard.type("0044");
+    await expect.poll(() => selectedOption(anna), { message: "part of a triage tag number finds the patient" }).toBe("DE-0044");
     await audit(anna, "Command palette", [1200]);
     await anna.keyboard.press("Enter");
     await anna.keyboard.type("retriage minor"); // English command name in a German UI (ADR-0036)
     await expect.poll(() => selectedOption(anna), { message: "the patient's quick actions are offered" }).toBe("Sichtung ändern: SK III");
     await anna.keyboard.press("Enter");
-    await expect.poll(() => announced(anna), { message: "a re-triage runs from the palette" }).toContain("DE-0043 nachgesichtet: SK III");
+    await expect.poll(() => announced(anna), { message: "a re-triage runs from the palette" }).toContain("DE-0044 nachgesichtet: SK III");
     await expect(anna.locator("#palette"), "the palette closes after the action").not.toHaveAttribute("open", "");
     await openPalette(anna);
     await anna.keyboard.type("vitalwerte");
@@ -625,9 +638,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("Escape");
     await expect(anna.locator("#palette"), "Escape closes the palette").not.toHaveAttribute("open", "");
     await expect(anna.locator("#tag"), "focus returns to where it was").toBeFocused();
-    // A quick action that opens a form brings it into view, with the cursor in its first field.
+    // A patient of another UHS: only opening the record is offered (UHS-10).
     await openPalette(anna);
     await anna.keyboard.type("0043");
+    await anna.keyboard.press("Enter");
+    await anna.keyboard.type("add vitals");
+    await expect(anna.locator("#palette-list [role=option]"), "nothing to write where she may only read").toHaveCount(0);
+    await anna.keyboard.press("Escape");
+    // A quick action that opens a form brings it into view, with the cursor in its first field.
+    await openPalette(anna);
+    await anna.keyboard.type("0044");
     await anna.keyboard.press("Enter");
     await anna.keyboard.type("add vitals");
     await expect.poll(() => selectedOption(anna)).toBe("Vitalwerte eintragen");
@@ -725,20 +745,24 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".patient-card[data-tag='DE-0045']"), "the patient is where they were moved").toContainText("UHS Bühne Nord");
     const way = anna.locator("[aria-labelledby=section-stay] .history li");
     await expect(way.nth(1), "the way, with time and person").toContainText("Verlegt: UHS Eingang → UHS Bühne Nord");
-    await move("UHS Eingang");
-    await expect(way, "admitted, moved, moved back").toHaveCount(3);
-    await expect(anna.locator(".patient-card[data-tag='DE-0045']")).toContainText("UHS Eingang");
+    await expect(way, "admitted, moved").toHaveCount(2);
+    await expect(anna.locator(".record__read-only"), "handed over: the other UHS's staff writes it now").toContainText("UHS Bühne Nord");
 
-    // [itest->dsn~uhs-overview~2]
-    await openView(anna, "Übersicht");
-    const unit = (name: string) => anna.locator(".count-card", { hasText: name });
-    await expect(unit("UHS Eingang"), "per UHS: load and discharged").toContainText("Gesamt: 2 · Belegung: 2 / 5 · Entlassen: 0");
+    // [itest->dsn~uhs-overview~3]
+    // UHS-8: the places of every UHS, to see which is full and where else a patient could go.
+    await openView(anna, "Behandlungsplätze");
+    const unit = (name: string) => anna.locator(".places__unit", { hasText: name });
+    await expect(unit("UHS Eingang").locator(".places__figure"), "free places in large figures").toHaveText("4 frei von 5");
+    await expect(unit("UHS Eingang").locator(".places__boxes"), "a box per place, with a text alternative").toHaveAttribute("aria-label", "ohne Kategorie: 1 von 5 belegt, 4 frei");
+    await expect(unit("UHS Eingang").locator(".places__box--taken")).toHaveCount(1);
     await expect(unit("UHS Eingang"), "open orders and transports").toContainText("Offene Anordnungen: 0 · Transporte: 1 offen, 0 geplant");
+    await expect(unit("UHS Bühne Nord").locator(".places__waiting"), "patients without a place").toHaveText("3 ohne Platz");
     await expect(unit("UHS Bühne Nord")).toContainText("Transporte: 0 offen, 1 geplant");
-    await expect(unit("UHS Bühne Nord")).toContainText("Behandlungsplätze:");
-    await expect(unit("Alle Einheiten"), "and all units added up").toContainText("Gesamt: 4 · Belegung: 4 / 15 · Entlassen: 0");
-    await expect(unit("Alle Einheiten")).toContainText("Transporte: 1 offen, 1 geplant");
-    await audit(anna, "Overview");
+    const allUnits = anna.locator(".places__all");
+    await expect(allUnits.locator(".places__figure"), "and all units added up").toHaveText("14 frei von 15");
+    await expect(allUnits.locator(".places__waiting")).toHaveText("3 ohne Platz");
+    await audit(anna, "Treatment places");
+    await shot(anna, "treatment-places");
     await openView(anna, "Patienten");
     await anna.locator("#launcher-button").click();
     // [itest->dsn~views-by-role~1]
@@ -772,7 +796,7 @@ test("ORDO in the browser", async ({ browser }) => {
       });
     expect(await menuAtEnd(), "right-handed: the menu at the right end").toEqual([true, false]);
     // [itest->dsn~compact-navigation~2]
-    await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(4);
+    await expect(anna.locator(".navigation .views__item .icon svg"), "icons above the labels in the bar").toHaveCount(3); // Patienten, Anordnungen, Behandlungsplätze
     const [iconTop, labelTop] = await anna.evaluate(() => {
       const item = document.querySelector(".navigation .views__item")!;
       return [item.querySelector(".icon")!.getBoundingClientRect().top, item.querySelector(".views__label")!.getBoundingClientRect().top];
@@ -936,9 +960,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
 
     // The overview counts the patients; the situation map shows them per UHS.
-    await expect(ben.locator(".uhs-tile--total .uhs-tile__load"), "the overview counts the patients of all UHS").toHaveText(/^4 /);
+    // [itest->dsn~command-treatment-places~1]
+    // [itest->dsn~server-derived-connectors~2]
+    // UHS-16: the free places per category, from the patient counts alone.
+    const placesTile = ben.locator(".tile--uhs");
+    await expect(placesTile.locator(".places__all .places__figure"), "the overview adds up the places of all UHS").toHaveText("14 frei von 15");
+    await expect(placesTile.locator(".places__all .places__waiting")).toHaveText("3 ohne Platz");
+    await expect(placesTile.locator(".places__unit", { hasText: "UHS Eingang" }).locator(".places__box--taken"), "the taken place, not who lies there").toHaveCount(1);
+    await shot(ben, "command-places");
     await openView(ben, "Lagekarte");
-    // DE-0043 was re-triaged to SK III from the palette.
+    // DE-0044 was re-triaged to SK III from the palette; DE-0045 moved to Bühne Nord.
     const cards = () =>
       ben.locator(".count-card").evaluateAll((list) =>
         list.map((c) =>
@@ -950,8 +981,8 @@ test("ORDO in the browser", async ({ browser }) => {
         ),
       );
     await expect.poll(cards, { message: "command sees counts and load per UHS" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 10 · Entlassen: 0",
-      "UHS Eingang 1 0 1 0 0 0 Gesamt: 2 · Belegung: 2 / 5 · Entlassen: 0",
+      "UHS Bühne Nord 1 1 1 0 0 0 Gesamt: 3 · Belegung: 3 / 10 · Entlassen: 0",
+      "UHS Eingang 0 0 1 0 0 0 Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 0",
     ]);
     await ben.setViewportSize({ width: 1700, height: 1000 });
     const table = () =>
@@ -959,8 +990,8 @@ test("ORDO in the browser", async ({ browser }) => {
         rows.filter((r) => (r as HTMLElement).offsetParent).map((r) => [...(r as HTMLTableRowElement).cells].map((c) => c.innerText.split("\n")[0]).join(" ")),
       );
     await expect.poll(table, { message: "where there is room, the counts are a table" }).toEqual([
-      "UHS Bühne Nord 1 0 1 0 0 0 2 2 / 10 0",
-      "UHS Eingang 1 0 1 0 0 0 2 2 / 5 0",
+      "UHS Bühne Nord 1 1 1 0 0 0 3 3 / 10 0",
+      "UHS Eingang 0 0 1 0 0 0 1 1 / 5 0",
     ]);
     await audit(ben, "Command workspace (wide)", [1700]);
     const received = Buffer.concat(benFrames.received);
@@ -1036,6 +1067,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Auftrag anlegen" }).click();
     const task = ben.locator(".task-card");
     await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
+    await expect(ben.locator("#give-task-panel"), "the form closes once the Auftrag is created").toBeHidden();
+    await expect(ben.locator("#give-task-button"), "the focus goes back to its button").toBeFocused();
     await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
     await expect(board.locator(".unit-status__tasks"), "the unit shows its task").toHaveText("1 offener Auftrag: Lagemeldung abgeben");
     await audit(ben, "Units on Disposition");
@@ -1084,11 +1117,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".released-list summary")).toHaveText("Entlassene Einsatzmittel (1)");
     await ben.getByRole("button", { name: "RTW 83/1 wieder im Einsatz" }).click();
     await expect(card, "back in the incident, with its status").toContainText("4 – Am Einsatzort");
-    // [itest->dsn~uhs-resources~1]
+    // [itest->dsn~uhs-resources~2]
     // UHS-11: the UHS are resources too; the command assigns their staff.
     const uhsCard = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 1 Person");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(uhsCard.locator(".crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
     await uhsCard.getByLabel("Name", { exact: true }).fill("petra@localhost");
     await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
@@ -1531,7 +1565,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator(".undo-bar").getByRole("button", { name: "Rückgängig" }).click();
     await expect(unit, "back on the map").toHaveCount(1);
     await expect(unit.getByRole("button", { name: "RTW 83/1 von der Karte entfernen" }), "a row action is an icon with its name").toHaveClass(/icon-button/);
-    // [itest->dsn~uhs-details~3]
+    // [itest->dsn~uhs-details~4]
     // A UHS's place is its symbol on the map, set from its details panel.
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
@@ -1701,7 +1735,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Lagekarte");
     await expect
       .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient, against the capacity by category" })
-      .toBe("Gesamt: 1 · Belegung: 1 / 4 · Entlassen: 1");
+      .toBe("Gesamt: 0 · Belegung: 0 / 4 · Entlassen: 1");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
@@ -1709,7 +1743,9 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~reports~3]
   await test.step("reports: a patient case is assigned, placed on the map and taken over by the crew", async () => {
-    // A medical team with Anna on its crew: she moves there from the UHS.
+    // A medical team with Petra, a physician, on its crew: she moves there from the UHS.
+    // Physicians work at every UHS (ADR-0056), so she registers the patient she takes over;
+    // a crew member on no staff list could not (UHS-10, ADR-0086).
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     await ben.locator("#unit-call-sign").fill("SanTrp 1");
@@ -1718,14 +1754,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const team = ben.locator(".unit-card[data-unit='SanTrp 1']");
     await team.getByRole("button", { name: /^Besatzung von SanTrp 1/ }).click();
-    await ben.locator("#crew-santrp-1").fill("anna@localhost");
+    await ben.locator("#crew-santrp-1").fill("petra@localhost");
     await team.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    const enter = team.getByRole("button", { name: "Erfassen und hinzufügen: anna@localhost" });
-    const move = team.getByRole("button", { name: "Hierher umsetzen: anna@localhost zu SanTrp 1" });
+    const enter = team.getByRole("button", { name: "Erfassen und hinzufügen: petra@localhost" });
+    const move = team.getByRole("button", { name: "Hierher umsetzen: petra@localhost zu SanTrp 1" });
     await expect(enter.or(move)).toBeVisible();
     if (await enter.isVisible()) await enter.click();
     await move.click();
-    await expect(team.locator(".crew-list"), "by her name in the register; the crew keeps her account").toContainText("Anna Schmidt");
+    await expect(team.locator(".crew-list"), "by her name in the register; the crew keeps her account").toContainText("Dr. Petra Lang");
 
     // REP-1, ADR-0081: the command records the report as an Auftrag, with its pin on the
     // same form, and assigns it to the team.
@@ -1790,9 +1826,9 @@ test("ORDO in the browser", async ({ browser }) => {
       await openView(ben, "Disposition");
     }
 
-    // REP-3, REP-4: Anna, on the team's crew, finds the Auftrag with its place, and takes it over.
+    // REP-3, REP-4: Petra, on the team's crew, finds the Auftrag with its place, and takes it over.
     const medic = await newDevice(browser);
-    await loginPair(medic, server, "anna@example.org");
+    await loginPair(medic, server, "petra@example.org");
     await openIncident(medic, INCIDENT);
     // [itest->dsn~crew-workspace~3]
     // UNIT-9 (ADR-0079): the crew's own workspace: status, Aufträge and transports.
@@ -1831,7 +1867,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(medic), { message: "the registration opens in the UHS workspace" }).toContain("Sanität – UHS");
     await expect(medic.locator(".register-case"), "the registration names the Auftrag").toContainText("Aus dem Auftrag „Bühne Nord, links“ für SanTrp 1");
     await expect(medic.locator("#tag")).toBeFocused();
-    await register(medic, "DE-0077", 1, "UHS Bühne Nord");
+    await register(medic, "DE-0077", 1, "UHS Eingang");
     await openWorkspace(medic, "Besatzung");
     await expect(crewTask.getByRole("button", { name: "Patient aufnehmen" }), "taken over: offered no more").toHaveCount(0);
     await expect(crewTask.locator(".task-card__taken")).toHaveText(/^Patient aufgenommen von SanTrp 1 \(\d\d:\d\d\)$/);
@@ -1868,9 +1904,9 @@ test("ORDO in the browser", async ({ browser }) => {
 
   // [itest->dsn~uhs-staff-request~2]
   await test.step("a UHS asks for a physician; the command sends one onto its staff list", async () => {
-    // UHS-15: only the UHS's staff ask. Anna, now on a unit's crew, is on no staff list.
+    // UHS-15: only the UHS's staff ask. Petra, now on a unit's crew, is on no staff list.
     const medic = await newDevice(browser);
-    await loginPair(medic, server, "anna@example.org");
+    await loginPair(medic, server, "petra@example.org");
     await openIncident(medic, INCIDENT);
     await openWorkspace(medic, "UHS");
     await openView(medic, "Patienten");
@@ -1883,31 +1919,31 @@ test("ORDO in the browser", async ({ browser }) => {
     await medic.locator("#working-uhs").selectOption({ label: "UHS Bühne Nord" });
     await expect(off, "off for someone not on its staff list, also where she may document").toBeDisabled();
     await expect(offPanel.locator(".hint"), "and says why").toContainText("Personalliste von UHS Bühne Nord");
-    // Petra, on the staff list of UHS Eingang, asks for a paramedic …
-    const petra = await newDevice(browser);
-    await loginPair(petra, server, "petra@example.org");
-    await openIncident(petra, INCIDENT);
-    await openWorkspace(petra, "UHS");
-    await openView(petra, "Patienten");
-    await petra.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
-    const panel = petra.locator("[aria-labelledby=staff-requests-title]");
+    // Anna, on the staff list of UHS Eingang, asks for a paramedic …
+    const asker = await newDevice(browser);
+    await loginPair(asker, server, "anna@example.org");
+    await openIncident(asker, INCIDENT);
+    await openWorkspace(asker, "UHS");
+    await openView(asker, "Patienten");
+    await asker.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
+    const panel = asker.locator("[aria-labelledby=staff-requests-title]");
     await panel.getByRole("button", { name: "Notfallsanitäter/in anfordern" }).click();
     await expect(panel.locator(".staff-requests__list li").first(), "the request, open").toContainText(/^Notfallsanitäter\/in · \d\d:\d\d · offen$/);
-    await audit(petra, "Staff request");
-    // … the command sees it in Disposition and in the bell, and sends Anna …
+    await audit(asker, "Staff request");
+    // … the command sees it in Disposition and in the bell, and sends Petra …
     await openWorkspace(ben, "Führung");
     await openView(ben, "Disposition");
     await expect(ben.locator("#attention-button"), "the bell rings").toHaveAccessibleName(/^Hinweise: [1-9]/);
     const board = ben.locator("[aria-labelledby=staff-board-title]");
     const request = board.locator(".report-card", { hasText: "UHS Eingang fordert Notfallsanitäter/in an" });
-    await request.getByLabel("Wer kommt?").fill("anna@localhost");
+    await request.getByLabel("Wer kommt?").fill("petra@localhost");
     await request.getByRole("button", { name: "Zuweisen" }).click();
     await expect(board, "met: no open requests left").toHaveCount(0);
     const sent = ben.locator(".task-card", { hasText: "Als Notfallsanitäter/in zu UHS Eingang" });
-    await expect(sent.locator(".task-card__status"), "an Auftrag for the person sent").toContainText("Zugewiesen · Anna Schmidt");
-    // … the UHS learns who comes, and Anna sees her Auftrag.
-    await expect(panel.locator(".staff-requests__list li").first()).toContainText(/(Anna Schmidt|anna@localhost) kommt$/);
-    await petra.context().close();
+    await expect(sent.locator(".task-card__status"), "an Auftrag for the person sent").toContainText("Zugewiesen · Dr. Petra Lang");
+    // … the UHS learns who comes, and Petra sees her Auftrag.
+    await expect(panel.locator(".staff-requests__list li").first()).toContainText(/(Dr\. Petra Lang|petra@localhost) kommt$/);
+    await asker.context().close();
     await openWorkspace(medic, "Besatzung");
     const mine = medic.locator("[aria-labelledby=crew-mine-title] .task-card", { hasText: "Als Notfallsanitäter/in zu UHS Eingang" });
     await expect(mine.locator("strong").first(), "where to go").toHaveText("UHS Eingang");

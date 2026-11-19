@@ -594,9 +594,29 @@ mod tests {
             ["give_orders", "all_uhs", "crew_work"],
             "physicians give orders and work at every UHS"
         );
+        // [utest->dsn~uhs-staff~3]
         assert!(
-            p.can_write(&erik, &incident, &shared, "med.uhs", "uhs.created", &medic),
-            "medics manage UHS"
+            !p.can_write(&erik, &incident, &shared, "med.uhs", "uhs.created", &medic),
+            "the command sets up UHS, not the medics (ADR-0086)"
+        );
+        assert!(p.can_write(
+            &erik,
+            &incident,
+            &shared,
+            "med.uhs",
+            "uhs.created",
+            &commander
+        ));
+        assert!(
+            p.can_write(
+                &erik,
+                &incident,
+                &shared,
+                "med.staffing",
+                "staffing.requested",
+                &medic
+            ),
+            "a UHS's staff still asks for staff"
         );
         assert!(
             !p.can_write(&erik, &incident, &shared, "units", "units.added", &medic),

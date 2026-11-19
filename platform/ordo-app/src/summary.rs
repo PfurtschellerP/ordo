@@ -9,9 +9,10 @@ use ordo_sync::incidents::IncidentState;
 
 use crate::core::{self, Handle};
 use crate::nav::Route;
+use crate::places::{Level, PlaceRow, TreatmentPlaces};
 use crate::text;
 use crate::ui::Icon;
-use crate::views::{CATEGORIES, TriageBadge, follow_route};
+use crate::views::{CATEGORIES, follow_route};
 
 /// One open order as the tile shows it.
 #[derive(Clone, Debug, PartialEq)]
@@ -22,17 +23,6 @@ struct NextTask {
     status: &'static str,
     follow_up: Option<String>,
     due: bool,
-}
-
-/// One UHS: its load and counts.
-#[derive(Clone, Debug, PartialEq)]
-struct UhsTile {
-    name: String,
-    capacity: u32,
-    /// Patients per triage category, in the order of [`CATEGORIES`].
-    per: [u32; 6],
-    discharged: u32,
-    transports: usize,
 }
 
 /// What the overview shows, computed from the incident's events.
@@ -51,7 +41,7 @@ struct Overview {
     unreported: u32,
     /// People on more than one post, with their posts (UNIT-8).
     several: Vec<String>,
-    uhs: Vec<UhsTile>,
+    uhs: Vec<PlaceRow>,
 }
 
 fn overview(core: Handle) -> Overview {
@@ -91,22 +81,35 @@ fn overview(core: Handle) -> Overview {
     let transports = core.with_value(|c| {
         med::transport::TransportBoard::from_events(&c.events(med::transport::COMPARTMENT))
     });
-    let counts = core.with_value(|c| med::latest_counts(&c.events(med::UHS_COMPARTMENT)));
+    // [impl->dsn~command-treatment-places~1]
+    // From the shared compartment only: the places and the patient counts (UHS-16).
+    let (counts, mut occupancies) = core.with_value(|c| {
+        let incident = c.events(med::UHS_COMPARTMENT);
+        (
+            med::latest_counts(&incident),
+            med::overview::occupancies(&incident),
+        )
+    });
     let uhs = crate::views::uhs_list(core)
         .into_iter()
-        .map(|u| UhsTile {
-            transports: transports
+        .map(|u| {
+            let c = counts.get(&u.id).cloned().unwrap_or_default();
+            let open = transports
                 .transports
                 .values()
                 .filter(|t| t.status.is_open() && t.request.uhs == u.id)
-                .count(),
-            per: {
-                let c = counts.get(&u.id).cloned().unwrap_or_default();
-                CATEGORIES.map(|k| c.get(k))
-            },
-            discharged: counts.get(&u.id).map_or(0, |c| c.discharged),
-            name: u.name,
-            capacity: u.capacity,
+                .count();
+            let mut more = text::transports_open(open);
+            if c.discharged > 0 {
+                more = format!("{more} · {}", text::discharged_count(c.discharged));
+            }
+            PlaceRow {
+                occupancy: occupancies.remove(&u.id),
+                load: (CATEGORIES.iter().map(|k| c.get(*k)).sum(), u.capacity),
+                more: Some(more),
+                id: u.id,
+                name: u.name,
+            }
         })
         .collect();
     let details = info.as_ref().map(|i| i.details.clone()).unwrap_or_default();
@@ -151,42 +154,6 @@ fn TileHead(
                 <a class="tile__link" href=r.to_path() on:click=follow_route(r.clone())>{link}</a>
             })}
         </div>
-    }
-}
-
-/// One UHS (or all of them): load against capacity, patients per category, transports.
-#[component]
-fn UhsCard(tile: UhsTile, #[prop(optional)] total: bool) -> impl IntoView {
-    let patients: u32 = tile.per.iter().sum();
-    let share = (patients * 100)
-        .checked_div(tile.capacity)
-        .unwrap_or(0)
-        .min(100);
-    view! {
-        <article class=if total { "uhs-tile uhs-tile--total" } else { "uhs-tile" } aria-label=tile.name.clone()>
-            <h4 class="uhs-tile__name">{tile.name.clone()}</h4>
-            <p class="uhs-tile__load">
-                <span class="tile__number tile__number--small">{patients}</span>
-                " " {text::uhs_load(patients, tile.capacity)}
-            </p>
-            {(tile.capacity > 0).then(|| view! {
-                <div class="uhs-tile__bar" aria-hidden="true">
-                    <div class="uhs-tile__fill" style:width=format!("{share}%")></div>
-                </div>
-            })}
-            <ul class="uhs-tile__counts" aria-label=text::BY_CATEGORY>
-                {CATEGORIES
-                    .into_iter()
-                    .zip(tile.per)
-                    .filter(|(_, n)| *n > 0)
-                    .map(|(k, n)| view! { <li><TriageBadge category=k /> " " {n}</li> })
-                    .collect_view()}
-            </ul>
-            <p class="hint">
-                {text::transports_open(tile.transports)}
-                {(tile.discharged > 0).then(|| format!(" · {}", text::discharged_count(tile.discharged)))}
-            </p>
-        </article>
     }
 }
 
@@ -325,27 +292,10 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     }))}
                 </section>
 
+                // [impl->dsn~command-treatment-places~1]
                 <section class="tile tile--uhs" aria-labelledby="tile-uhs">
-                    <TileHead id="tile-uhs" icon="tent" title=text::UHS_TILE route=uhs link=text::OPEN_COUNTS />
-                    {move || {
-                        let list = o.with(|o| o.uhs.clone());
-                        if list.is_empty() {
-                            return view! { <p class="hint">{text::UHS_EMPTY}</p> }.into_any();
-                        }
-                        let total = (list.len() > 1).then(|| UhsTile {
-                            name: text::COL_TOTAL.to_owned(),
-                            capacity: list.iter().map(|u| u.capacity).sum(),
-                            per: std::array::from_fn(|i| list.iter().map(|u| u.per[i]).sum()),
-                            discharged: list.iter().map(|u| u.discharged).sum(),
-                            transports: list.iter().map(|u| u.transports).sum(),
-                        });
-                        view! {
-                            <div class="uhs-tiles">
-                                {list.into_iter().map(|tile| view! { <UhsCard tile /> }).collect_view()}
-                                {total.map(|tile| view! { <UhsCard tile total=true /> })}
-                            </div>
-                        }.into_any()
-                    }}
+                    <TileHead id="tile-uhs" icon="tent" title=text::PLACES route=uhs link=text::OPEN_COUNTS />
+                    <TreatmentPlaces rows=Signal::derive(move || o.with(|o| o.uhs.clone())) level=Level::H4 />
                 </section>
 
                 <section class="tile tile--quick" aria-labelledby="tile-quick">

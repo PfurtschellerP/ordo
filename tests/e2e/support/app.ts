@@ -104,15 +104,15 @@ export async function openView(page: Page, label: string): Promise<void> {
   await page.getByRole("navigation", { name: "Ansichten" }).getByRole("link", { name: label, exact: true }).click();
 }
 
+/** Sets up a UHS on *Vorbereitung – Einsatzmittel*, as the incident command (ADR-0086). */
 export async function createUhs(page: Page, name: string, capacity: number): Promise<void> {
   await page.locator("#uhs-name").fill(name);
   await page.locator("#uhs-capacity").fill(String(capacity));
   await page.getByRole("button", { name: "UHS anlegen" }).click();
-  await expect(page.locator(".load-list__name", { hasText: name })).toBeVisible();
+  await expect(page.locator(".uhs-card h3", { hasText: name })).toBeVisible();
 }
 
-/** Registers a patient; `category` is the index of the triage category, or none. */
-/** Registers a patient; at a UHS with places, on `place` (a label) or on none. */
+/** Registers a patient; `category` is the index of the triage category, or none; at a UHS with places, on `place` (a label) or on none. */
 export async function register(page: Page, tag: string, category?: number, uhs?: string, place?: string): Promise<void> {
   if (uhs) await page.locator("#uhs").selectOption({ label: uhs });
   await page.locator("#tag").fill(tag);

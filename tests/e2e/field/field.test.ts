@@ -30,6 +30,17 @@ test("two tablets and the Compose bundle, as in the field", async () => {
   await openView(dora, "Einsatz");
   await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
   await expect(dora.locator("#incident-state")).toHaveText("Laufend");
+  // The incident command sets up the UHS and its staff (ADR-0086).
+  await openView(dora, "Einsatzmittel");
+  await createUhs(dora, UHS, 20);
+  const card = dora.locator(".uhs-card", { hasText: UHS });
+  await dora.getByRole("button", { name: `Ort und Personal von ${UHS}` }).click();
+  for (const person of ["anna@ordo.internal", "ben@ordo.internal"]) {
+    await card.getByLabel("Name", { exact: true }).fill(person);
+    await card.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+  }
+  await expect(card.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
+  await expect.poll(() => status(dora), { message: "the UHS is sent" }).toContain("Alles gesendet");
   await dora.context().close();
 
   // Ben's Android tablet: the first visit downloads the app.
@@ -59,15 +70,6 @@ test("two tablets and the Compose bundle, as in the field", async () => {
   const anna = await device(ipad, "iPad (gen 7) landscape");
   await loginPair(anna, SITE, "anna@example.org", "iPad Anna");
   await openIncident(anna, INCIDENT);
-  await openView(anna, "UHS verwalten");
-  await createUhs(anna, UHS, 20);
-  const card = anna.locator(".load-list__item", { hasText: UHS });
-  await anna.getByRole("button", { name: `Ort und Personal von ${UHS}` }).click();
-  for (const person of ["anna@ordo.internal", "ben@ordo.internal"]) {
-    await card.getByLabel("Name", { exact: true }).fill(person);
-    await card.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
-  }
-  await expect(card.locator(".load-list__staff")).toHaveText("Personal: Anna Schmidt, Ben Weber");
   await openView(anna, "Patienten");
   for (const page of [anna, ben]) await expect.poll(() => status(page), { message: "both tablets are connected" }).toContain("Verbunden");
 

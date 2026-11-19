@@ -27,7 +27,9 @@ pub enum TriageCategory {
 }
 
 /// `med.patientCounts.v1`: number of patients per triage category in one on-site care
-/// unit. Published by the Med package into the shared `incident` compartment.
+/// unit, and (schema version 2) which of its treatment places are taken and how many of its
+/// patients have none. Published by the Med package into the shared `incident` compartment.
+/// A place ID names a place, never who lies on it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatientCountsV1 {
     /// The on-site care unit (UHS, treatment area, collection point).
@@ -49,9 +51,17 @@ pub struct PatientCountsV1 {
     /// categories count only the patients in the unit.
     #[serde(default)]
     pub discharged: u32,
+    /// IDs of the unit's taken treatment places, sorted (schema version 2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub taken_places: Vec<String>,
+    /// Patients in the unit without a treatment place (schema version 2).
+    #[serde(default)]
+    pub without_place: u32,
 }
 
 impl PatientCountsV1 {
+    /// Payload schema version: 2 adds the taken places and the patients without one.
+    pub const SCHEMA_VERSION: u32 = 2;
     /// Module that publishes the contract.
     pub const MODULE: &'static str = "med.patients";
     /// Event type of the contract.
@@ -74,6 +84,8 @@ impl PatientCountsV1 {
         self.deceased += other.deceased;
         self.uninjured += other.uninjured;
         self.discharged += other.discharged;
+        self.taken_places.extend(other.taken_places.iter().cloned());
+        self.without_place += other.without_place;
     }
 
     /// The count of `category`.
@@ -135,5 +147,10 @@ mod tests {
         ciborium::into_writer(&old, &mut bytes).unwrap();
         let decoded: PatientCountsV1 = ciborium::from_reader(bytes.as_slice()).unwrap();
         assert_eq!((decoded.minor, decoded.uninjured), (2, 0));
+        assert_eq!(
+            (decoded.taken_places.len(), decoded.without_place),
+            (0, 0),
+            "counts of version 1 name no places"
+        );
     }
 }

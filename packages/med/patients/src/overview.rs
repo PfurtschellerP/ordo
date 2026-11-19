@@ -2,14 +2,112 @@
 //! from the clinical and the shared incident events a Med device already holds. It shows
 //! numbers only and ranks nothing.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use ordo_contracts::PatientCountsV1;
+use ordo_contracts::{PatientCountsV1, TriageCategory};
 use ordo_sync::AppliedEvent;
 
 use crate::orders::OrderBook;
 use crate::transport::TransportBoard;
-use crate::{PatientRegister, places};
+use crate::{PatientRegister, Place, places};
+
+/// A unit's treatment places kept for one triage category, or for none.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PlaceGroup {
+    /// The category the places are kept for; none: any.
+    pub category: Option<TriageCategory>,
+    /// Places in the group.
+    pub total: usize,
+    /// Places taken.
+    pub taken: usize,
+}
+
+impl PlaceGroup {
+    /// Free places.
+    pub fn free(&self) -> usize {
+        self.total.saturating_sub(self.taken)
+    }
+}
+
+/// How full a unit's treatment places are: per category, and its patients without a place
+/// (UHS-8, UHS-16). Numbers only; who lies where stays in the clinical compartment.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Occupancy {
+    /// Groups in the order of the categories, places without a category last.
+    pub groups: Vec<PlaceGroup>,
+    /// Patients in the unit without a place.
+    pub without_place: u32,
+}
+
+impl Occupancy {
+    /// All places.
+    pub fn total(&self) -> usize {
+        self.groups.iter().map(|g| g.total).sum()
+    }
+
+    /// Free places.
+    pub fn free(&self) -> usize {
+        self.groups.iter().map(PlaceGroup::free).sum()
+    }
+
+    /// Adds `other` group by group, e.g. for all units together.
+    pub fn add(&mut self, other: &Self) {
+        for g in &other.groups {
+            match self.groups.iter_mut().find(|m| m.category == g.category) {
+                Some(m) => {
+                    m.total += g.total;
+                    m.taken += g.taken;
+                }
+                None => self.groups.push(*g),
+            }
+        }
+        self.groups
+            .sort_by_key(|g| (g.category.is_none(), g.category));
+        self.without_place += other.without_place;
+    }
+}
+
+// [impl->dsn~command-treatment-places~1]
+// [impl->dsn~uhs-overview~3]
+/// The occupancy of a unit's `places`, given which of them are `taken` (place IDs, from the
+/// clinical register or from the patient counts) and its patients `without_place`. A taken
+/// ID that is no place any more is not counted.
+pub fn occupancy(places: &[Place], taken: &BTreeSet<String>, without_place: u32) -> Occupancy {
+    let mut groups: BTreeMap<(bool, Option<TriageCategory>), PlaceGroup> = BTreeMap::new();
+    for place in places {
+        let group = groups
+            .entry((place.category.is_none(), place.category))
+            .or_insert(PlaceGroup {
+                category: place.category,
+                total: 0,
+                taken: 0,
+            });
+        group.total += 1;
+        if taken.contains(&place.id) {
+            group.taken += 1;
+        }
+    }
+    Occupancy {
+        groups: groups.into_values().collect(),
+        without_place,
+    }
+}
+
+/// The occupancy of every unit with places, by unit ID, as the incident command sees it:
+/// from the shared incident events only (places and the latest patient counts).
+pub fn occupancies(incident: &[AppliedEvent]) -> BTreeMap<String, Occupancy> {
+    let counts = crate::latest_counts(incident);
+    places(incident)
+        .into_iter()
+        .filter(|(_, list)| !list.is_empty())
+        .map(|(uhs, list)| {
+            let c = counts.get(&uhs);
+            let taken = c.map_or_else(BTreeSet::new, |c| c.taken_places.iter().cloned().collect());
+            let occupancy = occupancy(&list, &taken, c.map_or(0, |c| c.without_place));
+            (uhs, occupancy)
+        })
+        .collect()
+}
 
 /// The numbers of one on-site care unit.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -18,6 +116,8 @@ pub struct UhsSummary {
     pub counts: PatientCountsV1,
     /// Treatment places: free and in all (none if the unit has no places).
     pub places: Option<(usize, usize)>,
+    /// Its places per category and its patients without one (none if it has no places).
+    pub occupancy: Option<Occupancy>,
     /// Open orders of the unit's patients.
     pub open_orders: usize,
     /// Spoken orders of the unit's patients their giver has not confirmed (ORDER-6).
@@ -28,7 +128,7 @@ pub struct UhsSummary {
     pub transports_planned: usize,
 }
 
-// [impl->dsn~uhs-overview~2]
+// [impl->dsn~uhs-overview~3]
 /// The summary per unit ID, from events of `med.clinical` and of the `incident`
 /// compartment. Units without any patient, place, order or transport are left out; the
 /// caller lists every unit and shows zeros for them.
@@ -42,11 +142,14 @@ pub fn summaries(
         out.entry(uhs).or_default().counts = counts;
     }
     for (uhs, list) in places(incident) {
-        let taken = register
-            .patients()
-            .filter(|p| p.uhs == uhs && p.place.is_some())
-            .count();
-        out.entry(uhs).or_default().places = Some((list.len().saturating_sub(taken), list.len()));
+        if list.is_empty() {
+            continue;
+        }
+        let entry = out.entry(uhs).or_default();
+        let taken: BTreeSet<String> = entry.counts.taken_places.iter().cloned().collect();
+        let o = occupancy(&list, &taken, entry.counts.without_place);
+        entry.places = Some((o.free(), o.total()));
+        entry.occupancy = Some(o);
     }
     let book = OrderBook::from_events(clinical);
     for order in book.open() {
@@ -82,7 +185,7 @@ pub fn summaries(
     out
 }
 
-// [impl->dsn~uhs-overview~2]
+// [impl->dsn~uhs-overview~3]
 /// All units added up: the whole incident for the medical lead (MANV). Places count only
 /// where units have them.
 pub fn total<'a>(summaries: impl IntoIterator<Item = &'a UhsSummary>) -> UhsSummary {
@@ -92,6 +195,9 @@ pub fn total<'a>(summaries: impl IntoIterator<Item = &'a UhsSummary>) -> UhsSumm
         if let Some((free, all)) = s.places {
             let (f, a) = t.places.unwrap_or((0, 0));
             t.places = Some((f + free, a + all));
+        }
+        if let Some(o) = &s.occupancy {
+            t.occupancy.get_or_insert_with(Occupancy::default).add(o);
         }
         t.open_orders += s.open_orders;
         t.unconfirmed_orders += s.unconfirmed_orders;
@@ -199,7 +305,7 @@ mod tests {
         assert_eq!(total(s.values()).unconfirmed_orders, 1);
     }
 
-    // [utest->dsn~uhs-overview~2]
+    // [utest->dsn~uhs-overview~3]
     #[test]
     fn one_summary_per_unit_with_load_places_orders_and_transports() {
         let places = PlacesSet {
@@ -282,5 +388,91 @@ mod tests {
         );
         assert_eq!((all.places, all.open_orders), (Some((2, 3)), 2));
         assert_eq!((all.transports_open, all.transports_planned), (2, 1));
+        assert_eq!(
+            nord.occupancy.as_ref().map(|o| o.without_place),
+            Some(1),
+            "B waits for a place"
+        );
+    }
+
+    // [utest->dsn~command-treatment-places~1]
+    #[test]
+    fn the_command_sees_free_places_per_category_from_the_counts_alone() {
+        let place = |id: &str, category| Place {
+            id: id.into(),
+            label: id.into(),
+            category,
+        };
+        let set = PlacesSet {
+            uhs: "nord".into(),
+            places: vec![
+                place("any-1", None),
+                place("urgent-1", Some(TriageCategory::Urgent)),
+                place("immediate-1", Some(TriageCategory::Immediate)),
+                place("immediate-2", Some(TriageCategory::Immediate)),
+            ],
+        };
+        let on = |n, tag: &str, place: &str| {
+            let a = PlaceAssigned {
+                tag: tag.into(),
+                place: Some(place.into()),
+            };
+            clinical(n, MODULE, PLACE_ASSIGNED, a.encode().unwrap())
+        };
+        let clinical_events = vec![
+            patient(1, "A", "nord", TriageCategory::Immediate),
+            patient(2, "B", "nord", TriageCategory::Urgent),
+            patient(3, "C", "nord", TriageCategory::Urgent),
+            on(4, "A", "immediate-1"),
+            on(5, "B", "urgent-1"),
+        ];
+        // What the server derives for the command: place IDs and numbers, no patient.
+        let counts = PatientRegister::from_events(&clinical_events).counts();
+        let nord = &counts["nord"];
+        assert_eq!(nord.taken_places, ["immediate-1", "urgent-1"]);
+        assert_eq!(nord.without_place, 1);
+        let mut incident_events = vec![shared(6, UHS_MODULE, UHS_PLACES, set.encode().unwrap())];
+        incident_events.push(crate::testing::event(
+            7,
+            "server",
+            PatientCountsV1::MODULE,
+            UHS_COMPARTMENT,
+            PatientCountsV1::EVENT_TYPE,
+            ordo_core::codec::to_cbor(nord).unwrap(),
+        ));
+        let command = occupancies(&incident_events);
+        let o = &command["nord"];
+        assert_eq!(
+            o.groups,
+            [
+                PlaceGroup {
+                    category: Some(TriageCategory::Immediate),
+                    total: 2,
+                    taken: 1
+                },
+                PlaceGroup {
+                    category: Some(TriageCategory::Urgent),
+                    total: 1,
+                    taken: 1
+                },
+                PlaceGroup {
+                    category: None,
+                    total: 1,
+                    taken: 0
+                },
+            ],
+            "in the order of the categories, places for any category last"
+        );
+        assert_eq!((o.free(), o.total(), o.without_place), (2, 4, 1));
+        assert_eq!(o.groups[1].free(), 0, "SK II is full");
+        // The Med workspace computes the same from its own records.
+        let med = summaries(&clinical_events, &incident_events);
+        assert_eq!(med["nord"].occupancy.as_ref(), Some(o));
+        // All units added up, group by group.
+        let mut all = Occupancy::default();
+        all.add(o);
+        all.add(o);
+        assert_eq!((all.free(), all.total(), all.without_place), (4, 8, 2));
+        assert_eq!(all.groups.len(), 3);
     }
 }

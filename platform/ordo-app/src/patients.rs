@@ -153,18 +153,31 @@ pub fn PatientsView(
     let events = move || core.with_value(|c| c.events(med::COMPARTMENT));
     // The UHS the person works at: as chosen on this device, else the one whose staff
     // list names them, else all.
+    let on_list = move || {
+        core.with_value(|c| {
+            let me = c.replica.user().to_string();
+            med::uhs_details(&c.events(med::UHS_COMPARTMENT))
+                .into_iter()
+                .find(|(_, d)| d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me)))
+                .map(|(id, _)| id)
+                .unwrap_or_default()
+        })
+    };
     let working = WorkingUhs(RwSignal::new(
-        core::preference(WORKING_UHS_KEY).unwrap_or_else(|| {
-            core.with_value(|c| {
-                let me = c.replica.user().to_string();
-                med::uhs_details(&c.events(med::UHS_COMPARTMENT))
-                    .into_iter()
-                    .find(|(_, d)| d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me)))
-                    .map(|(id, _)| id)
-                    .unwrap_or_default()
-            })
-        }),
+        core::preference(WORKING_UHS_KEY).unwrap_or_else(on_list),
     ));
+    // [impl->dsn~uhs-staff~3]
+    // Until the person chooses, it follows the staff list as it arrives: the command puts
+    // people on it (ADR-0086), often before their device has the incident's events.
+    Effect::new(move || {
+        revision.track();
+        if core::preference(WORKING_UHS_KEY).is_none() && working.0.get_untracked().is_empty() {
+            let found = on_list();
+            if !found.is_empty() {
+                working.0.set(found);
+            }
+        }
+    });
     provide_context(working);
     let register = Memo::new(move |_| {
         revision.track();
@@ -218,10 +231,9 @@ pub fn work_at(uhs: &str) {
 #[derive(Clone, Copy)]
 pub struct WorkingUhs(pub RwSignal<String>);
 
-// [impl->dsn~uhs-staff~2]
-/// The UHS this person may write (UHS-10, ADR-0082): those whose staff list names them,
-/// those they created while nobody is on the list, or all for roles allowed at every UHS.
-/// The server decides again for every event.
+// [impl->dsn~uhs-staff~3]
+/// The UHS this person may write (UHS-10, ADR-0086): those whose staff list names them, or
+/// all for roles allowed at every UHS. The server decides again for every event.
 pub fn writable_uhs(core: Handle) -> Vec<String> {
     core.with_value(|c| {
         let me = c.replica.user().to_string();
@@ -231,38 +243,20 @@ pub fn writable_uhs(core: Handle) -> Vec<String> {
             .is_some_and(|i| c.replica.may(i, med::staff::ALL_UHS));
         let events = c.events(med::UHS_COMPARTMENT);
         let details = med::uhs_details(&events);
-        let created = med::uhs_creators(&events);
         med::uhs_list(&events)
             .into_iter()
             .filter(|u| {
-                let staff = details
-                    .get(&u.id)
-                    .map(|d| d.staff.as_slice())
-                    .unwrap_or_default();
                 everywhere
-                    || staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me))
-                    || (staff.is_empty()
-                        && created
-                            .get(&u.id)
-                            .is_some_and(|c| c.eq_ignore_ascii_case(&me)))
+                    || details
+                        .get(&u.id)
+                        .is_some_and(|d| d.staff.iter().any(|s| s.trim().eq_ignore_ascii_case(&me)))
             })
             .map(|u| u.id)
             .collect()
     })
 }
 
-/// Whether this person may change the settings and staff of `uhs`: its staff, roles
-/// allowed at every UHS, and those who manage the incident's resources (ADR-0082).
-pub fn may_set_up(core: Handle, uhs: &str) -> bool {
-    let command = core.with_value(|c| {
-        c.incident
-            .as_ref()
-            .is_some_and(|i| c.replica.may(i, "edit_units"))
-    });
-    command || writable_uhs(core).iter().any(|u| u == uhs)
-}
-
-// [impl->dsn~uhs-staff~2]
+// [impl->dsn~uhs-staff~3]
 /// "Meine UHS" at the top of the UHS module (UHS-9): the person chooses where they work;
 /// registration and the patient list follow. The device remembers the choice.
 #[component]
@@ -967,10 +961,12 @@ fn PatientRecord(
             {move || read_only.get().map(|uhs| view! {
                 <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
             })}
-            // [impl->dsn~uhs-staff~2]
+            // [impl->dsn~uhs-staff~3]
             // Where the person may not write (UHS-10), nothing offers it: the disabled
             // fieldset turns off every control, and the style hides them.
             <fieldset class="record__body" disabled=move || read_only.get().is_some()>
+                // Where the patient lies is seen and changed first, not inside a section.
+                <PlaceChoice core revision tag=tag.clone() />
                 <PhotoSection core revision tag=tag.clone() records />
                 <TriageSection core revision tag=tag.clone() register />
                 <crate::orders::OrdersSection core revision tag=tag.clone() />
@@ -1458,7 +1454,6 @@ fn TriageSection(
                     .collect_view()}
             </fieldset>
             <TransportPriority core revision tag=tag.clone() />
-            <PlaceChoice core revision tag=tag.clone() />
             </SectionInputs>
             <h4>{text::TRIAGE_HISTORY}</h4>
             <ol class="history">
@@ -1483,7 +1478,7 @@ fn TriageSection(
     }
 }
 
-// [impl->dsn~treatment-places~1]
+// [impl->dsn~treatment-places~2]
 /// The patient's treatment place within their unit; places taken by others are marked.
 #[component]
 fn PlaceChoice(core: Handle, revision: RwSignal<u64>, tag: String) -> impl IntoView {

@@ -604,7 +604,7 @@ async fn sync_over_websocket_survives_a_restart() {
     running.stop().await.unwrap();
 }
 
-// [itest->dsn~uhs-staff~2]
+// [itest->dsn~uhs-staff~3]
 #[tokio::test(flavor = "multi_thread")]
 async fn only_a_uhs_staff_registers_its_patients() {
     let dir = tempfile::tempdir().unwrap();
@@ -622,8 +622,9 @@ async fn only_a_uhs_staff_registers_its_patients() {
         clara.replica.rejected()
     );
 
-    // UHS 1 gets a staff list with Anna only.
+    // A medic no longer sets up a UHS's staff (ADR-0086): the incident command does.
     let mut anna = Client::connect(addr, replica("anna")).await;
+    let mut ben = Client::connect(addr, replica("ben")).await;
     let staff = patients::UhsUpdated {
         id: "UHS 1".into(),
         name: None,
@@ -634,22 +635,34 @@ async fn only_a_uhs_staff_registers_its_patients() {
     }
     .encode()
     .unwrap();
-    anna.replica
-        .record(
-            &incident(),
-            patients::UHS_COMPARTMENT,
-            patients::UHS_MODULE,
-            patients::UHS_UPDATED,
-            1,
-            &staff,
-            now(),
-        )
-        .unwrap();
-    anna.push_and_settle().await;
+    for client in [&mut anna, &mut ben] {
+        client
+            .replica
+            .record(
+                &incident(),
+                patients::UHS_COMPARTMENT,
+                patients::UHS_MODULE,
+                patients::UHS_UPDATED,
+                1,
+                &staff,
+                now(),
+            )
+            .unwrap();
+        client.push_and_settle().await;
+    }
     assert!(
-        anna.replica.rejected().is_empty(),
+        anna.replica
+            .rejected()
+            .iter()
+            .any(|r| r.reason == Rejection::Forbidden),
         "{:?}",
         anna.replica.rejected()
+    );
+    // UHS 1 gets a staff list with Anna only.
+    assert!(
+        ben.replica.rejected().is_empty(),
+        "{:?}",
+        ben.replica.rejected()
     );
 
     // Clara is not on it: the server refuses her registration there.
@@ -665,12 +678,13 @@ async fn only_a_uhs_staff_registers_its_patients() {
         clara.replica.rejected()
     );
     // Anna is; a physician works at every UHS.
+    let refused = anna.replica.rejected().len();
     anna.register("DE-0003", Immediate);
     anna.push_and_settle().await;
     let mut petra = Client::connect(addr, replica("petra")).await;
     petra.register("DE-0004", Immediate);
     petra.push_and_settle().await;
-    assert!(anna.replica.rejected().is_empty() && petra.replica.rejected().is_empty());
+    assert!(anna.replica.rejected().len() == refused && petra.replica.rejected().is_empty());
 
     running.stop().await.unwrap();
 }

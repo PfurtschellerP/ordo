@@ -158,7 +158,7 @@ impl PlaceAssigned {
     }
 }
 
-// [impl->dsn~treatment-places~1]
+// [impl->dsn~treatment-places~2]
 /// The treatment places of every unit: the latest list per unit.
 pub fn places(incident_events: &[AppliedEvent]) -> BTreeMap<String, Vec<Place>> {
     let mut sets: Vec<(Hlc, PlacesSet)> = incident_events
@@ -319,26 +319,8 @@ pub fn uhs_of_post(post: &ordo_units::Post) -> Option<&str> {
     post.id.strip_prefix("uhs:")
 }
 
-// [impl->dsn~uhs-staff~2]
-/// Who created each UHS (user ID by UHS ID): they write it while nobody is on its staff
-/// list (ADR-0082).
-pub fn uhs_creators(incident_events: &[AppliedEvent]) -> BTreeMap<String, String> {
-    let mut creators = BTreeMap::new();
-    for e in incident_events
-        .iter()
-        .filter(|e| e.body.event_type.as_str() == UHS_CREATED)
-    {
-        if let Ok(UhsCreated { id, .. }) = codec::from_cbor(&e.payload) {
-            creators
-                .entry(id)
-                .or_insert_with(|| e.body.author.user.to_string());
-        }
-    }
-    creators
-}
-
-// [impl->dsn~uhs-registry~1]
-// [impl->dsn~uhs-details~3]
+// [impl->dsn~uhs-registry~2]
+// [impl->dsn~uhs-details~4]
 /// The on-site care units of an incident, in order of creation (first wins per ID), with
 /// the current name and capacity.
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
@@ -394,7 +376,7 @@ fn uhs_updates(incident_events: &[AppliedEvent]) -> Vec<UhsUpdated> {
     updates.into_iter().map(|(_, u)| u).collect()
 }
 
-// [impl->dsn~uhs-details~3]
+// [impl->dsn~uhs-details~4]
 /// Location and staff per unit ID: the latest value of each field.
 pub fn uhs_details(incident_events: &[AppliedEvent]) -> BTreeMap<String, UhsDetails> {
     let mut details: BTreeMap<String, UhsDetails> = BTreeMap::new();
@@ -908,8 +890,10 @@ impl PatientRegister {
     }
 
     // [impl->dsn~uhs-discharge~1]
+    // [impl->dsn~server-derived-connectors~2]
     /// Patient counts per on-site care unit, sorted by unit: the patients in the unit per
-    /// triage category, and how many were discharged.
+    /// triage category, how many were discharged, its taken places (sorted) and its
+    /// patients without a place.
     pub fn counts(&self) -> BTreeMap<String, PatientCountsV1> {
         let mut counts: BTreeMap<String, PatientCountsV1> = BTreeMap::new();
         for patient in self.patients.values() {
@@ -919,11 +903,19 @@ impl PatientRegister {
                     uhs: patient.uhs.clone(),
                     ..Default::default()
                 });
-            if patient.is_present() {
-                unit.add(patient.category());
-            } else {
+            if !patient.is_present() {
                 unit.discharged += 1;
+                continue;
             }
+            unit.add(patient.category());
+            match &patient.place {
+                Some(place) => unit.taken_places.push(place.clone()),
+                None => unit.without_place += 1,
+            }
+        }
+        for unit in counts.values_mut() {
+            unit.taken_places.sort();
+            unit.taken_places.dedup();
         }
         counts
     }
@@ -947,7 +939,7 @@ impl Default for PatientCountsDeriver {
     }
 }
 
-// [impl->dsn~server-derived-connectors~1]
+// [impl->dsn~server-derived-connectors~2]
 impl Deriver for PatientCountsDeriver {
     fn source(&self) -> &CompartmentId {
         &self.source
@@ -968,7 +960,7 @@ impl Deriver for PatientCountsDeriver {
                     compartment: PatientCountsV1::COMPARTMENT.parse().expect("valid"),
                     module: PatientCountsV1::MODULE.parse().expect("valid"),
                     event_type: PatientCountsV1::EVENT_TYPE.parse().expect("valid"),
-                    schema_version: 1,
+                    schema_version: PatientCountsV1::SCHEMA_VERSION,
                     payload,
                 });
             }
@@ -1168,7 +1160,7 @@ mod tests {
         assert_eq!(decoded.algorithm, None);
     }
 
-    // [utest->dsn~uhs-details~3]
+    // [utest->dsn~uhs-details~4]
     #[test]
     fn the_latest_location_capacity_and_staff_count_per_field() {
         let shared = |n: u64, event_type: &str, payload: Vec<u8>| {

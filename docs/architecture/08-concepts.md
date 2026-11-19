@@ -217,7 +217,7 @@ First contracts:
 
 | Contract | From → to | Content |
 |---|---|---|
-| `med.patientCounts.v1` | Med → all | Counts per triage category and location, and the number discharged |
+| `med.patientCounts.v1` | Med → all | Counts per triage category and location, the number discharged, taken treatment places (IDs) and patients without a place |
 | `med.transportStatus.v1` | Med → all | Transports: unit, destination hospital, status — no patient data |
 | `fire.responderInjured.v1` | Fire → Med | Request for care: location, unit, urgency |
 | `command.dangerZones.v1` | Command → all | Danger zones, staging areas, sectors |
@@ -226,13 +226,13 @@ First contracts:
 ### 8.3.1 Design items
 
 #### Server-derived connectors
-`dsn~server-derived-connectors~1`
+`dsn~server-derived-connectors~2`
 
-A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit name, one number per triage category (patients in the unit) and the number discharged.
+A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit ID, one number per triage category (patients in the unit), the number discharged, and (schema version 2) the IDs of its taken treatment places and the number of its present patients without a place. A place ID names a place, never who lies on it.
 
 Covers:
 
-* [req~pat-6~1](../requirements/04-med.md#pat-6--patient-counts-for-command)
+* [req~pat-6~2](../requirements/04-med.md#pat-6--patient-counts-for-command)
 * [req~conn-3~1](../requirements/05-police-and-connectors.md#conn-3--minimum-necessary-data)
 
 Needs: impl, itest
@@ -1286,14 +1286,15 @@ Needs: impl, itest
 Tags: must, m13
 
 #### Treatment places
-`dsn~treatment-places~1`
+`dsn~treatment-places~2`
 
 A unit's treatment places are a list (`uhs.placesSet`: ID and label per place) in the
-shared incident compartment, created with the unit (one per patient it can take) and
-changed in *UHS verwalten*; the latest list counts. Assignments (`patients.placeAssigned`,
-place or none) are clinical events; the register keeps each patient's place. The record
-offers the places of the patient's unit and disables those taken by others; the patient
-list shows the place; *UHS verwalten* shows free places. Labels come from the app (DE:
+shared incident compartment, created with the unit (one per patient it can take) and set
+again when the incident command changes its capacity; the latest list counts.
+Assignments (`patients.placeAssigned`, place or none) are clinical events; the register
+keeps each patient's place. The record shows the patient's place at its top, offers the
+places of the patient's unit and disables those taken by others; the patient list shows
+the place; *Behandlungsplätze* shows free places. Labels come from the app (DE:
 "Platz 1"), never from the package.
 
 Covers:

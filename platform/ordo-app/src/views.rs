@@ -8,7 +8,7 @@ use leptos_router::hooks::{use_location, use_navigate};
 use ordo_contracts::TriageCategory::{
     self, Deceased, Expectant, Immediate, Minor, Uninjured, Urgent,
 };
-use ordo_med_patients::{self as med, PatientRegister, UhsCreated};
+use ordo_med_patients::{self as med, UhsCreated};
 
 use crate::core::{self, Connection, Core, Handle, Pairing};
 use crate::ui::{Disclosure, DisclosureButton, Icon, SettingSelect};
@@ -26,6 +26,18 @@ fn css_class(category: TriageCategory) -> &'static str {
         Expectant => "triage triage--expectant",
         Deceased => "triage triage--deceased",
         Uninjured => "triage triage--uninjured",
+    }
+}
+
+/// The category's key in class names, e.g. `immediate`.
+pub(crate) fn css_key(category: TriageCategory) -> &'static str {
+    match category {
+        Immediate => "immediate",
+        Urgent => "urgent",
+        Minor => "minor",
+        Expectant => "expectant",
+        Deceased => "deceased",
+        Uninjured => "uninjured",
     }
 }
 
@@ -1035,11 +1047,13 @@ fn Workspace(
             </div>
             <main id="main" class="page" tabindex="-1">
                 {move || match (current.get(), current_view.get()) {
-                    (Some("med.uhs"), Some("uhs")) => view! { <UhsSection core revision /> }.into_any(),
                     (Some("units.crew"), Some("transports")) => view! { <crate::crew::CrewTransports core revision /> }.into_any(),
                     (Some("units.crew"), _) => view! { <crate::crew::CrewTasks core revision /> }.into_any(),
                     (Some("med.uhs"), Some("orders")) => view! { <crate::orders::OrdersView core revision nav /> }.into_any(),
-                    (Some("med.uhs"), Some("overview")) => view! { <crate::overview::OverviewView core revision /> }.into_any(),
+                    // [impl->dsn~uhs-overview~3]
+                    // The places of every UHS; *UHS verwalten* is gone (ADR-0086), its
+                    // old links land here.
+                    (Some("med.uhs"), Some("places" | "overview" | "uhs")) => view! { <crate::overview::OverviewView core revision /> }.into_any(),
                     (Some("med.uhs"), _) => {
                         view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }.into_any()
                     }
@@ -1172,8 +1186,6 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~uhs-registry~1]
-/// On-site care units with their load, and a form to set one up (UHS-1, UHS-4).
 /// What someone types into a unit's details panel, and whether it is open: kept by the
 /// view under its owner, so a list that updates while they type keeps it.
 #[derive(Clone, Copy)]
@@ -1249,7 +1261,7 @@ fn staff_member(core: Handle, entry: &str) -> crate::units::Who {
     }
 }
 
-// [impl->dsn~uhs-details~3]
+// [impl->dsn~uhs-details~4]
 /// Name, capacity, place on the situation map and assigned staff of one unit (UHS-1),
 /// behind a disclosure.
 #[component]
@@ -1258,6 +1270,8 @@ fn UhsDetailsPanel(
     revision: RwSignal<u64>,
     id: String,
     name: String,
+    /// Its capacity now: a change sets its places again (ADR-0086).
+    capacity: u32,
     details: med::UhsDetails,
     draft: UhsDraft,
 ) -> impl IntoView {
@@ -1279,6 +1293,7 @@ fn UhsDetailsPanel(
         core::incident_people(core)
     });
     let error = RwSignal::new(None::<&'static str>);
+    let current_capacity = capacity;
     let save = {
         let (id, current_name) = (id.clone(), name.clone());
         move |ev: leptos::ev::SubmitEvent| {
@@ -1359,8 +1374,14 @@ fn UhsDetailsPanel(
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 error.set(None);
-                if update.capacities.is_some() && !by_category.is_empty() {
-                    let _ = core::set_category_places(core, revision, &id, &by_category);
+                // [impl->dsn~treatment-places~2]
+                // The places follow the capacity: per category, or one per patient.
+                if !by_category.is_empty() {
+                    if update.capacities.is_some() {
+                        let _ = core::set_category_places(core, revision, &id, &by_category);
+                    }
+                } else if update.capacities.is_some() || capacity != current_capacity {
+                    let _ = core::set_places(core, revision, &id, capacity);
                 }
             }
         }
@@ -1529,7 +1550,7 @@ fn UhsDetailsPanel(
     }
 }
 
-// [impl->dsn~uhs-details~3]
+// [impl->dsn~uhs-details~4]
 /// Where a UHS is: its place on the situation map, and a location text written before
 /// (kept, events are never changed). The incident command sets the place on the map.
 #[component]
@@ -1590,9 +1611,11 @@ fn UhsOnMap(
     }
 }
 
-// [impl->dsn~uhs-resources~1]
-/// The UHS among the resources (UHS-11): each with its staff, which the incident command
-/// assigns there; location and capacity in the same panel.
+// [impl->dsn~uhs-resources~2]
+// [impl->dsn~uhs-registry~2]
+/// The UHS among the resources (UHS-1, UHS-11, ADR-0086): each with its staff, which the
+/// incident command assigns there; location, capacity and places in the same panel; and the
+/// form that sets up a new one. The only place where a UHS is set up or changed.
 #[component]
 pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let rows = Memo::new(move |_| {
@@ -1609,6 +1632,14 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                 .collect::<Vec<_>>()
         })
     });
+    let editable = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| {
+            c.incident
+                .as_ref()
+                .is_some_and(|i| c.replica.may(i, med::staff::EDIT_UNITS))
+        })
+    });
     // Drafts of the panels, created under this view's owner (see `UhsDraft`).
     let owner = Owner::current().expect("a view has an owner");
     let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
@@ -1623,6 +1654,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                 if rows.is_empty() {
                     return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
                 }
+                let editable = editable.get();
                 view! {
                     <ul class="unit-list">
                         {rows
@@ -1633,8 +1665,10 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                     <li class="unit-card uhs-card" data-uhs=id.clone()>
                                         <h3>{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
-                                        <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                            draft=draft(&id, &name, capacity, &details) />
+                                        {editable.then(|| view! {
+                                            <UhsDetailsPanel core revision id=id.clone() name=name.clone() capacity
+                                                details=details.clone() draft=draft(&id, &name, capacity, &details) />
+                                        })}
                                     </li>
                                 }
                             })
@@ -1643,12 +1677,16 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                 }
                 .into_any()
             }}
+            <Show when=move || editable.get()>
+                <NewUhsForm core revision />
+            </Show>
         </section>
     }
 }
 
+/// Sets up a UHS with its name and capacity, which also gives it its places (UHS-1, UHS-7).
 #[component]
-fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let name = RwSignal::new(String::new());
     let capacity = RwSignal::new("10".to_owned());
     let error = RwSignal::new(None::<String>);
@@ -1671,121 +1709,20 @@ fn UhsSection(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             _ => error.set(Some(format!("{}: > 0", text::UHS_CAPACITY))),
         }
     };
-    let rows = move || {
-        revision.track();
-        let (register, places) = core.with_value(|c| {
-            (
-                PatientRegister::from_events(&c.events(med::COMPARTMENT)),
-                med::places(&c.events(med::UHS_COMPARTMENT)),
-            )
-        });
-        let counts = register.counts();
-        let details = core.with_value(|c| med::uhs_details(&c.events(med::UHS_COMPARTMENT)));
-        uhs_list(core)
-            .into_iter()
-            .map(|u| {
-                let n = counts
-                    .get(&u.id)
-                    .map_or(0, |c| CATEGORIES.iter().map(|k| c.get(*k)).sum());
-                let total = places.get(&u.id).map_or(0, Vec::len);
-                let taken = register
-                    .patients()
-                    .filter(|p| p.uhs == u.id && p.place.is_some())
-                    .count();
-                let d = details.get(&u.id).cloned().unwrap_or_default();
-                (
-                    u.id,
-                    u.name,
-                    n,
-                    u.capacity,
-                    total,
-                    total.saturating_sub(taken),
-                    d,
-                )
-            })
-            .collect::<Vec<_>>()
-    };
-    // Drafts of the details panels, created under this view's owner (see `UhsDraft`).
-    let owner = Owner::current().expect("a view has an owner");
-    let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, capacity: u32, details: &med::UhsDetails| {
-        UhsDraft::kept(drafts, &owner, id, name, capacity, details)
-    };
     view! {
-        <section aria-labelledby="uhs-title" class="card">
-            <h2 id="uhs-title">{text::UHS_TITLE}</h2>
-            {move || {
-                let rows = rows();
-                if rows.is_empty() {
-                    return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
-                }
-                view! {
-                    <ul class="load-list">
-                        {rows
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, (id, name, n, cap, total, free, details))| {
-                                // [impl->dsn~uhs-staff~2]
-                                // Others read a UHS's settings only (ADR-0082).
-                                let settable = crate::patients::may_set_up(core, &id);
-                                let editor = settable.then(|| view! {
-                                    <UhsDetailsPanel core revision id=id.clone() name=name.clone() details=details.clone()
-                                        draft=draft(&id, &name, cap, &details) />
-                                });
-                                // [impl->dsn~treatment-places~1]
-                                let count = RwSignal::new(total.to_string());
-                                let field = format!("places-{i}");
-                                let set = move |ev: leptos::ev::SubmitEvent| {
-                                    ev.prevent_default();
-                                    if let Ok(count) = count.get().trim().parse::<u32>() {
-                                        let _ = core::set_places(core, revision, &id, count);
-                                    }
-                                };
-                                view! {
-                                    <li class="load-list__item">
-                                        <span class="load-list__name">{name.clone()}</span>
-                                        <span>{text::COL_LOAD} ": " {text::load(n, cap)}</span>
-                                        <meter min="0" max=cap value=n aria-hidden="true"></meter>
-                                        <span class="load-list__places">{text::PLACES} ": " {text::places_free(free, total)}</span>
-                                        {settable.then(|| view! {
-                                            <form class="form form--inline" on:submit=set>
-                                                <div class="field field--small">
-                                                    <label for=field.clone()>{text::places_of(&name)}</label>
-                                                    <input id=field type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=count />
-                                                </div>
-                                                <button type="submit" class="button button--small">{text::PLACES_SET}</button>
-                                            </form>
-                                        })}
-                                        {(!settable).then(|| view! { <span class="hint">{text::uhs_read_only(&name)}</span> })}
-                                        {details.location.clone().map(|l| view! { <span class="load-list__location">{text::UHS_LOCATION} ": " {l}</span> })}
-                                        {(!details.staff.is_empty()).then(|| view! {
-                                            <span class="load-list__staff">{text::UHS_STAFF} ": " {crate::profile::naming({
-                                                let staff = details.staff.clone();
-                                                move || staff.iter().map(|s| crate::profile::display_text(core, s)).collect::<Vec<_>>().join(", ")
-                                            })}</span>
-                                        })}
-                                        {editor}
-                                    </li>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                }
-                .into_any()
-            }}
-            <form on:submit=submit class="form form--inline">
-                <div class="field">
-                    <label for="uhs-name">{text::UHS_NAME}</label>
-                    <input id="uhs-name" type="text" required bind:value=name />
-                </div>
-                <div class="field field--small">
-                    <label for="uhs-capacity">{text::UHS_CAPACITY}</label>
-                    <input id="uhs-capacity" type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=capacity />
-                </div>
-                <button type="submit" class="button">{text::UHS_SUBMIT}</button>
-            </form>
-            <p role="alert" class="error">{move || error.get()}</p>
-        </section>
+        <h3>{text::UHS_NEW}</h3>
+        <form on:submit=submit class="form form--inline new-uhs">
+            <div class="field">
+                <label for="uhs-name">{text::UHS_NAME}</label>
+                <input id="uhs-name" type="text" required bind:value=name />
+            </div>
+            <div class="field field--small">
+                <label for="uhs-capacity">{text::UHS_CAPACITY}</label>
+                <input id="uhs-capacity" type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=capacity />
+            </div>
+            <button type="submit" class="button">{text::UHS_SUBMIT}</button>
+        </form>
+        <p role="alert" class="error">{move || error.get()}</p>
     }
 }
 

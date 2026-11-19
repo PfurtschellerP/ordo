@@ -226,9 +226,10 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                 (
                     text::ACTION_CREATE_UHS,
                     "create uhs",
-                    Route::view("med.uhs", "uhs"),
+                    // Set up by the incident command (ADR-0086).
+                    Route::view("command.prepare", "units"),
                     "uhs-name",
-                    med_access,
+                    command_access,
                 ),
                 (
                     text::ACTION_ADD_UNIT,
@@ -293,9 +294,10 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
         }
         Page::Patient(tag) => {
             let record = record_route(tag);
-            let current = PatientRegister::from_events(&events(med::COMPARTMENT))
+            let patient = PatientRegister::from_events(&events(med::COMPARTMENT))
                 .patient(tag)
-                .map(|p| p.category());
+                .map(|p| (p.category(), p.uhs.clone()));
+            let current = patient.as_ref().map(|(c, _)| *c);
             let group = text::GROUP_PATIENTS;
             let mut list = vec![
                 item(
@@ -304,13 +306,26 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                     Action::Go(record.clone()),
                 )
                 .named("open record"),
+            ];
+            // [impl->dsn~uhs-staff~3]
+            // Where the person may only read the patient (UHS-10), only opening is offered.
+            let writable = patient
+                .is_some_and(|(_, uhs)| crate::patients::writable_uhs(core).contains(&uhs));
+            if !writable {
+                for i in &mut list {
+                    i.detail = text::patient_title(tag);
+                    i.suggested = true;
+                }
+                return list;
+            }
+            list.extend([
                 item(
                     group,
                     text::ACTION_TAKE_PHOTO.to_owned(),
                     Action::GoFocus(record.clone(), "photo-camera".to_owned()),
                 )
                 .named("photo"),
-            ];
+            ]);
             for f in FORMS.forms.iter().filter(|f| f.kind == FormKind::Series) {
                 let go = Action::GoClick(record.clone(), format!("new-{}", f.id));
                 list.push(

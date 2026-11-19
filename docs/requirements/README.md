@@ -152,6 +152,7 @@ the build fails.
 | 63 — Sealed key grants | `m63` | Data keys reach a device only sealed for it with X-Wing (X25519 and ML-KEM-768), so a proxy that ends TLS never sees them; sync protocol 1.4 (SEC-19, ADR-0080) |
 | 64 — Map object cards | `m64` | Pointing at an object on the situation map with a mouse, a tap or the list opens a card at the object with its details and actions: an Auftrag's state and unit, a unit's status, Auftrag, strength and qualifications, a UHS's occupancy (MAP-11) |
 | 65 — Duty pause and unused devices | `m65` | The command pauses and resumes a helper's duty (HELP-8); devices unused for 30 days are removed as if blocked (ORG-14) |
+| 66 — Treatment places for the command | `m66` | The incident command sets up and manages every UHS (UHS-1, ADR-0086); *Behandlungsplätze* shows the free places per triage category of every UHS in *Führung* from the patient counts (UHS-16, PAT-6) and in the UHS module (UHS-8) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -160,5 +161,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66 docs platform modules packages tests
 ```

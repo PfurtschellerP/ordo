@@ -20,6 +20,7 @@ mod orders;
 mod overview;
 mod palette;
 mod patients;
+mod places;
 mod profile;
 mod qr;
 mod reports;

@@ -1,10 +1,11 @@
-//! Only a UHS's staff writes it (UHS-10, ADR-0056, ADR-0082): the server's write guard for
-//! the clinical compartment and the UHS's own settings. A UHS without anyone on its staff
-//! list is written only by whoever created it and by roles allowed at every UHS. Each event is judged by the staff list valid at its clock, so documentation made
-//! offline stays valid when the list changes in between. A staff request (UHS-15) is made
-//! only by someone on the UHS's staff list.
+//! Only a UHS's staff writes its patients (UHS-10, ADR-0056, ADR-0082, ADR-0086): the
+//! server's write guard for the clinical compartment and the UHS's own settings. A UHS
+//! without anyone on its staff list is written only by roles allowed at every UHS; its
+//! settings and staff list only by the incident command. Each event is judged by the staff
+//! list valid at its clock, so documentation made offline stays valid when the list changes
+//! in between. A staff request (UHS-15) is made only by someone on the UHS's staff list.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ordo_core::codec;
 use ordo_core::{CompartmentId, Hlc};
@@ -12,14 +13,14 @@ use ordo_sync::{AppliedEvent, WriteGuard};
 use serde::Deserialize;
 
 use crate::{
-    COMPARTMENT, MOVED, PlacesSet, REGISTERED, UHS_COMPARTMENT, UHS_CREATED, UHS_PLACES,
-    UHS_UPDATED, UhsCreated, UhsUpdated,
+    COMPARTMENT, MOVED, REGISTERED, UHS_COMPARTMENT, UHS_CREATED, UHS_PLACES, UHS_UPDATED,
+    UhsCreated, UhsUpdated,
 };
 
 /// The permission of roles allowed at every UHS (Cedar action `all_uhs`).
 pub const ALL_UHS: &str = "all_uhs";
-/// The permission of those who manage the incident's resources; they also assign the
-/// staff of every UHS (UHS-11), without writing clinical data.
+/// The permission of those who manage the incident's resources; they set up every UHS and
+/// assign its staff (UHS-1, UHS-11, ADR-0086), without writing clinical data.
 pub const EDIT_UNITS: &str = "edit_units";
 
 /// What the guard needs from any clinical payload: the patient, the order, the UHS.
@@ -51,8 +52,8 @@ fn at<T>(history: &History<T>, at: Hlc) -> Option<&T> {
 #[derive(Default)]
 struct Incident {
     staff: BTreeMap<String, History<Vec<String>>>,
-    /// Who created each UHS: they set its first staff list (ADR-0082).
-    created_by: BTreeMap<String, String>,
+    /// The UHS set up so far.
+    created: BTreeSet<String>,
     patients: BTreeMap<String, History<String>>,
     orders: BTreeMap<String, String>,
 }
@@ -61,23 +62,13 @@ impl Incident {
     /// Whether the guard knows `uhs`: created or given staff. One it does not know yet
     /// (recorded offline, or by a client that skipped it) cannot be judged.
     fn knows(&self, uhs: &str) -> bool {
-        self.created_by.contains_key(uhs) || self.staff.contains_key(uhs)
+        self.created.contains(uhs) || self.staff.contains_key(uhs)
     }
 
-    /// Whether `user` may write `uhs` at `when`, its patients and its settings: on its
-    /// staff list then, or its creator while nobody is on it (ADR-0082).
+    /// Whether `user` may write the patients of `uhs` at `when`: on its staff list then
+    /// (ADR-0086: an empty list names nobody, also not the UHS's creator).
     fn may(&self, uhs: &str, user: &str, when: Hlc) -> bool {
-        !self.knows(uhs)
-            || self.on_list(uhs, user, when)
-            || (self
-                .created_by
-                .get(uhs)
-                .is_some_and(|c| c.eq_ignore_ascii_case(user))
-                && self
-                    .staff
-                    .get(uhs)
-                    .and_then(|h| at(h, when))
-                    .is_none_or(Vec::is_empty))
+        !self.knows(uhs) || self.on_list(uhs, user, when)
     }
 
     /// Whether `user` is on the staff list of `uhs` at `when` (an empty list names nobody).
@@ -105,7 +96,7 @@ impl Incident {
     }
 }
 
-// [impl->dsn~uhs-staff~2]
+// [impl->dsn~uhs-staff~3]
 /// The Med write guard (ADR-0056).
 #[derive(Default)]
 pub struct UhsStaffGuard {
@@ -133,33 +124,26 @@ impl WriteGuard for UhsStaffGuard {
                     .is_some_and(|i| i.on_list(&r.uhs, &user, e.body.hlc))
             });
         }
+        // Shared data: a UHS is set up and changed only by those who manage the incident's
+        // resources (ADR-0086); the Med policy keeps medical roles off the module too.
+        if e.body.compartment.as_str() != COMPARTMENT {
+            return match e.body.event_type.as_str() {
+                UHS_CREATED | UHS_UPDATED | UHS_PLACES => {
+                    permissions.iter().any(|p| p == EDIT_UNITS)
+                }
+                _ => true,
+            };
+        }
         if permissions.iter().any(|p| p == ALL_UHS) {
             return true;
         }
         let Some(incident) = self.incident(e) else {
             return true;
         };
-        let user = e.body.author.user.to_string();
-        let when = e.body.hlc;
-        if e.body.compartment.as_str() == COMPARTMENT {
-            // A patient not known yet (documented offline) cannot be judged.
-            return incident
-                .uhs_of(e)
-                .is_none_or(|uhs| incident.may(&uhs, &user, when));
-        }
-        // Shared data: a UHS's settings and staff list are changed by its staff, its
-        // creator while nobody is on it, and those who manage the incident's resources.
-        let uhs = match e.body.event_type.as_str() {
-            UHS_UPDATED => codec::from_cbor::<UhsUpdated>(&e.payload)
-                .ok()
-                .map(|u| u.id),
-            UHS_PLACES => codec::from_cbor::<PlacesSet>(&e.payload)
-                .ok()
-                .map(|p| p.uhs),
-            _ => return true,
-        };
-        permissions.iter().any(|p| p == EDIT_UNITS)
-            || uhs.is_some_and(|uhs| incident.may(&uhs, &user, when))
+        // A patient not known yet (documented offline) cannot be judged.
+        incident
+            .uhs_of(e)
+            .is_none_or(|uhs| incident.may(&uhs, e.body.author.user.as_ref(), e.body.hlc))
     }
 
     fn observe(&mut self, e: &AppliedEvent) {
@@ -171,10 +155,7 @@ impl WriteGuard for UhsStaffGuard {
         match e.body.event_type.as_str() {
             UHS_CREATED => {
                 if let Ok(UhsCreated { id, .. }) = codec::from_cbor(&e.payload) {
-                    incident
-                        .created_by
-                        .entry(id)
-                        .or_insert_with(|| e.body.author.user.to_string());
+                    incident.created.insert(id);
                 }
             }
             UHS_UPDATED => {
@@ -216,7 +197,7 @@ impl WriteGuard for UhsStaffGuard {
 mod tests {
     use super::*;
     use crate::testing::event;
-    use crate::{Moved, Registered, Retriaged, TriageCategory, UHS_MODULE};
+    use crate::{Moved, PlacesSet, Registered, Retriaged, TriageCategory, UHS_MODULE};
 
     fn staff(n: u64, by: &str, uhs: &str, people: &[&str]) -> AppliedEvent {
         let update = UhsUpdated {
@@ -318,22 +299,22 @@ mod tests {
         g
     }
 
-    // [utest->dsn~uhs-staff~2]
+    // [utest->dsn~uhs-staff~3]
     #[test]
     fn without_a_staff_list_only_roles_allowed_everywhere_write() {
-        let g = guard(&[created(1, "petra", "nord")]);
+        let g = guard(&[created(1, "dora", "nord")]);
         assert!(
             !g.allows(&registered(2, "anna", "DE-1", "nord"), &[]),
             "nobody on the list: others read only"
         );
         assert!(
-            g.allows(&registered(2, "petra", "DE-1", "nord"), &[]),
-            "its creator works there"
+            !g.allows(&registered(2, "dora", "DE-1", "nord"), &[]),
+            "its creator neither (ADR-0086)"
         );
         assert!(g.allows(&registered(2, "anna", "DE-1", "nord"), &[ALL_UHS.into()]));
         let g = guard(&[
-            created(1, "petra", "nord"),
-            staff(2, "petra", "nord", &["anna"]),
+            created(1, "dora", "nord"),
+            staff(2, "dora", "nord", &["anna"]),
             registered(3, "anna", "DE-1", "nord"),
             staff(4, "dora", "nord", &[]),
         ]);
@@ -343,9 +324,9 @@ mod tests {
         );
     }
 
-    // [utest->dsn~uhs-staff~2]
+    // [utest->dsn~uhs-staff~3]
     #[test]
-    fn a_uhss_settings_are_changed_by_its_staff_its_creator_and_the_command() {
+    fn only_the_command_sets_up_a_uhs_and_changes_it() {
         let places = |n, by: &str| {
             let p = PlacesSet {
                 uhs: "nord".into(),
@@ -360,37 +341,43 @@ mod tests {
                 codec::to_cbor(&p).unwrap(),
             )
         };
-        let g = guard(&[created(1, "petra", "nord")]);
-        assert!(
-            g.allows(&staff(2, "petra", "nord", &["petra"]), &[]),
-            "its creator sets the first list"
-        );
-        assert!(!g.allows(&staff(2, "carl", "nord", &["carl"]), &[]));
-        assert!(g.allows(&places(2, "petra"), &[]));
+        let command = [EDIT_UNITS.to_owned()];
+        assert!(g_allows_created(&command), "the command sets a UHS up");
+        assert!(!g_allows_created(&[]), "nobody else");
+        let g = guard(&[created(1, "dora", "nord")]);
+        assert!(g.allows(&staff(2, "dora", "nord", &["anna"]), &command));
+        assert!(g.allows(&places(2, "dora"), &command));
         assert!(!g.allows(&places(2, "carl"), &[]), "others read only");
-        assert!(
-            g.allows(&places(2, "carl"), &[EDIT_UNITS.into()]),
-            "the command"
-        );
         let g = guard(&[
-            created(1, "petra", "nord"),
+            created(1, "dora", "nord"),
             staff(2, "dora", "nord", &["anna"]),
         ]);
-        assert!(g.allows(&places(3, "anna"), &[]), "its staff");
         assert!(
-            !g.allows(&places(3, "petra"), &[]),
-            "its creator, once others are on it, only if on it too"
+            !g.allows(&places(3, "anna"), &[]),
+            "its staff neither (ADR-0086)"
+        );
+        assert!(
+            !g.allows(&staff(3, "anna", "nord", &["anna", "carl"]), &[]),
+            "nor its staff list"
+        );
+        assert!(
+            !g.allows(&places(3, "petra"), &[ALL_UHS.into()]),
+            "nor roles allowed at every UHS"
         );
     }
 
-    // [utest->dsn~uhs-staff~2]
+    fn g_allows_created(permissions: &[String]) -> bool {
+        guard(&[]).allows(&created(1, "anna", "nord"), permissions)
+    }
+
+    // [utest->dsn~uhs-staff~3]
     #[test]
     fn with_a_staff_list_only_its_staff_writes_judged_at_the_events_time() {
         let g = guard(&[
-            created(1, "petra", "sued"),
-            staff(1, "petra", "nord", &["anna"]),
+            created(1, "dora", "sued"),
+            staff(1, "dora", "nord", &["anna"]),
             registered(2, "anna", "DE-1", "nord"),
-            staff(5, "anna", "nord", &["anna", "ben"]),
+            staff(5, "dora", "nord", &["anna", "ben"]),
         ]);
         assert!(g.allows(&retriaged(6, "anna", "DE-1"), &[]), "staff");
         assert!(
@@ -423,12 +410,12 @@ mod tests {
         );
     }
 
-    // [utest->dsn~uhs-staff~2]
+    // [utest->dsn~uhs-staff~3]
     #[test]
     fn a_move_is_judged_by_the_uhs_left_and_staff_lists_by_their_staff() {
         let g = guard(&[
-            created(1, "petra", "sued"),
-            staff(1, "petra", "nord", &["anna"]),
+            created(1, "dora", "sued"),
+            staff(1, "dora", "nord", &["anna"]),
             registered(2, "anna", "DE-1", "nord"),
         ]);
         assert!(g.allows(&moved(3, "anna", "DE-1", "sued"), &[]));
@@ -444,11 +431,6 @@ mod tests {
             ),
             "the incident command assigns staff"
         );
-        assert!(g.allows(&staff(3, "anna", "nord", &["anna", "carl"]), &[]));
-        assert!(
-            !g.allows(&staff(3, "carl", "sued", &["carl"]), &[]),
-            "the first list is set by the UHS's creator or the command"
-        );
         // After the move, the new UHS's staff writes.
         let g = guard(&[
             staff(1, "petra", "nord", &["anna"]),
@@ -460,7 +442,7 @@ mod tests {
         assert!(!g.allows(&retriaged(4, "anna", "DE-1"), &[]));
     }
 
-    // [utest->dsn~uhs-staff~2]
+    // [utest->dsn~uhs-staff~3]
     #[test]
     fn order_updates_follow_the_orders_patient() {
         use crate::orders::{GIVEN, OrderGiven, OrderStatus, OrderUpdated, Ordered, UPDATED};

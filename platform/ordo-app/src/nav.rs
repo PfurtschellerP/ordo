@@ -78,8 +78,13 @@ pub const WORKSPACES: &[Workspace] = &[
         views: &[
             view("patients", "Patienten", "patients", "users"),
             view("orders", text::ORDERS, "orders", "clipboard-list"),
-            view("uhs", "UHS verwalten", "manage uhs", "tent"),
-            view("overview", text::OVERVIEW, "overview", "chart-column"),
+            // The UHS are set up by the incident command (ADR-0086); here, their places.
+            view(
+                "places",
+                text::PLACES,
+                "treatment places overview uhs free full",
+                "tent",
+            ),
         ],
         hidden: false,
     },

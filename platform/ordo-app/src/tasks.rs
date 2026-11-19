@@ -852,7 +852,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     panel_class="tasks-panel__form"
                     button=Box::new(|| view! { <Icon name="plus" />{text::TASK_NEW} }.into_any())
                 >
-                    <NewTask core revision unit=chosen kind />
+                    <NewTask core revision unit=chosen kind open=giving />
                 </Disclosure>
             </Show>
         </section>
@@ -905,6 +905,8 @@ fn NewTask(
     revision: RwSignal<u64>,
     unit: RwSignal<String>,
     kind: RwSignal<Option<NewKind>>,
+    /// The form's disclosure: closed once the Auftrag is created.
+    open: RwSignal<bool>,
 ) -> impl IntoView {
     let template = RwSignal::new(String::new());
     let place = RwSignal::new(String::new());
@@ -1000,6 +1002,9 @@ fn NewTask(
         kind.set(None);
         pin.set(None);
         error.set(None);
+        // The new Auftrag stands in the list; the focus goes back to the button.
+        open.set(false);
+        crate::views::focus("give-task-button");
     };
     view! {
         <div class="new-task">

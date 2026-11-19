@@ -874,33 +874,34 @@ Tags: must, m60
 ### 5.5.2 Med module `med.patients`
 
 #### UHS staff
-`dsn~uhs-staff~2`
+`dsn~uhs-staff~3`
 
 The UHS module starts with *Meine UHS*: the person chooses the UHS they work at, or all;
 the device remembers it, and without a choice it starts with the UHS whose staff list
 names the person. The patient list shows the chosen UHS's patients, and registration
 offers only the UHS where the person may write, starting with the chosen one (UHS-9).
 
-A UHS is written by its staff only (UHS-10,
+A UHS's patients are written by its staff only (UHS-10,
 [ADR-0056](../adr/0056-uhs-staff-write-guard.md),
-[ADR-0082](../adr/0082-only-a-uhss-staff-writes-it.md)). The server's hub asks the
-packages' write guards after the role check; the Med guard keeps each UHS's creator, its
-staff lists and each patient's UHS over time and judges an event by the list valid at its
-clock. Clinical events, `uhs.updated` and `uhs.placesSet` need the author on the list, or
-the UHS's creator while nobody is on it; the incident command (`edit_units`) also changes
-the settings and staff. Roles allowed at every UHS (`all_uhs`; DE: physicians) pass, and
-so do events about a patient or a UHS the guard does not know yet. A move is judged by the
-UHS the patient leaves.
+[ADR-0082](../adr/0082-only-a-uhss-staff-writes-it.md),
+[ADR-0086](../adr/0086-the-incident-command-sets-up-the-uhs.md)). The server's hub asks
+the packages' write guards after the role check; the Med guard keeps each UHS's staff
+lists and each patient's UHS over time and judges an event by the list valid at its
+clock. Clinical events need the author on the list; an empty list names nobody. Roles
+allowed at every UHS (`all_uhs`; DE: physicians) pass, and so do events about a patient
+or a UHS the guard does not know yet. A move is judged by the UHS the patient leaves. A
+UHS's settings and staff list (`uhs.updated`, `uhs.placesSet`) need `edit_units`, the
+incident command; the Med policy does not let medical roles write the module `med.uhs`.
 
 The app offers nothing the guard would refuse: the patient record of a UHS the person may
 not write says so at the top, and its sections are in a disabled fieldset whose controls
-are hidden; *UHS verwalten* shows another UHS's settings without forms; registration lists
-only writable UHS. A refusal by the server stays the exception.
+are hidden; registration lists only writable UHS; the UHS module has no form for a UHS's
+settings. A refusal by the server stays the exception.
 
 Covers:
 
 * [req~uhs-9~1](../requirements/04-med.md#uhs-9--working-uhs)
-* [req~uhs-10~2](../requirements/04-med.md#uhs-10--only-a-uhss-staff-writes-its-patients)
+* [req~uhs-10~3](../requirements/04-med.md#uhs-10--only-a-uhss-staff-writes-its-patients)
 
 Needs: impl, utest, itest
 
@@ -934,14 +935,16 @@ Needs: impl, utest, itest
 Tags: should, m62
 
 #### UHS among the resources
-`dsn~uhs-resources~1`
+`dsn~uhs-resources~2`
 
 The view *Einsatzmittel* of the incident command lists, after the units, every UHS as a card
-with its staff count and the same panel as in *UHS verwalten*: location, capacity and
-staff, the staff added from the incident's people. Assigning staff is `uhs.updated` with
-the whole list in the shared compartment. The command may change every UHS's staff list
-through its permission `edit_units` (see UHS staff), but it reads and writes no clinical
-data.
+with its staff count and its details panel ([UHS details](#uhs-details)): location,
+capacity and staff, the staff added from the incident's people. Below the cards, a form
+sets up a new UHS with name and capacity. This is the only place where a UHS is set up or
+changed ([ADR-0086](../adr/0086-the-incident-command-sets-up-the-uhs.md)). Assigning staff
+is `uhs.updated` with the whole list in the shared compartment. The command changes every
+UHS through its permission `edit_units` (see UHS staff), but it reads and writes no
+clinical data.
 
 Covers:
 
@@ -1020,14 +1023,16 @@ Needs: impl, utest, itest
 Tags: must, m57
 
 #### UHS registry
-`dsn~uhs-registry~1`
+`dsn~uhs-registry~2`
 
 On-site care units are set up with `uhs.created` events (module `med.uhs`: ID, name,
 kind, capacity) in the shared `incident` compartment, because they are not clinical and
 command needs names and capacities next to the patient counts. Patients and the
-`med.patientCounts.v1` connector refer to the UHS by ID. The Med workspace lists every
-UHS with its load (patients / capacity); registration asks for the UHS explicitly; the
-command workspace shows counts and load per UHS.
+`med.patientCounts.v1` connector refer to the UHS by ID. The incident command sets them up
+on *Vorbereitung – Einsatzmittel* ([UHS among the resources](#uhs-among-the-resources));
+the Med workspace lists every UHS with its places
+([UHS overview](#uhs-overview)); registration asks for the UHS explicitly; the command
+workspace shows counts and load per UHS.
 
 Covers:
 
@@ -1038,16 +1043,19 @@ Needs: impl, itest
 Tags: must, m4
 
 #### UHS details
-`dsn~uhs-details~3`
+`dsn~uhs-details~4`
 
 A unit is set up with name, kind and capacity (`uhs.created`). `uhs.updated` (module
 `med.uhs`, shared `incident` compartment, no clinical data) changes its name (schema
 version 2; the log shows the renaming), its organisation, service and strength (schema
 version 3, *UHS as a unit*), its capacity and its assigned staff (names or user
 IDs, the whole list); a field left out keeps its value, and the latest change of each field
-counts (hybrid logical clock). *UHS verwalten* shows place and staff per unit and changes
-them in a details panel, with the incident's people suggested; the overview and the
-command's counts use the current capacity.
+counts (hybrid logical clock). The incident command changes them in a details panel on
+*Vorbereitung – Einsatzmittel*, with the incident's people suggested
+([ADR-0086](../adr/0086-the-incident-command-sets-up-the-uhs.md)); the overview and the
+command's counts use the current capacity. A changed capacity sets the places again: one
+per patient without a capacity per category, else per category
+([Treatment places](08-concepts.md#treatment-places)).
 
 The place of a unit is the UHS on the situation map (`map.objectPlaced`, kind `uhs`), not a
 text field ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)). The details panel
@@ -1058,32 +1066,60 @@ location text written before (the field `location` of `uhs.updated`) is still sh
 
 Covers:
 
-* [req~uhs-1~1](../requirements/04-med.md#uhs-1--on-site-care-units)
+* [req~uhs-1~2](../requirements/04-med.md#uhs-1--on-site-care-units)
 
 Needs: impl, utest, itest
 
 Tags: must, m30, m54
 
 #### UHS overview
-`dsn~uhs-overview~2`
+`dsn~uhs-overview~3`
 
-The Med workspace's view *Übersicht* shows one card per on-site care unit, computed on
-the device from what it already holds (clinical and shared incident events): the patients
-in the unit by triage category and the load against capacity (the same category row as
-the command's counts), free treatment places, open orders of its patients, its open and
-planned transports, and how many it discharged. A first card adds up all units, so the
-medical lead sees the whole incident at a glance (MANV). The Med package computes the summary
-(`overview`), so the numbers are tested apart from the page. Only people who read the
-clinical compartment have the workspace; the command keeps its counts without clinical
-details. It shows numbers only and ranks nothing.
+The Med workspace's view *Behandlungsplätze* shows every on-site care unit the person
+may read, computed on the device from what it already holds (clinical and shared
+incident events), with the treatment-place strips of
+[Treatment places for the command](#treatment-places-for-the-command): free and all
+places per triage category, and the patients without a place. A line per unit adds its
+open orders and its open and planned transports. All units added up come first, so the
+medical lead sees the whole incident at a glance (MANV). The Med package computes the
+summary (`overview`) and the occupancy (`occupancy`), so the numbers are tested apart
+from the page. It shows numbers only and ranks nothing.
 
 Covers:
 
-* [req~uhs-8~2](../requirements/04-med.md#uhs-8--overview-for-the-medical-lead)
+* [req~uhs-8~3](../requirements/04-med.md#uhs-8--treatment-places-of-every-uhs)
 
 Needs: impl, utest, itest
 
 Tags: should, m22
+
+#### Treatment places for the command
+`dsn~command-treatment-places~1`
+
+*Führung – Übersicht* shows the tile *Behandlungsplätze* across the width: first all
+units added up, then one row per unit with places. A row names the unit and its free and
+all places in large figures ("7 frei von 15") and the patients without a place. Then comes
+one strip per triage category the places are kept for, places without one last. A strip
+starts with the category's badge (shape and text, never colour alone) and has one box per
+place: filled when taken, dashed when free. The free count follows; a full category says
+"voll", hatched and outlined. Each strip is an image with a text alternative ("SK II:
+4 von 4 belegt, voll"). On phones the boxes wrap under the badge. A unit without places
+shows its load against its capacity instead.
+
+The numbers come from the shared incident compartment only: the places
+(`uhs.placesSet`, with their categories) and the latest `med.patientCounts.v1` of each
+unit, which names its taken places and its patients without a place
+([Server-derived connectors](08-concepts.md#server-derived-connectors)). The Med package
+computes the strips (`occupancy`) for the command and for the Med workspace alike, so both
+show the same numbers.
+
+Covers:
+
+* [req~uhs-16~1](../requirements/04-med.md#uhs-16--free-treatment-places-for-the-incident-command)
+
+Needs: impl, utest, itest
+
+Tags: should, m66
 
 #### Patient triage history
 `dsn~patient-triage-history~1`

@@ -173,12 +173,14 @@ pub const NO_WORKSPACE: &str =
     "Für dieses Gerät ist in diesem Einsatz noch kein Arbeitsbereich freigegeben.";
 
 pub const UHS_TITLE: &str = "Unfallhilfsstellen";
-pub const UHS_EMPTY: &str = "Noch keine UHS angelegt.";
+pub const UHS_EMPTY: &str =
+    "Noch keine UHS angelegt. Die Einsatzleitung legt sie unter Vorbereitung – Einsatzmittel an.";
 pub const UHS_NAME: &str = "Name der UHS";
 pub const UHS_CAPACITY: &str = "Kapazität (Patienten)";
 pub const UHS_SUBMIT: &str = "UHS anlegen";
+pub const UHS_NEW: &str = "Neue UHS";
 pub const UHS_CHOOSE: &str = "UHS wählen";
-pub const NO_UHS: &str = "Zuerst eine UHS anlegen.";
+pub const NO_UHS: &str = "Noch keine UHS, in der Sie dokumentieren dürfen. Die Einsatzleitung legt UHS an und teilt ihr Personal ein.";
 pub const COL_LOAD: &str = "Belegung";
 pub fn load(patients: u32, capacity: u32) -> String {
     format!("{patients} / {capacity}")
@@ -465,9 +467,7 @@ pub const OPEN_LABEL: &str = "offen";
 pub const NO_OPEN_TASKS: &str = "Keine offenen Aufträge.";
 pub const PERSONS_ON_SCENE: &str = "Einsatzkräfte vor Ort";
 pub const UNITS_ON_SCENE: &str = "Einsatzmittel vor Ort";
-pub const UHS_TILE: &str = "UHS";
 pub const QUICK_LINKS: &str = "Schnellzugriff";
-pub const BY_CATEGORY: &str = "Nach Sichtungskategorie";
 pub fn follow_ups_due(n: usize) -> String {
     match n {
         1 => "1 Nachfrage fällig".to_owned(),
@@ -626,7 +626,6 @@ pub fn priority_changed(tag: &str, set: bool) -> String {
 pub const PLACES: &str = "Behandlungsplätze";
 pub const PLACE: &str = "Behandlungsplatz";
 pub const NO_PLACE: &str = "Kein Platz";
-pub const PLACES_SET: &str = "Übernehmen";
 
 pub fn place_label(n: u32) -> String {
     format!("Platz {n}")
@@ -681,12 +680,35 @@ pub fn place_taken(label: &str, by: &str) -> String {
     format!("{label} (belegt: {by})")
 }
 
-pub fn places_of(name: &str) -> String {
-    format!("Behandlungsplätze {name}")
-}
-
 pub fn places_free(free: usize, total: usize) -> String {
     format!("{free} von {total} frei")
+}
+
+// Free treatment places per category (UHS-8, UHS-16, ADR-0086)
+pub const PLACES_ALL: &str = "Alle UHS";
+pub const PLACES_ANY: &str = "ohne Kategorie";
+pub const PLACES_FULL: &str = "voll";
+pub const PLACES_NONE: &str = "Keine Behandlungsplätze angelegt.";
+pub const PLACES_LEGEND: &str = "Ein Kästchen je Platz: gefüllt belegt, gestrichelt frei. Volle Kategorien sind schraffiert und mit „voll“ benannt.";
+
+/// "frei von 15", after the large number of free places.
+pub fn free_of(total: usize) -> String {
+    format!("frei von {total}")
+}
+
+/// "2 ohne Platz": patients waiting for a place.
+pub fn without_place(n: u32) -> String {
+    format!("{n} ohne Platz")
+}
+
+/// The text of a category's strip of places, e.g. "SK II: 4 von 4 belegt, voll".
+pub fn place_strip(category: &str, taken: usize, total: usize) -> String {
+    let free = total.saturating_sub(taken);
+    if free == 0 {
+        format!("{category}: {taken} von {total} belegt, voll")
+    } else {
+        format!("{category}: {taken} von {total} belegt, {free} frei")
+    }
 }
 
 // Transport requests (TRANS-1, TRANS-3)
@@ -1001,7 +1023,6 @@ pub fn document_order_label(what: &str) -> String {
 
 // Overview for the medical lead (UHS-8).
 pub const OVERVIEW: &str = "Übersicht";
-pub const OVERVIEW_TITLE: &str = "Übersicht der UHS";
 
 /// "Offene Anordnungen: 3 (1 nicht bestätigt)"
 pub fn open_orders(n: usize, unconfirmed: usize) -> String {
@@ -1024,7 +1045,6 @@ pub const VERSION_UNSUPPORTED: &str =
 pub const MOVE_TO: &str = "Verlegen nach";
 pub const MOVE_CHOOSE: &str = "Einheit wählen";
 pub const MOVE: &str = "Verlegen";
-pub const TOTAL_TITLE: &str = "Alle Einheiten";
 
 /// "Verlegt: Patientenablage Nord → Behandlungsplatz"
 pub fn moved(from: &str, to: &str) -> String {
@@ -1900,11 +1920,6 @@ pub const ALL_UHS: &str = "Alle UHS";
 
 pub fn read_only_uhs(name: &str) -> String {
     format!("{name} (nur lesen)")
-}
-
-/// Next to a UHS whose settings the person may only read (ADR-0082).
-pub fn uhs_read_only(uhs: &str) -> String {
-    format!("Nur lesen: Sie stehen nicht auf der Personalliste von {uhs}.")
 }
 
 /// Above a record the person may only read (UHS-10).

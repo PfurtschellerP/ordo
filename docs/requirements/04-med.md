@@ -50,9 +50,9 @@ Tags: must, med, m25
 Needs: dsn
 
 #### PAT-6 — Patient counts for command
-`req~pat-6~1`
+`req~pat-6~2`
 
-While an incident has registered patients, ORDO shall publish the number of patients per triage category and location to the shared incident compartment through the patient-count connector. The connector shall contain numbers only.
+While an incident has registered patients, ORDO shall publish to the shared incident compartment, through the patient-count connector, the number of patients per triage category and location, which treatment places are taken, and how many patients have no place. The connector shall contain numbers and place IDs only.
 
 Tags: must, med, m1
 
@@ -106,9 +106,9 @@ Needs: dsn
 ### 4.10 Med package: on-site care units (UHS)
 
 #### UHS-1 — On-site care units
-`req~uhs-1~1`
+`req~uhs-1~2`
 
-ORDO shall allow creating on-site care units (*Unfallhilfsstelle UHS*, *Behandlungsplatz*, patient collection point), each with location, capacity and assigned staff.
+ORDO shall let the incident command create on-site care units (*Unfallhilfsstelle UHS*, *Behandlungsplatz*, patient collection point), each with location, capacity and assigned staff, and change them; ORDO shall refuse creating or changing them from anyone else.
 
 Tags: must, med, m30, m54
 
@@ -168,10 +168,10 @@ Tags: must, med, m12
 
 Needs: dsn
 
-#### UHS-8 — Overview for the medical lead
-`req~uhs-8~2`
+#### UHS-8 — Treatment places of every UHS
+`req~uhs-8~3`
 
-ORDO shall show the medical lead (e.g. LNA, OrgL) one overview of all on-site care units they may read, per unit and in total: the patients in it by triage category against its capacity, free treatment places, open orders, open and planned transports, and the number discharged.
+ORDO shall show the people of the UHS module one overview of all on-site care units they may read, per unit and in total: the free and all treatment places per triage category they are kept for, the patients without a place, open orders, and open and planned transports, so that they see which unit is full and where else a patient could go.
 
 Tags: should, med, m22
 
@@ -187,9 +187,9 @@ Tags: must, med, m37
 Needs: dsn
 
 #### UHS-10 — Only a UHS's staff writes its patients
-`req~uhs-10~2`
+`req~uhs-10~3`
 
-ORDO shall accept registering, documenting and changing a UHS's patients only from people on its staff list, from whoever created the UHS while nobody is on that list, and from roles allowed at every UHS, and changing its settings and staff list only from them and from the incident command, judged by the staff list valid at the time of the change, so that documentation made offline is not refused because of a later change. Where a person may only read a UHS, ORDO shall not offer them to change anything there.
+ORDO shall accept registering, documenting and changing a UHS's patients only from people on its staff list and from roles allowed at every UHS, judged by the staff list valid at the time of the change, so that documentation made offline is not refused because of a later change. Where a person may only read a UHS, ORDO shall not offer them to change anything there.
 
 Tags: must, med, m37
 
@@ -250,6 +250,18 @@ access to its patients, and give that person an Auftrag to go there. ORDO shall 
 the request of anyone not on that staff list.
 
 Tags: should, med, m62
+
+Needs: dsn
+
+#### UHS-16 — Free treatment places for the incident command
+`req~uhs-16~1`
+
+While an incident has on-site care units with treatment places, ORDO shall show the
+incident command, per unit and in total, the free and all treatment places per triage
+category they are kept for, and the number of patients without a place, from the
+patient-count connector and without clinical data.
+
+Tags: should, med, m66
 
 Needs: dsn
 

@@ -876,7 +876,7 @@ pub fn create_uhs(
     set_places(core, revision, &uhs, capacity)
 }
 
-// [impl->dsn~treatment-places~1]
+// [impl->dsn~treatment-places~2]
 /// Sets the number of treatment places of a unit: places 1..=`count`, keeping the labels
 /// of existing ones.
 pub fn set_places(
@@ -1214,7 +1214,7 @@ pub fn update_task(
     )
 }
 
-// [impl->dsn~uhs-details~3]
+// [impl->dsn~uhs-details~4]
 /// Changes the location, capacity or staff of an on-site care unit (UHS-1).
 pub fn update_uhs(
     core: Handle,

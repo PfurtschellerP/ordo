@@ -146,7 +146,7 @@ fn offline_registration_appears_everywhere_after_reconnect() {
 
 /// Scenario: Command sees patient counts but never patient data.
 // [itest->dsn~compartment-scoped-sync~1]
-// [itest->dsn~server-derived-connectors~1]
+// [itest->dsn~server-derived-connectors~2]
 #[test]
 fn command_sees_counts_but_never_patient_data() {
     let mut world = World::new();
@@ -218,7 +218,7 @@ fn clinical_payloads_are_sealed_on_the_server() {
 
 /// Scenario: Re-triage keeps the history; counts follow.
 // [itest->dsn~patient-triage-history~1]
-// [itest->dsn~server-derived-connectors~1]
+// [itest->dsn~server-derived-connectors~2]
 #[test]
 fn retriage_keeps_history_and_updates_counts() {
     let mut world = World::new();
@@ -684,7 +684,7 @@ fn damaged_saved_state_is_rejected() {
 }
 
 /// Several on-site care units and units (vehicles, teams) in one incident.
-// [itest->dsn~uhs-registry~1]
+// [itest->dsn~uhs-registry~2]
 #[test]
 fn several_uhs_and_units_in_one_incident() {
     use ordo_med_patients::{UhsCreated, UhsKind};
@@ -1044,7 +1044,7 @@ fn transport_priority_follows_the_profile_and_ends_on_downgrade() {
     );
 }
 
-// [itest->dsn~treatment-places~1]
+// [itest->dsn~treatment-places~2]
 /// Treatment places are shared incident data (command sees them); which patient lies on
 /// which place is clinical and reaches medics only.
 #[test]

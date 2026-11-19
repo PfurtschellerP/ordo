@@ -16,11 +16,12 @@ when {
   context.roles.contains("paramedic")
 };
 
-// … and write to it, except units, tasks, the command structure, the situation map, the
-// hospital list and reports: these belong to the incident command (edit_units, TASK-1,
-// CMD-1, MAP-1, TRANS-2, REP-1). A crew sets its unit's status and moves its tasks on
-// (UNIT-9, ADR-0079), and writes that it took a patient over from a patient Auftrag (REP-3,
-// ADR-0081; `reports.patientRegistered` for incidents recorded before it, ADR-0075).
+// … and write to it, except units, the UHS themselves, tasks, the command structure, the
+// situation map, the hospital list and reports: these belong to the incident command
+// (edit_units, UHS-1 and ADR-0086, TASK-1, CMD-1, MAP-1, TRANS-2, REP-1). A crew sets its
+// unit's status and moves its tasks on (UNIT-9, ADR-0079), and writes that it took a
+// patient over from a patient Auftrag (REP-3, ADR-0081; `reports.patientRegistered` for
+// incidents recorded before it, ADR-0075).
 @id("med.medic-incident-write")
 permit (
   principal,
@@ -32,6 +33,7 @@ when {
    context.roles.contains("physician") ||
    context.roles.contains("paramedic")) &&
   (context.module != "units" || context.event_type == "units.statusChanged") &&
+  context.module != "med.uhs" &&
   (context.module != "tasks" ||
    context.event_type == "tasks.updated" ||
    context.event_type == "tasks.patientRegistered") &&
