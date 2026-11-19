@@ -257,6 +257,8 @@ impl Core {
             (patients::MODULE, patients::REGISTERED) => patients::REGISTERED_SCHEMA,
             (patients::MODULE, patients::RETRIAGED) => patients::TRIAGE_SCHEMA,
             (ordo_tasks::MODULE, ordo_tasks::GIVEN) => ordo_tasks::GIVEN_SCHEMA,
+            (ordo_tasks::MODULE, ordo_tasks::ASSIGNED) => ordo_tasks::ASSIGNED_SCHEMA,
+            (ordo_tasks::MODULE, ordo_tasks::UPDATED) => ordo_tasks::UPDATED_SCHEMA,
             (ordo_map::MODULE, ordo_map::PLACED) => ordo_map::PLACED_SCHEMA,
             (ordo_helpers::MODULE, ordo_helpers::REGISTERED | ordo_helpers::UPDATED) => {
                 ordo_helpers::SCHEMA
@@ -688,7 +690,7 @@ fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
     }
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// Registers a patient: stored locally at once, sent when connected. From a patient
 /// Auftrag (`case`: the Auftrag and the unit whose crew takes the patient over, REP-3) the
 /// record names it, and the incident command learns that it has a patient, without tag or
@@ -741,7 +743,7 @@ pub fn register(
     )
 }
 
-// [impl->dsn~guest-access~3]
+// [impl->dsn~guest-access~4]
 /// Asks for a guest of the chosen incident, or with `guest` a new code for one, whose access
 /// ends at `until` (ADR-0077); `tag` comes back with the answer.
 pub fn create_guest(core: Handle, guest: Option<UserId>, until: u64, tag: &str, name: &str) {
@@ -1137,7 +1139,7 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~6]
+// [impl->dsn~tasks~7]
 /// Gives a task or records a report as an Auftrag (TASK-1, REP-1): a new ID, then the event
 /// in the shared incident compartment. Returns the ID.
 pub fn give_task(
@@ -1171,8 +1173,8 @@ pub fn give_task(
     Ok(id)
 }
 
-// [impl->dsn~tasks~6]
-/// Names the one unit of an Auftrag that has not started (REP-2).
+// [impl->dsn~tasks~7]
+/// Adds a unit to an open Auftrag (REP-2, ADR-0085).
 pub fn assign_task(
     core: Handle,
     revision: RwSignal<u64>,

@@ -207,18 +207,18 @@ Unix epoch: their end of duty), optionally the name they are shown by, and a `ta
 64 characters that comes back. The server MUST make guests only for a user whose roles in
 that incident permit `assign_role` and who is no guest. It makes the user ID
 `guest-<ULID>@<server>`, a code of 256 random bits (base64url), keeps only its SHA-256 hash,
-valid once for the time the installation sets (default 30 minutes,
-[ADR-0078](../../docs/adr/0078-guest-codes-last-30-minutes-set-per-installation.md)), and answers `guest` with the guest's ID, the link
-`<public address>/?guest=<code>`, the link as QR code (SVG) and the code's end; a new code
-makes the guest's unused ones invalid. Anyone else gets `guest` without ID, link and code.
+valid for all the guest's devices until the access ends
+([ADR-0083](../../docs/adr/0083-guest-codes-last-as-long-as-the-access.md),
+[ADR-0084](../../docs/adr/0084-one-guest-code-pairs-all-their-devices.md)), and answers
+`guest` with the guest's ID, the link `<public address>/?guest=<code>`, the link as QR code
+(SVG) and the code's end; a new code makes the guest's earlier ones invalid. Anyone else gets `guest` without ID, link and code.
 The server MUST NOT log codes, and MUST map no login to a name that starts with `guest-`.
 `setGuestAccess` moves the end of a guest's access (now or earlier ends it); the server
 MUST set it as the end of the login of the guest's devices and cut their connections once
 it has passed (`refused: loginExpired`), for the same users as `createGuest`. Guests are not
 renewed. A device pairs with a code over HTTP (`POST /auth/guest` with `code`, `device`,
-`key`, optional `name`; HTTP API 1.1): the server MUST use up the code in one step, refuse
-an unknown, used or expired code, or one of a guest whose access has ended, alike with
-`403`, answer `429` after 20 refused codes in a minute, and on success answer the guest's
+`key`, optional `name`; HTTP API 1.1): the server MUST refuse an unknown, replaced or
+expired code, or one of a guest whose access has ended, alike with `403`, answer `429` after 20 refused codes in a minute, and on success answer the guest's
 `user` and `incident`. A session agreed on 1.2 or older gets no answer to the guest
 messages.
 

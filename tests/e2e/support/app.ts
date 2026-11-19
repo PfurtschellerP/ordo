@@ -87,7 +87,7 @@ export async function grantRole(page: Page, user: string, role: string): Promise
   const form = page.locator("form.helper-form");
   await form.locator("#helper-account").fill(user);
   await form.locator("#helper-account").blur();
-  await form.locator("#helper-role").selectOption({ label: role });
+  await form.getByRole("group", { name: "Rollen im Einsatz" }).getByLabel(role, { exact: true }).check();
   await form.getByRole("button", { name: /^(Aufnehmen|Rolle vergeben)$/ }).click();
   await expect(page.locator(".roster__entry", { hasText: user }).filter({ hasText: role })).toBeVisible();
 }
@@ -112,10 +112,13 @@ export async function createUhs(page: Page, name: string, capacity: number): Pro
 }
 
 /** Registers a patient; `category` is the index of the triage category, or none. */
-export async function register(page: Page, tag: string, category?: number, uhs?: string): Promise<void> {
+/** Registers a patient; at a UHS with places, on `place` (a label) or on none. */
+export async function register(page: Page, tag: string, category?: number, uhs?: string, place?: string): Promise<void> {
   if (uhs) await page.locator("#uhs").selectOption({ label: uhs });
   await page.locator("#tag").fill(tag);
   if (category !== undefined) await page.locator("input[name=category]").nth(category).check();
+  const places = page.locator("#register-place");
+  if (await places.isVisible()) await places.selectOption({ label: place ?? "Kein Platz" });
   await page.getByRole("button", { name: "Registrieren" }).click();
 }
 

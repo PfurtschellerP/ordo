@@ -51,7 +51,6 @@ pub struct App {
     dex_api: Option<crate::dex_api::DexApi>,
     /// Test logins through new or changed upstream providers (ORG-11).
     pub(crate) login_tests: crate::providers::Tests,
-    /// How long a guest's one-time code works (ms; ADR-0078).
     /// Refused guest codes per minute (ADR-0077).
     pub(crate) guest_refusals: crate::guests::Refusals,
     /// Whether temporary connectors left from before the start were looked for.
@@ -160,7 +159,7 @@ impl App {
         Ok(true)
     }
 
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// Pairs a device with a guest (ADR-0077): like [`Self::register_device`], with the
     /// login ending at the guest's end of duty and no renewal.
     pub(crate) async fn register_guest_device(
@@ -221,7 +220,7 @@ impl App {
     // [impl->dsn~organisation-roles~1]
     /// Cuts the connections of people whose organisation role ran out since the last
     /// check: their devices reconnect with what they may do now.
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// Ends the access of guests whose incident is closed (ADR-0083); their sessions are
     /// cut with the expired ones.
     pub(crate) async fn end_guests_of_closed_incidents(&self) -> Result<(), StoreError> {

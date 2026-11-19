@@ -314,7 +314,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~6`
+`dsn~tasks~7`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment
 ([ADR-0081](../adr/0081-one-einsatzauftrag.md)). `tasks.given` (schema version 3) gives
@@ -323,11 +323,17 @@ an Auftrag a new ID (ULID): to a unit (call sign), a position of the command str
 the profile (`tasks/templates.toml`), and optionally with a time to follow up. A report
 ([Reports](#reports)) is an Auftrag with a kind (`event` or `patient`), a place and the
 time it came in; it may come without anyone and waits for its unit. `tasks.assigned`
-names the unit of an Auftrag that has not started (one unit per Auftrag; the latest by
-clock counts). `tasks.updated` moves it on (open → in progress → done, or cancelled; never
-back) and may set a new follow-up time; the latest update by hybrid logical clock counts,
-every step stays in its history with who and when. Shown states: *Eingegangen* (open,
-nobody), *Zugewiesen* (open, someone), *In Arbeit*, *Erledigt*, *Abgebrochen*. A follow-up is due once its time has passed and the task is open; until
+(schema version 2) adds a unit to an open Auftrag, never twice
+([ADR-0085](../adr/0085-several-units-on-one-einsatzauftrag.md)); version 1 named the
+one unit of an Auftrag that had not started. `tasks.updated` moves it on (open → in
+progress → done, or cancelled; never back) and may set a new follow-up time; with `unit`
+(schema version 2) the step is that unit's only. An Auftrag with units is in progress once
+one unit is and done once every unit is; a step without a unit is the whole Auftrag's
+(an Auftrag for a position or a person, the command's cancel, which ends every unit's
+part, and version 1). Updates apply in hybrid logical clock order, every step stays in its
+history with who and when. Shown states: *Eingegangen* (open, nobody), *Zugewiesen*
+(open, someone), *In Arbeit*, *Erledigt*, *Abgebrochen*; with more than one unit, the
+card lists each unit with its state and steps. A follow-up is due once its time has passed and the task is open; until
 then the task card shows the time and counts the minutes and seconds left down (not
 announced to screen readers each second).
 
@@ -341,8 +347,8 @@ them (feedback of 2026-11-14 and 2026-11-17). On every page, everyone in an inci
 bell in the header (since 2026-11-18 for every role). For the command (`view_situation`)
 it counts what needs attention now: follow-ups that are due, Aufträge without anyone, and
 open staff requests, each linked to *Disposition*. For everyone else it counts the
-Aufträge given to them or to a unit whose crew names them that are assigned but not
-started, each linked to *Sanität – Besatzung*. Its number is text, its name says it
+Aufträge given to them, or whose part for a unit whose crew names them has not started,
+each linked to *Sanität – Besatzung*. Its number is text, its name says it
 ("Hinweise: 2"), and its panel lists each item.
 Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
 colour alone.
@@ -350,7 +356,7 @@ colour alone.
 Covers:
 
 * [req~task-1~2](../requirements/02-shared.md#task-1--give-tasks)
-* [req~task-2~2](../requirements/02-shared.md#task-2--task-status)
+* [req~task-2~3](../requirements/02-shared.md#task-2--task-status)
 * [req~task-3~4](../requirements/02-shared.md#task-3--open-tasks-always-visible)
 * [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
 
@@ -813,7 +819,7 @@ Tags: should, m59
 ### 5.5.1e Shared module `reports`
 
 #### Reports
-`dsn~reports~2`
+`dsn~reports~3`
 
 Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
 [ADR-0081](../adr/0081-one-einsatzauftrag.md)). No clinical data.
@@ -825,15 +831,18 @@ Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
   sets it, "Pin in Kartenmitte setzen" sets it from the keyboard, and it can be removed
   before saving.
 * **Pin:** a map object of the kind `task` (`map.objectPlaced`, schema version 4,
-  `reference` the Auftrag's ID). The card moves it in place, with the same small map. A
-  linked Auftrag ("Weiteres Einsatzmittel schicken", `follows`) uses the first one's pin.
-  The situation map shows a pin while one of its Aufträge is open; the map event stays.
+  `reference` the Auftrag's ID). The card moves it in place, with the same small map.
+  "Weiteres Einsatzmittel schicken" adds a unit to the Auftrag (ADR-0085), offering only
+  units not on it yet; a linked Auftrag of an older incident (`follows`) uses the first
+  one's pin. The situation map shows a pin while one of its Aufträge is open; the map
+  event stays.
 * **Patient from a patient Auftrag** (`tasks.patientRegistered`: Auftrag and unit):
   written by the device of a crew member when they register the patient;
   `patients.registered` (schema version 5) names the Auftrag in `task`, in `med.clinical`.
   The incident event carries neither the triage tag nor the category.
-* **End:** the crew's "Erledigt" or the command's "Abbrechen" ends it; it is no longer
-  listed as open and its pin leaves the map.
+* **End:** the "Erledigt" of the last unit still working, or the command's "Abbrechen",
+  ends it; it is no longer listed as open and its pin leaves the map. A unit that is done
+  leaves its crew's list while the others work on.
 * **Old incidents:** the events of the module `reports` (ADR-0075) are still read. Each
   task that names a report shows with the report's kind, place and description and its
   pin of the kind `report`; an open report no task names shows as *Eingegangen*, and
@@ -853,10 +862,10 @@ The incident log names each report event in words.
 Covers:
 
 * [req~rep-1~2](../requirements/02-shared.md#rep-1--record-reports)
-* [req~rep-2~2](../requirements/02-shared.md#rep-2--assign-reports-to-units)
+* [req~rep-2~3](../requirements/02-shared.md#rep-2--assign-reports-to-units)
 * [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
 * [req~rep-4~3](../requirements/02-shared.md#rep-4--place-on-the-map)
-* [req~rep-5~2](../requirements/02-shared.md#rep-5--close-reports)
+* [req~rep-5~3](../requirements/02-shared.md#rep-5--close-reports)
 
 Needs: impl, utest, itest
 

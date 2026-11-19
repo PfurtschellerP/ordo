@@ -1088,12 +1088,12 @@ impl Client {
     }
 }
 
-// [itest->dsn~guest-access~3]
-/// A helper without an account (ADR-0077): the incident command makes a guest and a
-/// one-time code; a medic may not; the code pairs one device once; the guest's device
-/// connects and is cut off when the command ends their access.
+// [itest->dsn~guest-access~4]
+/// A helper without an account (ADR-0077): the incident command makes a guest and a code;
+/// a medic may not; the code pairs each of the guest's devices until a new code replaces it
+/// (ADR-0084); the guest's device connects and is cut off when the command ends their access.
 #[tokio::test(flavor = "multi_thread")]
-async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() {
+async fn a_guest_pairs_their_devices_with_a_code_and_loses_access_with_the_end_of_duty() {
     let dir = tempfile::tempdir().unwrap();
     write_setup(dir.path(), [9; 32]);
     let running = start_server(dir.path()).await.unwrap();
@@ -1120,7 +1120,7 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
     let code = link.split_once("?guest=").unwrap().1.to_owned();
     assert!(link.starts_with(&format!("https://{SERVER}/?guest=")));
     assert!(pass.qr.as_deref().is_some_and(|q| q.contains("<svg")));
-    // [itest->dsn~guest-access~3]
+    // [itest->dsn~guest-access~4]
     assert_eq!(
         pass.expires, until,
         "the code works as long as the access (ADR-0083)"
@@ -1137,7 +1137,7 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
         "without an end of duty: until the incident is closed"
     );
 
-    // The guest's phone pairs with the code, once.
+    // The guest's phone pairs with the code, and so does their tablet.
     let key = SigningKey::from_bytes(&[42; 32]);
     let device = DeviceId(Ulid::from_parts(now(), 42).unwrap());
     let pairing = serde_json::json!({
@@ -1151,8 +1151,25 @@ async fn a_guest_pairs_once_with_a_code_and_loses_access_with_the_end_of_duty() 
     let answer: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(answer["user"], guest.to_string());
     assert_eq!(answer["incident"], incident().to_string());
-    let (status, _) = post_json(addr, "/auth/guest", &pairing).await;
-    assert_eq!(status, 403, "a code works once");
+    let tablet_key = SigningKey::from_bytes(&[43; 32]);
+    let tablet = serde_json::json!({
+        "code": code,
+        "device": DeviceId(Ulid::from_parts(now(), 43).unwrap()).ulid().to_string(),
+        "key": to_hex(tablet_key.verifying_key().as_bytes()),
+        "name": "Tablet",
+    });
+    let (status, body) = post_json(addr, "/auth/guest", &tablet).await;
+    assert_eq!(status, 200, "one code for all the guest's devices: {body}");
+    // A new code replaces it.
+    let renewed = ben
+        .guest(message::GuestRequest {
+            guest: Some(guest.clone()),
+            ..request("h1")
+        })
+        .await;
+    assert_eq!(renewed.guest.as_ref(), Some(&guest));
+    let (status, _) = post_json(addr, "/auth/guest", &tablet).await;
+    assert_eq!(status, 403, "the earlier code stops working");
     let (status, _) = post_json(
         addr,
         "/auth/guest",

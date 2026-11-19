@@ -109,7 +109,7 @@ fn Start() -> impl IntoView {
     let returned = core::url_param("paired")
         .and_then(|user| core::PendingDevice::take().map(|device| device.paired(&user)));
     let login_error = core::url_param("login_error");
-    // A guest's one-time code (ADR-0077), from the QR code the incident command showed.
+    // A guest's code (ADR-0077, ADR-0084), from the QR code the incident command showed.
     let guest_code = core::url_param("guest");
     if returned.is_some() || login_error.is_some() || guest_code.is_some() {
         core::clear_url_params();
@@ -160,8 +160,8 @@ fn Screens(
     }
 }
 
-// [impl->dsn~guest-access~3]
-/// A helper without an account pairs this device with the one-time code of the QR code the
+// [impl->dsn~guest-access~4]
+/// A helper without an account pairs this device with the code of the QR code the
 /// incident command showed them (ADR-0077): the device makes its own key, as for a login,
 /// and opens the incident with the role it was given.
 #[component]
@@ -650,7 +650,7 @@ fn Device(
         }
     };
     let has_incident = core.with_value(|c| c.incident.is_some());
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     // A guest cannot log in again: their access ended with their duty (ADR-0077).
     let guest = pairing
         .user
@@ -1049,7 +1049,7 @@ fn Workspace(
                         <crate::situation::SituationView core revision />
                         <CommandWorkspace core revision />
                     }.into_any(),
-                    // [impl->dsn~reports~2]
+                    // [impl->dsn~reports~3]
                     (Some("command.lead"), Some("dispatch")) => view! {
                         <crate::staffing::StaffRequestsBoard core revision />
                         <crate::tasks::OpenTasks core revision />

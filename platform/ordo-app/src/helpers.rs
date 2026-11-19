@@ -34,7 +34,7 @@ static SETTINGS: LazyLock<ordo_helpers::register::RegisterSettings> = LazyLock::
 thread_local! {
     /// Roles chosen for helpers without an account, by helper ID, until the server answers
     /// with their guest ID (ADR-0077).
-    static PENDING_ROLES: std::cell::RefCell<std::collections::HashMap<String, String>> =
+    static PENDING_ROLES: std::cell::RefCell<std::collections::HashMap<String, BTreeSet<String>>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
@@ -210,7 +210,7 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     let editing = RwSignal::new(None::<Person>);
     let error = RwSignal::new(None::<String>);
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     // The server's answer to a guest code asked on this device (ADR-0077): the role chosen
     // goes to the guest's ID, the helper is linked to it, and the code is shown.
     let shown_pass = RwSignal::new(None::<(ordo_sync::message::GuestPass, String)>);
@@ -231,8 +231,10 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .and_then(|r| r.helpers.get(&pass.tag).map(|h| h.name().to_owned()))
             })
             .unwrap_or_default();
-        if let Some(role) = PENDING_ROLES.with_borrow_mut(|p| p.remove(&pass.tag)) {
-            let _ = core::change_role(core, revision, guest.as_str(), &role, true);
+        if let Some(roles) = PENDING_ROLES.with_borrow_mut(|p| p.remove(&pass.tag)) {
+            for role in &roles {
+                let _ = core::change_role(core, revision, guest.as_str(), role, true);
+            }
             let link = HelperChange {
                 helper: pass.tag.clone(),
                 fields: Fields {
@@ -380,7 +382,7 @@ fn PersonEntry(
                     fields,
                 };
                 let _ = core::helper_event(core, revision, false, &change, &name);
-                // [impl->dsn~guest-access~3]
+                // [impl->dsn~guest-access~4]
                 // A guest's access ends with their duty (ADR-0077) and comes back with a new
                 // one, until the incident is closed (ADR-0083).
                 if let Some(guest) = guest.clone() {
@@ -402,7 +404,7 @@ fn PersonEntry(
             text: text::GUEST_ACCESS,
             label: text::guest_access_label(&name),
             quiet: true,
-            // [impl->dsn~guest-access~3]
+            // [impl->dsn~guest-access~4]
             run: Callback::new(move |()| {
                 let now = core::now_ms();
                 match h.fields.duty_end {
@@ -550,8 +552,8 @@ fn PersonEntry(
     }
 }
 
-// [impl->dsn~guest-access~3]
-/// The one-time code of a guest (ADR-0077), as QR code and link, for their phone; shown
+// [impl->dsn~guest-access~4]
+/// The code of a guest (ADR-0077, ADR-0084), as QR code and link, for their devices; shown
 /// only on this device, until closed.
 #[component]
 fn GuestPassView(
@@ -570,7 +572,7 @@ fn GuestPassView(
     view! {
         <section class="notice guest-pass" aria-labelledby="guest-pass-title">
             <h3 id="guest-pass-title" tabindex="-1">{text::GUEST_CODE_TITLE}</h3>
-            // [impl->dsn~guest-access~3]
+            // [impl->dsn~guest-access~4]
             <p>{if pass.expires >= ordo_sync::message::UNTIL_CLOSED {
                 text::guest_code_until_closed(&name)
             } else {
@@ -648,7 +650,12 @@ fn HelperForm(
             .and_then(|p| p.account.clone())
             .unwrap_or_default(),
     );
-    let role = RwSignal::new(String::new());
+    // The roles the person has now; the form grants the ticked ones and withdraws the others.
+    let had: BTreeSet<String> = person
+        .as_ref()
+        .map(|p| p.roles.iter().cloned().collect())
+        .unwrap_or_default();
+    let roles = RwSignal::new(had.clone());
     let time = |ms: Option<u64>| RwSignal::new(ms.map(core::local_input_time).unwrap_or_default());
     let (start, end) = (time(before.duty_start), time(before.duty_end));
     let qualifications = RwSignal::new(
@@ -696,33 +703,28 @@ fn HelperForm(
     };
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
-        let chosen_role = role.get_untracked();
+        let chosen = roles.get_untracked();
         let account_value = account.get_untracked().trim().to_owned();
-        // [impl->dsn~guest-access~3]
+        // [impl->dsn~guest-access~4]
         // A role without an account: a guest, with access until the end of duty (ADR-0077).
-        let guest = !chosen_role.is_empty() && account_value.is_empty();
-        if !chosen_role.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err()
-        {
+        let guest = !chosen.is_empty() && account_value.is_empty();
+        if !chosen.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err() {
             error.set(Some(text::HELPER_ACCOUNT));
             crate::views::focus("helper-account");
             return;
         }
-        if guest && (!readable || chosen_role == core::COMMANDER) {
+        if guest && (!readable || chosen.contains(core::COMMANDER)) {
             error.set(Some(if readable {
                 text::GUEST_NO_COMMAND
             } else {
                 text::HELPER_ACCOUNT
             }));
-            crate::views::focus(if readable {
-                "helper-role"
-            } else {
-                "helper-account"
-            });
+            crate::views::focus("helper-account");
             return;
         }
         let duty_end = core::local_time_ms(end.get_untracked().trim())
             .filter(|_| !end.get_untracked().trim().is_empty());
-        // [impl->dsn~guest-access~3]
+        // [impl->dsn~guest-access~4]
         // An end of duty that has passed gives no access; none lasts until the incident is
         // closed (ADR-0083).
         if guest && duty_end.is_some_and(|e| e <= core::now_ms()) {
@@ -780,15 +782,21 @@ fn HelperForm(
         if guest {
             if let Some(helper) = saved {
                 let until = duty_end.unwrap_or(ordo_sync::message::UNTIL_CLOSED);
-                PENDING_ROLES.with_borrow_mut(|p| p.insert(helper.clone(), chosen_role.clone()));
+                PENDING_ROLES.with_borrow_mut(|p| p.insert(helper.clone(), chosen.clone()));
                 core::create_guest(core, None, until, &helper, &name.get_untracked());
             }
-        } else if !chosen_role.is_empty() && manage {
-            if core::change_role(core, revision, &account_value, &chosen_role, true).is_err() {
-                error.set(Some(text::HELPER_NOT_SAVED));
-                return;
+        } else if manage && !account_value.is_empty() && chosen != had {
+            // [impl->dsn~incident-roles~1]
+            // The ticked roles are granted, the unticked ones withdrawn.
+            let granted = chosen.difference(&had).map(|r| (r, true));
+            let withdrawn = had.difference(&chosen).map(|r| (r, false));
+            for (r, on) in granted.chain(withdrawn) {
+                if core::change_role(core, revision, &account_value, r, on).is_err() {
+                    error.set(Some(text::HELPER_NOT_SAVED));
+                    return;
+                }
             }
-        } else if !readable {
+        } else if !readable && chosen.is_empty() && !editing_one {
             error.set(Some(text::ROLE_MISSING));
             return;
         }
@@ -807,13 +815,13 @@ fn HelperForm(
                 diet,
                 other_diet,
                 account,
-                role,
                 start,
                 end,
             ] {
                 s.set(String::new());
             }
             qualifications.set(BTreeSet::new());
+            roles.set(BTreeSet::new());
             crate::views::focus("helper-account");
         }
     };
@@ -970,21 +978,24 @@ fn HelperForm(
                 {card}
             </div>
             {personal}
-            {manage.then(|| view! {
-                <div class="form--inline">
-                    <div class="field">
-                        <label for="helper-role">{text::HELPER_ROLE}</label>
-                        <select id="helper-role" prop:value=move || role.get() on:change=move |ev| role.set(event_target_value(&ev))>
-                            <option value="">{text::ROLE_NONE}</option>
-                            // A guest never leads (ADR-0077): without an account, no Einsatzleitung.
-                            {move || text::ROLES
-                                .iter()
-                                .filter(|(id, _)| *id != core::COMMANDER || !account.get().trim().is_empty())
-                                .map(|(id, label)| view! { <option value=*id>{*label}</option> })
-                                .collect_view()}
-                        </select>
-                    </div>
-                </div>
+            // Every role at once, as chips: ticked are those the person has (feedback of
+            // 2026-11-19). A guest never leads (ADR-0077): without an account, no Einsatzleitung.
+            {manage.then(|| {
+                let role_options: Vec<(String, String)> = text::ROLES
+                    .iter()
+                    .map(|(id, label)| ((*id).to_owned(), (*label).to_owned()))
+                    .collect();
+                let no_lead = Signal::derive(move || {
+                    if account.with(|a| a.trim().is_empty()) {
+                        BTreeSet::from([core::COMMANDER.to_owned()])
+                    } else {
+                        BTreeSet::new()
+                    }
+                });
+                view! {
+                    <CheckChips legend=text::HELPER_ROLES options=role_options value=roles
+                        disabled=no_lead id="helper-roles" />
+                }
             })}
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">

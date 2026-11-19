@@ -44,7 +44,7 @@ fn events(world: &mut World, name: &str, compartment: &str) -> Vec<ordo_sync::Ap
         .unwrap_or_default()
 }
 
-// [itest->dsn~reports~2]
+// [itest->dsn~reports~3]
 #[test]
 fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
     let mut world = World::new();
@@ -86,7 +86,7 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
         tasks::COMPARTMENT,
         tasks::MODULE,
         tasks::ASSIGNED,
-        1,
+        tasks::ASSIGNED_SCHEMA,
         &assigned.encode().unwrap(),
     );
     world.sync();
@@ -149,11 +149,13 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
     assert_eq!(registered.task.as_deref(), Some(id.as_str()));
     assert_eq!(clinical[0].body.schema_version, patients::REGISTERED_SCHEMA);
 
-    // Anna's crew is done: the Auftrag ends once, and its pin is no longer needed.
+    // Anna's crew is done, the Auftrag's only unit: it ends once, and its pin is no longer
+    // needed (ADR-0085).
     let done = TaskUpdated {
         task: id.clone(),
         status: Some(TaskStatus::Done),
         follow_up: None,
+        unit: Some("SanTrp 1".into()),
     };
     record(
         &mut world,
@@ -161,7 +163,7 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
         tasks::COMPARTMENT,
         tasks::MODULE,
         tasks::UPDATED,
-        1,
+        tasks::UPDATED_SCHEMA,
         &done.encode().unwrap(),
     );
     world.sync();
@@ -171,7 +173,7 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
     assert_eq!(list.tasks[&id].phase(), Phase::Done);
 }
 
-// [itest->dsn~reports~2]
+// [itest->dsn~reports~3]
 #[test]
 fn reports_of_an_older_incident_are_still_read() {
     let mut world = World::new();

@@ -579,6 +579,18 @@
   }
   .place-tile__label { font-weight: var(--ordo-font-weight-bold); }
   .place-tile__patient { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
+  /* A free place is filled from the patients without a place (feedback of 2026-11-19). */
+  .place-tile__fill { justify-self: start; display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  .place-tile__choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
+  .place-tile__choice { inline-size: 100%; display: inline-flex; align-items: center; gap: var(--ordo-space-2); color: var(--ordo-color-text-primary); }
+  .place-plan__waiting-patient {
+    display: inline-flex; align-items: center; gap: var(--ordo-space-2);
+    min-block-size: var(--ordo-size-touch-target); padding-inline: var(--ordo-space-3);
+    color: var(--ordo-color-text-primary); text-decoration: none;
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .place-plan__waiting-patient:hover, .place-plan__waiting-patient[aria-current] { border-color: var(--ordo-color-text-link); }
+  .patient-card__place { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-text-primary); }
   .unit-list, .device-list { grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); }
   .patient-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);
@@ -739,6 +751,13 @@
   .task-card--patient { border-inline-start-width: var(--ordo-size-border-thick); }
   .task-card__kind { display: inline-flex; align-items: center; gap: var(--ordo-space-1); font-weight: var(--ordo-font-weight-bold); }
   .task-card__taken { font-weight: var(--ordo-font-weight-bold); }
+  /* Several units on one Auftrag (ADR-0085): a row each, with its state and steps. */
+  .task-card__units { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
+  .task-card__unit {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2);
+    padding-block: var(--ordo-space-1); border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .task-card__unit > span { flex: 1 1 10rem; }
   .task-card__assign { align-items: end; }
   .task-card__more > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   /* Received and follow-up side by side: labels, inputs and hints each on one line. */
@@ -1032,11 +1051,13 @@
   .undo-bar { position: fixed; inset-inline: var(--ordo-space-4); inset-block-end: calc(var(--ordo-space-4) + env(safe-area-inset-bottom)); z-index: 40; display: flex; justify-content: center; pointer-events: none; }
   .undo-bar__inner {
     pointer-events: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2);
-    padding: var(--ordo-space-2) var(--ordo-space-3); max-inline-size: 36rem;
+    padding: var(--ordo-space-2) var(--ordo-space-3); max-inline-size: 56rem;
     background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
   }
   .undo-bar .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
+  /* The message wraps within itself; the buttons stay beside it unless the screen is narrow. */
+  .undo-bar__inner > span { flex: 1 1 12rem; }
   /* While it shows, the page keeps room below, so it covers nothing at the end. */
   .layout:has(.undo-bar__inner) main { padding-block-end: 5rem; }
   /* The UHS one works at (UHS-9), at the top of the UHS module. */

@@ -179,7 +179,7 @@ pub fn PatientsView(
         core::incident_people(core)
     });
     provide_context(IncidentPeople(people.into(), core));
-    // [impl->dsn~reports~2]
+    // [impl->dsn~reports~3]
     // A patient case the registration fills in (REP-3).
     let pending = crate::reports::take_pending_case();
     if pending.is_some() {
@@ -193,7 +193,7 @@ pub fn PatientsView(
                 // [impl->dsn~uhs-staff-request~2]
                 <crate::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
                 <PlacePlan core revision nav register working selected=record />
-                <RegisterForm core revision nav />
+                <RegisterForm core revision nav register />
                 <PatientList core revision nav register records selected=record />
             </div>
             <div class="detail">
@@ -302,10 +302,11 @@ type Zone = (
     Vec<(med::Place, Option<(String, TriageCategory)>)>,
 );
 
-// [impl->dsn~place-plan~1]
+// [impl->dsn~place-plan~2]
 /// The plan of the working UHS's treatment places (UHS-14): grouped by the triage category
 /// they are kept for, each taken place with its patient (a link to the record), the free
-/// ones marked. Shown when one UHS with places is chosen.
+/// ones marked, then the patients without a place. Those who write the UHS put a patient
+/// without a place on a free one here. Shown when one UHS with places is chosen.
 #[component]
 fn PlacePlan(
     core: Handle,
@@ -350,10 +351,31 @@ fn PlacePlan(
             }
         }
         zones.sort_by_key(|(c, _)| (c.is_none(), *c));
-        Some((name, zones))
+        let mut waiting: Vec<(String, TriageCategory)> = register.with(|r| {
+            r.patients()
+                .filter(|p| p.uhs == uhs && p.is_present() && p.place.is_none())
+                .map(|p| (p.tag.clone(), p.category()))
+                .collect()
+        });
+        waiting.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
+        let writable = writable_uhs(core).contains(&uhs);
+        Some((name, zones, waiting, writable))
     });
+    // The free place whose list of patients without a place is open.
+    let filling = RwSignal::new(None::<String>);
+    let record_link = move |tag: String| {
+        let route = record_route(&tag);
+        let current = {
+            let tag = tag.clone();
+            move || (selected.get().as_deref() == Some(tag.as_str())).then_some("page")
+        };
+        (route, current)
+    };
     move || {
-        plan.get().map(|(name, zones)| {
+        plan.get().map(|(name, zones, waiting, writable)| {
+            let fillable = writable && !waiting.is_empty();
+            let waiting_count = waiting.len();
+            let waiting_list = waiting.clone();
             view! {
                 <section class="card place-plan" aria-labelledby="place-plan-title">
                     <h2 id="place-plan-title">{text::place_plan_title(&name)}</h2>
@@ -375,11 +397,7 @@ fn PlacePlan(
                                             .into_iter()
                                             .map(|(place, patient)| match patient {
                                                 Some((tag, category)) => {
-                                                    let route = record_route(&tag);
-                                                    let current = {
-                                                        let tag = tag.clone();
-                                                        move || (selected.get().as_deref() == Some(tag.as_str())).then_some("page")
-                                                    };
+                                                    let (route, current) = record_link(tag.clone());
                                                     view! {
                                                         <li class="place-tile place-tile--taken" data-place=place.id.clone()>
                                                             <a href=route.to_path() aria-current=current on:click=move |ev| {
@@ -397,13 +415,55 @@ fn PlacePlan(
                                                     }
                                                     .into_any()
                                                 }
-                                                None => view! {
-                                                    <li class="place-tile place-tile--free" data-place=place.id.clone()>
-                                                        <span class="place-tile__label">{place.label.clone()}</span>
-                                                        <span class="place-tile__patient">{text::PLACE_FREE}</span>
-                                                    </li>
+                                                None => {
+                                                    let id = place.id.clone();
+                                                    let label = place.label.clone();
+                                                    let open = {
+                                                        let id = id.clone();
+                                                        move || filling.with(|f| f.as_deref() == Some(id.as_str()))
+                                                    };
+                                                    let list_id = format!("fill-{id}");
+                                                    let fill = fillable.then(|| {
+                                                        let choices = waiting.clone();
+                                                        let (toggle_id, open_too) = (id.clone(), open.clone());
+                                                        view! {
+                                                            <button type="button" class="button button--small place-tile__fill"
+                                                                aria-expanded=move || open().to_string() aria-controls=list_id.clone()
+                                                                aria-label=text::place_fill(&label)
+                                                                on:click=move |_| filling.update(|f| {
+                                                                    *f = if f.as_deref() == Some(toggle_id.as_str()) { None } else { Some(toggle_id.clone()) };
+                                                                })>
+                                                                <crate::ui::Icon name="plus" />{text::PLACE_FILL}
+                                                            </button>
+                                                            <ul id=list_id.clone() class="place-tile__choices" aria-label=text::place_fill(&label)
+                                                                hidden=move || !open_too()>
+                                                                {choices.into_iter().map(|(tag, category)| {
+                                                                    let (id, label, chosen) = (id.clone(), label.clone(), tag.clone());
+                                                                    view! {
+                                                                        <li>
+                                                                            <button type="button" class="button button--small place-tile__choice"
+                                                                                on:click=move |_| {
+                                                                                    let _ = core::assign_place(core, revision, &chosen, Some(id.clone()), Some(&label));
+                                                                                    filling.set(None);
+                                                                                }>
+                                                                                <span class="code">{tag.clone()}</span>
+                                                                                <TriageBadge category />
+                                                                            </button>
+                                                                        </li>
+                                                                    }
+                                                                }).collect_view()}
+                                                            </ul>
+                                                        }
+                                                    });
+                                                    view! {
+                                                        <li class="place-tile place-tile--free" data-place=place.id.clone()>
+                                                            <span class="place-tile__label">{place.label.clone()}</span>
+                                                            <span class="place-tile__patient">{text::PLACE_FREE}</span>
+                                                            {fill}
+                                                        </li>
+                                                    }
+                                                    .into_any()
                                                 }
-                                                .into_any(),
                                             })
                                             .collect_view()}
                                     </ul>
@@ -411,6 +471,32 @@ fn PlacePlan(
                             }
                         })
                         .collect_view()}
+                    // The patients of the UHS waiting for a place, each a link to the record.
+                    {(waiting_count > 0).then(|| view! {
+                        <div class="place-plan__zone place-plan__waiting">
+                            <h3 class="place-plan__zone-title">
+                                <span>{text::PLACE_NONE_TITLE}</span>
+                                <span class="place-plan__free">{text::patient_count(waiting_count)}</span>
+                            </h3>
+                            <ul class="chip-row">
+                                {waiting_list.into_iter().map(|(tag, category)| {
+                                    let (route, current) = record_link(tag.clone());
+                                    view! {
+                                        <li>
+                                            <a class="place-plan__waiting-patient" href=route.to_path() aria-current=current on:click=move |ev| {
+                                                ev.prevent_default();
+                                                nav.go(route.clone());
+                                                after_render(|| focus("record-title"));
+                                            }>
+                                                <span class="code">{tag}</span>
+                                                <TriageBadge category />
+                                            </a>
+                                        </li>
+                                    }
+                                }).collect_view()}
+                            </ul>
+                        </div>
+                    })}
                 </section>
             }
         })
@@ -418,7 +504,12 @@ fn PlacePlan(
 }
 
 #[component]
-fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoView {
+fn RegisterForm(
+    core: Handle,
+    revision: RwSignal<u64>,
+    nav: Nav,
+    register: Memo<PatientRegister>,
+) -> impl IntoView {
     let tag = RwSignal::new(String::new());
     // Remembered between registrations: a device usually works at one UHS.
     let uhs = RwSignal::new(String::new());
@@ -443,7 +534,7 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
             }
         });
     }
-    // [impl->dsn~reports~2]
+    // [impl->dsn~reports~3]
     // From a patient case: the unit's UHS first, where the command structure names one.
     let case = use_context::<crate::reports::ActiveCase>().map(|c| c.0);
     if let Some(case) = case {
@@ -457,6 +548,41 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
             }
         });
     }
+    // [impl->dsn~place-plan~2]
+    // The free places of the chosen UHS; a category proposes the first one kept for it.
+    let place = RwSignal::new(String::new());
+    let free_places = Memo::new(move |_| {
+        revision.track();
+        let chosen = uhs.get();
+        if chosen.is_empty() {
+            return Vec::new();
+        }
+        let places = core
+            .with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)))
+            .remove(&chosen)
+            .unwrap_or_default();
+        let taken: Vec<String> = register.with(|r| {
+            r.patients()
+                .filter(|p| p.uhs == chosen && p.is_present())
+                .filter_map(|p| p.place.clone())
+                .collect()
+        });
+        places
+            .into_iter()
+            .filter(|p| !taken.contains(&p.id))
+            .collect::<Vec<_>>()
+    });
+    Effect::new(move || {
+        let proposed = category.get().and_then(|c| {
+            free_places.with(|free| {
+                free.iter()
+                    .find(|p| p.category == Some(c))
+                    .or_else(|| free.iter().find(|p| p.category.is_none()))
+                    .map(|p| p.id.clone())
+            })
+        });
+        place.set(proposed.unwrap_or_default());
+    });
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let value = tag.get().trim().to_owned();
@@ -468,6 +594,16 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
         let from_case = from.as_ref().map(|c| (c.task.as_str(), c.unit.as_str()));
         match core::register(core, revision, &value, chosen, &uhs.get(), from_case) {
             Ok(()) => {
+                let on = place.get_untracked();
+                let label = free_places
+                    .with_untracked(|f| f.iter().find(|p| p.id == on).map(|p| p.label.clone()));
+                if let Some(label) = label
+                    && let Err(e) =
+                        core::assign_place(core, revision, &value, Some(on), Some(&label))
+                {
+                    error.set(Some(e));
+                    return;
+                }
                 if let Some(case) = case {
                     case.set(None);
                 }
@@ -529,6 +665,18 @@ fn RegisterForm(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoVie
                                 view! { <option value=u.id.clone() selected=move || uhs.get() == chosen>{u.name}</option> }
                             }).collect_view()}
                         </select>
+                        <Show when=move || free_places.with(|f| !f.is_empty())>
+                            <label for="register-place">{text::PLACE}</label>
+                            <select id="register-place" aria-describedby="register-place-hint"
+                                on:change=move |ev| place.set(event_target_value(&ev)) prop:value=move || place.get()>
+                                <option value="" selected=move || place.get().is_empty()>{text::NO_PLACE}</option>
+                                {move || free_places.get().into_iter().map(|p| {
+                                    let chosen = p.id.clone();
+                                    view! { <option value=p.id.clone() selected=move || place.get() == chosen>{p.label}</option> }
+                                }).collect_view()}
+                            </select>
+                            <p id="register-place-hint" class="hint">{text::REGISTER_PLACE_HINT}</p>
+                        </Show>
                         <p role="alert" class="error">{move || error.get()}</p>
                         <button type="submit" class="button button--primary">{text::REGISTER_SUBMIT}</button>
                     </form>
@@ -615,7 +763,8 @@ fn PatientCard(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl I
                 </span>
                 <span class="patient-card__name">{card.name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
                 <span class="patient-card__meta">
-                    {card.uhs} {place.map(|p| format!(" · {p}"))} " · " {text::triage_count(card.triages)} " · "
+                    {place.map(|p| view! { <span class="patient-card__place">{p}</span> " · " })}
+                    {card.uhs} " · " {text::triage_count(card.triages)} " · "
                     <span class="patient-card__state">{if card.pending { text::NOT_SENT } else { text::SENT }}</span>
                 </span>
             </a>

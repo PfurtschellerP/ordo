@@ -1,7 +1,8 @@
-//! Shared module `tasks` (TASK-1…4, REP-1…5, ADR-0081): the Aufträge of the incident
-//! command, given to a unit, a position or a person, with status, history and follow-ups.
-//! A report is an Auftrag with a kind, a place and the time it came in, which may wait for
-//! its unit. Shared incident data, no patient data.
+//! Shared module `tasks` (TASK-1…4, REP-1…5, ADR-0081, ADR-0085): the Aufträge of the
+//! incident command, given to units, a position or a person, with status, history and
+//! follow-ups. A report is an Auftrag with a kind, a place and the time it came in, which
+//! may wait for its units. Each unit on an Auftrag has its own state; the Auftrag's follows
+//! from them. Shared incident data, no patient data.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -18,7 +19,8 @@ pub const COMPARTMENT: &str = "incident";
 pub const GIVEN: &str = "tasks.given";
 /// Event type: a task moved on, or got a new follow-up time.
 pub const UPDATED: &str = "tasks.updated";
-/// Event type: a unit was named for an Auftrag that has not started (REP-2).
+/// Event type: a unit was added to an open Auftrag (REP-2; version 1: named as its one unit
+/// before it started).
 pub const ASSIGNED: &str = "tasks.assigned";
 /// Event type: a unit's crew registered the patient of a patient Auftrag (REP-3).
 pub const PATIENT_REGISTERED: &str = "tasks.patientRegistered";
@@ -26,6 +28,11 @@ pub const PATIENT_REGISTERED: &str = "tasks.patientRegistered";
 /// it may be a report itself, with kind, place and time, or be for a person (ADR-0081);
 /// older payloads decode unchanged.
 pub const GIVEN_SCHEMA: u32 = 3;
+/// Schema version of `tasks.assigned`: 2 adds a unit instead of naming the one unit
+/// (ADR-0085); the payload is the same.
+pub const ASSIGNED_SCHEMA: u32 = 2;
+/// Schema version of `tasks.updated`: 2 may name the unit whose part moves on (ADR-0085).
+pub const UPDATED_SCHEMA: u32 = 2;
 
 /// Longest place, in characters.
 pub const PLACE_MAX: usize = 120;
@@ -197,6 +204,10 @@ pub struct TaskUpdated {
     /// A new follow-up time; `None` keeps it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up: Option<u64>,
+    /// The unit whose part the status is (ADR-0085); `None`: the whole Auftrag. Since
+    /// schema 2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
 }
 
 impl TaskUpdated {
@@ -206,7 +217,8 @@ impl TaskUpdated {
     }
 }
 
-/// Payload of `tasks.assigned` (REP-2): the one unit of an Auftrag that has not started.
+/// Payload of `tasks.assigned` (REP-2): a unit added to an open Auftrag (schema 2), or the
+/// one unit of an Auftrag that had not started (schema 1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskAssigned {
     /// The task.
@@ -276,17 +288,56 @@ pub struct TaskStep {
     pub by: UserId,
 }
 
+/// One unit on an Auftrag, with its own state (ADR-0085).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnitPart {
+    /// The unit (call sign).
+    pub unit: String,
+    /// How far this unit is.
+    pub status: TaskStatus,
+    /// Every step of this unit, oldest first; the first is it being sent.
+    pub history: Vec<TaskStep>,
+}
+
+impl UnitPart {
+    fn new(unit: String, at: Hlc, by: UserId) -> Self {
+        Self {
+            unit,
+            status: TaskStatus::Open,
+            history: vec![TaskStep {
+                status: TaskStatus::Open,
+                at,
+                by,
+            }],
+        }
+    }
+
+    /// Moves it on, if `status` may follow; whether it did.
+    fn step(&mut self, status: TaskStatus, at: Hlc, by: &UserId) -> bool {
+        if !self.status.next().contains(&status) {
+            return false;
+        }
+        self.status = status;
+        self.history.push(TaskStep {
+            status,
+            at,
+            by: by.clone(),
+        });
+        true
+    }
+}
+
 /// A task with its current state.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Task {
     /// As given.
     pub given: TaskGiven,
-    /// Current status.
+    /// Current status: the Auftrag's, following its units where it has some.
     pub status: TaskStatus,
     /// Current follow-up time.
     pub follow_up: Option<u64>,
-    /// The unit it is for now: as given, or as assigned since (REP-2).
-    pub unit: Option<String>,
+    /// Its units, in the order they were sent (REP-2, ADR-0085).
+    pub units: Vec<UnitPart>,
     /// Patients taken over from it (REP-3).
     pub patients: Vec<TakenOver>,
     /// Every change, oldest first; the first is the task being given.
@@ -304,11 +355,54 @@ impl Task {
         self.status.is_open() && self.follow_up.is_some_and(|t| t <= now_ms)
     }
 
-    /// Whether it names someone now: a unit, a position or a person.
+    /// Whether it names someone now: a unit not withdrawn, a position or a person.
     pub fn is_assigned(&self) -> bool {
-        named(self.unit.as_ref())
+        self.units.iter().any(|p| p.status != TaskStatus::Cancelled)
             || named(self.given.sector.as_ref())
             || named(self.given.person.as_ref())
+    }
+
+    /// The part of `unit`, if it is on the Auftrag.
+    pub fn part(&self, unit: &str) -> Option<&UnitPart> {
+        self.units.iter().find(|p| p.unit == unit)
+    }
+
+    /// The units on it that were not withdrawn, in the order they were sent.
+    pub fn unit_names(&self) -> Vec<&str> {
+        self.units
+            .iter()
+            .filter(|p| p.status != TaskStatus::Cancelled)
+            .map(|p| p.unit.as_str())
+            .collect()
+    }
+
+    /// The Auftrag follows its units: in progress once one of them is (or is done), done
+    /// once every unit is done or withdrawn and one is done.
+    fn follow_units(&mut self, at: Hlc, by: &UserId) {
+        if !self.status.is_open() || self.units.is_empty() {
+            return;
+        }
+        let started = self
+            .units
+            .iter()
+            .any(|p| matches!(p.status, TaskStatus::InProgress | TaskStatus::Done));
+        let ended = self.units.iter().all(|p| !p.status.is_open());
+        let done = self.units.iter().any(|p| p.status == TaskStatus::Done);
+        let status = if ended && done {
+            TaskStatus::Done
+        } else if started {
+            TaskStatus::InProgress
+        } else {
+            return;
+        };
+        if self.status != status && self.status.next().contains(&status) {
+            self.status = status;
+            self.history.push(TaskStep {
+                status,
+                at,
+                by: by.clone(),
+            });
+        }
     }
 
     /// How far it is (TASK-2): an open Auftrag without anyone has been received.
@@ -344,7 +438,7 @@ pub struct TaskList {
 }
 
 impl TaskList {
-    // [impl->dsn~tasks~6]
+    // [impl->dsn~tasks~7]
     /// Computes the list. The result doesn't depend on the order of `events`: a task given
     /// twice keeps its first version, updates apply in clock order and never go back,
     /// updates for unknown tasks are ignored.
@@ -361,7 +455,9 @@ impl TaskList {
                     continue;
                 }
                 UPDATED => codec::from_cbor(&e.payload).ok().map(Change::Updated),
-                ASSIGNED => codec::from_cbor(&e.payload).ok().map(Change::Assigned),
+                ASSIGNED => codec::from_cbor(&e.payload)
+                    .ok()
+                    .map(|a| Change::Assigned(a, e.body.schema_version)),
                 PATIENT_REGISTERED => codec::from_cbor(&e.payload).ok().map(Change::Patient),
                 _ => None,
             };
@@ -377,11 +473,18 @@ impl TaskList {
             if !seen.insert(t.task.clone()) {
                 continue;
             }
+            let units = t
+                .unit
+                .clone()
+                .filter(|u| !u.trim().is_empty())
+                .map(|u| UnitPart::new(u, at, by.clone()))
+                .into_iter()
+                .collect();
             tasks.insert(
                 t.task.clone(),
                 Task {
                     follow_up: t.follow_up,
-                    unit: t.unit.clone().filter(|u| !u.trim().is_empty()),
+                    units,
                     patients: Vec::new(),
                     given: t,
                     status: TaskStatus::Open,
@@ -401,21 +504,51 @@ impl TaskList {
                 continue;
             }
             match change {
+                // A unit's step (ADR-0085): its part moves on, and the Auftrag follows.
+                Change::Updated(TaskUpdated {
+                    status: Some(status),
+                    unit: Some(unit),
+                    ..
+                }) if t.status.is_open() => {
+                    if let Some(part) = t.units.iter_mut().find(|p| p.unit == unit)
+                        && part.step(status, at, &by)
+                    {
+                        t.follow_units(at, &by);
+                    }
+                }
                 Change::Updated(u) => {
-                    if let Some(status) = u.status
+                    if u.unit.is_none()
+                        && let Some(status) = u.status
                         && t.status.next().contains(&status)
                     {
                         t.status = status;
-                        t.history.push(TaskStep { status, at, by });
+                        t.history.push(TaskStep {
+                            status,
+                            at,
+                            by: by.clone(),
+                        });
+                        // The whole Auftrag's step is every open unit's too.
+                        for part in &mut t.units {
+                            part.step(status, at, &by);
+                        }
                     }
                     if u.follow_up.is_some() {
                         t.follow_up = u.follow_up;
                     }
                 }
-                // One unit, named before the work starts.
-                Change::Assigned(a) => {
+                // Version 1: the one unit, named before the work starts.
+                Change::Assigned(a, 1) => {
                     if t.status == TaskStatus::Open && !a.unit.trim().is_empty() {
-                        t.unit = Some(a.unit);
+                        t.units = vec![UnitPart::new(a.unit, at, by)];
+                    }
+                }
+                // A further unit on an open Auftrag, never twice.
+                Change::Assigned(a, _) => {
+                    if t.status.is_open()
+                        && !a.unit.trim().is_empty()
+                        && !t.units.iter().any(|p| p.unit == a.unit)
+                    {
+                        t.units.push(UnitPart::new(a.unit, at, by));
                     }
                 }
                 Change::Patient(p) => t.patients.push(TakenOver {
@@ -428,7 +561,7 @@ impl TaskList {
         Self { tasks }
     }
 
-    // [impl->dsn~tasks~6]
+    // [impl->dsn~tasks~7]
     /// The open tasks (TASK-3): due follow-ups first (earliest due first), then the oldest.
     pub fn open(&self, now_ms: u64) -> Vec<&Task> {
         let mut open: Vec<&Task> = self.tasks.values().filter(|t| t.status.is_open()).collect();
@@ -442,7 +575,7 @@ impl TaskList {
         open
     }
 
-    // [impl->dsn~reports~2]
+    // [impl->dsn~reports~3]
     /// Every task about a report, open or not, oldest first.
     pub fn of_report(&self, report: &str) -> Vec<&Task> {
         let mut list: Vec<&Task> = self
@@ -454,12 +587,12 @@ impl TaskList {
         list
     }
 
-    /// The open tasks of one unit, oldest first.
+    /// The open tasks on which `unit` still works, oldest first.
     pub fn of_unit(&self, unit: &str) -> Vec<&Task> {
         let mut list: Vec<&Task> = self
             .tasks
             .values()
-            .filter(|t| t.status.is_open() && t.unit.as_deref() == Some(unit))
+            .filter(|t| t.status.is_open() && t.part(unit).is_some_and(|p| p.status.is_open()))
             .collect();
         list.sort_by_key(|t| t.given_at());
         list
@@ -488,7 +621,8 @@ impl TaskList {
 /// A change to a given task, applied in clock order.
 enum Change {
     Updated(TaskUpdated),
-    Assigned(TaskAssigned),
+    /// With the payload's schema version.
+    Assigned(TaskAssigned, u32),
     Patient(PatientRegistered),
 }
 
@@ -496,7 +630,7 @@ impl Change {
     fn task(&self) -> &str {
         match self {
             Self::Updated(u) => &u.task,
-            Self::Assigned(a) => &a.task,
+            Self::Assigned(a, _) => &a.task,
             Self::Patient(p) => &p.task,
         }
     }
@@ -596,11 +730,25 @@ mod tests {
             task: id.into(),
             status,
             follow_up,
+            unit: None,
         };
         event(n, "ben", UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~6]
+    /// A step of one unit's part (schema 2), by one of its crew.
+    fn unit_step(n: u64, id: &str, unit: &str, status: TaskStatus) -> AppliedEvent {
+        let u = TaskUpdated {
+            task: id.into(),
+            status: Some(status),
+            follow_up: None,
+            unit: Some(unit.into()),
+        };
+        let mut e = event(n, "anna", UPDATED, u.encode().unwrap());
+        e.body.schema_version = UPDATED_SCHEMA;
+        e
+    }
+
+    // [utest->dsn~tasks~7]
     #[test]
     fn tasks_move_forward_with_history_and_never_back() {
         let mut events = vec![
@@ -622,7 +770,7 @@ mod tests {
         assert!(list.open(0).is_empty());
     }
 
-    // [utest->dsn~tasks~6]
+    // [utest->dsn~tasks~7]
     #[test]
     fn due_follow_ups_come_first_and_a_new_time_postpones_them() {
         let events = vec![
@@ -695,6 +843,7 @@ mod tests {
         event(n, "ben", GIVEN, t.encode().unwrap())
     }
 
+    /// `tasks.assigned` of version 1: the one unit, named before it starts.
     fn assigned(n: u64, id: &str, unit: &str) -> AppliedEvent {
         let a = TaskAssigned {
             task: id.into(),
@@ -703,10 +852,81 @@ mod tests {
         event(n, "ben", ASSIGNED, a.encode().unwrap())
     }
 
-    // [utest->dsn~tasks~6]
-    // [utest->dsn~reports~2]
+    /// `tasks.assigned` of version 2: a further unit.
+    fn added(n: u64, id: &str, unit: &str) -> AppliedEvent {
+        let mut e = assigned(n, id, unit);
+        e.body.schema_version = ASSIGNED_SCHEMA;
+        e
+    }
+
+    // [utest->dsn~tasks~7]
+    // [utest->dsn~reports~3]
     #[test]
-    fn a_report_is_received_then_assigned_to_one_unit_before_it_starts() {
+    fn several_units_work_on_one_auftrag_and_the_last_one_done_ends_it() {
+        let mut events = vec![
+            report(1, "r1", None),
+            added(2, "r1", "RTW 1"),
+            added(3, "r1", "RTW 2"),
+            added(4, "r1", "RTW 1"), // already on it: not twice
+            unit_step(5, "r1", "RTW 1", TaskStatus::InProgress),
+        ];
+        let list = TaskList::from_events(&events);
+        let t = &list.tasks["r1"];
+        assert_eq!(t.unit_names(), ["RTW 1", "RTW 2"]);
+        assert_eq!(
+            t.phase(),
+            Phase::InProgress,
+            "one unit works: the Auftrag does"
+        );
+        assert_eq!(t.part("RTW 2").unwrap().status, TaskStatus::Open);
+        assert_eq!(list.of_unit("RTW 2").len(), 1);
+
+        events.push(unit_step(6, "r1", "RTW 1", TaskStatus::Done));
+        events.push(unit_step(7, "r1", "RTW 1", TaskStatus::InProgress)); // back: ignored
+        let list = TaskList::from_events(&events);
+        assert_eq!(
+            list.tasks["r1"].status,
+            TaskStatus::InProgress,
+            "RTW 2 still works"
+        );
+        assert!(list.of_unit("RTW 1").is_empty(), "done: off RTW 1's list");
+        assert!(list.pin_needed("r1"));
+
+        events.push(unit_step(8, "r1", "RTW 2", TaskStatus::Done));
+        events.reverse();
+        let list = TaskList::from_events(&events);
+        let t = &list.tasks["r1"];
+        assert_eq!(t.status, TaskStatus::Done, "the last unit done ends it");
+        assert_eq!(
+            t.history.iter().map(|s| s.status).collect::<Vec<_>>(),
+            [TaskStatus::Open, TaskStatus::InProgress, TaskStatus::Done]
+        );
+        assert!(!list.pin_needed("r1"), "and its pin leaves the map");
+        assert!(list.of_unit("RTW 2").is_empty());
+    }
+
+    // [utest->dsn~tasks~7]
+    #[test]
+    fn cancelling_the_auftrag_ends_every_units_part() {
+        let events = vec![
+            report(1, "r1", None),
+            added(2, "r1", "RTW 1"),
+            added(3, "r1", "RTW 2"),
+            unit_step(4, "r1", "RTW 1", TaskStatus::InProgress),
+            update(5, "r1", Some(TaskStatus::Cancelled), None),
+            added(6, "r1", "RTW 3"), // ended: no further unit
+        ];
+        let list = TaskList::from_events(&events);
+        let t = &list.tasks["r1"];
+        assert_eq!(t.status, TaskStatus::Cancelled);
+        assert!(t.units.iter().all(|p| p.status == TaskStatus::Cancelled));
+        assert_eq!(t.units.len(), 2);
+    }
+
+    // [utest->dsn~tasks~7]
+    // [utest->dsn~reports~3]
+    #[test]
+    fn version_1_names_the_one_unit_before_it_starts() {
         let mut events = vec![
             report(1, "r1", None),
             assigned(2, "r1", "RTW 1"),
@@ -720,12 +940,17 @@ mod tests {
         events.reverse();
         let list = TaskList::from_events(&events);
         let t = &list.tasks["r1"];
-        assert_eq!(t.unit.as_deref(), Some("RTW 2"));
+        assert_eq!(t.unit_names(), ["RTW 2"]);
         assert_eq!(t.phase(), Phase::InProgress);
+        assert_eq!(
+            t.part("RTW 2").unwrap().status,
+            TaskStatus::InProgress,
+            "the whole Auftrag's step is its unit's too"
+        );
         assert_eq!(list.of_unit("RTW 2").len(), 1);
     }
 
-    // [utest->dsn~reports~2]
+    // [utest->dsn~reports~3]
     #[test]
     fn a_linked_auftrag_shares_the_pin_until_all_of_them_end() {
         let patient = PatientRegistered {
@@ -748,7 +973,7 @@ mod tests {
         assert!(!TaskList::from_events(&events).pin_needed("r1"));
     }
 
-    // [utest->dsn~tasks~6]
+    // [utest->dsn~tasks~7]
     #[test]
     fn a_person_finds_the_auftrag_for_them() {
         let t = TaskGiven {

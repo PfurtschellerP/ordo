@@ -575,10 +575,11 @@ Needs: impl, itest
 Tags: must, m8
 
 #### Guest access
-`dsn~guest-access~3`
+`dsn~guest-access~4`
 
-Helpers without an account get access to one incident by a one-time code
-([ADR-0077](../adr/0077-guest-access-by-one-time-qr-code.md)). In *Vorbereitung – Personal*
+Helpers without an account get access to one incident by a code
+([ADR-0077](../adr/0077-guest-access-by-one-time-qr-code.md)) that pairs all their devices
+([ADR-0084](../adr/0084-one-guest-code-pairs-all-their-devices.md)). In *Vorbereitung – Personal*
 the incident command registers the helper with a role and no account; an end of duty is
 optional.
 The device asks the server for a guest (`createGuest`, sync protocol 1.3, with the
@@ -588,12 +589,13 @@ access ends ([ADR-0083](../adr/0083-guest-codes-last-as-long-as-the-access.md)),
 guest's login to end at the end of duty, or without one at `UNTIL_CLOSED` (the largest
 time the server stores), and answers the link
 `<public address>/?guest=<code>` with its QR code. The command's device then grants the
-role to the guest's ID, links the helper to it, and shows the QR code until closed; the
+roles to the guest's ID, links the helper to it, and shows the QR code until closed; the
 list shows "Gast-Zugang bis …" (or "bis zum Einsatzende") and "Zugang per QR-Code" for a
 new code.
 
-The helper scans it; the app makes a device key and pairs with `POST /auth/guest`, which
-uses the code up in one step and registers the device with the guest's ID, its login ending
+The helper scans it on each of their devices; the app makes a device key and pairs with
+`POST /auth/guest`, which notes the code's first use and registers the device with the
+guest's ID, its login ending
 at the end of duty, with no renewal. Ending the duty or moving its end sends
 `setGuestAccess`, and so does starting a new duty (access until the new end, or
 `UNTIL_CLOSED`); once the end has passed, the server cuts the guest's connections
@@ -606,7 +608,7 @@ made and used are, with who and the guest's ID.
 
 Covers:
 
-* [req~help-7~2](../requirements/02-shared.md#help-7--access-without-an-account)
+* [req~help-7~3](../requirements/02-shared.md#help-7--access-without-an-account)
 
 Needs: impl, utest, itest
 
@@ -1323,19 +1325,32 @@ Needs: impl, utest, itest
 Tags: should, m57
 
 #### Place plan
-`dsn~place-plan~1`
+`dsn~place-plan~2`
 
 The view *Patienten* of the Med workspace shows, when one UHS is chosen as the working UHS
 and it has places, a card *Platzplan* above the registration: one zone per triage category
 the places are kept for (places without one last), headed by the triage badge and the free
 places, and a tile per place. A taken tile names the place, the patient's tag and triage
 badge and links to the record; a free tile says "frei" with a dashed outline, never colour
-alone. It is computed from the places (shared) and the assignments (clinical), so only those
-who read clinical data see it.
+alone. Below the zones, *Ohne Platz* lists the UHS's present patients without a place, each
+a link to the record. It is computed from the places (shared) and the assignments
+(clinical), so only those who read clinical data see it.
+
+The plan is where patients get their places (feedback of 2026-11-19); the record keeps its
+choice of place for moves:
+
+* For those who write the UHS (ADR-0082), a free tile is a button *Platz … belegen*; it
+  opens the list of patients without a place, and choosing one sends
+  `patients.placeAssigned`.
+* The registration form of a UHS with places has a field *Behandlungsplatz* with its free
+  places. Choosing a triage category proposes the first free place kept for it (or for no
+  category); the person can change it or choose *Kein Platz*. This is an organisational
+  proposal from the documented category, not a triage decision.
+* A patient's card in the list shows the place first, so list and plan name the same place.
 
 Covers:
 
-* [req~uhs-14~1](../requirements/04-med.md#uhs-14--place-plan)
+* [req~uhs-14~2](../requirements/04-med.md#uhs-14--place-plan)
 
 Needs: impl, itest
 

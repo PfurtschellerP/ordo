@@ -1,5 +1,5 @@
 //! Helpers without an account (ADR-0077): the incident command makes a guest of one
-//! incident and a one-time code for them (`createGuest`); a device pairs with the code
+//! incident and a code for all their devices (`createGuest`); a device pairs with the code
 //! (`POST /auth/guest`) and gets the guest's roles until their duty ends
 //! (`setGuestAccess`). Codes are kept only as hashes and never logged.
 
@@ -73,7 +73,7 @@ fn qr(link: &str) -> Option<String> {
 }
 
 impl App {
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// Answers `createGuest` and `setGuestAccess` (protocol 1.3) for those who may grant
     /// roles in the incident.
     pub(crate) async fn guests(
@@ -161,7 +161,7 @@ impl App {
         let Some(code) = new_code() else {
             return Ok(refused);
         };
-        // [impl->dsn~guest-access~3]
+        // [impl->dsn~guest-access~4]
         // The code works as long as the access it gives (ADR-0083).
         let expires = request.until;
         self.store
@@ -236,9 +236,9 @@ pub(crate) struct GuestPairing {
     name: Option<String>,
 }
 
-// [impl->dsn~guest-access~3]
+// [impl->dsn~guest-access~4]
 /// `POST /auth/guest` (HTTP API 1.1): pairs the device with the guest of the code, if the
-/// code is known, unused and not expired; any other code is refused the same way. Answers
+/// code is known, not replaced and not expired; any other code is refused the same way. Answers
 /// the guest's ID and incident.
 pub(crate) async fn pair(
     State(app): State<Arc<App>>,
@@ -288,7 +288,7 @@ pub(crate) async fn pair(
 mod tests {
     use super::*;
 
-    // [utest->dsn~guest-access~3]
+    // [utest->dsn~guest-access~4]
     #[test]
     fn codes_have_256_bits_and_are_kept_by_hash() {
         let (a, b) = (new_code().unwrap(), new_code().unwrap());
@@ -302,7 +302,7 @@ mod tests {
         assert_ne!(hash(&a), hash(&b));
     }
 
-    // [utest->dsn~guest-access~3]
+    // [utest->dsn~guest-access~4]
     #[test]
     fn refused_codes_are_braked_per_minute() {
         let r = Refusals::default();

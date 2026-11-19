@@ -217,20 +217,20 @@ export async function create(element, centre, label, incident, ticket, cooperati
   };
   container.addEventListener("pointermove", kind, true);
   container.addEventListener("pointerdown", kind, true);
-  const point = (object) => {
+  const pointAt = (object) => {
     if (object === pointed) return;
     pointed = object;
     map.getCanvas().style.cursor = object && handle.tap ? "pointer" : "";
     handle.hover?.(object);
   };
   map.on("mousemove", (e) => {
-    if (!mouse || handle.hidden) return point(null);
+    if (!mouse || handle.hidden) return pointAt(null);
     const box = [[e.point.x - HIT_SLOP / 2, e.point.y - HIT_SLOP / 2], [e.point.x + HIT_SLOP / 2, e.point.y + HIT_SLOP / 2]];
     const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((id) => map.getLayer(id)) });
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
-    point(hit?.properties?.object ?? null);
+    pointAt(hit?.properties?.object ?? null);
   });
-  map.on("mouseout", () => point(null));
+  map.on("mouseout", () => pointAt(null));
   return handle;
 }
 

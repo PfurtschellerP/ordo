@@ -339,7 +339,8 @@ fn mount_map(
                         _ => text::MAP_NO_REGION,
                     }));
                 }
-                Err(_) => {
+                Err(e) => {
+                    web_sys::console::warn_1(&format!("ORDO map: {e:?}").into());
                     let _ = state.try_set(MapState::Unavailable);
                 }
             }
@@ -707,7 +708,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// A small map of the incident, centred on one object: an Auftrag's pin for the crew sent
 /// there (REP-4). It moves with two fingers, so one finger scrolls the page.
 #[component]
@@ -1558,7 +1559,7 @@ pub fn placed_at(core: Handle, object: &str) -> Option<[f64; 2]> {
     })
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// Puts the pin of an Auftrag on the map, or moves it (REP-4): `object` is its map object
 /// ([`crate::tasks::pin_object`]).
 pub fn set_pin(
@@ -1591,7 +1592,7 @@ pub fn remove_pin(core: Handle, revision: RwSignal<u64>, object: &str) {
     remove(core, revision, object);
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// Sets a pin on the same form (REP-1): an address search, then a small map where a tap
 /// sets the pin and "Pin in Kartenmitte setzen" sets it from the keyboard. The map moves
 /// with two fingers, so one finger scrolls the page. `id` prefixes the element IDs.

@@ -82,7 +82,7 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 view! {
                                     <ul class="task-list" data-keys="list">
                                         {open.into_iter().map(|task| view! {
-                                            <crate::tasks::TaskItem core revision task editable=true now crew=true />
+                                            <crate::tasks::TaskItem core revision task editable=true now crew=true unit=name.clone() />
                                         }).collect_view()}
                                     </ul>
                                 }.into_any()

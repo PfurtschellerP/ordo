@@ -27,7 +27,7 @@ pub enum ClientMessage {
     /// `block_devices`); protocol 1.2.
     BlockDevice(DeviceBlock),
     /// Asks for access for a helper without an account: a guest ID (or, with `guest`, a new
-    /// code for one) and a one-time code (ADR-0077); with `assign_role` in the incident;
+    /// code for one) and a code for all their devices (ADR-0077, ADR-0084); with `assign_role` in the incident;
     /// protocol 1.3.
     CreateGuest(GuestRequest),
     /// Sets when a guest's access ends, e.g. at the end of duty (ADR-0077); with
@@ -106,7 +106,7 @@ pub struct GuestRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guest: Option<UserId>,
     /// When the guest's access ends (ms since the Unix epoch): their end of duty, or
-    /// [`UNTIL_CLOSED`]. Their one-time code works until then too (ADR-0083).
+    /// [`UNTIL_CLOSED`]. Their code works until then too, for all their devices (ADR-0083, ADR-0084).
     pub until: u64,
     /// The name the guest is shown by in the incident, like a login's name (ORG-7).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -127,7 +127,7 @@ pub struct GuestAccess {
     pub until: u64,
 }
 
-/// The answer to `createGuest` (ADR-0077): the guest and their one-time code, or neither
+/// The answer to `createGuest` (ADR-0077): the guest and their code, or neither
 /// if refused.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuestPass {

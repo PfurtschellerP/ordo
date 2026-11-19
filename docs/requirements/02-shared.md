@@ -222,10 +222,12 @@ Tags: must, shared, m31
 Needs: dsn
 
 #### TASK-2 — Task status
-`req~task-2~2`
+`req~task-2~3`
 
 ORDO shall keep one status per Auftrag: received (nobody assigned yet), assigned, in
-progress, done, or cancelled by the incident command; a status never goes back.
+progress, done, or cancelled by the incident command; a status never goes back. Where an
+Auftrag has several units, ORDO shall keep a status per unit, show the Auftrag in progress
+once one unit is, and done once every unit is.
 
 Tags: must, shared, m31
 
@@ -270,11 +272,12 @@ Tags: must, shared, m60
 Needs: dsn
 
 #### REP-2 — Assign reports to units
-`req~rep-2~2`
+`req~rep-2~3`
 
-When the incident command assigns an Auftrag to a unit, ORDO shall give it to that one
-unit and show it with its unit and status until it ends; when the command sends a further
-unit, ORDO shall make a linked Auftrag for the same place and pin.
+When the incident command assigns an Auftrag to a unit, ORDO shall give it to that unit
+and show it with its units and their status until it ends; when the command sends a
+further unit, ORDO shall add it to the same Auftrag, and never add a unit that is on it
+already.
 
 Tags: must, shared, m60
 
@@ -304,10 +307,10 @@ Tags: should, shared, m60
 Needs: dsn
 
 #### REP-5 — Close reports
-`req~rep-5~2`
+`req~rep-5~3`
 
-When the crew of its unit marks an Auftrag done or the incident command cancels it, ORDO
-shall keep it, with its history and its patient link, in the history and the incident log,
+When the crew of its last unit still working marks an Auftrag done or the incident command
+cancels it, ORDO shall keep it, with its history and its patient link, in the history and the incident log,
 no longer list it as open, and no longer show its pin.
 
 Tags: must, shared, m60
@@ -521,12 +524,12 @@ Tags: should, shared, m61
 Needs: dsn
 
 #### HELP-7 — Access without an account
-`req~help-7~2`
+`req~help-7~3`
 
-When the incident command registers a helper without an ORDO account with a role in the
-incident, ORDO shall give them access to that incident only, with that role, by a one-time
-code shown as QR code on the command's device. The code shall work until it is used or the
-access ends. ORDO shall end that access when the helper's duty ends, or, without an end of
+When the incident command registers a helper without an ORDO account with roles in the
+incident, ORDO shall give them access to that incident only, with those roles, by a code
+shown as QR code on the command's device. The code shall pair every device of the helper
+until the access ends or the command makes a new code. ORDO shall end that access when the helper's duty ends, or, without an end of
 duty, when the incident is closed, and give it back when a new duty starts; such a helper
 shall never lead the incident.
 

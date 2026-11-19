@@ -29,7 +29,7 @@ const LATER_MS: u64 = 10 * 60 * 1000;
 /// The ID prefix of an open report (ADR-0075) that no task names yet, shown as received.
 const LEGACY: &str = "report:";
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// The incident's Aufträge, computed from the shared events, with the reports of an
 /// incident recorded before ADR-0081: a task naming a report shows the report's kind, place
 /// and description, and an open report without a task shows as received.
@@ -73,7 +73,7 @@ pub fn task_list(core: Handle) -> TaskList {
                     },
                     status: TaskStatus::Open,
                     follow_up: None,
-                    unit: None,
+                    units: Vec::new(),
                     patients: Vec::new(),
                     history: vec![TaskStep {
                         status: TaskStatus::Open,
@@ -92,7 +92,7 @@ fn is_legacy(task: &Task) -> bool {
     task.given.task.starts_with(LEGACY)
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// The map object of an Auftrag's pin: the first one's of a linked group, or the report's
 /// of an incident recorded before ADR-0081.
 pub fn pin_object(task: &Task) -> String {
@@ -102,7 +102,7 @@ pub fn pin_object(task: &Task) -> String {
     }
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// The situation map without the pins no open Auftrag needs (REP-5): the map events stay,
 /// and the log shows them.
 pub fn needed_pins(core: Handle, mut map: ordo_map::SituationMap) -> ordo_map::SituationMap {
@@ -137,22 +137,67 @@ pub fn label(task: &Task) -> String {
     }
 }
 
-/// Who an Auftrag is for: the unit's call sign, the position's title or the person's name;
-/// empty for nobody yet.
+/// Who an Auftrag is for: its units' call signs, the position's title or the person's
+/// name; empty for nobody yet.
 pub(crate) fn assignee(
     core: Handle,
     task: &Task,
     structure: &ordo_command::CommandStructure,
 ) -> String {
-    match (&task.unit, &task.given.sector, &task.given.person) {
-        (Some(unit), _, _) => unit.clone(),
-        (None, Some(id), _) => structure
+    let units = task.unit_names();
+    match (units.is_empty(), &task.given.sector, &task.given.person) {
+        (false, _, _) => units.join(", "),
+        (true, Some(id), _) => structure
             .positions
             .get(id)
             .map_or_else(|| id.clone(), crate::command::position_title),
-        (None, None, Some(person)) => crate::profile::display_text(core, person),
-        (None, None, None) => String::new(),
+        (true, None, Some(person)) => crate::profile::display_text(core, person),
+        (true, None, None) => String::new(),
     }
+}
+
+/// How far one unit on an Auftrag is, as shown: *Zugewiesen*, *In Arbeit*, *Erledigt*.
+fn part_phase(status: TaskStatus) -> &'static str {
+    text::task_phase(match status {
+        TaskStatus::Open => Phase::Assigned,
+        TaskStatus::InProgress => Phase::InProgress,
+        TaskStatus::Done => Phase::Done,
+        TaskStatus::Cancelled => Phase::Cancelled,
+    })
+}
+
+/// The steps that may follow `status` for one part of an Auftrag (a unit's, or with `None`
+/// the whole Auftrag's), never cancelling: that is the command's, for the whole Auftrag.
+fn step_actions(
+    (core, revision): (Handle, RwSignal<u64>),
+    task: &str,
+    unit: Option<String>,
+    status: TaskStatus,
+    name: &str,
+) -> Vec<Action> {
+    status
+        .next()
+        .into_iter()
+        .filter(|s| *s != TaskStatus::Cancelled)
+        .map(|status| {
+            let (task, unit) = (task.to_owned(), unit.clone());
+            let step = text::task_step(status);
+            Action {
+                text: step,
+                label: text::task_step_label(step, name),
+                quiet: false,
+                run: Callback::new(move |()| {
+                    let update = TaskUpdated {
+                        task: task.clone(),
+                        status: Some(status),
+                        follow_up: None,
+                        unit: unit.clone(),
+                    };
+                    let _ = core::update_task(core, revision, &update);
+                }),
+            }
+        })
+        .collect()
 }
 
 /// The call signs of the units present.
@@ -196,13 +241,14 @@ fn TaskHead(task: Task, assignee: String) -> impl IntoView {
     }
 }
 
-// [impl->dsn~tasks~6]
-// [impl->dsn~reports~2]
+// [impl->dsn~tasks~7]
+// [impl->dsn~reports~3]
 /// One open Auftrag as a card: what, where, for whom, its state, the follow-up, patients
 /// taken over, and the next steps. For the command: assign it, send a further unit, set or
-/// move its pin, move it on, cancel it and ask again later. For the crew (`crew`): its pin
-/// on a small map with the link for the maps app, "Patient aufnehmen" on a patient Auftrag,
-/// and moving it on.
+/// move its pin, move each unit's part on, cancel it and ask again later. For the crew
+/// (`crew`): its pin on a small map with the link for the maps app, "Patient aufnehmen" on
+/// a patient Auftrag, and moving their unit's part on (ADR-0085). With more than one unit,
+/// the card lists each with its state.
 #[component]
 pub(crate) fn TaskItem(
     core: Handle,
@@ -214,6 +260,9 @@ pub(crate) fn TaskItem(
     /// cancelling it and when to ask again are the incident command's.
     #[prop(optional)]
     crew: bool,
+    /// The crew's unit, whose part they move on.
+    #[prop(optional)]
+    unit: Option<String>,
 ) -> impl IntoView {
     let who = assignee(core, &task, &crate::command::structure(core));
     let name = label(&task);
@@ -244,6 +293,48 @@ pub(crate) fn TaskItem(
         .iter()
         .map(|p| text::task_taken(&p.unit, &core::clock(p.at.wall_ms)))
         .collect();
+    // Whose steps the card offers (ADR-0085): the crew its own unit's part, the command
+    // each open unit's, and an Auftrag without units its own.
+    let parts: Vec<(Option<String>, TaskStatus)> = match (&unit, crew) {
+        (Some(u), true) => task
+            .part(u)
+            .map(|p| vec![(Some(p.unit.clone()), p.status)])
+            .unwrap_or_default(),
+        (_, false) if !task.units.is_empty() => task
+            .units
+            .iter()
+            .filter(|p| p.status.is_open())
+            .map(|p| (Some(p.unit.clone()), p.status))
+            .collect(),
+        _ => vec![(None, task.status)],
+    };
+    // With more than one unit, a row per unit with its state, and for the command its steps.
+    let unit_rows = (task.units.len() > 1).then(|| {
+        let rows = task
+            .units
+            .iter()
+            .filter(|p| p.status != TaskStatus::Cancelled)
+            .map(|p| {
+                let steps = (editable && !crew && p.status.is_open()).then(|| {
+                    let named = text::unit_in_task(&p.unit, &name);
+                    step_actions(
+                        (core, revision),
+                        &task.given.task,
+                        Some(p.unit.clone()),
+                        p.status,
+                        &named,
+                    )
+                });
+                view! {
+                    <li class="task-card__unit" data-unit=p.unit.clone()>
+                        <span>{p.unit.clone()} " · " <strong>{part_phase(p.status)}</strong></span>
+                        {steps.map(|actions| view! { <Actions actions /> })}
+                    </li>
+                }
+            })
+            .collect_view();
+        view! { <ul class="task-card__units" aria-label=text::TASK_UNITS>{rows}</ul> }
+    });
     let actions = editable.then(|| {
         let id = task.given.task.clone();
         let mut list: Vec<Action> = Vec::new();
@@ -260,31 +351,37 @@ pub(crate) fn TaskItem(
             });
             return list;
         }
-        for status in task.status.next() {
-            // The crew never cancels, and a received Auftrag is assigned first.
-            if (crew && status == TaskStatus::Cancelled)
-                || (phase == Phase::Received && status != TaskStatus::Cancelled)
-            {
-                continue;
-            }
-            let id = id.clone();
-            let step = text::task_step(status);
+        // One part here: the crew's unit, the one unit, or an Auftrag without units. With
+        // several units, each one's steps are in its row.
+        if phase != Phase::Received
+            && (crew || task.units.len() <= 1)
+            && let [(part, status)] = parts.as_slice()
+        {
+            list.extend(step_actions(
+                (core, revision),
+                &id,
+                part.clone(),
+                *status,
+                &name,
+            ));
+        }
+        // Only the command cancels the whole Auftrag, and can ask again later.
+        if !crew {
+            let cancel = id.clone();
             list.push(Action {
-                text: step,
-                label: text::task_step_label(step, &name),
-                quiet: status == TaskStatus::Cancelled,
+                text: text::task_step(TaskStatus::Cancelled),
+                label: text::task_step_label(text::task_step(TaskStatus::Cancelled), &name),
+                quiet: true,
                 run: Callback::new(move |()| {
                     let update = TaskUpdated {
-                        task: id.clone(),
-                        status: Some(status),
+                        task: cancel.clone(),
+                        status: Some(TaskStatus::Cancelled),
                         follow_up: None,
+                        unit: None,
                     };
                     let _ = core::update_task(core, revision, &update);
                 }),
             });
-        }
-        // The command can ask again later on any open Auftrag.
-        if !crew {
             list.push(Action {
                 text: text::FOLLOW_UP_LATER,
                 label: text::task_step_label(text::FOLLOW_UP_LATER, &name),
@@ -294,6 +391,7 @@ pub(crate) fn TaskItem(
                         task: id.clone(),
                         status: None,
                         follow_up: Some(core::now_ms() + LATER_MS),
+                        unit: None,
                     };
                     let _ = core::update_task(core, revision, &update);
                 }),
@@ -309,7 +407,10 @@ pub(crate) fn TaskItem(
         view! { <strong>{text::task_phase(phase)}</strong> " · " {who.clone()} " · " {by} }
             .into_any()
     };
-    let crew_part = crew.then(|| view! { <CrewPart core revision task=task.clone() placed /> });
+    let crew_part = crew.then(|| {
+        let unit = unit.clone();
+        view! { <CrewPart core revision task=task.clone() placed unit /> }
+    });
     let command_part = command.then(|| {
         let assign = (phase == Phase::Received)
             .then(|| view! { <AssignForm core revision task=task.clone() further=false /> });
@@ -337,6 +438,7 @@ pub(crate) fn TaskItem(
             data-task=task.given.task.clone() data-phase=text::task_phase(phase)>
             <TaskHead task=task.clone() assignee=who.clone() />
             <p class="task-card__status">{status_line}</p>
+            {unit_rows}
             {follow_up.map(|f| view! {
                 <p class="task-card__follow-up">{due.then(|| view! { <span class="task-card__due" aria-hidden="true">"⏰ "</span> })}{f}</p>
             })}
@@ -358,13 +460,14 @@ fn CrewPart(
     revision: RwSignal<u64>,
     task: Task,
     placed: Option<[f64; 2]>,
+    /// The crew's unit, if the Auftrag is theirs by their unit.
+    unit: Option<String>,
 ) -> impl IntoView {
     let nav = use_context::<crate::views::Nav>();
     let may_register = Memo::new(move |_| {
         revision.track();
         core::granted(core, ordo_med_patients::COMPARTMENT)
     });
-    let unit = task.unit.clone();
     let patient = task.given.kind == Some(TaskKind::Patient)
         && unit
             .as_ref()
@@ -400,16 +503,19 @@ fn CrewPart(
     }
 }
 
-// [impl->dsn~reports~2]
-/// Assigning a received Auftrag to its one unit (REP-2), or with `further` sending a
-/// further unit: a linked Auftrag for the same place and pin.
+// [impl->dsn~reports~3]
+/// Assigning a received Auftrag to a unit (REP-2), or with `further` sending a further unit
+/// to it (ADR-0085); only units not on it yet are offered.
 #[component]
 fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) -> impl IntoView {
     let unit = RwSignal::new(String::new());
     let error = RwSignal::new(None::<&'static str>);
+    let on_it: Vec<String> = task.units.iter().map(|p| p.unit.clone()).collect();
     let units = Memo::new(move |_| {
         revision.track();
-        present_units(core)
+        let mut units = present_units(core);
+        units.retain(|u| !on_it.contains(u));
+        units
     });
     let field = format!(
         "{}-{}",
@@ -425,14 +531,12 @@ fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) 
             return;
         }
         let t = task.get_value();
-        let done = if further || is_legacy(&t) {
-            // A new Auftrag for the same report: linked to the first, or naming the old
-            // report (ADR-0075).
+        let done = if is_legacy(&t) {
+            // An open report without a task (ADR-0075): an Auftrag naming it.
             let given = TaskGiven {
                 task: String::new(),
                 unit: Some(chosen),
-                follows: (!is_legacy(&t)).then(|| t.pin_task().to_owned()),
-                report: is_legacy(&t).then(|| t.given.report.clone()).flatten(),
+                report: t.given.report.clone(),
                 follow_up: None,
                 template: None,
                 sector: None,
@@ -474,7 +578,7 @@ fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) 
     }
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// Setting or moving the pin of an Auftrag in place (REP-4): the small map of the form,
 /// then "Pin speichern"; "Pin entfernen" takes it off the map.
 #[component]
@@ -526,7 +630,7 @@ fn PinEditor(
     }
 }
 
-// [impl->dsn~tasks~6]
+// [impl->dsn~tasks~7]
 /// When the incident command asks the unit again: the time and the minutes and seconds
 /// left, counted down every second. Not announced each second (no live region); when it
 /// reaches zero, the views recompute and the task shows as due.
@@ -553,7 +657,7 @@ fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl In
     }
 }
 
-// [impl->dsn~tasks~6]
+// [impl->dsn~tasks~7]
 /// The bell in the header (TASK-3), for everyone in an incident, on every page: for the
 /// incident command what needs its attention now (follow-ups that are due, Aufträge without
 /// anyone, staff requests), each linking to *Disposition*; for everyone else the Aufträge
@@ -617,10 +721,17 @@ pub fn AttentionBell(
             let mine = tasks
                 .of_person(&me)
                 .into_iter()
-                .chain(units.iter().flat_map(|u| tasks.of_unit(u)));
+                .filter(|t| t.phase() == Phase::Assigned)
+                .chain(units.iter().flat_map(|u| {
+                    // Their unit's part not started yet (ADR-0085).
+                    tasks
+                        .of_unit(u)
+                        .into_iter()
+                        .filter(|t| t.part(u).is_some_and(|p| p.status == TaskStatus::Open))
+                }));
             let mut seen = std::collections::BTreeSet::new();
             for t in mine {
-                if t.phase() == Phase::Assigned && seen.insert(t.given.task.clone()) {
+                if seen.insert(t.given.task.clone()) {
                     items.push((text::attention_new_task(&label(t)), crew.clone()));
                 }
             }
@@ -666,8 +777,8 @@ pub fn AttentionBell(
     }
 }
 
-// [impl->dsn~tasks~6]
-// [impl->dsn~reports~2]
+// [impl->dsn~tasks~7]
+// [impl->dsn~reports~3]
 /// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; the form
 /// "Neuer Auftrag" for reports and tasks; below, the units with their status, set here
 /// (ADR-0070).
@@ -782,8 +893,8 @@ impl NewKind {
     }
 }
 
-// [impl->dsn~tasks~6]
-// [impl->dsn~reports~2]
+// [impl->dsn~tasks~7]
+// [impl->dsn~reports~3]
 /// "Neuer Auftrag" (TASK-1, REP-1): the kind; for a report the place, what is going on and
 /// when it came in, the unit optional; for another task whom it is for and a template; a
 /// time to follow up (TASK-4); and for a report a pin, by address or on a small map, on the

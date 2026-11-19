@@ -1325,7 +1325,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
     );
 }
 
-// [itest->dsn~tasks~6]
+// [itest->dsn~tasks~7]
 /// A task given by the command reaches every device; its status moves on and a due
 /// follow-up comes first in the open list.
 #[test]
@@ -1363,6 +1363,7 @@ fn tasks_reach_every_device_with_status_and_follow_up() {
         task: "t1".into(),
         status: Some(TaskStatus::InProgress),
         follow_up: None,
+        unit: None,
     };
     record(&mut world, tasks::UPDATED, u.encode().unwrap());
     world.sync();

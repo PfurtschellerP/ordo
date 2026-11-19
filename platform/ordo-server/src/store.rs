@@ -604,7 +604,7 @@ impl Store {
             .collect()
     }
 
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// Stores a guest of `incident` (ADR-0077), or, if known, sets their end of access.
     pub async fn save_guest(
         &self,
@@ -648,7 +648,7 @@ impl Store {
         .transpose()
     }
 
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// The guests whose access has not ended at `now_ms`, with their incident.
     pub async fn open_guests(&self, now_ms: u64) -> Result<Vec<(UserId, IncidentId)>, StoreError> {
         let rows = sqlx::query("SELECT user_id, incident FROM guests WHERE until_ms > ?")
@@ -668,8 +668,8 @@ impl Store {
             .collect()
     }
 
-    // [impl->dsn~guest-access~3]
-    /// Stores a new one-time code of a guest by its hash; their unused codes stop working.
+    // [impl->dsn~guest-access~4]
+    /// Stores a new code of a guest by its hash; their earlier codes stop working (ADR-0084).
     pub async fn save_guest_code(
         &self,
         guest: &UserId,
@@ -677,7 +677,7 @@ impl Store {
         expires: u64,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
-        sqlx::query("DELETE FROM guest_codes WHERE user_id = ? AND used_ms IS NULL")
+        sqlx::query("DELETE FROM guest_codes WHERE user_id = ?")
             .bind(guest.as_str())
             .execute(&mut *tx)
             .await?;
@@ -691,18 +691,18 @@ impl Store {
         Ok(())
     }
 
-    // [impl->dsn~guest-access~3]
-    /// Uses up the code with this hash, if it is known, unused and not expired at `now_ms`:
-    /// the guest, their incident and the end of their access. One statement, so a code
-    /// works only once also when two devices try it at the same time.
+    // [impl->dsn~guest-access~4]
+    /// Uses the code with this hash, if it is known and not expired at `now_ms`: the guest,
+    /// their incident and the end of their access. It works for every device of the guest
+    /// (ADR-0084); its first use is noted.
     pub async fn use_guest_code(
         &self,
         hash: &[u8; 32],
         now_ms: u64,
     ) -> Result<Option<(UserId, IncidentId, u64)>, StoreError> {
         let row = sqlx::query(
-            "UPDATE guest_codes SET used_ms = ?
-             WHERE hash = ? AND used_ms IS NULL AND expires_ms > ?
+            "UPDATE guest_codes SET used_ms = COALESCE(used_ms, ?)
+             WHERE hash = ? AND expires_ms > ?
              RETURNING user_id",
         )
         .bind(ms(now_ms))
@@ -921,9 +921,9 @@ mod tests {
         format!("{name}@ordo.example.org").parse().unwrap()
     }
 
-    // [utest->dsn~guest-access~3]
+    // [utest->dsn~guest-access~4]
     #[tokio::test]
-    async fn a_guest_code_works_once_and_only_until_it_expires() {
+    async fn a_guest_code_pairs_every_device_until_it_expires_or_is_replaced() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(&dir.path().join("ordo.db")).await.unwrap();
         let guest = user("guest-01jd0000000000000000000001");
@@ -936,22 +936,19 @@ mod tests {
             .unwrap();
         let (first, second) = ([1u8; 32], [2u8; 32]);
         store.save_guest_code(&guest, &first, 2_000).await.unwrap();
-        // A new code: the unused one stops working.
+        assert!(store.use_guest_code(&first, 1_100).await.unwrap().is_some());
+        // A new code: the earlier one stops working, used or not.
         store.save_guest_code(&guest, &second, 2_000).await.unwrap();
         assert_eq!(store.use_guest_code(&first, 1_500).await.unwrap(), None);
+        for (at, device) in [(1_500, "a phone"), (1_600, "a tablet")] {
+            assert_eq!(
+                store.use_guest_code(&second, at).await.unwrap(),
+                Some((guest.clone(), incident.clone(), 9_000)),
+                "{device}"
+            );
+        }
         assert_eq!(
-            store.use_guest_code(&second, 1_500).await.unwrap(),
-            Some((guest.clone(), incident.clone(), 9_000))
-        );
-        assert_eq!(
-            store.use_guest_code(&second, 1_600).await.unwrap(),
-            None,
-            "once"
-        );
-        let third = [3u8; 32];
-        store.save_guest_code(&guest, &third, 2_000).await.unwrap();
-        assert_eq!(
-            store.use_guest_code(&third, 2_000).await.unwrap(),
+            store.use_guest_code(&second, 2_000).await.unwrap(),
             None,
             "expired"
         );
@@ -964,7 +961,7 @@ mod tests {
         assert_eq!(store.guest(&user("anna")).await.unwrap(), None);
     }
 
-    // [utest->dsn~guest-access~3]
+    // [utest->dsn~guest-access~4]
     #[tokio::test]
     async fn guests_whose_access_has_not_ended_are_listed_also_without_an_end() {
         let dir = tempfile::tempdir().unwrap();

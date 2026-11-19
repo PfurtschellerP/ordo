@@ -85,8 +85,10 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0078](0078-guest-codes-last-30-minutes-set-per-installation.md) | A guest's one-time code lasts 30 minutes, set per installation | accepted; superseded by 0083 | 2026-11-14 |
 | [0079](0079-crew-workspace.md) | Crews get a workspace of their own: status, tasks, patient cases and transports | accepted | 2026-11-14 |
 | [0080](0080-key-grants-sealed-per-device-with-x-wing.md) | Key grants are sealed for each device with X-Wing (X25519 and ML-KEM-768) | accepted | 2026-11-17 |
-| [0081](0081-one-einsatzauftrag.md) | Reports and tasks become one *Einsatzauftrag* | accepted | 2026-11-18 |
+| [0081](0081-one-einsatzauftrag.md) | Reports and tasks become one *Einsatzauftrag* | accepted; partly superseded by 0085 | 2026-11-18 |
 | [0082](0082-only-a-uhss-staff-writes-it.md) | Only a UHS's staff writes it; an empty list leaves it to its creator | accepted | 2026-11-18 |
-| [0083](0083-guest-codes-last-as-long-as-the-access.md) | A guest's code works as long as the access it gives | accepted | 2026-11-18 |
+| [0083](0083-guest-codes-last-as-long-as-the-access.md) | A guest's code works as long as the access it gives | accepted; partly superseded by 0084 | 2026-11-18 |
+| [0084](0084-one-guest-code-pairs-all-their-devices.md) | One guest code pairs all of the guest's devices | accepted | 2026-11-19 |
+| [0085](0085-several-units-on-one-einsatzauftrag.md) | Several units on one Einsatzauftrag, each with its own state | accepted | 2026-11-19 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

@@ -639,6 +639,24 @@ pub fn category_place_label(category: TriageCategory, n: u32) -> String {
 
 // The plan of a UHS's places (UHS-14)
 pub const PLACE_FREE: &str = "frei";
+pub const PLACE_FILL: &str = "Belegen";
+pub const PLACE_NONE_TITLE: &str = "Ohne Platz";
+pub const REGISTER_PLACE_HINT: &str =
+    "Vorschlag: der erste freie Platz der gewählten Sichtungskategorie.";
+
+/// "Platz 2 belegen": the button of a free place.
+pub fn place_fill(label: &str) -> String {
+    format!("{label} belegen")
+}
+
+/// "1 Patient", "3 Patienten".
+pub fn patient_count(n: usize) -> String {
+    if n == 1 {
+        "1 Patient".to_owned()
+    } else {
+        format!("{n} Patienten")
+    }
+}
 
 pub fn place_plan_title(uhs: &str) -> String {
     format!("Platzplan – {uhs}")
@@ -1496,6 +1514,13 @@ pub fn task_step_label(step: &str, task: &str) -> String {
     format!("{step}: {task}")
 }
 
+/// One unit on an Auftrag, for accessible names: "RTW 2 – Patient: Bühne Nord".
+pub fn unit_in_task(unit: &str, task: &str) -> String {
+    format!("{unit} – {task}")
+}
+
+pub const TASK_UNITS: &str = "Einsatzmittel im Auftrag";
+
 pub fn task_given(unit: &str) -> String {
     format!("Auftrag an {unit} gegeben")
 }
@@ -1806,6 +1831,14 @@ pub fn log_crew(unit: &str, n: usize) -> String {
 
 pub fn log_task_given(to: &str, task: &str) -> String {
     format!("Auftrag an {to}: {task}")
+}
+
+/// A unit's step on an Auftrag (ADR-0085): "Auftrag „…“: RTW 2 In Arbeit".
+pub fn log_unit_step(task: &str, unit: &str, status: Option<&str>) -> String {
+    match status {
+        Some(s) => format!("Auftrag „{task}“: {unit} {s}"),
+        None => log_task_updated(task, None),
+    }
 }
 
 pub fn log_task_updated(task: &str, status: Option<&str>) -> String {
@@ -2175,8 +2208,8 @@ pub const HELPER_POSTCODE_INVALID: &str =
     "Die Postleitzahl hat nicht die Form des Landes, z. B. 55116.";
 pub const HELPER_TOWN: &str = "Ort";
 pub const HELPER_ROLE: &str = "Rolle im Einsatz";
+pub const HELPER_ROLES: &str = "Rollen im Einsatz";
 pub const OR: &str = "oder";
-pub const ROLE_NONE: &str = "keine Rolle";
 pub const GUEST_DUTY_ENDED: &str = "Das Dienstende ist vorbei. Für einen Zugang ohne Konto den Dienst neu beginnen oder das Dienstende ändern.";
 pub const GUEST_UNTIL_CLOSED: &str = "Gast-Zugang bis zum Einsatzende";
 pub const GUEST_NO_COMMAND: &str = "Die Einsatzleitung braucht ein ORDO-Konto.";
@@ -2192,10 +2225,14 @@ pub const GUEST_CODE_ALT: &str = "QR-Code, der dieses Gerät des Helfers mit dem
 pub const GUEST_LINK: &str = "Oder diesen Link auf dem Gerät öffnen:";
 pub const GUEST_CODE_CLOSE: &str = "Fertig";
 pub fn guest_code_for(name: &str, expires: &str) -> String {
-    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis {expires}.")
+    format!(
+        "Für {name}: mit der Kamera jedes Geräts scannen, das {name} nutzt. Gilt bis {expires}."
+    )
 }
 pub fn guest_code_until_closed(name: &str) -> String {
-    format!("Für {name}: mit der Kamera des Handys scannen. Gilt einmal, bis zum Einsatzende.")
+    format!(
+        "Für {name}: mit der Kamera jedes Geräts scannen, das {name} nutzt. Gilt bis zum Einsatzende."
+    )
 }
 pub fn guest_access_label(name: &str) -> String {
     format!("{GUEST_ACCESS}: {name}")

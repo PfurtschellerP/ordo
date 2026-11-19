@@ -84,6 +84,11 @@ jobs:
           cache-dependency-path: |
             tests/e2e/package-lock.json
             tools/symbols/package-lock.json
+      - name: The app's own scripts parse (the map glue is a module)
+        run: |
+          node --check platform/ordo-app/boot.js
+          node --check platform/ordo-app/sw.js
+          node --input-type=module --check < platform/ordo-app/map/ordo-map.js
       - name: Tactical symbols match their generator (MAP-3)
         working-directory: tools/symbols
         run: |

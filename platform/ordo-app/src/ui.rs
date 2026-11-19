@@ -385,9 +385,15 @@ pub fn CheckChips(
     options: Vec<(String, String)>,
     value: RwSignal<BTreeSet<String>>,
     #[prop(optional)] short: Option<fn(&str) -> String>,
+    /// Choices that cannot be taken now (shown, but not to be ticked).
+    #[prop(optional)]
+    disabled: Option<Signal<BTreeSet<String>>>,
+    /// The fieldset's ID, e.g. to move the focus to it.
+    #[prop(optional)]
+    id: Option<&'static str>,
 ) -> impl IntoView {
     view! {
-        <fieldset class="choices">
+        <fieldset class="choices" id=id>
             <legend>{legend}</legend>
             {options
                 .into_iter()
@@ -397,9 +403,13 @@ pub fn CheckChips(
                         let id = id.clone();
                         move || value.with(|s| s.contains(&id))
                     };
+                    let off = {
+                        let id = id.clone();
+                        move || disabled.is_some_and(|d| d.with(|d| d.contains(&id)))
+                    };
                     view! {
                         <label class="choice chip">
-                            <input type="checkbox" prop:checked=checked
+                            <input type="checkbox" prop:checked=checked prop:disabled=off
                                 on:change=move |ev| {
                                     let on = event_target_checked(&ev);
                                     value.update(|s| {

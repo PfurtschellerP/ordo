@@ -123,7 +123,7 @@ pub const HTTP: VersionRange = VersionRange {
     max: Version::new(1, 1),
 };
 
-/// HTTP API 1.1: `POST /auth/guest`, pairing with a guest's one-time code (ADR-0077).
+/// HTTP API 1.1: `POST /auth/guest`, pairing with a guest's code (ADR-0077).
 pub const HTTP_GUESTS: Version = Version::new(1, 1);
 
 /// The HTTP header that names the API version of a request and of its response.

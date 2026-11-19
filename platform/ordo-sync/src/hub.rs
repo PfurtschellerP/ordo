@@ -213,7 +213,7 @@ impl<P: AccessPolicy> Hub<P> {
         self.deleted.insert(stream);
     }
 
-    // [impl->dsn~guest-access~3]
+    // [impl->dsn~guest-access~4]
     /// When `incident` was closed, if it is (a guest's access ends then, ADR-0083).
     pub fn closed_at(&self, incident: &IncidentId) -> Option<u64> {
         self.registry.get(incident).and_then(|i| i.closed_at)

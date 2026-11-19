@@ -228,11 +228,13 @@ Tags: should, med, m57
 Needs: dsn
 
 #### UHS-14 — Place plan
-`req~uhs-14~1`
+`req~uhs-14~2`
 
 When a person works at one on-site care unit with treatment places, ORDO shall show a plan
 of its places, grouped by the triage category they are kept for, with the patient lying on
-each taken place and the free places marked.
+each taken place, the free places marked, and the unit's patients without a place.
+When its staff registers a patient or chooses a free place in the plan, ORDO shall let
+them put a patient without a place on it.
 
 Tags: should, med, m57
 

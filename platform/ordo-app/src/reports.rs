@@ -84,7 +84,7 @@ pub fn take_pending_case() -> Option<Case> {
     PENDING_CASE.with_borrow_mut(Option::take)
 }
 
-// [impl->dsn~reports~2]
+// [impl->dsn~reports~3]
 /// The UHS to offer first for a unit's patient: one under the unit's position in the command
 /// structure, else under the nearest position above it.
 pub fn unit_uhs(structure: &ordo_command::CommandStructure, unit: &str) -> Option<String> {
@@ -103,7 +103,7 @@ pub fn unit_uhs(structure: &ordo_command::CommandStructure, unit: &str) -> Optio
 mod tests {
     use super::*;
 
-    // [utest->dsn~reports~2]
+    // [utest->dsn~reports~3]
     #[test]
     fn a_geo_uri_names_latitude_first() {
         assert_eq!(geo_uri([8.2473, 49.9929]), "geo:49.992900,8.247300");

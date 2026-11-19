@@ -194,7 +194,7 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                 let p = decode::<ordo_units::CrewSet>(e)?;
                 text::log_crew(&p.unit, p.members.len()).into()
             }
-            // [impl->dsn~reports~2]
+            // [impl->dsn~reports~3]
             ordo_tasks::GIVEN => {
                 let p = decode::<ordo_tasks::TaskGiven>(e)?;
                 let person = p.person.as_deref().map(name);
@@ -236,7 +236,7 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
                     None => text::STAFF_REQUEST_WITHDRAWN.to_owned().into(),
                 }
             }
-            // [impl->dsn~reports~2]
+            // [impl->dsn~reports~3]
             ordo_reports::RECORDED => {
                 let p = decode::<ordo_reports::Recorded>(e)?;
                 text::log_report_recorded(&p).into()
@@ -252,7 +252,11 @@ fn describe(e: &AppliedEvent, c: &Context, name: &dyn Fn(&str) -> String) -> Lin
             ordo_tasks::UPDATED => {
                 let p = decode::<ordo_tasks::TaskUpdated>(e)?;
                 let task = Context::name(&c.tasks, &p.task);
-                text::log_task_updated(task, p.status.map(text::task_status)).into()
+                match &p.unit {
+                    Some(unit) => text::log_unit_step(task, unit, p.status.map(text::task_status)),
+                    None => text::log_task_updated(task, p.status.map(text::task_status)),
+                }
+                .into()
             }
             ordo_command::POSITION_CREATED => {
                 let p = decode::<ordo_command::PositionCreated>(e)?;
