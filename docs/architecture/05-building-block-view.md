@@ -169,6 +169,36 @@ the package's wording — similar to role-based launchpads in business software.
 Workspaces are defined as data (package + profile), so organisations can adjust them
 without code.
 
+### 5.3.4 Design items
+
+#### Package registry
+`dsn~package-registry~1`
+
+Shared code knows no package by name ([ADR-0010](../adr/0010-layered-modular-platform.md),
+[ADR-0011](../adr/0011-workspaces-as-data.md)):
+
+* **Event kinds.** Every module declares the kinds of event it writes in a module `kinds`:
+  an `ordo_sync::EventKind` with compartment, module, event type and the payload's schema
+  version. The app records an event by its kind; the schema version is never chosen at
+  the call. A payload change bumps the one constant next to the payload.
+* **App packages.** Each package (and the shared modules, as one) is an entry of the app's
+  registry (`shell::registry`): its workspaces and views as data, the page of each view,
+  its quick actions, its bell items, its log lines. The launcher, the navigation, the
+  routes, the palette, the bell and the incident log loop over the entries. The source is
+  in folders: `shell/` (the frame and its building blocks), `shared/` (shared modules) and
+  one folder per package (`med/`).
+* **Server packages.** Each package gives the server its Cedar policy files, its derivers
+  and its write guards in one entry (`ServerPackage`); the server loops over them.
+
+Covers:
+
+* [req~mod-2~1](../requirements/07-quality.md#mod-2--modules)
+* [req~mod-3~1](../requirements/07-quality.md#mod-3--extensible-without-changes)
+
+Needs: impl, utest
+
+Tags: must, m66
+
 ## 5.4 Repository structure
 
 ```

@@ -159,6 +159,20 @@ impl StaffRequests {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::REQUESTED`].
+    pub const REQUESTED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::REQUESTED, 1);
+
+    /// See [`super::CLOSED`].
+    pub const CLOSED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::CLOSED, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

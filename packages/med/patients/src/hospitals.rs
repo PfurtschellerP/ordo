@@ -219,6 +219,19 @@ impl HospitalList {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::SET`].
+    pub const SET: EventKind = EventKind::new(super::COMPARTMENT, super::MODULE, super::SET, 1);
+
+    /// See [`super::CAPACITY_SET`].
+    pub const CAPACITY_SET: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::CAPACITY_SET, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

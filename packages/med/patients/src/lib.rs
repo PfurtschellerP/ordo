@@ -985,6 +985,109 @@ pub fn latest_counts(incident_events: &[AppliedEvent]) -> BTreeMap<String, Patie
     latest
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event the Med package writes for patients, UHS and records, with their
+/// compartment and schema version; orders, transports, hospitals and staffing declare
+/// theirs in their own modules.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::REGISTERED`].
+    pub const REGISTERED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::REGISTERED,
+        super::REGISTERED_SCHEMA,
+    );
+
+    /// See [`super::RETRIAGED`].
+    pub const RETRIAGED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::RETRIAGED,
+        super::TRIAGE_SCHEMA,
+    );
+
+    /// See [`super::TRANSPORT_PRIORITY`].
+    pub const TRANSPORT_PRIORITY: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::TRANSPORT_PRIORITY,
+        1,
+    );
+
+    /// See [`super::PLACE_ASSIGNED`].
+    pub const PLACE_ASSIGNED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::PLACE_ASSIGNED, 1);
+
+    /// See [`super::DISCHARGED`].
+    pub const DISCHARGED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::DISCHARGED, 1);
+
+    /// See [`super::MOVED`].
+    pub const MOVED: EventKind = EventKind::new(super::COMPARTMENT, super::MODULE, super::MOVED, 1);
+
+    /// See [`super::READMITTED`].
+    pub const READMITTED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::READMITTED, 1);
+
+    /// See [`super::transport::LINKED`].
+    pub const TRANSPORT_LINKED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::transport::LINKED,
+        1,
+    );
+
+    /// See [`super::UHS_CREATED`].
+    pub const UHS_CREATED: EventKind = EventKind::new(
+        super::UHS_COMPARTMENT,
+        super::UHS_MODULE,
+        super::UHS_CREATED,
+        1,
+    );
+
+    /// See [`super::UHS_UPDATED`].
+    pub const UHS_UPDATED: EventKind = EventKind::new(
+        super::UHS_COMPARTMENT,
+        super::UHS_MODULE,
+        super::UHS_UPDATED,
+        super::UHS_UPDATED_SCHEMA,
+    );
+
+    /// See [`super::UHS_PLACES`].
+    pub const UHS_PLACES: EventKind = EventKind::new(
+        super::UHS_COMPARTMENT,
+        super::UHS_MODULE,
+        super::UHS_PLACES,
+        super::UHS_PLACES_SCHEMA,
+    );
+
+    /// See [`super::record::ENTRY_RECORDED`].
+    pub const EPCR_ENTRY: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::record::MODULE,
+        super::record::ENTRY_RECORDED,
+        super::record::ENTRY_SCHEMA,
+    );
+
+    /// See [`super::record::PHOTO_ATTACHED`].
+    pub const PHOTO_ATTACHED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::record::MODULE,
+        super::record::PHOTO_ATTACHED,
+        1,
+    );
+
+    /// See [`super::record::PHOTO_REMOVED`].
+    pub const PHOTO_REMOVED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::record::MODULE,
+        super::record::PHOTO_REMOVED,
+        1,
+    );
+}
+
 /// Events for unit tests, shared by the modules of this package.
 #[cfg(test)]
 pub(crate) mod testing {

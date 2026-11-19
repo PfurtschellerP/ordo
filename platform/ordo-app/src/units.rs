@@ -758,7 +758,7 @@ fn UnitCard(
                             uhs: None,
                             position: (!id.is_empty()).then_some(id),
                         };
-                        let _ = core::command_event(core, revision, ordo_command::ASSIGNED, &a.encode().unwrap_or_default());
+                        let _ = core::command_event(core, revision, ordo_command::kinds::ASSIGNED, &a.encode().unwrap_or_default());
                     }>
                         <option value="" selected=current.is_empty()>{text::NO_POSITION}</option>
                         {positions

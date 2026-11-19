@@ -14,8 +14,8 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0007](0007-licence-agpl.md) | Licence the software under AGPL-3.0-or-later | accepted | 2026-11-08 |
 | [0008](0008-german-profile-first.md) | German (DE) regional profile first | accepted | 2026-11-07 |
 | [0009](0009-layered-data-profiles.md) | Regional profiles as layered data packages | proposed | 2026-11-08 |
-| [0010](0010-layered-modular-platform.md) | Platform, shared modules and service packages | proposed | 2026-11-08 |
-| [0011](0011-workspaces-as-data.md) | Role-based workspaces defined as data | proposed | 2026-11-08 |
+| [0010](0010-layered-modular-platform.md) | Platform, shared modules and service packages | accepted | 2026-11-08 |
+| [0011](0011-workspaces-as-data.md) | Role-based workspaces defined as data | accepted | 2026-11-08 |
 | [0012](0012-data-compartments.md) | Data compartments | proposed | 2026-11-08 |
 | [0013](0013-connectors-as-events.md) | Connectors as versioned published events | proposed | 2026-11-08 |
 | [0014](0014-clinical-trust-model.md) | Trust model for clinical data | proposed | 2026-11-08 |

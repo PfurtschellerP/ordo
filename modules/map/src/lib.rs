@@ -232,6 +232,24 @@ impl SituationMap {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::PLACED`].
+    pub const PLACED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::PLACED,
+        super::PLACED_SCHEMA,
+    );
+
+    /// See [`super::REMOVED`].
+    pub const REMOVED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::REMOVED, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

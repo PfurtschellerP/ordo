@@ -35,11 +35,10 @@ fn request(core: Handle, revision: RwSignal<u64>, uhs: &str, need: Need) {
     }
     .encode();
     if let Ok(payload) = payload {
-        let _ = core::record_shared(
+        let _ = core::record(
             core,
             revision,
-            staffing::MODULE,
-            staffing::REQUESTED,
+            staffing::kinds::REQUESTED,
             &payload,
             text::staff_requested(&core::uhs_name(core, uhs), need),
         );
@@ -54,11 +53,10 @@ fn close(core: Handle, revision: RwSignal<u64>, request: &str, person: Option<St
     })
     .encode()
     {
-        let _ = core::record_shared(
+        let _ = core::record(
             core,
             revision,
-            staffing::MODULE,
-            staffing::CLOSED,
+            staffing::kinds::CLOSED,
             &payload,
             text::STAFF_REQUEST_CLOSED.to_owned(),
         );

@@ -671,6 +671,44 @@ impl TemplateCatalogue {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::GIVEN`].
+    pub const GIVEN: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::GIVEN,
+        super::GIVEN_SCHEMA,
+    );
+
+    /// See [`super::UPDATED`].
+    pub const UPDATED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::UPDATED,
+        super::UPDATED_SCHEMA,
+    );
+
+    /// See [`super::ASSIGNED`].
+    pub const ASSIGNED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::ASSIGNED,
+        super::ASSIGNED_SCHEMA,
+    );
+
+    /// See [`super::PATIENT_REGISTERED`].
+    pub const PATIENT_REGISTERED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::PATIENT_REGISTERED,
+        1,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

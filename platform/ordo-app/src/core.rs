@@ -21,7 +21,7 @@ use ordo_sync::incidents::{self, IncidentState, Planned, Registry, RoleChange, S
 use ordo_sync::message::{
     self, ClientMessage, DeviceInfo, IncidentSummary, Rejection, ServerMessage,
 };
-use ordo_sync::{AppliedEvent, Replica, ReplicaState};
+use ordo_sync::{AppliedEvent, EventKind, Replica, ReplicaState};
 use ordo_units::{self as units, StatusChanged, UnitAdded, UnitRegister};
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
@@ -251,44 +251,18 @@ impl Core {
             .cloned()
     }
 
-    /// Records an event of the chosen incident.
-    fn record_event(
-        &mut self,
-        compartment: &str,
-        module: &str,
-        event_type: &str,
-        payload: &[u8],
-    ) -> Result<(), String> {
+    // [impl->dsn~package-registry~1]
+    /// Records an event of `kind` in the chosen incident, with the schema version its module
+    /// declares for it.
+    fn record_event(&mut self, kind: EventKind, payload: &[u8]) -> Result<(), String> {
         let incident = self.incident.clone().ok_or("Kein Einsatz gewählt")?;
-        // Payload schema versions that are not 1 (rule: payload changes get a version).
-        let schema = match (module, event_type) {
-            (patients::MODULE, patients::REGISTERED) => patients::REGISTERED_SCHEMA,
-            (patients::MODULE, patients::RETRIAGED) => patients::TRIAGE_SCHEMA,
-            (ordo_tasks::MODULE, ordo_tasks::GIVEN) => ordo_tasks::GIVEN_SCHEMA,
-            (ordo_tasks::MODULE, ordo_tasks::ASSIGNED) => ordo_tasks::ASSIGNED_SCHEMA,
-            (ordo_tasks::MODULE, ordo_tasks::UPDATED) => ordo_tasks::UPDATED_SCHEMA,
-            (ordo_map::MODULE, ordo_map::PLACED) => ordo_map::PLACED_SCHEMA,
-            (ordo_helpers::MODULE, ordo_helpers::REGISTERED | ordo_helpers::UPDATED) => {
-                ordo_helpers::SCHEMA
-            }
-            (transport::MODULE, transport::UPDATED) => transport::UPDATED_SCHEMA,
-            (transport::MODULE, transport::REQUESTED) => transport::REQUESTED_SCHEMA,
-            (units::MODULE, units::ADDED) => units::ADDED_SCHEMA,
-            (units::MODULE, units::CREW_SET) => units::CREW_SCHEMA,
-            (patients::UHS_MODULE, patients::UHS_UPDATED) => patients::UHS_UPDATED_SCHEMA,
-            (patients::UHS_MODULE, patients::UHS_PLACES) => patients::UHS_PLACES_SCHEMA,
-            (incidents::MODULE, incidents::DETAILS_CHANGED) => incidents::DETAILS_SCHEMA,
-            (orders::MODULE, orders::UPDATED) => orders::UPDATED_SCHEMA,
-            (record::MODULE, record::ENTRY_RECORDED) => record::ENTRY_SCHEMA,
-            _ => 1,
-        };
         self.replica
             .record(
                 &incident,
-                compartment,
-                module,
-                event_type,
-                schema,
+                kind.compartment,
+                kind.module,
+                kind.event_type,
+                kind.schema,
                 payload,
                 now_ms(),
             )
@@ -314,20 +288,8 @@ impl Core {
         .encode();
         if let (Ok(planned), Ok(commander)) = (planned, commander) {
             let ok = self
-                .record_event(
-                    incidents::COMPARTMENT,
-                    incidents::MODULE,
-                    incidents::PLANNED,
-                    &planned,
-                )
-                .and_then(|()| {
-                    self.record_event(
-                        incidents::COMPARTMENT,
-                        incidents::MODULE,
-                        incidents::ROLE_GRANTED,
-                        &commander,
-                    )
-                });
+                .record_event(incidents::kinds::PLANNED, &planned)
+                .and_then(|()| self.record_event(incidents::kinds::ROLE_GRANTED, &commander));
             if ok.is_ok() {
                 self.plan = None;
                 if let Some(mut pairing) = load_pairing() {
@@ -725,9 +687,7 @@ pub fn register(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::REGISTERED,
+        patients::kinds::REGISTERED,
         &payload,
         announcement,
     )?;
@@ -743,9 +703,7 @@ pub fn register(
     record(
         core,
         revision,
-        ordo_tasks::COMPARTMENT,
-        ordo_tasks::MODULE,
-        ordo_tasks::PATIENT_REGISTERED,
+        ordo_tasks::kinds::PATIENT_REGISTERED,
         &taken,
         text::TASK_PATIENT_TAKEN.to_owned(),
     )
@@ -795,9 +753,7 @@ pub fn close_report(core: Handle, revision: RwSignal<u64>, report: &str) -> Resu
     record(
         core,
         revision,
-        ordo_reports::COMPARTMENT,
-        ordo_reports::MODULE,
-        ordo_reports::CLOSED,
+        ordo_reports::kinds::CLOSED,
         &payload,
         text::REPORT_CLOSED.to_owned(),
     )
@@ -820,9 +776,7 @@ pub fn set_transport_priority(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::TRANSPORT_PRIORITY,
+        patients::kinds::TRANSPORT_PRIORITY,
         &payload,
         announcement,
     )
@@ -846,9 +800,7 @@ pub fn retriage(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::RETRIAGED,
+        patients::kinds::RETRIAGED,
         &payload,
         announcement,
     )
@@ -874,9 +826,7 @@ pub fn create_uhs(
     record(
         core,
         revision,
-        patients::UHS_COMPARTMENT,
-        patients::UHS_MODULE,
-        patients::UHS_CREATED,
+        patients::kinds::UHS_CREATED,
         &payload,
         text::uhs_created(name),
     )?;
@@ -920,9 +870,7 @@ pub fn set_places(
     record(
         core,
         revision,
-        patients::UHS_COMPARTMENT,
-        patients::UHS_MODULE,
-        patients::UHS_PLACES,
+        patients::kinds::UHS_PLACES,
         &payload,
         text::places_set(count),
     )
@@ -955,9 +903,7 @@ pub fn set_category_places(
     record(
         core,
         revision,
-        patients::UHS_COMPARTMENT,
-        patients::UHS_MODULE,
-        patients::UHS_PLACES,
+        patients::kinds::UHS_PLACES,
         &payload,
         text::places_set(count),
     )
@@ -980,9 +926,7 @@ pub fn assign_place(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::PLACE_ASSIGNED,
+        patients::kinds::PLACE_ASSIGNED,
         &payload,
         text::place_assigned(tag, label),
     )
@@ -999,9 +943,7 @@ pub fn discharge(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::DISCHARGED,
+        patients::kinds::DISCHARGED,
         &payload,
         text::discharged(&discharge.tag, discharge.outcome),
     )
@@ -1025,9 +967,7 @@ pub fn move_patient(
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::MOVED,
+        patients::kinds::MOVED,
         &payload,
         announcement,
     )
@@ -1043,9 +983,7 @@ pub fn readmit(core: Handle, revision: RwSignal<u64>, tag: &str) -> Result<(), S
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        patients::READMITTED,
+        patients::kinds::READMITTED,
         &payload,
         text::readmitted(tag),
     )
@@ -1067,9 +1005,7 @@ pub fn create_position(
     record(
         core,
         revision,
-        ordo_command::COMPARTMENT,
-        ordo_command::MODULE,
-        ordo_command::POSITION_CREATED,
+        ordo_command::kinds::POSITION_CREATED,
         &payload,
         text::position_created(&position.name),
     )
@@ -1079,15 +1015,13 @@ pub fn create_position(
 pub fn command_event(
     core: Handle,
     revision: RwSignal<u64>,
-    event_type: &str,
+    kind: EventKind,
     payload: &[u8],
 ) -> Result<(), String> {
     record(
         core,
         revision,
-        ordo_command::COMPARTMENT,
-        ordo_command::MODULE,
-        event_type,
+        kind,
         payload,
         text::STRUCTURE_SAVED.to_owned(),
     )
@@ -1103,20 +1037,12 @@ pub fn helper_event(
     name: &str,
 ) -> Result<(), String> {
     let payload = change.encode().map_err(|e| e.to_string())?;
-    let event_type = if registration {
-        ordo_helpers::REGISTERED
+    let kind = if registration {
+        ordo_helpers::kinds::REGISTERED
     } else {
-        ordo_helpers::UPDATED
+        ordo_helpers::kinds::UPDATED
     };
-    record(
-        core,
-        revision,
-        ordo_helpers::COMPARTMENT,
-        ordo_helpers::MODULE,
-        event_type,
-        &payload,
-        text::helper_saved(name),
-    )
+    record(core, revision, kind, &payload, text::helper_saved(name))
 }
 
 /// Whether the chosen incident's stream `compartment` was granted to this device.
@@ -1133,18 +1059,10 @@ pub fn granted(core: Handle, compartment: &str) -> bool {
 pub fn map_event(
     core: Handle,
     revision: RwSignal<u64>,
-    event_type: &str,
+    kind: EventKind,
     payload: &[u8],
 ) -> Result<(), String> {
-    record(
-        core,
-        revision,
-        ordo_map::COMPARTMENT,
-        ordo_map::MODULE,
-        event_type,
-        payload,
-        text::MAP_SAVED.to_owned(),
-    )
+    record(core, revision, kind, payload, text::MAP_SAVED.to_owned())
 }
 
 // [impl->dsn~tasks~7]
@@ -1172,9 +1090,7 @@ pub fn give_task(
     record(
         core,
         revision,
-        ordo_tasks::COMPARTMENT,
-        ordo_tasks::MODULE,
-        ordo_tasks::GIVEN,
+        ordo_tasks::kinds::GIVEN,
         &payload,
         announcement,
     )?;
@@ -1192,9 +1108,7 @@ pub fn assign_task(
     record(
         core,
         revision,
-        ordo_tasks::COMPARTMENT,
-        ordo_tasks::MODULE,
-        ordo_tasks::ASSIGNED,
+        ordo_tasks::kinds::ASSIGNED,
         &payload,
         text::task_given(&assigned.unit),
     )
@@ -1214,9 +1128,7 @@ pub fn update_task(
     record(
         core,
         revision,
-        ordo_tasks::COMPARTMENT,
-        ordo_tasks::MODULE,
-        ordo_tasks::UPDATED,
+        ordo_tasks::kinds::UPDATED,
         &payload,
         announcement,
     )
@@ -1234,9 +1146,7 @@ pub fn update_uhs(
     record(
         core,
         revision,
-        patients::UHS_COMPARTMENT,
-        patients::UHS_MODULE,
-        patients::UHS_UPDATED,
+        patients::kinds::UHS_UPDATED,
         &payload,
         text::uhs_updated(&name),
     )
@@ -1248,9 +1158,7 @@ pub fn add_unit(core: Handle, revision: RwSignal<u64>, unit: UnitAdded) -> Resul
     record(
         core,
         revision,
-        units::COMPARTMENT,
-        units::MODULE,
-        units::ADDED,
+        units::kinds::ADDED,
         &payload,
         text::unit_added(&unit.unit),
     )
@@ -1267,9 +1175,7 @@ pub fn release_unit(core: Handle, revision: RwSignal<u64>, unit: &str) -> Result
     record(
         core,
         revision,
-        units::COMPARTMENT,
-        units::MODULE,
-        units::RELEASED,
+        units::kinds::RELEASED,
         &payload,
         text::unit_released(unit),
     )
@@ -1291,9 +1197,7 @@ pub fn set_crew(
     record(
         core,
         revision,
-        units::COMPARTMENT,
-        units::MODULE,
-        units::CREW_SET,
+        units::kinds::CREW_SET,
         &payload,
         text::crew_set(unit),
     )
@@ -1428,9 +1332,7 @@ pub fn set_status(
     record(
         core,
         revision,
-        units::COMPARTMENT,
-        units::MODULE,
-        units::STATUS_CHANGED,
+        units::kinds::STATUS_CHANGED,
         &payload,
         text::status_set(unit, status),
     )
@@ -1460,18 +1362,14 @@ pub fn request_transport(
     record(
         core,
         revision,
-        transport::COMPARTMENT,
-        transport::MODULE,
-        transport::REQUESTED,
+        transport::kinds::REQUESTED,
         &payload,
         String::new(),
     )?;
     record(
         core,
         revision,
-        patients::COMPARTMENT,
-        patients::MODULE,
-        transport::LINKED,
+        patients::kinds::TRANSPORT_LINKED,
         &link,
         text::transport_requested(tag),
     )
@@ -1487,9 +1385,7 @@ pub fn update_transport(
     record(
         core,
         revision,
-        transport::COMPARTMENT,
-        transport::MODULE,
-        transport::UPDATED,
+        transport::kinds::UPDATED,
         &payload,
         text::transport_status_set(update.status),
     )
@@ -1515,9 +1411,7 @@ pub fn set_hospital(
     record(
         core,
         revision,
-        hospitals::COMPARTMENT,
-        hospitals::MODULE,
-        hospitals::SET,
+        hospitals::kinds::SET,
         &payload,
         text::hospital_saved(&entry.name),
     )
@@ -1534,9 +1428,7 @@ pub fn set_capacity(
     record(
         core,
         revision,
-        hospitals::COMPARTMENT,
-        hospitals::MODULE,
-        hospitals::CAPACITY_SET,
+        hospitals::kinds::CAPACITY_SET,
         &payload,
         text::capacity_saved(name),
     )
@@ -1559,9 +1451,7 @@ pub fn give_order(
     record(
         core,
         revision,
-        orders::COMPARTMENT,
-        orders::MODULE,
-        orders::GIVEN,
+        orders::kinds::GIVEN,
         &payload,
         text::order_given(&order.tag),
     )
@@ -1584,9 +1474,7 @@ pub fn record_order(
     record(
         core,
         revision,
-        orders::COMPARTMENT,
-        orders::MODULE,
-        orders::RECORDED,
+        orders::kinds::RECORDED,
         &payload,
         text::order_recorded(&order.tag),
     )
@@ -1604,9 +1492,7 @@ pub fn confirm_order(core: Handle, revision: RwSignal<u64>, order: &str) -> Resu
     record(
         core,
         revision,
-        orders::COMPARTMENT,
-        orders::MODULE,
-        orders::CONFIRMED,
+        orders::kinds::CONFIRMED,
         &payload,
         text::ORDER_CONFIRMED_SAID.to_owned(),
     )
@@ -1622,9 +1508,7 @@ pub fn update_order(
     record(
         core,
         revision,
-        orders::COMPARTMENT,
-        orders::MODULE,
-        orders::UPDATED,
+        orders::kinds::UPDATED,
         &payload,
         text::order_status_set(update.status),
     )
@@ -1643,9 +1527,7 @@ pub fn record_entry(
     self::record(
         core,
         revision,
-        patients::COMPARTMENT,
-        record::MODULE,
-        record::ENTRY_RECORDED,
+        patients::kinds::EPCR_ENTRY,
         &payload,
         announcement,
     )
@@ -1682,9 +1564,7 @@ pub fn add_photo(
     self::record(
         core,
         revision,
-        patients::COMPARTMENT,
-        record::MODULE,
-        record::PHOTO_ATTACHED,
+        patients::kinds::PHOTO_ATTACHED,
         &payload,
         text::photo_added(tag),
     )?;
@@ -1709,9 +1589,7 @@ pub fn remove_photo(
     self::record(
         core,
         revision,
-        patients::COMPARTMENT,
-        record::MODULE,
-        record::PHOTO_REMOVED,
+        patients::kinds::PHOTO_REMOVED,
         &payload,
         text::photo_removed(tag),
     )
@@ -1743,9 +1621,7 @@ pub fn restore_photo(
     self::record(
         core,
         revision,
-        patients::COMPARTMENT,
-        record::MODULE,
-        record::PHOTO_ATTACHED,
+        patients::kinds::PHOTO_ATTACHED,
         &payload,
         text::photo_restored(tag),
     )
@@ -1762,40 +1638,17 @@ pub fn uhs_name(core: Handle, id: &str) -> String {
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-/// Records an event of `module` in the incident's shared compartment, e.g. a UHS's staff
-/// request (UHS-15).
-pub fn record_shared(
+/// Records an event of `kind`, saves the replica, says `announcement` and sends it.
+pub(crate) fn record(
     core: Handle,
     revision: RwSignal<u64>,
-    module: &str,
-    event_type: &str,
-    payload: &[u8],
-    announcement: String,
-) -> Result<(), String> {
-    record(
-        core,
-        revision,
-        "incident",
-        module,
-        event_type,
-        payload,
-        announcement,
-    )
-}
-
-fn record(
-    core: Handle,
-    revision: RwSignal<u64>,
-    compartment: &str,
-    module: &str,
-    event_type: &str,
+    kind: EventKind,
     payload: &[u8],
     announcement: String,
 ) -> Result<(), String> {
     let result = core
         .try_update_value(|c| {
-            c.record_event(compartment, module, event_type, payload)?;
+            c.record_event(kind, payload)?;
             c.storage_failed = save_replica(&c.replica).is_err();
             c.announcement = announcement;
             c.push();
@@ -1917,26 +1770,18 @@ pub fn change_role(
     }
     .encode()
     .map_err(|e| e.to_string())?;
-    let (event_type, announcement) = if granted {
+    let (kind, announcement) = if granted {
         (
-            incidents::ROLE_GRANTED,
+            incidents::kinds::ROLE_GRANTED,
             text::role_granted(user.as_str(), role),
         )
     } else {
         (
-            incidents::ROLE_WITHDRAWN,
+            incidents::kinds::ROLE_WITHDRAWN,
             text::role_withdrawn(user.as_str(), role),
         )
     };
-    record(
-        core,
-        revision,
-        incidents::COMPARTMENT,
-        incidents::MODULE,
-        event_type,
-        &payload,
-        announcement,
-    )
+    record(core, revision, kind, &payload, announcement)
 }
 
 /// Changes the state of the chosen incident (planned, active, closed).
@@ -1949,9 +1794,7 @@ pub fn set_incident_state(
     record(
         core,
         revision,
-        incidents::COMPARTMENT,
-        incidents::MODULE,
-        incidents::STATE_CHANGED,
+        incidents::kinds::STATE_CHANGED,
         &payload,
         text::incident_state_changed(state),
     )
@@ -1971,9 +1814,7 @@ pub fn set_incident_details(
     record(
         core,
         revision,
-        incidents::COMPARTMENT,
-        incidents::MODULE,
-        incidents::DETAILS_CHANGED,
+        incidents::kinds::DETAILS_CHANGED,
         &payload,
         text::INCIDENT_DETAILS_SAVED.to_owned(),
     )
@@ -1991,9 +1832,7 @@ pub fn set_incident_paused(
     record(
         core,
         revision,
-        incidents::COMPARTMENT,
-        incidents::MODULE,
-        incidents::PAUSE_CHANGED,
+        incidents::kinds::PAUSE_CHANGED,
         &payload,
         text::incident_paused(paused).to_owned(),
     )

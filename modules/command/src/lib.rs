@@ -367,6 +367,32 @@ impl CommandStructure {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::POSITION_CREATED`].
+    pub const POSITION_CREATED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::POSITION_CREATED,
+        1,
+    );
+
+    /// See [`super::POSITION_CLOSED`].
+    pub const POSITION_CLOSED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::POSITION_CLOSED, 1);
+
+    /// See [`super::LEADER_SET`].
+    pub const LEADER_SET: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::LEADER_SET, 1);
+
+    /// See [`super::ASSIGNED`].
+    pub const ASSIGNED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::ASSIGNED, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

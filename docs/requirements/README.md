@@ -152,7 +152,7 @@ the build fails.
 | 63 — Sealed key grants | `m63` | Data keys reach a device only sealed for it with X-Wing (X25519 and ML-KEM-768), so a proxy that ends TLS never sees them; sync protocol 1.4 (SEC-19, ADR-0080) |
 | 64 — Map object cards | `m64` | Pointing at an object on the situation map with a mouse, a tap or the list opens a card at the object with its details and actions: an Auftrag's state and unit, a unit's status, Auftrag, strength and qualifications, a UHS's occupancy (MAP-11) |
 | 65 — Duty pause and unused devices | `m65` | The command pauses and resumes a helper's duty (HELP-8); devices unused for 30 days are removed as if blocked (ORG-14) |
-| 66 — Treatment places for the command | `m66` | The incident command sets up and manages every UHS (UHS-1, ADR-0086); *Behandlungsplätze* shows the free places per triage category of every UHS in *Führung* from the patient counts (UHS-16, PAT-6) and in the UHS module (UHS-8) |
+| 66 — Treatment places for the command | `m66` | The incident command sets up and manages every UHS (UHS-1, ADR-0086); *Behandlungsplätze* shows the free places per triage category of every UHS in *Führung* from the patient counts (UHS-16, PAT-6) and in the UHS module (UHS-8); packages plug in through a registry, so a new one changes no shared file (MOD-2, MOD-3, ADR-0010, ADR-0011) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at

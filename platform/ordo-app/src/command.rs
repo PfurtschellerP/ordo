@@ -121,7 +121,7 @@ fn position_item(
                 let _ = core::command_event(
                     core,
                     revision,
-                    ordo_command::POSITION_CLOSED,
+                    ordo_command::kinds::POSITION_CLOSED,
                     &closed.encode().unwrap_or_default(),
                 );
             }),
@@ -255,7 +255,7 @@ fn CommandForms(
         if core::command_event(
             core,
             revision,
-            ordo_command::LEADER_SET,
+            ordo_command::kinds::LEADER_SET,
             &set.encode().unwrap_or_default(),
         )
         .is_ok()
@@ -281,7 +281,7 @@ fn CommandForms(
         let _ = core::command_event(
             core,
             revision,
-            ordo_command::ASSIGNED,
+            ordo_command::kinds::ASSIGNED,
             &a.encode().unwrap_or_default(),
         );
     };

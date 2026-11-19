@@ -322,6 +322,28 @@ impl HelperRegister {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::REGISTERED`].
+    pub const REGISTERED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::REGISTERED,
+        super::SCHEMA,
+    );
+
+    /// See [`super::UPDATED`].
+    pub const UPDATED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::UPDATED,
+        super::SCHEMA,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

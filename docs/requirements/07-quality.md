@@ -618,7 +618,7 @@ Needs: dsn
 
 Every functional area is a module with its own events, state, permissions, views and settings
 
-Tags: must, quality
+Tags: must, quality, m66
 
 Needs: dsn
 
@@ -627,7 +627,7 @@ Needs: dsn
 
 A new module or service package can be added without changing existing ones
 
-Tags: must, quality
+Tags: must, quality, m66
 
 Needs: dsn
 

@@ -609,6 +609,31 @@ impl OrderBook {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::GIVEN`].
+    pub const GIVEN: EventKind = EventKind::new(super::COMPARTMENT, super::MODULE, super::GIVEN, 1);
+
+    /// See [`super::UPDATED`].
+    pub const UPDATED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::UPDATED,
+        super::UPDATED_SCHEMA,
+    );
+
+    /// See [`super::RECORDED`].
+    pub const RECORDED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::RECORDED, 1);
+
+    /// See [`super::CONFIRMED`].
+    pub const CONFIRMED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::CONFIRMED, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

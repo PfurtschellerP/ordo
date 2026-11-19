@@ -740,6 +740,36 @@ impl StatusCatalogue {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::STATUS_CHANGED`].
+    pub const STATUS_CHANGED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::STATUS_CHANGED, 1);
+
+    /// See [`super::ADDED`].
+    pub const ADDED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::ADDED,
+        super::ADDED_SCHEMA,
+    );
+
+    /// See [`super::RELEASED`].
+    pub const RELEASED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::RELEASED, 1);
+
+    /// See [`super::CREW_SET`].
+    pub const CREW_SET: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::CREW_SET,
+        super::CREW_SCHEMA,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

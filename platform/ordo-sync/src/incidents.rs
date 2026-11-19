@@ -297,6 +297,40 @@ impl Registry {
     }
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use crate::EventKind;
+
+    /// See [`super::PLANNED`].
+    pub const PLANNED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::PLANNED, 1);
+
+    /// See [`super::STATE_CHANGED`].
+    pub const STATE_CHANGED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::STATE_CHANGED, 1);
+
+    /// See [`super::DETAILS_CHANGED`].
+    pub const DETAILS_CHANGED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::DETAILS_CHANGED,
+        super::DETAILS_SCHEMA,
+    );
+
+    /// See [`super::PAUSE_CHANGED`].
+    pub const PAUSE_CHANGED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::PAUSE_CHANGED, 1);
+
+    /// See [`super::ROLE_GRANTED`].
+    pub const ROLE_GRANTED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::ROLE_GRANTED, 1);
+
+    /// See [`super::ROLE_WITHDRAWN`].
+    pub const ROLE_WITHDRAWN: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::ROLE_WITHDRAWN, 1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

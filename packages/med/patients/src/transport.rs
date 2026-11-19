@@ -466,6 +466,28 @@ pub fn requests_by_patient(clinical_events: &[AppliedEvent]) -> BTreeMap<String,
     by_patient
 }
 
+// [impl->dsn~package-registry~1]
+/// The kinds of event this module writes, with their compartment and schema version.
+pub mod kinds {
+    use ordo_sync::EventKind;
+
+    /// See [`super::REQUESTED`].
+    pub const REQUESTED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::REQUESTED,
+        super::REQUESTED_SCHEMA,
+    );
+
+    /// See [`super::UPDATED`].
+    pub const UPDATED: EventKind = EventKind::new(
+        super::COMPARTMENT,
+        super::MODULE,
+        super::UPDATED,
+        super::UPDATED_SCHEMA,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

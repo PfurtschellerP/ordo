@@ -541,7 +541,7 @@ fn place(core: Handle, revision: RwSignal<u64>, placed: &ObjectPlaced) -> bool {
         && core::map_event(
             core,
             revision,
-            ordo_map::PLACED,
+            ordo_map::kinds::PLACED,
             &placed.encode().unwrap_or_default(),
         )
         .is_ok()
@@ -555,7 +555,7 @@ fn remove(core: Handle, revision: RwSignal<u64>, object: &str) {
     let _ = core::map_event(
         core,
         revision,
-        ordo_map::REMOVED,
+        ordo_map::kinds::REMOVED,
         &removed.encode().unwrap_or_default(),
     );
 }
