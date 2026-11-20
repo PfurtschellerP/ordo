@@ -902,7 +902,6 @@ fn PatientRecord(
         ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
         ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
         ("section-orders".to_owned(), text::ORDERS.to_owned()),
-        ("section-stay".to_owned(), text::STAY_TITLE.to_owned()),
     ]
     .into_iter()
     .chain(
@@ -911,56 +910,74 @@ fn PatientRecord(
             .iter()
             .map(|f| (format!("section-{}", f.id), f.label.clone())),
     )
-    // Not every patient is transported: the request comes last.
-    .chain([(
-        "section-transport".to_owned(),
-        text::TRANSPORT_TITLE.to_owned(),
-    )])
     .collect();
+    // [impl->dsn~record-overview~1]
+    // The page opens on the overview (EPCR-14); the tabs keep their input when switched.
+    let chosen = RwSignal::new(crate::med::record::OVERVIEW);
+    let filter = RwSignal::new(String::new());
+    let writable = move || read_only.get().is_none();
+    use crate::med::record::{DOCUMENTATION, HANDOVER, OVERVIEW, TIMELINE};
+    use crate::shell::ui::{TabList, TabPanel};
+    // Each tab's content takes its own copy.
+    let (t_header, t_overview, t_timeline, t_doc, t_handover) = (
+        tag.clone(),
+        tag.clone(),
+        tag.clone(),
+        tag.clone(),
+        tag.clone(),
+    );
     view! {
         <article class="card record" aria-labelledby="record-title">
-            {back_link}
-            <h2 id="record-title" tabindex="-1">{text::patient_title(&tag)}</h2>
-            {
-                let tag = tag.clone();
-                move || {
-                    register.with(|r| {
-                        r.patient(&tag).and_then(discharged_outcome).map(|o| {
-                            view! { <p class="record__discharged"><strong>{text::discharged_as(o)}</strong></p> }
+            <header class="record__header">
+                {back_link}
+                <crate::med::record::RecordHeader core revision tag=t_header register records />
+                {move || read_only.get().map(|uhs| view! {
+                    <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
+                })}
+                <TabList id="record" label=text::RECORD_TABS tabs=crate::med::record::tabs() chosen />
+            </header>
+            <Show when=writable>
+                <crate::med::record::QuickActions />
+            </Show>
+            <TabPanel id="record" key=OVERVIEW chosen>
+                <crate::med::record::OverviewTiles core revision tag=t_overview register records chosen filter />
+            </TabPanel>
+            <TabPanel id="record" key=TIMELINE chosen>
+                <crate::med::record::Timeline core revision tag=t_timeline register records filter />
+            </TabPanel>
+            <TabPanel id="record" key=DOCUMENTATION chosen>
+                <nav class="record__index" aria-label=text::SECTIONS>
+                    {sections
+                        .into_iter()
+                        .map(|(id, label)| {
+                            view! {
+                                <button type="button" class="chip" on:click=move |_| focus(&id)>{label}</button>
+                            }
                         })
-                    })
-                }
-            }
-            <nav class="record__index" aria-label=text::SECTIONS>
-                {sections
-                    .into_iter()
-                    .map(|(id, label)| {
-                        view! {
-                            <button type="button" class="chip" on:click=move |_| focus(&id)>{label}</button>
-                        }
-                    })
-                    .collect_view()}
-            </nav>
-            {move || read_only.get().map(|uhs| view! {
-                <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
-            })}
-            // [impl->dsn~uhs-staff~3]
-            // Where the person may not write (UHS-10), nothing offers it: the disabled
-            // fieldset turns off every control, and the style hides them.
-            <fieldset class="record__body" disabled=move || read_only.get().is_some()>
-                // Where the patient lies is seen and changed first, not inside a section.
-                <PlaceChoice core revision tag=tag.clone() />
-                <PhotoSection core revision tag=tag.clone() records />
-                <TriageSection core revision tag=tag.clone() register />
-                <crate::med::orders::OrdersSection core revision tag=tag.clone() />
-                <StaySection core revision tag=tag.clone() register />
-                {FORMS
-                    .forms
-                    .iter()
-                    .map(|form| view! { <FormSection core revision tag=tag.clone() form records /> })
-                    .collect_view()}
-                <crate::med::transports::TransportSection core revision tag=tag.clone() />
-            </fieldset>
+                        .collect_view()}
+                </nav>
+                // [impl->dsn~uhs-staff~3]
+                // Where the person may not write (UHS-10), nothing offers it: the disabled
+                // fieldset turns off every control, and the style hides them.
+                <fieldset class="record__body" disabled=move || read_only.get().is_some()>
+                    // Where the patient lies is seen and changed first, not inside a section.
+                    <PlaceChoice core revision tag=t_doc.clone() />
+                    <PhotoSection core revision tag=t_doc.clone() records />
+                    <TriageSection core revision tag=t_doc.clone() register />
+                    <crate::med::orders::OrdersSection core revision tag=t_doc.clone() />
+                    {FORMS
+                        .forms
+                        .iter()
+                        .map(|form| view! { <FormSection core revision tag=t_doc.clone() form records /> })
+                        .collect_view()}
+                </fieldset>
+            </TabPanel>
+            <TabPanel id="record" key=HANDOVER chosen>
+                <fieldset class="record__body" disabled=move || read_only.get().is_some()>
+                    <StaySection core revision tag=t_handover.clone() register />
+                    <crate::med::transports::TransportSection core revision tag=t_handover />
+                </fieldset>
+            </TabPanel>
         </article>
     }
     .into_any()

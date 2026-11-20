@@ -1,6 +1,6 @@
 //! Reads ePCR forms from an HL7 FHIR R4 `Questionnaire` (ADR-0037).
 //!
-//! ORDO supports a documented subset (`spec/fhir/questionnaire-subset.md`):
+//! ORDO supports a documented subset (`spec/profiles/questionnaire-subset.md`):
 //!
 //! * Top-level items are `group`s, one per form. A repeating group is a *series* form
 //!   (timed entries); a non-repeating group is a *snapshot* form.
@@ -10,8 +10,10 @@
 //!   `answerOption`; `repeats` for several answers), `open-choice` with `repeats` (one
 //!   more answer as free text), `date`, `time`, and `reference`
 //!   limited to `Practitioner` (a person of the crew, answered as text).
-//! * Extensions: `questionnaire-unit`, `minValue`, `maxValue`, and a `display` child with
-//!   `questionnaire-itemControl` for a hint.
+//! * Extensions: `questionnaire-unit`, `minValue`, `maxValue`, SDC `shortText` for a short
+//!   label, a `display` child with `questionnaire-itemControl` for a hint, and ORDO's
+//!   `record-overview` marks (ADR-0088): `tile` and `quick` on a group, `header` on a
+//!   question.
 //! * Codes: `item.code` (e.g. LOINC) and `item.definition` (FHIR element).
 //! * Sums: a read-only `decimal` item with the SDC `calculatedExpression`, restricted to
 //!   a sum of questions of the same group. Anything else is rejected: ORDO calculates
@@ -22,13 +24,19 @@
 
 use serde::Deserialize;
 
-use crate::record::{CatalogueError, Choice, Field, FieldType, Form, FormCatalogue, FormKind, Sum};
+use crate::record::{
+    CatalogueError, Choice, Field, FieldType, Form, FormCatalogue, FormKind, Overview, Sum,
+};
 
 const UNIT: &str = "http://hl7.org/fhir/StructureDefinition/questionnaire-unit";
 const MIN: &str = "http://hl7.org/fhir/StructureDefinition/minValue";
 const MAX: &str = "http://hl7.org/fhir/StructureDefinition/maxValue";
 const CALCULATED: &str =
     "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression";
+const SHORT_TEXT: &str =
+    "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText";
+/// ORDO's marks for the record overview (ADR-0088).
+const OVERVIEW: &str = "urn:ordo:fhir:StructureDefinition:record-overview";
 const LOINC: &str = "http://loinc.org";
 const REFERENCE_RESOURCE: &str =
     "http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource";
@@ -98,6 +106,8 @@ struct Extension {
     value_expression: Option<Expression>,
     #[serde(default)]
     value_code: Option<String>,
+    #[serde(default)]
+    value_string: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -118,6 +128,32 @@ impl Item {
     fn number(&self, url: &str) -> Option<f64> {
         self.extension(url)
             .and_then(|e| e.value_decimal.or(e.value_integer.map(|i| i as f64)))
+    }
+
+    fn short(&self) -> Option<String> {
+        self.extension(SHORT_TEXT)
+            .and_then(|e| e.value_string.clone())
+            .filter(|s| !s.trim().is_empty())
+    }
+
+    // [impl->dsn~record-overview~1]
+    /// The overview marks of the item, each one of `allowed`.
+    fn marks(&self, allowed: &[&str]) -> Result<Vec<String>, CatalogueError> {
+        self.extension
+            .iter()
+            .filter(|e| e.url == OVERVIEW)
+            .map(|e| match e.value_code.as_deref() {
+                Some(code) if allowed.contains(&code) => Ok(code.to_owned()),
+                other => Err(unsupported(
+                    &self.link_id,
+                    &format!(
+                        "record-overview {} is not one of {}",
+                        other.unwrap_or("without valueCode"),
+                        allowed.join(", ")
+                    ),
+                )),
+            })
+            .collect()
     }
 
     fn label(&self) -> String {
@@ -175,6 +211,7 @@ fn sum(group: &str, item: &Item) -> Result<Sum, CatalogueError> {
         label: item.label(),
         of,
         code: code(item),
+        short: item.short(),
     })
 }
 
@@ -283,6 +320,8 @@ fn field(group: &str, item: &Item) -> Result<Field, CatalogueError> {
         open: item.item_type == "open-choice",
         code: code(item),
         hint,
+        short: item.short(),
+        header: !item.marks(&["header"])?.is_empty(),
     })
 }
 
@@ -316,6 +355,17 @@ impl FormCatalogue {
                 },
                 fields: Vec::new(),
                 sums: Vec::new(),
+                overview: group
+                    .marks(&["tile", "quick"])?
+                    .iter()
+                    .map(|m| {
+                        if m == "tile" {
+                            Overview::Tile
+                        } else {
+                            Overview::Quick
+                        }
+                    })
+                    .collect(),
             };
             for item in &group.item {
                 match (item.item_type.as_str(), item.read_only) {

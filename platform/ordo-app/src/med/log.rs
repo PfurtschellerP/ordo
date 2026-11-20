@@ -92,6 +92,7 @@ fn describe(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
                 None => text::uhs_updated(c.get("uhs", &p.id)).into(),
             }
         }
+        med::UHS_CLOSED => text::uhs_closed(c.get("uhs", &decode::<med::UhsClosed>(e)?.id)).into(),
         med::UHS_PLACES => {
             let p = decode::<med::PlacesSet>(e)?;
             text::log_places(c.get("uhs", &p.uhs), p.places.len()).into()
@@ -177,6 +178,11 @@ fn describe(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
         med::hospitals::CAPACITY_SET => {
             let p = decode::<med::hospitals::CapacitySet>(e)?;
             text::capacity_saved(c.get("hospital", &p.hospital)).into()
+        }
+        ordo_contracts::PatientCountsV1::EVENT_TYPE => {
+            let p = decode::<ordo_contracts::PatientCountsV1>(e)?;
+            let counts = crate::med::triage::CATEGORIES.map(|k| (text::label(k), p.get(k)));
+            text::log_counts(c.get("uhs", &p.uhs), &counts, p.without_place, p.discharged).into()
         }
         _ => return None,
     })

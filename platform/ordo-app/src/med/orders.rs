@@ -39,7 +39,7 @@ impl Default for Performers {
 }
 
 /// What was ordered, as one line: "Paracetamol 1 g i.v." or the measure.
-fn ordered_line(o: &OrderGiven) -> String {
+pub(crate) fn ordered_line(o: &OrderGiven) -> String {
     let main = match &o.ordered {
         Ordered::Medication {
             substance,

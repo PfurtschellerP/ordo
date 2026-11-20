@@ -7,6 +7,7 @@ pub(crate) mod orders;
 pub(crate) mod overview;
 pub(crate) mod patients;
 pub(crate) mod places;
+pub(crate) mod record;
 pub(crate) mod staffing;
 pub(crate) mod transports;
 pub(crate) mod triage;

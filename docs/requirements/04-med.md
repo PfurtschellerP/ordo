@@ -265,6 +265,20 @@ Tags: should, med, m66
 
 Needs: dsn
 
+#### UHS-17 — Close a UHS
+`req~uhs-17~1`
+
+When the incident command closes an on-site care unit that holds no patients, ORDO shall
+remove it from every list, map and count of the incident and keep its events in the
+incident log.
+
+Rationale: a UHS set up by mistake, or no longer needed, must not stay in the way; a UHS
+with patients first hands them over.
+
+Tags: must, med, m67
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient
@@ -388,6 +402,33 @@ their size and reaction to light on each side, and the consensual reaction, as t
 MIND dataset records them.
 
 Tags: should, med, m58
+
+Needs: dsn
+
+#### EPCR-14 — Record overview
+`req~epcr-14~1`
+
+When a person opens a patient record, ORDO shall first show an overview: the triage tag,
+triage category, name and the facts the profile puts in the header (e.g. allergies),
+where the patient is, the transport, the latest entry of each form the profile shows on
+the overview with its time and how long ago it was, the open orders and the patient's
+way so far; the timeline, the documentation and the handover shall be one step away.
+
+Rationale: the record grew too long to see the patient's state at a glance (product
+owner, 2026-11-19 and 2026-11-20).
+
+Tags: must, med, m67
+
+Needs: dsn
+
+#### EPCR-15 — Timeline of the record
+`req~epcr-15~1`
+
+ORDO shall show all entries of a patient record — form entries, triage, place, way,
+orders, transports and photos — in one list, newest first, with time and person,
+filterable by kind, and with each correction next to the entry it corrects.
+
+Tags: must, med, m67
 
 Needs: dsn
 

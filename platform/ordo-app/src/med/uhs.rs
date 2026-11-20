@@ -111,6 +111,8 @@ fn UhsDetailsPanel(
     capacity: u32,
     details: med::UhsDetails,
     draft: UhsDraft,
+    /// Patients in it now, from the counts: a UHS with patients is not closed (UHS-17).
+    patients: u32,
 ) -> impl IntoView {
     let UhsDraft {
         open,
@@ -312,12 +314,11 @@ fn UhsDetailsPanel(
         })
         .collect_view();
     view! {
-        <crate::shell::ui::Disclosure
+        <crate::shell::ui::EditDialog
             id=format!("uhs-details-{slug}")
             open
-            class="load-list__details"
+            title=text::uhs_edit_title(&name)
             button_class="button button--small button--quiet button--with-icon"
-            panel_class="load-list__details-panel"
             label=Some(Signal::derive({
                 let name = name.clone();
                 move || text::uhs_details_label(&name)
@@ -385,7 +386,61 @@ fn UhsDetailsPanel(
                 <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
             </form>
             <crate::shared::units::AssignedElsewhere person elsewhere here=here.label.clone() on_move />
-        </crate::shell::ui::Disclosure>
+            <CloseUhs core revision id=id.clone() name=name.clone() patients open />
+        </crate::shell::ui::EditDialog>
+    }
+}
+
+// [impl->dsn~uhs-closing~1]
+/// Closes a UHS that holds no patients (UHS-17), after asking once more. With patients in
+/// it, the button is off and says why.
+#[component]
+fn CloseUhs(
+    core: Handle,
+    revision: RwSignal<u64>,
+    id: String,
+    name: String,
+    patients: u32,
+    /// The dialog it sits in, closed with the UHS.
+    open: RwSignal<bool>,
+) -> impl IntoView {
+    let asking = RwSignal::new(false);
+    let error = RwSignal::new(None::<String>);
+    let slug = core::slug(&id);
+    let hint = format!("uhs-close-hint-{slug}");
+    let confirm = {
+        let id = id.clone();
+        move |_| match core::close_uhs(core, revision, &id) {
+            Ok(()) => {
+                asking.set(false);
+                open.set(false);
+            }
+            Err(e) => error.set(Some(e)),
+        }
+    };
+    view! {
+        <div class="danger-zone">
+            <h3>{text::UHS_CLOSE_TITLE}</h3>
+            <p id=hint.clone() class="hint">{if patients > 0 {
+                text::uhs_close_blocked(patients)
+            } else {
+                text::UHS_CLOSE_HINT.to_owned()
+            }}</p>
+            <Show when=move || !asking.get()>
+                <button type="button" class="button button--small button--danger" disabled={patients > 0}
+                    aria-describedby=hint.clone() on:click=move |_| asking.set(true)>
+                    {text::UHS_CLOSE}
+                </button>
+            </Show>
+            <Show when=move || asking.get()>
+                <p role="alert">{text::uhs_close_question(&name)}</p>
+                <div class="actions">
+                    <button type="button" class="button button--small button--danger" on:click=confirm.clone()>{text::UHS_CLOSE_CONFIRM}</button>
+                    <button type="button" class="button button--small button--quiet" on:click=move |_| asking.set(false)>{text::CANCEL}</button>
+                </div>
+            </Show>
+            <p role="alert" class="error">{move || error.get()}</p>
+        </div>
     }
 }
 
@@ -459,11 +514,15 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
         core.with_value(|c| {
             let events = c.events(med::UHS_COMPARTMENT);
             let details = med::uhs_details(&events);
+            let counts = med::latest_counts(&events);
             med::uhs_list(&events)
                 .into_iter()
                 .map(|u| {
                     let d = details.get(&u.id).cloned().unwrap_or_default();
-                    (u.id, u.name, u.capacity, d)
+                    let held: u32 = counts
+                        .get(&u.id)
+                        .map_or(0, |c| CATEGORIES.iter().map(|k| c.get(*k)).sum());
+                    (u.id, u.name, u.capacity, d, held)
                 })
                 .collect::<Vec<_>>()
         })
@@ -488,15 +547,15 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                     <ul class="unit-list">
                         {rows
                             .into_iter()
-                            .map(|(id, name, capacity, details)| {
+                            .map(|(id, name, capacity, details, patients)| {
                                 let staff = text::uhs_staff_count(details.staff.len());
                                 view! {
                                     <li class="unit-card uhs-card" data-uhs=id.clone()>
-                                        <h3>{name.clone()}</h3>
+                                        <h3 class="uhs-card__name">{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
                                         {editable.then(|| view! {
                                             <UhsDetailsPanel core revision id=id.clone() name=name.clone() capacity
-                                                details=details.clone() draft=draft(&id, &name, capacity, &details) />
+                                                details=details.clone() draft=draft(&id, &name, capacity, &details) patients />
                                         })}
                                     </li>
                                 }

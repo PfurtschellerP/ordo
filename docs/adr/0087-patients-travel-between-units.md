@@ -1,11 +1,11 @@
 ---
-status: proposed
-date: 2026-11-19
+status: accepted
+date: 2026-11-20
 ---
 
 # A patient is registered where they are found and handed over between units
 
-Would supersede in part [ADR-0082](0082-only-a-uhss-staff-writes-it.md) and
+Supersedes in part [ADR-0082](0082-only-a-uhss-staff-writes-it.md) and
 [ADR-0086](0086-the-incident-command-sets-up-the-uhs.md): who writes a patient.
 
 ## Context and Problem Statement
@@ -28,7 +28,8 @@ document.
 
 ## Decision Outcome
 
-Proposed: "One holder at a time", the product owner's direction of 2026-11-19.
+Chosen option: "One holder at a time", the product owner's direction of 2026-11-19,
+accepted with the answers of 2026-11-20.
 
 * **Registration.** A patient is registered with a holder: the UHS the person works at,
   or the unit whose crew names them (UNIT-5), e.g. from a patient Auftrag (REP-3).
@@ -37,9 +38,23 @@ Proposed: "One holder at a time", the product owner's direction of 2026-11-19.
   (`all_uhs`) still pass. Earlier holders keep reading it.
 * **Handover.** `patients.handedOver` (to a UHS, a unit, a transport, or outside ORDO,
   with an optional note). The receiving side confirms with `patients.taken`; until then
-  both see "Übergabe offen" (open question 1). A move between UHS becomes a handover.
-* **Outside ORDO.** A handover document, made on the device, also offline (open question
-  2).
+  both see "Übergabe offen", so responsibility never falls between two. A move between
+  UHS becomes a handover.
+* **Quick handover by QR code** (product owner, 2026-11-20). The holder chooses
+  *Schnellübergabe*: the device records an open handover to nobody in particular and
+  shows a QR code. It carries only the incident, the triage tag and the handover's ID,
+  never clinical data. The receiver photographs it in ORDO (rqrr, as the registration
+  cards, ADR-0073), chooses where the patient goes among the UHS and units they may write
+  for, and confirms; that records `patients.taken` with the chosen holder. Their device
+  must already hold the incident and the clinical compartment; the code grants nothing by
+  itself. It works offline on both sides; the server checks the taking when it arrives.
+* **Outside ORDO.** A handover document, made on the device, also offline: a PDF/A-3
+  that people read, with the same data embedded machine-readably as an HL7 FHIR bundle,
+  following DIVI MIND where it fits; to be checked against what hospitals and control
+  centres accept before it is built.
+* **Who hands over outside ORDO.** Every holder (a field crew may hand a patient straight
+  to an ambulance from outside the incident). Proposed by the developers on 2026-11-20;
+  the product owner may narrow it.
 * **Counts.** The patient counts for the command count patients per holder: per UHS as
   today, and "bei Einsatzmitteln" for patients with crews.
 
@@ -51,17 +66,9 @@ Proposed: "One holder at a time", the product owner's direction of 2026-11-19.
   staff lists.
 * Bad, because events of today's patients (`uhs` field) need a reading as "held by that
   UHS"; no release has shipped them.
-
-## Open questions for the product owner
-
-1. Does the receiving side confirm a handover, or does the handover alone move the
-   patient? Proposed: the receiver confirms, so responsibility never falls between two.
-2. Format of the handover document: proposed a PDF/A-3 that people read, with the same
-   data embedded machine-readably as an HL7 FHIR bundle, following DIVI MIND where it
-   fits (roadmap, open question 3); to be checked against what hospitals and control
-   centres accept.
-3. Who may hand over to "outside ORDO": every holder, or only roles that end care (e.g.
-   the transport's crew at the hospital)?
+* Bad, because a QR code shown on a screen can be photographed by anyone nearby; it
+  only lets someone who may already write patients take this one, and the log shows who
+  took it.
 
 ## More Information
 

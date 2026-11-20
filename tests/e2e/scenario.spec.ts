@@ -21,6 +21,8 @@ import {
   openIncident,
   openRecord,
   openSection,
+  recordTab,
+  showTabOf,
   openView,
   openWorkspace,
   qrPair,
@@ -241,10 +243,26 @@ test("ORDO in the browser", async ({ browser }) => {
     await eingang.getByLabel("Name der UHS").fill("UHS Tor");
     await eingang.getByRole("button", { name: "Speichern" }).click();
     const tor = dora.locator(".uhs-card", { hasText: "UHS Tor" });
-    await expect(tor.locator("h3"), "renamed").toHaveText("UHS Tor");
+    await expect(tor.locator(".uhs-card__name"), "renamed").toHaveText("UHS Tor");
     await tor.getByLabel("Name der UHS").fill("UHS Eingang");
     await tor.getByRole("button", { name: "Speichern" }).click();
-    await expect(eingang.locator("h3")).toHaveText("UHS Eingang");
+    await expect(eingang.locator(".uhs-card__name")).toHaveText("UHS Eingang");
+    // [itest->dsn~edit-dialog~1]
+    // Editing happens in a dialog, so the list does not shift; Escape closes it and the
+    // focus goes back to its button.
+    const editButton = dora.getByRole("button", { name: "Ort und Personal von UHS Eingang" });
+    await expect(dora.getByRole("dialog", { name: "UHS Eingang bearbeiten" })).toBeVisible();
+    await dora.keyboard.press("Escape");
+    await expect(dora.getByRole("dialog")).toHaveCount(0);
+    await expect(editButton).toBeFocused();
+    // [itest->dsn~uhs-closing~1]
+    // UHS-17: a UHS set up by mistake is closed again; it leaves the list, the log keeps it.
+    await createUhs(dora, "UHS Irrtum", 2);
+    await dora.getByRole("button", { name: "Ort und Personal von UHS Irrtum" }).click();
+    await dora.getByRole("button", { name: "UHS auflösen …" }).click();
+    await dora.getByRole("button", { name: "Ja, auflösen" }).click();
+    await expect(dora.locator(".uhs-card"), "closed").toHaveCount(2);
+    await expect(dora.getByRole("dialog")).toHaveCount(0);
   });
 
   await test.step("a medic registers patients at several UHS", async () => {
@@ -401,6 +419,40 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
     await saveForm(anna, "history");
 
+    // [itest->dsn~record-overview~1]
+    // EPCR-14: the record opens on its overview; the header keeps the essentials in view.
+    await openView(anna, "Behandlungsplätze");
+    await openView(anna, "Patienten");
+    await openRecord(anna, "DE-0044", "Übersicht");
+    const header = anna.locator(".record__header");
+    await expect(header.locator(".record__facts"), "the profile's header fields").toContainText("Mustermann");
+    await expect(header.locator(".record__facts"), "allergies always in view").toContainText("Allergien");
+    await expect(header.locator(".record__where"), "where the patient is").toContainText("UHS Eingang · Platz 2");
+    const vitalsTile = anna.locator("[aria-labelledby=tile-vitals]");
+    await expect(vitalsTile.locator("h3"), "the latest entry, with how long ago").toContainText(/zuletzt \d\d:\d\d \((gerade eben|vor \d+ Min\.)\)/);
+    await expect(vitalsTile.locator("dl"), "short labels from the profile, the corrected value").toContainText("HF92 /min");
+    await expect(vitalsTile.locator("dl")).toContainText("GCS15");
+    await expect(anna.locator("[aria-labelledby=tile-diagnosis]")).toContainText("Hypoglykämie");
+    await audit(anna, "Record overview");
+    // A quick action opens its form in *Dokumentation*.
+    await anna.locator(".quick-actions").getByRole("button", { name: "Neuer Eintrag: Vitalwerte" }).click();
+    await expect(anna.getByRole("tab", { name: "Dokumentation" })).toHaveAttribute("aria-selected", "true");
+    await expect(anna.locator("[aria-labelledby=section-vitals] form.editor")).toBeVisible();
+    await anna.locator("[aria-labelledby=section-vitals]").getByRole("button", { name: "Abbrechen" }).click();
+    // [itest->dsn~record-timeline~1]
+    // EPCR-15: one timeline, newest first, filtered by kind; a correction stays visible.
+    await recordTab(anna, "Verlauf");
+    const lines = anna.locator(".timeline__line");
+    await expect(lines.first(), "newest first").toBeVisible();
+    await anna.locator(".timeline__filters").getByRole("button", { name: "Vitalwerte" }).click();
+    await expect(lines, "two entries of vital signs").toHaveCount(2);
+    await expect(anna.locator(".timeline__line--corrected"), "the corrected one struck through").toHaveCount(1);
+    await expect(lines.first(), "the correction names the entry it corrects").toContainText("korrigiert den Eintrag von");
+    await anna.locator(".timeline__filters").getByRole("button", { name: "Alles" }).click();
+    await expect(lines.filter({ hasText: "Erfasst: SK" }), "the registration too").toHaveCount(1);
+    await audit(anna, "Record timeline");
+    await recordTab(anna, "Dokumentation");
+
     // [itest->dsn~person-suggestions~1]
     await anna.locator("#new-medication").click();
     const givenBy = anna.locator("#f-medication-given_by");
@@ -462,6 +514,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(anna), { message: "the removal is sent" }).toContain("Alles gesendet");
 
     // [itest->dsn~transport-request~1]
+    await showTabOf(anna, "[aria-labelledby=section-transport]");
     const transport = anna.locator("[aria-labelledby=section-transport]");
     await transport.getByLabel("RTW – Rettungswagen").check();
     await transport.getByRole("button", { name: "Transport anfordern" }).click();
@@ -480,6 +533,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.goBack();
     await expect(anna.locator("#record-title")).toHaveText("Patient DE-0044");
     await openRecord(petra, "DE-0042");
+    await showTabOf(petra, "[aria-labelledby=section-transport]");
     const later = petra.locator("[aria-labelledby=section-transport]");
     await later.getByLabel("KTW – Krankentransportwagen").check();
     await later.getByLabel("Normal", { exact: true }).check();
@@ -1046,6 +1100,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#crew-rtw-83-1").fill("ben@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
+    await ben.keyboard.press("Escape");
 
     // [itest->dsn~tasks~7]
     const strip = ben.locator(".tasks-strip");
@@ -1147,6 +1202,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await uhsCard.getByLabel("SK III", { exact: true }).fill("2");
     await uhsCard.getByRole("button", { name: "Speichern" }).click();
     await expect(uhsCard.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
+    await ben.keyboard.press("Escape");
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
     // [itest->dsn~detailed-strength~1]
@@ -1167,6 +1223,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await uhsCard.getByLabel("Ärzte", { exact: true }).fill("1");
     await uhsCard.getByRole("button", { name: "Speichern" }).click();
     await expect(total, "with the special functions after it").toHaveText("3 Einsatzmittel · Stärke 1/0/2/4/7 (davon 1 × Ärzte) · ohne Stärkemeldung: 1");
+    await ben.keyboard.press("Escape");
     await expect(ben.locator("#unit-unit-leaders"), "the unit form asks for leaders of formations too").toBeVisible();
     await audit(ben, "Detailed strength");
     await notation(false);
@@ -1188,11 +1245,13 @@ test("ORDO in the browser", async ({ browser }) => {
     );
     await doraCard.getByRole("button", { name: "Erfassen und hinzufügen: max@localhost" }).click();
     await expect(doraCard.locator(".crew-list")).toContainText("max@localhost");
+    await dora.keyboard.press("Escape");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
     // The same account on the staff list: the helper registered on the other device.
     await uhsCard.getByLabel("Name", { exact: true }).fill("max@localhost");
     await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(uhsCard.locator(".uhs-card__staff"), "this device does not know of the other booking").toHaveText("Personal: 3 Personen");
+    await ben.keyboard.press("Escape");
     await server.start();
     await expect.poll(() => status(dora), { message: "both send their changes", timeout: 20_000 }).toContain("Alles gesendet");
     await expect.poll(() => status(ben), { timeout: 20_000 }).toContain("Alles gesendet");
@@ -1214,6 +1273,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(total).toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
     await expect(card.locator(".crew-list li"), "on the crew once").toHaveCount(2);
+    await ben.keyboard.press("Escape");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
     await ben.evaluate(() => (document.documentElement.dataset.theme = "high-contrast"));
@@ -1593,7 +1653,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
-    // [itest->dsn~map-object-cards~3]
+    // [itest->dsn~map-object-cards~4]
     // MAP-11: the list opens each object's card, as a tap on the map does.
     const rtw = objects.filter({ hasText: "RTW 83/1" });
     await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
@@ -1765,6 +1825,7 @@ test("ORDO in the browser", async ({ browser }) => {
     if (await enter.isVisible()) await enter.click();
     await move.click();
     await expect(team.locator(".crew-list"), "by her name in the register; the crew keeps her account").toContainText("Dr. Petra Lang");
+    await ben.keyboard.press("Escape");
 
     // REP-1, ADR-0081: the command records the report as an Auftrag, with its pin on the
     // same form, and assigns it to the team.

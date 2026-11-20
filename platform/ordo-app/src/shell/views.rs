@@ -1015,28 +1015,81 @@ fn Workspace(
     .into_any()
 }
 
+/// The element with `id`, once it shows: inside a hidden tab panel, its tab is chosen
+/// first and `f` runs a moment later ([`crate::shell::ui::TabPanel`]).
+fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
+    use wasm_bindgen::JsCast;
+    let find = {
+        let id = id.to_owned();
+        move || {
+            web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id(&id))
+                .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+        }
+    };
+    let Some(el) = find() else { return };
+    // [impl->dsn~record-overview~1]
+    let tab = el
+        .closest("[role=tabpanel][hidden]")
+        .ok()
+        .flatten()
+        .and_then(|panel| panel.get_attribute("aria-labelledby"))
+        .and_then(|tab| {
+            web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id(&tab))
+                .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+        });
+    match tab {
+        Some(tab) => {
+            tab.click();
+            after_render(move || {
+                if let Some(el) = find() {
+                    f(el);
+                }
+            });
+        }
+        None => f(el),
+    }
+}
+
 /// Moves keyboard focus to the element with `id` (after navigation).
 pub(crate) fn focus(id: &str) {
-    use wasm_bindgen::JsCast;
-    if let Some(el) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id(id))
-        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
-    {
+    when_shown(id, |el| {
         let _ = el.focus();
-    }
+    });
+}
+
+/// Opens the collapsed inputs of a record section (`{section}-open`), if closed, and
+/// moves the focus into them.
+pub(crate) fn open_inputs(section: &str) {
+    let panel = format!("{section}-inputs");
+    when_shown(&format!("{section}-open"), move |button| {
+        if button.get_attribute("aria-expanded").as_deref() != Some("true") {
+            button.click();
+        }
+        let panel = panel.clone();
+        after_render(move || {
+            use wasm_bindgen::JsCast;
+            if let Some(field) = web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| {
+                    d.query_selector(&format!("#{panel} :is(input, select, textarea, button)"))
+                        .ok()
+                        .flatten()
+                })
+                .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+            {
+                let _ = field.focus();
+            }
+        });
+    });
 }
 
 /// Clicks the element with `id` (e.g. to open an editor after navigation).
 pub(crate) fn click(id: &str) {
-    use wasm_bindgen::JsCast;
-    if let Some(el) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id(id))
-        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
-    {
-        el.click();
-    }
+    when_shown(id, |el| el.click());
 }
 
 /// Connection and outbox state, as text (OFF-5).

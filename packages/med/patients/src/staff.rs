@@ -13,8 +13,8 @@ use ordo_sync::{AppliedEvent, WriteGuard};
 use serde::Deserialize;
 
 use crate::{
-    COMPARTMENT, MOVED, REGISTERED, UHS_COMPARTMENT, UHS_CREATED, UHS_PLACES, UHS_UPDATED,
-    UhsCreated, UhsUpdated,
+    COMPARTMENT, DISCHARGED, MOVED, READMITTED, REGISTERED, UHS_CLOSED, UHS_COMPARTMENT,
+    UHS_CREATED, UHS_PLACES, UHS_UPDATED, UhsClosed, UhsCreated, UhsUpdated,
 };
 
 /// The permission of roles allowed at every UHS (Cedar action `all_uhs`).
@@ -55,6 +55,10 @@ struct Incident {
     /// The UHS set up so far.
     created: BTreeSet<String>,
     patients: BTreeMap<String, History<String>>,
+    /// Whether a patient is discharged, over time.
+    discharged: BTreeMap<String, History<bool>>,
+    /// When each closed UHS was closed (UHS-17).
+    closed: BTreeMap<String, Hlc>,
     orders: BTreeMap<String, String>,
 }
 
@@ -77,6 +81,25 @@ impl Incident {
             .get(uhs)
             .and_then(|h| at(h, when))
             .is_some_and(|list| list.iter().any(|s| s.trim().eq_ignore_ascii_case(user)))
+    }
+
+    // [impl->dsn~uhs-closing~1]
+    /// Whether `uhs` is closed at `when`.
+    fn closed_at(&self, uhs: &str, when: Hlc) -> bool {
+        self.closed.get(uhs).is_some_and(|c| *c <= when)
+    }
+
+    /// Whether a patient not discharged is in `uhs` at `when`.
+    fn holds(&self, uhs: &str, when: Hlc) -> bool {
+        self.patients.iter().any(|(tag, h)| {
+            at(h, when).is_some_and(|u| u == uhs)
+                && !self
+                    .discharged
+                    .get(tag)
+                    .and_then(|d| at(d, when))
+                    .copied()
+                    .unwrap_or(false)
+        })
     }
 
     /// The UHS a clinical event is about, if known: the one registered at, the one a
@@ -131,8 +154,24 @@ impl WriteGuard for UhsStaffGuard {
                 UHS_CREATED | UHS_UPDATED | UHS_PLACES => {
                     permissions.iter().any(|p| p == EDIT_UNITS)
                 }
+                // [impl->dsn~uhs-closing~1]
+                // A UHS is closed only while it holds no patient.
+                UHS_CLOSED => {
+                    permissions.iter().any(|p| p == EDIT_UNITS)
+                        && codec::from_cbor::<UhsClosed>(&e.payload).is_ok_and(|c| {
+                            self.incident(e).is_none_or(|i| !i.holds(&c.id, e.body.hlc))
+                        })
+                }
                 _ => true,
             };
+        }
+        // Nobody brings a patient into a closed UHS.
+        if matches!(e.body.event_type.as_str(), REGISTERED | MOVED)
+            && let (Some(incident), Ok(Refers { uhs: Some(uhs), .. })) =
+                (self.incident(e), codec::from_cbor::<Refers>(&e.payload))
+            && incident.closed_at(&uhs, e.body.hlc)
+        {
+            return false;
         }
         if permissions.iter().any(|p| p == ALL_UHS) {
             return true;
@@ -176,6 +215,21 @@ impl WriteGuard for UhsStaffGuard {
                 }) = codec::from_cbor(&e.payload)
                 {
                     insert(incident.patients.entry(tag).or_default(), when, uhs);
+                }
+            }
+            UHS_CLOSED => {
+                if let Ok(UhsClosed { id }) = codec::from_cbor(&e.payload) {
+                    let c = incident.closed.entry(id).or_insert(when);
+                    *c = (*c).min(when);
+                }
+            }
+            DISCHARGED | READMITTED => {
+                if let Ok(Refers { tag: Some(tag), .. }) = codec::from_cbor(&e.payload) {
+                    insert(
+                        incident.discharged.entry(tag).or_default(),
+                        when,
+                        e.body.event_type.as_str() == DISCHARGED,
+                    );
                 }
             }
             crate::orders::GIVEN | crate::orders::RECORDED => {
@@ -371,6 +425,68 @@ mod tests {
     }
 
     // [utest->dsn~uhs-staff~3]
+    // [utest->dsn~uhs-closing~1]
+    #[test]
+    fn a_uhs_is_closed_only_without_patients_and_takes_none_afterwards() {
+        let closed = |n, by: &str| {
+            event(
+                n,
+                by,
+                UHS_MODULE,
+                UHS_COMPARTMENT,
+                UHS_CLOSED,
+                UhsClosed { id: "nord".into() }.encode().unwrap(),
+            )
+        };
+        let discharged = |n, tag: &str| {
+            let d = crate::Discharged {
+                tag: tag.into(),
+                outcome: crate::Outcome::ReleasedOnSite,
+                transport: None,
+            };
+            event(
+                n,
+                "anna",
+                crate::MODULE,
+                COMPARTMENT,
+                DISCHARGED,
+                codec::to_cbor(&d).unwrap(),
+            )
+        };
+        let command = [EDIT_UNITS.to_owned()];
+        let mut g = guard(&[
+            created(1, "dora", "nord"),
+            staff(2, "dora", "nord", &["anna"]),
+            registered(3, "anna", "DE-1", "nord"),
+        ]);
+        assert!(
+            !g.allows(&closed(4, "dora"), &command),
+            "a patient is in it"
+        );
+        assert!(
+            g.allows(&closed(2, "dora"), &command),
+            "before the patient came"
+        );
+        g.observe(&discharged(5, "DE-1"));
+        assert!(
+            g.allows(&closed(6, "dora"), &command),
+            "discharged ones do not count"
+        );
+        assert!(
+            !g.allows(&closed(6, "carl"), &[]),
+            "only the command closes"
+        );
+        g.observe(&closed(6, "dora"));
+        assert!(
+            !g.allows(&registered(7, "anna", "DE-2", "nord"), &[ALL_UHS.into()]),
+            "nobody registers into a closed UHS"
+        );
+        assert!(
+            g.allows(&registered(5, "anna", "DE-2", "nord"), &[]),
+            "documented before it closed"
+        );
+    }
+
     #[test]
     fn with_a_staff_list_only_its_staff_writes_judged_at_the_events_time() {
         let g = guard(&[

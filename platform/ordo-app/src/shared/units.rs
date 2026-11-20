@@ -11,7 +11,7 @@ use ordo_units::{
 };
 
 use crate::core::{self, Handle};
-use crate::shell::ui::{Action, Actions, CheckChips, Disclosure, Suggestions};
+use crate::shell::ui::{Action, Actions, CheckChips, Suggestions};
 use crate::text;
 
 /// Status codes from the profile (`units/status-codes.toml`).
@@ -771,19 +771,18 @@ fn UnitCard(
             {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
                 <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
             }))}
-            <Disclosure
+            <crate::shell::ui::EditDialog
                 id=format!("crew-{}", core::slug(&name))
                 open=crew_open
-                class="unit-card__crew"
+                title=text::crew_title(&name)
                 button_class="button button--small button--quiet button--with-icon"
-                panel_class="unit-card__crew-panel"
                 label=Some(Signal::derive(move || crew_label.clone()))
                 button=Box::new(move || view! {
                     <crate::shell::ui::Icon name=if editable { "pencil" } else { "users" } />{text::CREW}
                 }.into_any())
             >
                 <CrewEditor core revision unit=u.clone() editable draft />
-            </Disclosure>
+            </crate::shell::ui::EditDialog>
             {release.map(|actions| view! { <Actions actions /> })}
         </li>
     }
@@ -921,7 +920,7 @@ pub fn UnitStatusBoard(
 /// units. Adding units: incident command only (`edit_units`).
 #[component]
 pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    // [impl->dsn~map-object-cards~3]
+    // [impl->dsn~map-object-cards~4]
     // Opened from a unit's card on the map: that unit comes into view.
     crate::shared::object_card::reveal_pending();
     let can_edit = core::permitted(core, revision, core::permission::EDIT_UNITS);

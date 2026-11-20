@@ -1152,6 +1152,22 @@ pub fn update_uhs(
     )
 }
 
+// [impl->dsn~uhs-closing~1]
+/// Closes a UHS (UHS-17); the app offers it only while the UHS holds no patients.
+pub fn close_uhs(core: Handle, revision: RwSignal<u64>, id: &str) -> Result<(), String> {
+    let payload = patients::UhsClosed { id: id.to_owned() }
+        .encode()
+        .map_err(|e| e.to_string())?;
+    let name = uhs_name(core, id);
+    record(
+        core,
+        revision,
+        patients::kinds::UHS_CLOSED,
+        &payload,
+        text::uhs_closed(&name),
+    )
+}
+
 /// Adds a unit (vehicle, team, other resource) to the incident (UNIT-1).
 pub fn add_unit(core: Handle, revision: RwSignal<u64>, unit: UnitAdded) -> Result<(), String> {
     let payload = unit.encode().map_err(|e| e.to_string())?;

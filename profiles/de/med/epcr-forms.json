@@ -2,7 +2,7 @@
   "resourceType": "Questionnaire",
   "id": "ordo-de-epcr",
   "url": "urn:ordo:profile:de:questionnaire:epcr",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "name": "OrdoDeEpcr",
   "title": "Patientenprotokoll (DE)",
   "status": "draft",
@@ -17,17 +17,35 @@
       "linkId": "identity",
       "text": "Personalien",
       "type": "group",
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        }
+      ],
       "item": [
         {
           "linkId": "identity.family_name",
           "text": "Name",
           "type": "string",
+          "extension": [
+            {
+              "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+              "valueCode": "header"
+            }
+          ],
           "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.family"
         },
         {
           "linkId": "identity.given_name",
           "text": "Vorname",
           "type": "string",
+          "extension": [
+            {
+              "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+              "valueCode": "header"
+            }
+          ],
           "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.name.given"
         },
         {
@@ -56,6 +74,14 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 120
+            },
+            {
+              "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+              "valueCode": "header"
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "Alter"
             }
           ],
           "item": [
@@ -83,6 +109,12 @@
           "linkId": "identity.sex",
           "text": "Geschlecht",
           "type": "choice",
+          "extension": [
+            {
+              "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+              "valueCode": "header"
+            }
+          ],
           "definition": "http://hl7.org/fhir/StructureDefinition/Patient#Patient.gender",
           "answerOption": [
             {
@@ -356,6 +388,16 @@
           "linkId": "history.allergies",
           "text": "Allergien",
           "type": "string",
+          "extension": [
+            {
+              "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+              "valueCode": "header"
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "Allergien"
+            }
+          ],
           "definition": "http://hl7.org/fhir/StructureDefinition/AllergyIntolerance#AllergyIntolerance",
           "item": [
             {
@@ -432,6 +474,16 @@
       "text": "Vitalwerte",
       "type": "group",
       "repeats": true,
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        },
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "quick"
+        }
+      ],
       "item": [
         {
           "linkId": "vitals.time",
@@ -458,6 +510,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 300
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "HF"
             }
           ],
           "code": [
@@ -487,6 +543,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 300
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "RR sys."
             }
           ],
           "code": [
@@ -516,6 +576,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 250
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "RR dia."
             }
           ],
           "code": [
@@ -545,6 +609,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 80
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "AF"
             }
           ],
           "code": [
@@ -574,6 +642,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 100
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "SpO₂"
             }
           ],
           "code": [
@@ -603,6 +675,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 45
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "Temp."
             }
           ],
           "code": [
@@ -632,6 +708,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 1000
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "BZ"
             }
           ],
           "code": [
@@ -661,6 +741,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 150
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "etCO₂"
             }
           ],
           "code": [
@@ -682,6 +766,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 4
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "GCS A"
             }
           ],
           "code": [
@@ -723,6 +811,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 5
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "GCS V"
             }
           ],
           "code": [
@@ -764,6 +856,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 6
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "GCS M"
             }
           ],
           "code": [
@@ -805,6 +901,10 @@
             {
               "url": "http://hl7.org/fhir/StructureDefinition/maxValue",
               "valueDecimal": 10
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "NRS"
             }
           ],
           "code": [
@@ -846,6 +946,10 @@
                 "language": "text/fhirpath",
                 "expression": "%resource.repeat(item).where(linkId='vitals.gcs_eye').answer.value + %resource.repeat(item).where(linkId='vitals.gcs_verbal').answer.value + %resource.repeat(item).where(linkId='vitals.gcs_motor').answer.value"
               }
+            },
+            {
+              "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText",
+              "valueString": "GCS"
             }
           ],
           "code": [
@@ -862,6 +966,12 @@
       "text": "Befund",
       "type": "group",
       "repeats": true,
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        }
+      ],
       "item": [
         {
           "linkId": "findings.time",
@@ -1218,6 +1328,12 @@
       "text": "Diagnose",
       "type": "group",
       "repeats": true,
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        }
+      ],
       "item": [
         {
           "linkId": "diagnosis.time",
@@ -1283,6 +1399,16 @@
       "text": "Maßnahmen",
       "type": "group",
       "repeats": true,
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        },
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "quick"
+        }
+      ],
       "item": [
         {
           "linkId": "measures.time",
@@ -1416,6 +1542,16 @@
       "text": "Medikamente",
       "type": "group",
       "repeats": true,
+      "extension": [
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "tile"
+        },
+        {
+          "url": "urn:ordo:fhir:StructureDefinition:record-overview",
+          "valueCode": "quick"
+        }
+      ],
       "item": [
         {
           "linkId": "medication.time",

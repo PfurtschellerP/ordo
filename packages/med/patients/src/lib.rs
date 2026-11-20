@@ -39,6 +39,24 @@ pub const UHS_CREATED: &str = "uhs.created";
 /// command sees names and capacities next to the patient counts.
 pub const UHS_COMPARTMENT: &str = "incident";
 
+/// Event type: an on-site care unit was closed (UHS-17): it leaves every list, its events
+/// stay. Only a UHS without patients is closed.
+pub const UHS_CLOSED: &str = "uhs.closed";
+
+/// Payload of `uhs.closed`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UhsClosed {
+    /// The unit closed.
+    pub id: String,
+}
+
+impl UhsClosed {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
 /// Kind of on-site care unit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -319,10 +337,23 @@ pub fn uhs_of_post(post: &ordo_units::Post) -> Option<&str> {
     post.id.strip_prefix("uhs:")
 }
 
+/// The IDs of the units closed (UHS-17).
+pub fn closed_uhs(incident_events: &[AppliedEvent]) -> std::collections::HashSet<String> {
+    incident_events
+        .iter()
+        .filter(|e| {
+            e.body.module.as_str() == UHS_MODULE && e.body.event_type.as_str() == UHS_CLOSED
+        })
+        .filter_map(|e| codec::from_cbor::<UhsClosed>(&e.payload).ok())
+        .map(|c| c.id)
+        .collect()
+}
+
+// [impl->dsn~uhs-closing~1]
 // [impl->dsn~uhs-registry~2]
 // [impl->dsn~uhs-details~4]
 /// The on-site care units of an incident, in order of creation (first wins per ID), with
-/// the current name and capacity.
+/// the current name and capacity; a closed unit is left out (UHS-17).
 pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
     let mut created: Vec<(Hlc, UhsCreated)> = incident_events
         .iter()
@@ -336,7 +367,8 @@ pub fn uhs_list(incident_events: &[AppliedEvent]) -> Vec<UhsCreated> {
         })
         .collect();
     created.sort_by_key(|(hlc, _)| *hlc);
-    let mut seen = std::collections::HashSet::new();
+    // A closed unit counts as seen, so it never shows.
+    let mut seen = closed_uhs(incident_events);
     let updates = uhs_updates(incident_events);
     created
         .into_iter()
@@ -1063,6 +1095,14 @@ pub mod kinds {
         super::UHS_MODULE,
         super::UHS_UPDATED,
         super::UHS_UPDATED_SCHEMA,
+    );
+
+    /// See [`super::UHS_CLOSED`].
+    pub const UHS_CLOSED: EventKind = EventKind::new(
+        super::UHS_COMPARTMENT,
+        super::UHS_MODULE,
+        super::UHS_CLOSED,
+        1,
     );
 
     /// See [`super::UHS_PLACES`].

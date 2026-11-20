@@ -385,6 +385,14 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        the UHS module (UHS-8).
     5. *Führung & Raum:* the command structure and the situation map on one page in
        *Vorbereitung* (Einsatz · Personal · Einsatzmittel · Führung & Raum).
+    6. *Patient record and handover* (m67). Done 2026-11-20: the record opens on an
+       overview with header, quick actions, tiles and tabs, and has one timeline
+       (EPCR-14, EPCR-15, [ADR-0088](adr/0088-record-overview-from-the-profile.md)); the
+       command closes a UHS without patients (UHS-17); editing a card opens a dialog. Next:
+       patients registered where they are found and handed over between UHS, crews and
+       transports, confirmed by the receiver, also by QR code
+       ([ADR-0087](adr/0087-patients-travel-between-units.md)); then the handover
+       document for outside ORDO (PDF/A-3 with FHIR).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

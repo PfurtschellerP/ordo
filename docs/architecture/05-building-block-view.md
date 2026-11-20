@@ -505,14 +505,15 @@ Needs: impl, utest, itest
 Tags: must, m33, m54, m55, m56
 
 #### Map object cards
-`dsn~map-object-cards~3`
+`dsn~map-object-cards~4`
 
 *Führung – Lagekarte* tells what each object is, without leaving the map (MAP-11,
 proposal agreed with the product owner on 2026-11-18, card at the object since the demo
-feedback of the same day). The card sits at its object, with an arrow pointing there:
-above it, below it where there is no room above, and at the bottom of the map where it
-fits neither way. It follows the map while it moves (glue `pinCard`), and a ring marks the
-object.
+feedback of the same day). The card hangs at its object like a pin, with an arrow
+pointing there (feedback of 2026-11-20): above it, else below, right or left of it. Where
+it fits on no side, it takes the larger space above or below and scrolls inside; only on
+a map too small even for that does it sit at the bottom of the map. It follows the map
+while it moves (glue `pinCard`), and a ring marks the object.
 
 * **Pointing** (mouse only; the glue tells the page which object the mouse is on), for
   forces only, units and UHS: their cards hold what the map does not show (feedback of
@@ -1074,6 +1075,25 @@ Needs: impl, itest
 
 Tags: must, m4
 
+#### Closing a UHS
+`dsn~uhs-closing~1`
+
+`uhs.closed` (module `med.uhs`, shared `incident` compartment, payload: the ID) closes a
+unit. `uhs_list` leaves closed units out, so lists, places, the map and the counts drop
+them; the log still names them. On *Vorbereitung – Einsatzmittel* the command closes a
+unit from its edit dialog, after a confirmation; the button is off while the counts show
+patients in it. The Med write guard allows `uhs.closed` only with `edit_units` and only
+while no patient is in the unit at the event's clock (discharged patients do not count),
+and refuses registering or moving a patient into a closed unit.
+
+Covers:
+
+* [req~uhs-17~1](../requirements/04-med.md#uhs-17--close-a-uhs)
+
+Needs: impl, utest, itest
+
+Tags: must, m67
+
 #### UHS details
 `dsn~uhs-details~4`
 
@@ -1190,6 +1210,58 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m6
+
+#### Record overview
+`dsn~record-overview~1`
+
+The record page ([concept](https://claude.ai/artifact/DuACJqM6EXsZKuXRh81xd6), agreed with
+the product owner on 2026-11-20, [ADR-0088](../adr/0088-record-overview-from-the-profile.md))
+has a header, a bar of quick actions and four tabs (WAI-ARIA tabs pattern,
+`shell::ui::TabList`). The header does not stick to the top of the screen: a bar over the
+page would hide focused controls (WCAG 2.4.11); the tabs keep each part short instead.
+
+* **Header:** tag, triage category (badge with colour, label and shape), the fields the
+  profile marks for the header (`header`, e.g. name, age, allergies), where the patient is
+  (UHS and place) and since when, the transport and whether everything is sent.
+* **Quick actions:** one button per form the profile marks `quick`, plus *Sichtung* and
+  *Foto*; each opens that input in *Dokumentation*. On phones the bar sits at the bottom.
+* **Übersicht** (opens first): one tile per form the profile marks `tile` with its latest
+  entry (series) or its current values (snapshot), short labels from the SDC `shortText`
+  extension, the time with how long ago it was ("14:31 (vor 59 Min.)", updated every
+  30 seconds, `shell::ui::Ago`), plus open orders and the patient's way (registration,
+  moves, discharge, transport). Only documented values; nothing is rated (EPCR-9).
+* **Verlauf:** the timeline ([Record timeline](#record-timeline)).
+* **Dokumentation:** place, photo, triage, orders and every form, as before.
+* **Übergabe:** moving, discharging and the transport request.
+
+Anything that opens or focuses an input inside a hidden tab (a quick action, the command
+palette) first shows that tab.
+
+Covers:
+
+* [req~epcr-14~1](../requirements/04-med.md#epcr-14--record-overview)
+
+Needs: impl, utest, itest
+
+Tags: must, m67
+
+#### Record timeline
+`dsn~record-timeline~1`
+
+*Verlauf* lists, newest first, every form entry (series entries one by one, snapshot
+changes grouped by the event that made them), the triage decisions, admission, moves and
+discharge, orders, transport requests and photos, each with time, kind and person.
+Filter chips (*Alles*, one per kind) narrow it; a corrected entry shows struck through
+with a link to its correction. The list is computed from the record, the register,
+orders and transports this device holds, so it shows only what the person may read.
+
+Covers:
+
+* [req~epcr-15~1](../requirements/04-med.md#epcr-15--timeline-of-the-record)
+
+Needs: impl, itest
+
+Tags: must, m67
 
 #### Diagnosis in the record
 `dsn~epcr-diagnosis~1`

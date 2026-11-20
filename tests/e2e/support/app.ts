@@ -109,7 +109,7 @@ export async function createUhs(page: Page, name: string, capacity: number): Pro
   await page.locator("#uhs-name").fill(name);
   await page.locator("#uhs-capacity").fill(String(capacity));
   await page.getByRole("button", { name: "UHS anlegen" }).click();
-  await expect(page.locator(".uhs-card h3", { hasText: name })).toBeVisible();
+  await expect(page.locator(".uhs-card__name", { hasText: name })).toBeVisible();
 }
 
 /** Registers a patient; `category` is the index of the triage category, or none; at a UHS with places, on `place` (a label) or on none. */
@@ -122,13 +122,31 @@ export async function register(page: Page, tag: string, category?: number, uhs?:
   await page.getByRole("button", { name: "Registrieren" }).click();
 }
 
-export async function openRecord(page: Page, tag: string): Promise<void> {
+export async function openRecord(page: Page, tag: string, tab = "Dokumentation"): Promise<void> {
   await page.locator(`.patient-card[data-tag='${tag}']`).click();
   await expect(page.locator("#record-title")).toHaveText(`Patient ${tag}`);
+  await recordTab(page, tab);
+}
+
+/** Chooses a tab of the open record (EPCR-14): Übersicht, Verlauf, Dokumentation, Übergabe. */
+export async function recordTab(page: Page, name: string): Promise<void> {
+  const tab = page.getByRole("tab", { name, exact: true });
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
+/** Shows the record tab that holds `selector`, if another tab is chosen. */
+export async function showTabOf(page: Page, selector: string): Promise<void> {
+  const tab = await page
+    .locator(selector)
+    .first()
+    .evaluate((el) => el.closest("[role=tabpanel]")?.getAttribute("aria-labelledby") ?? null);
+  if (tab && (await page.locator(`#${tab}`).getAttribute("aria-selected")) !== "true") await page.locator(`#${tab}`).click();
 }
 
 /** Opens the collapsed inputs of a record section (e.g. "section-triage"), if closed. */
 export async function openSection(page: Page, section: string): Promise<void> {
+  await showTabOf(page, `#${section}-open`);
   const button = page.locator(`#${section}-open`);
   if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
   await expect(page.locator(`#${section}-inputs`)).toBeVisible();

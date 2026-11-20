@@ -206,7 +206,7 @@ export async function create(element, centre, label, incident, ticket, cooperati
     const hit = hits.find((f) => f.geometry?.type === "Point") ?? hits[0];
     handle.tap(e.lngLat.lng, e.lngLat.lat, hit?.properties?.object ?? null, hit?.geometry?.type === "Point");
   });
-  // [impl->dsn~map-object-cards~3]
+  // [impl->dsn~map-object-cards~4]
   // Pointing at an object with a mouse tells the page which one (MAP-11), so it opens the
   // object's card at it; touch has no pointing, a tap opens the card instead.
   let mouse = false;
@@ -240,15 +240,19 @@ export function onHover(handle, callback) {
   handle.hover = callback;
 }
 
-// [impl->dsn~map-object-cards~3]
-/** Keeps `element` (a card inside the map's stage) at the point `lng`, `lat`: above it, or
- *  below it where there is no room above; where neither fits, the card sits at the bottom
- *  of the map (`data-side="sheet"`). It follows the map while it moves. */
+// [impl->dsn~map-object-cards~4]
+/** Keeps `element` (a card inside the map's stage) at the point `lng`, `lat` like a pin:
+ *  above it, else below, right or left of it, its arrow pointing at the point. Where it
+ *  fits on no side, it takes the larger space above or below and scrolls; only on a map
+ *  too small for that does it sit at the bottom of the map (`data-side="sheet"`). It
+ *  follows the map while it moves. */
 export function pinCard(handle, element, lng, lat) {
   unpinCard(handle);
   const map = handle.map;
   const GAP = SYMBOL_HEIGHT * 0.75 + 12;
   const MARGIN = 8;
+  // The least height a squeezed card keeps (CSS px): its title and a line or two.
+  const LEAST = 160;
   const place = () => {
     const stage = element.parentElement;
     if (!stage || !element.isConnected) return;
@@ -257,24 +261,46 @@ export function pinCard(handle, element, lng, lat) {
     const p = map.project([lng, lat]);
     const x = frame.left - box.left + p.x;
     const y = frame.top - box.top + p.y;
+    // Measured at its natural height.
+    element.style.maxHeight = "";
     const w = element.offsetWidth;
-    const h = element.offsetHeight;
-    let side = "above";
-    let top = y - GAP - h;
-    if (top < MARGIN) {
-      side = "below";
-      top = y + GAP;
-      if (top + h > frame.height - MARGIN) side = "sheet";
+    const h = element.scrollHeight;
+    const bottom = frame.top - box.top + frame.height;
+    const space = {
+      above: y - GAP - MARGIN,
+      below: bottom - y - GAP - MARGIN,
+      right: box.width - x - GAP - MARGIN,
+      left: x - GAP - MARGIN,
+    };
+    const fitsAcross = h <= frame.height - 2 * MARGIN;
+    let side = ["above", "below"].find((s) => h <= space[s])
+      ?? (fitsAcross ? ["right", "left"].find((s) => w <= space[s]) : undefined);
+    let height = h;
+    if (!side) {
+      side = space.above >= space.below ? "above" : "below";
+      height = space[side];
+      if (height < LEAST) side = "sheet";
     }
     element.dataset.side = side;
     if (side === "sheet") {
       element.style.left = element.style.top = "";
       return;
     }
-    const left = Math.min(Math.max(x - w / 2, MARGIN), Math.max(MARGIN, box.width - w - MARGIN));
+    if (height < h) element.style.maxHeight = `${height}px`;
+    let left;
+    let top;
+    if (side === "above" || side === "below") {
+      left = Math.min(Math.max(x - w / 2, MARGIN), Math.max(MARGIN, box.width - w - MARGIN));
+      top = side === "above" ? y - GAP - height : y + GAP;
+      element.style.setProperty("--arrow-x", `${Math.min(Math.max(x - left, 16), w - 16)}px`);
+    } else {
+      left = side === "right" ? x + GAP : x - GAP - w;
+      const least = frame.top - box.top + MARGIN;
+      top = Math.min(Math.max(y - height / 2, least), Math.max(least, bottom - height - MARGIN));
+      element.style.setProperty("--arrow-y", `${Math.min(Math.max(y - top, 16), height - 16)}px`);
+    }
     element.style.left = `${left}px`;
     element.style.top = `${top}px`;
-    element.style.setProperty("--arrow-x", `${Math.min(Math.max(x - left, 16), w - 16)}px`);
   };
   const resized = new ResizeObserver(place);
   resized.observe(element);

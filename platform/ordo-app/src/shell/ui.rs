@@ -285,6 +285,167 @@ pub fn Disclosure(
     }
 }
 
+// [impl->dsn~edit-dialog~1]
+/// Editing an item of a card list: its button opens a modal dialog with the form, so the
+/// list keeps its layout while someone edits (pattern "edit dialog"). The dialog keeps the
+/// focus inside; Escape, its close button or a click on the backdrop closes it, and the
+/// focus returns to the button. On phones it fills the screen.
+#[component]
+pub fn EditDialog(
+    #[prop(into)] id: String,
+    open: RwSignal<bool>,
+    /// The dialog's heading, e.g. "UHS Eingang bearbeiten".
+    #[prop(into)]
+    title: Signal<String>,
+    #[prop(into)] button_class: String,
+    /// The button's accessible name when its content is not enough.
+    #[prop(default = None)]
+    label: Option<Signal<String>>,
+    /// The button's content.
+    button: Children,
+    children: Children,
+) -> impl IntoView {
+    let dialog = NodeRef::<leptos::html::Dialog>::new();
+    let (button_id, title_id) = (format!("{id}-button"), format!("{id}-title"));
+    let back = button_id.clone();
+    Effect::new(move |was: Option<bool>| {
+        let now = open.get();
+        if let Some(d) = dialog.get() {
+            if now && !d.open() {
+                let _ = d.show_modal();
+            } else if !now && d.open() {
+                d.close();
+            }
+            if was == Some(true) && !now {
+                crate::shell::views::focus(&back);
+            }
+        }
+        now
+    });
+    view! {
+        <button id=button_id type="button" class=button_class aria-haspopup="dialog"
+            aria-label=move || label.map(|l| l.get())
+            on:click=move |_| open.set(true)>
+            {button()}
+        </button>
+        <dialog node_ref=dialog id=format!("{id}-dialog") class="edit-dialog" aria-labelledby=title_id.clone()
+            on:cancel=move |_: leptos::ev::Event| open.set(false)
+            on:close=move |_| {
+                if dialog.get_untracked().is_some_and(|d| !d.open()) {
+                    open.set(false);
+                }
+            }
+            on:click=move |ev| {
+                // A click on the backdrop (outside the content) closes it.
+                if ev.target() == ev.current_target() {
+                    open.set(false);
+                }
+            }
+        >
+            <div class="edit-dialog__content">
+                <div class="edit-dialog__header">
+                    <h2 id=title_id.clone() class="edit-dialog__title">{move || title.get()}</h2>
+                    <IconButton icon="x" word=crate::text::CLOSE quiet=true label=crate::text::CLOSE
+                        on_click=Callback::new(move |()| open.set(false)) />
+                </div>
+                {children()}
+            </div>
+        </dialog>
+    }
+}
+
+// [impl->dsn~record-overview~1]
+/// The tabs of a page (WAI-ARIA tabs pattern): one tab per part, the chosen one pressed;
+/// arrow keys, Home and End move between them. The parts are [`TabPanel`]s with the same
+/// `id` and keys.
+#[component]
+pub fn TabList(
+    #[prop(into)] id: String,
+    /// What the tabs are, for screen readers, e.g. "Bereiche der Akte".
+    #[prop(into)]
+    label: String,
+    /// Key and label of each tab, in order.
+    tabs: Vec<(&'static str, String)>,
+    chosen: RwSignal<&'static str>,
+) -> impl IntoView {
+    let keys: Vec<&'static str> = tabs.iter().map(|(k, _)| *k).collect();
+    let tab_id = {
+        let id = id.clone();
+        move |key: &str| format!("{id}-tab-{key}")
+    };
+    let keydown = {
+        let (keys, tab_id) = (keys.clone(), tab_id.clone());
+        move |ev: leptos::ev::KeyboardEvent| {
+            let Some(at) = keys.iter().position(|k| *k == chosen.get_untracked()) else {
+                return;
+            };
+            let next = match ev.key().as_str() {
+                "ArrowRight" => (at + 1) % keys.len(),
+                "ArrowLeft" => (at + keys.len() - 1) % keys.len(),
+                "Home" => 0,
+                "End" => keys.len() - 1,
+                _ => return,
+            };
+            ev.prevent_default();
+            chosen.set(keys[next]);
+            focus(&tab_id(keys[next]));
+        }
+    };
+    view! {
+        <div role="tablist" class="tabs" aria-label=label on:keydown=keydown>
+            {tabs
+                .into_iter()
+                .map(|(key, text)| {
+                    let on = move || chosen.get() == key;
+                    view! {
+                        <button type="button" role="tab" class="tabs__tab" id=tab_id(key)
+                            aria-selected=move || on().to_string()
+                            aria-controls=format!("{id}-panel-{key}")
+                            tabindex=move || if on() { "0" } else { "-1" }
+                            on:click=move |_| chosen.set(key)>
+                            {text}
+                        </button>
+                    }
+                })
+                .collect_view()}
+        </div>
+    }
+}
+
+/// One part of a page with [`TabList`]: shown while its tab is chosen. Hidden parts stay
+/// on the page, so unsaved input survives switching (ADR-0029).
+#[component]
+pub fn TabPanel(
+    #[prop(into)] id: String,
+    key: &'static str,
+    chosen: RwSignal<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <div role="tabpanel" class="tabs__panel" id=format!("{id}-panel-{key}")
+            aria-labelledby=format!("{id}-tab-{key}") hidden=move || chosen.get() != key>
+            {children()}
+        </div>
+    }
+}
+
+// [impl->dsn~record-overview~1]
+/// How long ago `at` was, e.g. "(vor 59 Min.)", counted on every 30 seconds, so a value's
+/// age is seen at a glance. Not announced as it changes.
+#[component]
+pub fn Ago(at: u64) -> impl IntoView {
+    let now = RwSignal::new(crate::core::now_ms());
+    if let Ok(tick) = set_interval_with_handle(
+        move || now.set(crate::core::now_ms()),
+        std::time::Duration::from_secs(30),
+    ) {
+        on_cleanup(move || tick.clear());
+    }
+    view! {
+        <span class="ago">{move || format!("({})", crate::text::ago(now.get().saturating_sub(at)))}</span>
+    }
+}
+
 /// One entry of a history: time, what happened, who.
 pub type HistoryEntry = (String, String, String);
 

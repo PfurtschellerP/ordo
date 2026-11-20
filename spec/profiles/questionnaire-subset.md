@@ -34,6 +34,8 @@ built or loaded; other elements (`id`, `url`, `version`, `title`, `status`, `cop
 | `http://hl7.org/fhir/StructureDefinition/questionnaire-referenceResource` | Required on a `reference` question, with `valueCode` `Practitioner`: the question names a person of the crew (who carried out a measure, ordered or gave a medication). ORDO stores the answer as text and suggests the incident's people; any other name is accepted. Other resource types are rejected. |
 | `http://hl7.org/fhir/StructureDefinition/minValue`, `…/maxValue` | Input limits of a number. They catch typing errors; they are **not clinical limits**. |
 | `http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression` | Only on a `readOnly` `decimal` item: a **sum** of questions of the same group, written as `%resource.repeat(item).where(linkId='<form>.<field>').answer.value + …`. Nothing else is accepted: ORDO calculates only sums of documented values and never gives clinical decision support. ORDO evaluates the sum within one entry. |
+| `http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText` | A short label (`valueString`) where room is scarce, e.g. `HF` for *Herzfrequenz* on the record's overview. Without it the item's `text` is used. |
+| `urn:ordo:fhir:StructureDefinition:record-overview` | ORDO's marks for the record overview (`valueCode`, repeatable; [ADR-0088](../../docs/adr/0088-record-overview-from-the-profile.md)). On a group: `tile` shows its latest entry or current values on the overview; `quick` puts it in the quick actions. On a question: `header` shows its value in the record's header. Any other code is rejected. |
 
 ## Not supported yet
 

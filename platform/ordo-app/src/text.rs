@@ -911,6 +911,8 @@ pub const STAY_OPEN: &str = "Verlegen oder entlassen";
 pub const TRIAGE_OPEN: &str = "Sichtung ändern";
 pub const ORDERS_OPEN: &str = "Neue Anordnung";
 pub const SECTION_CLOSE: &str = "Schließen";
+/// Closes a dialog.
+pub const CLOSE: &str = "Schließen";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
 pub const DISCHARGE: &str = "Entlassen";
 pub const DISCHARGE_CHOOSE: &str = "Bitte das Ergebnis der Entlassung wählen.";
@@ -1228,6 +1230,97 @@ pub fn uhs_staff_count(n: usize) -> String {
 pub const UHS_STAFF_ADD: &str = "Zum Personal hinzufügen";
 pub const UHS_SAVE: &str = "Speichern";
 pub const UHS_CAPACITY_NUMBER: &str = "Bitte die Kapazität als ganze Zahl angeben.";
+
+/// How long ago, from milliseconds: "gerade eben", "vor 5 Min.", "vor 2 Std. 5 Min.",
+/// "vor 3 Tagen".
+pub fn ago(ms: u64) -> String {
+    let minutes = ms / 60_000;
+    match minutes {
+        0 => "gerade eben".to_owned(),
+        1..=59 => format!("vor {minutes} Min."),
+        60..=1439 => match minutes % 60 {
+            0 => format!("vor {} Std.", minutes / 60),
+            m => format!("vor {} Std. {m} Min.", minutes / 60),
+        },
+        _ => match minutes / 1440 {
+            1 => "vor 1 Tag".to_owned(),
+            d => format!("vor {d} Tagen"),
+        },
+    }
+}
+
+// The record page (EPCR-14, EPCR-15).
+pub const RECORD_TABS: &str = "Bereiche der Akte";
+pub const RECORD_OVERVIEW: &str = "Übersicht";
+pub const RECORD_TIMELINE: &str = "Verlauf";
+pub const RECORD_DOCUMENTATION: &str = "Dokumentation";
+pub const RECORD_HANDOVER: &str = "Übergabe";
+pub const RECORD_AT: &str = "Bei";
+pub const RECORD_TRIAGED: &str = "Gesichtet";
+pub const RECORD_SINCE: &str = "Seit";
+pub const QUICK_ACTIONS: &str = "Schnell erfassen";
+pub const ALL: &str = "Alle";
+pub const ALL_KINDS: &str = "Alles";
+pub const LATEST: &str = "zuletzt";
+pub const ORDER: &str = "Anordnung";
+pub const ORDERS_OPEN_TITLE: &str = "Offene Anordnungen";
+pub const ORDERS_ALL: &str = "Alle Anordnungen in der Dokumentation";
+pub const ORDERS_NONE_OPEN: &str = "Keine offenen Anordnungen.";
+pub const READMITTED_STEP: &str = "Wieder aufgenommen";
+pub const CLEARED: &str = "gelöscht";
+pub const PHOTO_ADDED: &str = "Foto hinzugefügt";
+pub const TIMELINE_FILTER: &str = "Verlauf filtern";
+
+pub fn way_registered(uhs: &str) -> String {
+    format!("Erfasst · {uhs}")
+}
+
+pub fn registered_as(category: &str) -> String {
+    format!("Erfasst: {category}")
+}
+
+pub fn entries_all(n: usize) -> String {
+    format!("Alle {n}")
+}
+
+pub fn entries_all_label(form: &str, n: usize) -> String {
+    format!("{form}: alle {n} Einträge im Verlauf")
+}
+
+pub fn corrects_entry(time: &str) -> String {
+    format!("korrigiert den Eintrag von {time}")
+}
+
+pub fn crew_title(unit: &str) -> String {
+    format!("Besatzung {unit}")
+}
+
+pub fn uhs_edit_title(name: &str) -> String {
+    format!("{name} bearbeiten")
+}
+
+pub const UHS_CLOSE_TITLE: &str = "UHS auflösen";
+pub const UHS_CLOSE: &str = "UHS auflösen …";
+pub const UHS_CLOSE_CONFIRM: &str = "Ja, auflösen";
+pub const UHS_CLOSE_HINT: &str =
+    "Die UHS verschwindet aus Listen, Karte und Zahlen. Das Einsatztagebuch behält sie.";
+
+pub fn uhs_close_blocked(patients: u32) -> String {
+    let who = if patients == 1 {
+        "1 Patient ist".to_owned()
+    } else {
+        format!("{patients} Patienten sind")
+    };
+    format!("{who} noch hier. Erst übergeben oder entlassen, dann auflösen.")
+}
+
+pub fn uhs_close_question(name: &str) -> String {
+    format!("{name} wirklich auflösen?")
+}
+
+pub fn uhs_closed(name: &str) -> String {
+    format!("{name} aufgelöst")
+}
 
 pub fn uhs_details_label(name: &str) -> String {
     format!("{UHS_DETAILS} von {name}")
@@ -1825,6 +1918,28 @@ pub fn log_corrects(at: &str) -> String {
     format!("(korrigiert den Eintrag von {at})")
 }
 
+/// The patient counts of a UHS as the log shows them (derived by the server, ADR-0024):
+/// "Patientenzahlen UHS Eingang: 5 (SK I 1 · SK III 4), 1 ohne Platz, 2 entlassen".
+pub fn log_counts(uhs: &str, counts: &[(&str, u32)], unplaced: u32, discharged: u32) -> String {
+    let total: u32 = counts.iter().map(|(_, n)| n).sum();
+    let mut out = format!("Patientenzahlen {uhs}: {total}");
+    let parts: Vec<String> = counts
+        .iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|(label, n)| format!("{label} {n}"))
+        .collect();
+    if !parts.is_empty() {
+        out.push_str(&format!(" ({})", parts.join(" · ")));
+    }
+    if unplaced > 0 {
+        out.push_str(&format!(", {}", without_place(unplaced)));
+    }
+    if discharged > 0 {
+        out.push_str(&format!(", {discharged} entlassen"));
+    }
+    out
+}
+
 pub fn log_unknown(module: &str, event_type: &str) -> String {
     format!("{module}: {event_type}")
 }
@@ -2342,4 +2457,19 @@ pub const CARD_READING: &str = "Karte wird gelesen …";
 pub const CARD_NOT_RECOGNISED: &str = "Keine Karte erkannt. Bitte noch einmal fotografieren: Karte flach, QR-Code ganz im Bild und scharf.";
 pub fn card_read(card: &str, name: &str) -> String {
     format!("{card} von {name} gelesen. Bitte prüfen und erfassen.")
+}
+
+#[cfg(test)]
+mod tests {
+    // [utest->dsn~record-overview~1]
+    #[test]
+    fn ages_read_at_a_glance() {
+        let min = 60_000;
+        assert_eq!(super::ago(30_000), "gerade eben");
+        assert_eq!(super::ago(59 * min), "vor 59 Min.");
+        assert_eq!(super::ago(60 * min), "vor 1 Std.");
+        assert_eq!(super::ago(125 * min), "vor 2 Std. 5 Min.");
+        assert_eq!(super::ago(1440 * min), "vor 1 Tag");
+        assert_eq!(super::ago(3 * 1440 * min), "vor 3 Tagen");
+    }
 }

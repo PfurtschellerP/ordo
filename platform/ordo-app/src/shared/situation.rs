@@ -568,7 +568,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s, false);
-    // [impl->dsn~map-object-cards~3]
+    // [impl->dsn~map-object-cards~4]
     // A tap or click on an object opens its card at the object; a tap on the empty map
     // closes it. A mouse resting on an object shows the card too, while the pointer is on
     // the object or on the card (WCAG 1.4.13: it can be moved onto, Escape closes it).
@@ -603,7 +603,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             },
         );
         let _ = with_map(handle, "onTap", &[on_tap.into_js_value()]);
-        // [impl->dsn~map-object-cards~3]
+        // [impl->dsn~map-object-cards~4]
         // Pointing opens the card of forces only, units and UHS, whose cards hold what is
         // not on the map (feedback of 2026-11-19); a click or a tap opens any object's.
         let force = move |id: &str| {

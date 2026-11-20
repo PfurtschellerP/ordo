@@ -662,6 +662,90 @@
   }
   .record { display: grid; gap: var(--ordo-space-5); }
   .record h2 { margin: 0; }
+  /* The record at a glance (EPCR-14, ADR-0088): a header, quick actions, tabs; the
+     overview's tiles and the timeline. */
+  .record { gap: var(--ordo-space-4); }
+  .record__header {
+    display: grid; gap: var(--ordo-space-2);
+    background: var(--ordo-color-surface-raised);
+    padding-block-end: 0;
+  }
+  /* Not sticky: a bar over the page would hide focused controls (WCAG 2.4.11). */
+  .record__header { border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
+  .record__title { font-family: var(--ordo-font-family-mono); }
+  .record__badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-3); }
+  .record__facts, .record__where {
+    display: flex; flex-wrap: wrap; gap: var(--ordo-space-1) var(--ordo-space-4); margin: 0;
+  }
+  .record__facts div, .record__where div { display: flex; gap: var(--ordo-space-1); align-items: baseline; min-width: 0; }
+  .record__facts dt, .record__where dt { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
+  .record__facts dd, .record__where dd { margin: 0; overflow-wrap: anywhere; }
+  .record__facts dd { font-weight: var(--ordo-font-weight-bold); }
+  .ago { color: var(--ordo-color-text-secondary); font-weight: var(--ordo-font-weight-regular); white-space: nowrap; }
+  /* Tabs (WAI-ARIA pattern): the chosen one underlined thick, and in bold, not by colour alone. */
+  .tabs { display: flex; gap: var(--ordo-space-1); overflow-x: auto; scrollbar-width: thin; }
+  .tabs__tab {
+    min-height: var(--ordo-size-touch-target); padding: 0 var(--ordo-space-4);
+    background: none; border: 0; border-block-end: var(--ordo-size-border-thick) solid transparent;
+    color: var(--ordo-color-text-secondary); font: inherit; font-weight: var(--ordo-font-weight-bold);
+    white-space: nowrap; cursor: pointer;
+  }
+  .tabs__tab[aria-selected="true"] { color: var(--ordo-color-text-primary); border-block-end-color: var(--ordo-color-text-link); }
+  .tabs__panel { display: grid; gap: var(--ordo-space-4); min-width: 0; }
+  .tabs__panel[hidden] { display: none; }
+  .quick-actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  @media (max-width: 40rem) {
+    .quick-actions { flex-wrap: nowrap; overflow-x: auto; padding-block-end: var(--ordo-space-1); }
+    .quick-actions__button { flex: none; }
+  }
+  .record-tiles { display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr)); }
+  .record-tile {
+    display: grid; gap: var(--ordo-space-2); align-content: start; min-width: 0;
+    padding: var(--ordo-space-3) var(--ordo-space-4);
+    background: var(--ordo-color-surface-default);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+  }
+  .record-tile--wide { grid-column: 1 / -1; }
+  .record-tile__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--ordo-space-2); }
+  .record-tile__head h3 { margin: 0; font-size: var(--ordo-font-size-3); }
+  .record-tile__when { font-weight: var(--ordo-font-weight-regular); }
+  .record-tile__values { display: grid; gap: var(--ordo-space-2) var(--ordo-space-4); margin: 0; grid-template-columns: minmax(0, 1fr); }
+  .record-tile__values div { min-width: 0; }
+  .record-tile__values dt { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
+  .record-tile__values dd { margin: 0; font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; white-space: pre-line; }
+  .record-tile__values--numbers { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); }
+  .record-tile__values--numbers div { padding: var(--ordo-space-2); background: var(--ordo-color-surface-sunken); border-radius: var(--ordo-radius-small); }
+  .record-tile__values--numbers dd { font-size: var(--ordo-font-size-5); }
+  .record-tile__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
+  .way { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .way__step {
+    padding: var(--ordo-space-1) var(--ordo-space-3);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-large);
+  }
+  .way__step + .way__step::before { content: "→ "; color: var(--ordo-color-text-secondary); }
+  .way__step--now { border-width: var(--ordo-size-border-thick); }
+  .timeline { display: grid; gap: var(--ordo-space-3); }
+  .timeline__filters { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .chip[aria-pressed="true"] {
+    background: var(--ordo-component-button-primary-background); color: var(--ordo-component-button-primary-text);
+    border-color: var(--ordo-component-button-primary-background); font-weight: var(--ordo-font-weight-bold);
+  }
+  .timeline__list { list-style: none; margin: 0; padding: 0; }
+  .timeline__line {
+    display: grid; gap: var(--ordo-space-1) var(--ordo-space-3); align-items: baseline;
+    grid-template-columns: 4rem 9rem minmax(0, 1fr) auto;
+    padding-block: var(--ordo-space-2);
+    border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .timeline__time { font-weight: var(--ordo-font-weight-bold); }
+  .timeline__kind { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); font-weight: var(--ordo-font-weight-bold); }
+  .timeline__text { overflow-wrap: anywhere; }
+  .timeline__line--corrected .timeline__text { text-decoration: line-through; }
+  @media (max-width: 40rem) {
+    .timeline__line { grid-template-columns: 4rem minmax(0, 1fr); }
+    .timeline__text, .timeline__by { grid-column: 2; }
+  }
   .record__index { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .record__body { display: grid; gap: var(--ordo-space-5); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
   /* Read only (UHS-10): nothing to start editing with; the notice above says why. */
@@ -1057,23 +1141,32 @@
 
   /* MAP-11: the label next to the pointer, and the card over the bottom of the map. */
   .situation__stage { position: relative; }
-  /* The card of an object (MAP-11) at the object, its arrow pointing there; where it fits
-     neither above nor below, at the bottom of the map. The glue sets the side and place. */
+  /* The card of an object (MAP-11) at the object like a pin, its arrow pointing there:
+     above, below, right or left of it; on a map too small, at its bottom. The glue sets
+     the side, the place and, where it squeezes the card, its height (it then scrolls). */
   .situation__card {
     position: absolute; z-index: 6; inline-size: min(22rem, calc(100% - 2 * var(--ordo-space-2)));
+    overflow-y: auto; overscroll-behavior: contain;
+    filter: drop-shadow(0 0.25rem 0.5rem rgb(0 0 0 / 0.3));
   }
   .situation__card[data-side="sheet"] {
     inset-inline: var(--ordo-space-2); inset-block-end: var(--ordo-space-2); inline-size: auto;
-    max-inline-size: 28rem; max-block-size: 70%; overflow: auto;
+    max-inline-size: 28rem; max-block-size: 70%;
   }
-  .situation__card:is([data-side="above"], [data-side="below"])::after {
-    content: ""; position: absolute; inset-inline-start: calc(var(--arrow-x, 50%) - var(--ordo-space-2));
+  /* The arrow sits outside the card's box, so a scrolling card shows none. */
+  .situation__card:not([style*="max-height"]) { overflow: visible; }
+  .situation__card:is([data-side="above"], [data-side="below"], [data-side="left"], [data-side="right"])::after {
+    content: ""; position: absolute;
     inline-size: var(--ordo-space-4); block-size: var(--ordo-space-4); rotate: 45deg;
     background: var(--ordo-color-surface-raised);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
   }
+  .situation__card:is([data-side="above"], [data-side="below"])::after { inset-inline-start: calc(var(--arrow-x, 50%) - var(--ordo-space-2)); }
+  .situation__card:is([data-side="left"], [data-side="right"])::after { inset-block-start: calc(var(--arrow-y, 50%) - var(--ordo-space-2)); }
   .situation__card[data-side="above"]::after { inset-block-end: calc(-1 * var(--ordo-space-2)); border-block-start: 0; border-inline-start: 0; }
   .situation__card[data-side="below"]::after { inset-block-start: calc(-1 * var(--ordo-space-2)); border-block-end: 0; border-inline-end: 0; }
+  .situation__card[data-side="right"]::after { inset-inline-start: calc(-1 * var(--ordo-space-2)); border-block-start: 0; border-inline-end: 0; }
+  .situation__card[data-side="left"]::after { inset-inline-end: calc(-1 * var(--ordo-space-2)); border-block-end: 0; border-inline-start: 0; }
   .object-card {
     display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3);
     background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
@@ -1206,7 +1299,36 @@
     border-radius: var(--ordo-radius-large);
     box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
   }
-  .palette::backdrop { background: rgb(0 0 0 / 0.45); }
+  .palette::backdrop, .edit-dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+  /* Edit dialog: editing a card opens its form here, so the card list never shifts. */
+  .edit-dialog {
+    width: min(48rem, calc(100vw - 2 * var(--ordo-space-4))); max-height: calc(100vh - 4rem);
+    margin: 5vh auto auto; padding: 0; overflow-y: auto;
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-large);
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
+  }
+  .edit-dialog__content { display: grid; gap: var(--ordo-space-3); padding: var(--ordo-space-4); }
+  .edit-dialog__header {
+    position: sticky; top: calc(-1 * var(--ordo-space-4)); z-index: 1;
+    display: flex; align-items: center; gap: var(--ordo-space-3);
+    margin: calc(-1 * var(--ordo-space-4)) calc(-1 * var(--ordo-space-4)) 0;
+    padding: var(--ordo-space-3) var(--ordo-space-4);
+    background: var(--ordo-color-surface-raised);
+    border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .edit-dialog__title { margin: 0; font-size: var(--ordo-font-size-4); }
+  .edit-dialog h3, .edit-dialog h4, .edit-dialog p { margin-block: 0; }
+  .danger-zone {
+    display: grid; gap: var(--ordo-space-2); justify-items: start;
+    margin-block-start: var(--ordo-space-3); padding-block-start: var(--ordo-space-3);
+    border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .danger-zone .actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  @media (max-width: 40rem) {
+    .edit-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+  }
   .palette__content { display: grid; gap: var(--ordo-space-3); padding: var(--ordo-space-4); }
   .palette__title { margin: 0; font-size: var(--ordo-font-size-3); }
   .palette__crumb { color: var(--ordo-color-text-secondary); }

@@ -86,6 +86,28 @@ pub struct Form {
     /// Sums of documented values shown with each entry (e.g. GCS total).
     #[serde(default, rename = "sum", skip_serializing_if = "Vec::is_empty")]
     pub sums: Vec<Sum>,
+    /// Where else the form shows: a tile on the record overview, a quick action
+    /// (ADR-0088).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overview: Vec<Overview>,
+}
+
+// [impl->dsn~record-overview~1]
+/// Where a form shows outside its section of the record (ADR-0088).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Overview {
+    /// A tile on the overview with the latest entry or the current values.
+    Tile,
+    /// A button in the record's quick actions.
+    Quick,
+}
+
+impl Form {
+    /// Whether the profile marks the form with `mark`.
+    pub fn shows(&self, mark: Overview) -> bool {
+        self.overview.contains(&mark)
+    }
 }
 
 /// Input type of a field.
@@ -155,6 +177,12 @@ pub struct Field {
     /// Short help text below the field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
+    /// A short label where room is scarce (SDC `shortText`), e.g. "HF".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub short: Option<String>,
+    /// Whether its value shows in the record's header (ADR-0088).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub header: bool,
 }
 
 /// A sum of documented number fields, e.g. the GCS total (allowed by EPCR-9).
@@ -170,6 +198,9 @@ pub struct Sum {
     /// Code in an open terminology.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
+    /// A short label where room is scarce (SDC `shortText`), e.g. "GCS".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub short: Option<String>,
 }
 
 /// A mistake in a form catalogue.
@@ -909,6 +940,41 @@ mod tests {
             Some(FieldType::Choices)
         );
         assert_eq!(vitals.sums[0].of, vec!["gcs_eye", "gcs_verbal"]);
+    }
+
+    // [utest->dsn~record-overview~1]
+    #[test]
+    fn the_profile_marks_forms_and_fields_for_the_overview() {
+        const MARK: &str = "urn:ordo:fhir:StructureDefinition:record-overview";
+        let marked = QUESTIONNAIRE
+            .replace(
+                r#""linkId": "identity", "text": "Personalien", "type": "group","#,
+                &format!(
+                    r#""linkId": "identity", "text": "Personalien", "type": "group", "extension": [{{ "url": "{MARK}", "valueCode": "tile" }}, {{ "url": "{MARK}", "valueCode": "quick" }}],"#
+                ),
+            )
+            .replace(
+                r#""linkId": "identity.family_name", "text": "Name", "type": "string","#,
+                &format!(
+                    r#""linkId": "identity.family_name", "text": "Name", "type": "string", "extension": [{{ "url": "{MARK}", "valueCode": "header" }}, {{ "url": "http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-shortText", "valueString": "N." }}],"#
+                ),
+            );
+        let forms = FormCatalogue::from_questionnaire_json(&marked).expect("valid");
+        let identity = forms.form("identity").expect("identity");
+        assert!(identity.shows(Overview::Tile) && identity.shows(Overview::Quick));
+        let name = identity.field("family_name").expect("name");
+        assert!(name.header);
+        assert_eq!(name.short.as_deref(), Some("N."));
+        assert!(
+            !forms.form("vitals").expect("vitals").shows(Overview::Tile),
+            "unmarked"
+        );
+        // A mark the form does not take.
+        let wrong = marked.replacen(r#""valueCode": "tile""#, r#""valueCode": "header""#, 1);
+        assert!(matches!(
+            FormCatalogue::from_questionnaire_json(&wrong),
+            Err(CatalogueError::Unsupported(_))
+        ));
     }
 
     #[test]

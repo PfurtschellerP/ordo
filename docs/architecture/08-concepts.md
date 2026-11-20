@@ -1647,6 +1647,25 @@ Needs: impl, itest
 
 Tags: should, m64
 
+#### Edit dialog
+`dsn~edit-dialog~1`
+
+Editing an item of a card list (a UHS, a unit's crew) opens a modal `dialog` instead of
+unfolding the form inside the card, so the list keeps its layout (feedback of
+2026-11-20). The button names the action with its item; the dialog has a heading with the
+item's name and a close button, keeps the focus inside, closes on Escape, on its close
+button or on a click beside it, and gives the focus back to the button. On phones it fills
+the screen. Actions with consequences (closing a UHS) sit at its bottom and ask once more.
+`shell::ui::EditDialog` is the one implementation.
+
+Covers:
+
+* [req~a11y-4~1](../requirements/07-quality.md#a11y-4--keyboard-and-screen-readers)
+
+Needs: impl, itest
+
+Tags: should, m67
+
 ## 8.7 Open specifications
 
 All of ORDO's interfaces are published as **open, versioned specifications**,
