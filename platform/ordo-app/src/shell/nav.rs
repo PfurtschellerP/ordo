@@ -24,6 +24,9 @@ pub struct View {
     /// incident or by an organisation role (e.g. `manage_accounts`); without it, the view
     /// is not offered.
     pub permission: Option<&'static str>,
+    /// Compartments the person must read for this view beyond its workspace's (e.g.
+    /// `med.clinical` for the crew's patients).
+    pub requires: &'static [&'static str],
     /// Tabs of a page with several parts (empty: one page); each section goes to the last
     /// tab whose `from` is not above its place.
     pub tabs: &'static [PageTab],
@@ -74,6 +77,7 @@ pub(crate) const fn view(
         name,
         icon,
         permission: None,
+        requires: &[],
         tabs: &[],
     }
 }
@@ -123,7 +127,23 @@ const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'.')
     .remove(b'~');
 
+/// The first part of a patient's own address, `/patient/<tag>` (ADR-0093): the record opens
+/// in the workspace the person works in, if it shows patients, else in the first one that
+/// does.
+pub const PATIENT: &str = "patient";
+
 impl Route {
+    // [impl->dsn~patient-address~1]
+    /// A patient's own address, `/patient/<tag>`.
+    pub fn patient(tag: &str) -> Self {
+        Self::record(PATIENT, "patients", tag)
+    }
+
+    /// Whether this is a patient's own address, still to be placed in a workspace.
+    pub fn is_patient(&self) -> bool {
+        self.workspace == PATIENT
+    }
+
     /// A route to a view.
     pub fn view(workspace: &str, view: &str) -> Self {
         Self {
@@ -144,6 +164,9 @@ impl Route {
     /// The URL path.
     pub fn to_path(&self) -> String {
         let segment = |s: &str| utf8_percent_encode(s, SEGMENT).to_string();
+        if let (true, Some(tag)) = (self.is_patient(), &self.record) {
+            return format!("/{PATIENT}/{}", segment(tag));
+        }
         let mut path = format!("/{}/{}", segment(&self.workspace), segment(&self.view));
         if let Some(record) = &self.record {
             path.push('/');
@@ -160,6 +183,10 @@ impl Route {
                 .ok()
                 .map(|c| c.into_owned())
         };
+        if let Some(tag) = path.strip_prefix("/patient/") {
+            let tag = decode(tag)?;
+            return (!tag.is_empty() && !tag.contains('/')).then(|| Self::patient(&tag));
+        }
         let mut parts = path.strip_prefix('/')?.split('/');
         let workspace = decode(parts.next()?)?;
         let view = decode(parts.next()?)?;
@@ -209,6 +236,17 @@ mod tests {
         assert_eq!(Route::from_path(&route.to_path()), Some(route));
         let view = Route::view("command.prepare", "units");
         assert_eq!(Route::from_path(&view.to_path()), Some(view));
+    }
+
+    // [utest->dsn~patient-address~1]
+    #[test]
+    fn a_patient_has_an_address_of_its_own() {
+        let route = Route::patient("DE 0042");
+        assert_eq!(route.to_path(), "/patient/DE%200042");
+        assert_eq!(Route::from_path("/patient/DE%200042"), Some(route.clone()));
+        assert!(route.is_patient());
+        assert_eq!(route.record.as_deref(), Some("DE 0042"));
+        assert_eq!(Route::from_path("/patient/"), None);
     }
 
     #[test]

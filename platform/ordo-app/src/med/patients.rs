@@ -72,7 +72,7 @@ fn priority_label(level: &str) -> String {
 
 /// Route to the record of the patient with triage tag `tag`.
 pub fn record_route(tag: &str) -> Route {
-    Route::record(WORKSPACE, VIEW, tag)
+    Route::patient(tag)
 }
 
 /// How an editor was opened.
@@ -151,7 +151,11 @@ pub fn PatientsView(
     revision: RwSignal<u64>,
     nav: Nav,
     record: Signal<Option<String>>,
+    /// The UHS's patients, or a crew's (ADR-0093).
+    #[prop(optional)]
+    scope: Scope,
 ) -> impl IntoView {
+    provide_context(scope);
     let events = move || core.with_value(|c| c.events(med::COMPARTMENT));
     // The UHS the person works at: as chosen on this device, else the one whose staff
     // list names them, else all.
@@ -208,26 +212,75 @@ pub fn PatientsView(
             .get_untracked()
             .zip(core::url_param("handover").filter(|h| !h.is_empty())),
     );
+    // [impl->dsn~crew-patients~1]
+    // A crew sees the record while its units hold the patient or are handed it; once
+    // taken, it closes (least knowledge). A memo, so the record is rebuilt only then.
+    let visible = Memo::new(move |_| {
+        revision.track();
+        scope == Scope::Uhs
+            || record.get().is_some_and(|tag| {
+                register.with(|r| {
+                    r.patient(&tag)
+                        .is_some_and(|p| p.seen_by_crew(&crew_units(core)))
+                })
+            })
+    });
     view! {
         <crate::med::handover::TakeDialog core revision nav register taking />
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
-                <UhsChooser core revision working />
+                {(scope == Scope::Uhs).then(|| view! { <UhsChooser core revision working /> })}
                 <crate::med::handover::IncomingHandovers core revision nav register />
                 <crate::med::handover::ScanHandover taking />
                 // [impl->dsn~uhs-staff-request~2]
-                <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
+                {(scope == Scope::Uhs).then(|| view! {
+                    <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
+                })}
                 <RegisterForm core revision nav register />
                 <PatientList core revision nav register records selected=record />
+                // [impl->dsn~crew-places~1]
+                {(scope == Scope::Crew).then(|| view! { <crate::med::overview::CrewPlaces core revision /> })}
             </div>
             <div class="detail">
-                {move || match record.get() {
-                    Some(tag) => view! { <PatientRecord core revision nav tag register records /> }.into_any(),
-                    None => view! { <section class="card"><p>{text::CHOOSE_PATIENT}</p></section> }.into_any(),
+                {move || match (record.get(), visible.get()) {
+                    (Some(tag), true) => view! { <PatientRecord core revision nav tag register records /> }.into_any(),
+                    (Some(_), false) => view! { <section class="card"><p class="notice">{text::CREW_NOT_HELD}</p></section> }.into_any(),
+                    (None, _) => view! { <section class="card"><p>{text::CHOOSE_PATIENT}</p></section> }.into_any(),
                 }}
             </div>
         </div>
     }
+}
+
+// [impl->dsn~crew-patients~1]
+/// Where the patients page is shown (ADR-0093): in the UHS workspace with the UHS's
+/// patients, or in the crew's with only the patients its units hold or are handed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Scope {
+    #[default]
+    Uhs,
+    Crew,
+}
+
+impl Scope {
+    /// The workspace the page is in.
+    pub fn workspace(self) -> &'static str {
+        match self {
+            Self::Uhs => WORKSPACE,
+            Self::Crew => CREW_WORKSPACE,
+        }
+    }
+}
+
+/// The crew's workspace (shared package), where the Med package shows its patients.
+pub(crate) const CREW_WORKSPACE: &str = "units.crew";
+
+/// The call signs of the units whose crew names this person.
+fn crew_units(core: Handle) -> Vec<String> {
+    crate::shared::crew::my_units(core)
+        .into_iter()
+        .map(|u| u.unit)
+        .collect()
 }
 
 /// Where the device keeps the UHS its person works at (UHS-9); empty: all.
@@ -380,9 +433,14 @@ fn RegisterForm(
     // Only where this person may write (UHS-10): their UHS, then the units whose crew
     // names them (ADR-0087), starting with the working UHS (UHS-9). `uhs` holds the
     // choice's value (`holder_key`).
+    // A crew registers only with its own units (ADR-0093).
+    let crew = use_context::<Scope>() == Some(Scope::Crew);
     let list = Memo::new(move |_| {
         revision.track();
         writable_holders(core)
+            .into_iter()
+            .filter(|(h, _)| !crew || h.unit().is_some())
+            .collect::<Vec<_>>()
     });
     let offers =
         move |key: &str| list.with_untracked(|l| l.iter().any(|(h, _)| holder_key(h) == key));
@@ -780,12 +838,17 @@ fn PatientList(
         });
         let working = working.map(|w| w.0.get()).unwrap_or_default();
         let here = Holder::Uhs(working.clone());
+        // [impl->dsn~crew-patients~1]
+        let crew = (use_context::<Scope>() == Some(Scope::Crew)).then(|| crew_units(core));
         register.with(|r| {
             records.with(|records| {
                 r.patients()
+                    // A crew: only what its units hold or are handed (least knowledge).
+                    .filter(|p| crew.as_ref().is_none_or(|units| p.seen_by_crew(units)))
                     // At one UHS: its patients and those handed over to it.
                     .filter(|p| {
-                        working.is_empty()
+                        crew.is_some()
+                            || working.is_empty()
                             || p.uhs == working
                             || p.handover
                                 .as_ref()
@@ -1061,11 +1124,19 @@ fn PatientRecord(
     register: Memo<PatientRegister>,
     records: Memo<Records>,
 ) -> impl IntoView {
+    let scope = use_context::<Scope>().unwrap_or_default();
+    // [impl->dsn~crew-patients~1]
+    // A crew opens only the records of patients its units hold or are handed.
     let exists = {
         let tag = tag.clone();
-        move || register.with(|r| r.patient(&tag).is_some())
+        move || {
+            register.with(|r| {
+                r.patient(&tag)
+                    .is_some_and(|p| scope == Scope::Uhs || p.seen_by_crew(&crew_units(core)))
+            })
+        }
     };
-    let back = Route::view(WORKSPACE, VIEW);
+    let back = Route::view(scope.workspace(), VIEW);
     let back_link = view! {
         <a class="back-link" href=back.to_path() on:click=move |ev| {
             ev.prevent_default();

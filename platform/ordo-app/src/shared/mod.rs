@@ -42,6 +42,17 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "crew transports",
                 "ambulance",
             ),
+            // [impl->dsn~crew-patients~1]
+            // Filled by the Med package (ADR-0093), for those who read clinical data.
+            nav::View {
+                requires: &["med.clinical"],
+                ..nav::view(
+                    "patients",
+                    crate::text::CREW_PATIENTS,
+                    "crew patients register",
+                    "users",
+                )
+            },
         ],
         hidden: false,
     },
@@ -175,6 +186,8 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
     let one = |v: AnyView| vec![(20, v)];
     match (workspace, view) {
         ("units.crew", "transports") => one(view! { <crew::CrewTransports core revision /> }.into_any()),
+        // The crew's patients come from the Med package (ADR-0093).
+        ("units.crew", "patients") => Vec::new(),
         ("units.crew", _) => one(view! { <crew::CrewTasks core revision /> }.into_any()),
         // [impl->dsn~workspaces-by-phase~4]
         // [impl->dsn~map-drawing~2]

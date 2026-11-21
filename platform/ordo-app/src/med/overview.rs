@@ -12,6 +12,42 @@ use crate::med::triage::CATEGORIES;
 use crate::med::uhs::uhs_list;
 use crate::text;
 
+// [impl->dsn~crew-places~1]
+/// *Freie Behandlungsplätze* for crews (UHS-19): every UHS's strips, from the shared
+/// compartment only (places and patient counts), without orders and transports.
+#[component]
+pub fn CrewPlaces(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let rows = Memo::new(move |_| {
+        revision.track();
+        let (counts, mut occupancies) = core.with_value(|c| {
+            let incident = c.events(med::UHS_COMPARTMENT);
+            (
+                med::latest_counts(&incident),
+                overview::occupancies(&incident),
+            )
+        });
+        uhs_list(core)
+            .into_iter()
+            .map(|u| {
+                let c = counts.get(&u.id).cloned().unwrap_or_default();
+                PlaceRow {
+                    occupancy: occupancies.remove(&u.id),
+                    load: (CATEGORIES.iter().map(|k| c.get(*k)).sum(), u.capacity),
+                    more: None,
+                    id: u.id,
+                    name: u.name,
+                }
+            })
+            .collect::<Vec<_>>()
+    });
+    view! {
+        <section aria-labelledby="crew-places-title" class="card crew-places">
+            <h2 id="crew-places-title">{text::CREW_PLACES}</h2>
+            <TreatmentPlaces rows level=Level::H3 />
+        </section>
+    }
+}
+
 // [impl->dsn~uhs-overview~3]
 /// Every unit: its places per category, its patients without one, its open orders and
 /// its open and planned transports.

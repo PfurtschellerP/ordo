@@ -424,6 +424,13 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
 pub(crate) fn view_allowed(core: Handle, v: &nav::View) -> bool {
     v.permission
         .is_none_or(|p| core.with_value(|c| c.replica.has_permission(p) || c.may(p)))
+        && core.with_value(|c| {
+            v.requires.iter().all(|comp| {
+                c.incident
+                    .as_ref()
+                    .is_some_and(|i| c.replica.is_granted(i, comp))
+            })
+        })
 }
 
 /// The views of `w` the user may open, in order.
@@ -714,11 +721,35 @@ fn Workspace(
     let open = RwSignal::new(false);
     let palette = RwSignal::new(false);
     let pathname = use_location().pathname;
-    let route = Memo::new(move |_| nav::Route::from_path(&pathname.get()));
     let saved = StoredValue::new(core::preference(NAV_KEY).and_then(|s| {
         let (w, v) = s.split_once('/')?;
         Some(nav::Route::view(w, v))
     }));
+    // The workspace shown last, for a patient's own address.
+    let last = RwSignal::new(saved.with_value(|s| s.as_ref().map(|r| r.workspace.clone())));
+    // [impl->dsn~patient-address~1]
+    // `/patient/<tag>` opens the record in the workspace the person works in, if it shows
+    // patients, else in the first one that does (ADR-0093); the address stays.
+    let route = Memo::new(move |_| {
+        let route = nav::Route::from_path(&pathname.get())?;
+        if !route.is_patient() {
+            return Some(route);
+        }
+        revision.track();
+        let shows = |w: &&'static nav::Workspace| {
+            access(core, w).is_ok() && allowed_views(core, w).iter().any(|v| v.id == "patients")
+        };
+        let workspace = last
+            .get_untracked()
+            .and_then(|id| nav::workspace(&id))
+            .filter(shows)
+            .or_else(|| nav::workspaces().find(shows))?;
+        Some(nav::Route::record(
+            workspace.id,
+            "patients",
+            route.record.as_deref()?,
+        ))
+    });
 
     // The shown workspace: the one in the URL if accessible, else the last used one, else
     // the first accessible one.
@@ -768,6 +799,7 @@ fn Workspace(
             return;
         };
         let shown = route.with(|r| r.as_ref().is_some_and(|r| r.workspace == w && r.view == v));
+        last.set(Some(w.to_owned()));
         if shown {
             core::set_preference(NAV_KEY, Some(&format!("{w}/{v}")));
         } else {

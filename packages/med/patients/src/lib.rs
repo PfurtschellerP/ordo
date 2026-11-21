@@ -956,6 +956,22 @@ impl Patient {
         }
     }
 
+    // [impl->dsn~crew-patients~1]
+    /// Whether a crew of `units` sees the patient (ADR-0093, least knowledge): one of them
+    /// holds the patient now, or the patient is handed over to one of them and not taken
+    /// yet. Patients they handed over are gone for them once taken.
+    pub fn seen_by_crew(&self, units: &[String]) -> bool {
+        let ours = |unit: Option<&str>| unit.is_some_and(|u| units.iter().any(|x| x == u));
+        self.is_present()
+            && (ours(self.unit.as_deref())
+                || ours(
+                    self.handover
+                        .as_ref()
+                        .and_then(|h| h.to.as_ref())
+                        .and_then(Holder::unit),
+                ))
+    }
+
     /// Whether the patient is in their unit (admitted and not discharged since).
     pub fn is_present(&self) -> bool {
         self.discharge().is_none()
@@ -1586,6 +1602,66 @@ mod tests {
     fn readmitted(n: u64, tag: &str) -> AppliedEvent {
         let r = Readmitted { tag: tag.into() };
         event(n, "clara", READMITTED, r.encode().unwrap())
+    }
+
+    // [utest->dsn~crew-patients~1]
+    #[test]
+    fn a_crew_sees_only_the_patients_it_holds_or_is_handed() {
+        let crew = vec!["SanTrp 1".to_owned()];
+        let by_crew = Registered {
+            report: None,
+            unit: Some("SanTrp 1".into()),
+            task: None,
+            tag: "DE-0077".into(),
+            uhs: String::new(),
+            category: TriageCategory::Minor,
+            algorithm: None,
+        };
+        let to_crew = HandedOver {
+            tag: "DE-0001".into(),
+            handover: "h1".into(),
+            to: Some(Holder::Unit("SanTrp 1".into())),
+            outside: None,
+            transport: None,
+            note: None,
+        };
+        let away = HandedOver {
+            tag: "DE-0077".into(),
+            handover: "h2".into(),
+            to: Some(Holder::Uhs("uhs-1".into())),
+            outside: None,
+            transport: None,
+            note: None,
+        };
+        let taken = Taken {
+            tag: "DE-0077".into(),
+            handover: "h2".into(),
+            holder: Holder::Uhs("uhs-1".into()),
+        };
+        let mut events = vec![
+            registered(1, "DE-0001", TriageCategory::Urgent),
+            event(2, "max", REGISTERED, by_crew.encode().unwrap()),
+            event(3, "anna", HANDED_OVER, codec::to_cbor(&to_crew).unwrap()),
+        ];
+        let seen = |events: &[AppliedEvent]| {
+            let r = PatientRegister::from_events(events);
+            r.patients()
+                .filter(|p| p.seen_by_crew(&crew))
+                .map(|p| p.tag.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            seen(&events),
+            ["DE-0001", "DE-0077"],
+            "its own, and the one coming"
+        );
+        events.push(event(4, "max", HANDED_OVER, codec::to_cbor(&away).unwrap()));
+        assert!(
+            seen(&events).contains(&"DE-0077".to_owned()),
+            "until it is taken"
+        );
+        events.push(event(5, "anna", TAKEN, codec::to_cbor(&taken).unwrap()));
+        assert_eq!(seen(&events), ["DE-0001"], "taken: gone for the crew");
     }
 
     // [utest->dsn~patient-handover~1]

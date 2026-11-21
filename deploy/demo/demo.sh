@@ -33,10 +33,18 @@ stop() {
 mode=local
 case "${1:-start}" in
   stop) stop; echo "Demo stopped."; exit 0 ;;
-  reset) stop; rm -rf "$data"; echo "Demo data deleted."; exit 0 ;;
+  # The certificate authority (caddy, ca) stays: devices that trust it keep working.
+  reset)
+    stop
+    if [ -d "$data" ]; then
+      find "$data" -mindepth 1 -maxdepth 1 ! -name caddy ! -name ca -exec rm -rf -- {} +
+    fi
+    echo "Demo data deleted; the certificate authority is kept."
+    exit 0 ;;
+  reset-all) stop; rm -rf -- "$data"; echo "Demo data and certificate authority deleted."; exit 0 ;;
   start) ;;
   lan) mode=lan ;;
-  *) echo "usage: $0 [start|lan|stop|reset]" >&2; exit 2 ;;
+  *) echo "usage: $0 [start|lan|stop|reset|reset-all]" >&2; exit 2 ;;
 esac
 
 if [ "$mode" = lan ]; then

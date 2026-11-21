@@ -311,6 +311,19 @@ Tags: should, med, m69
 
 Needs: dsn
 
+#### UHS-19 — Free places for crews
+`req~uhs-19~1`
+
+While a person is on the crew of a unit, ORDO shall show them the free treatment places
+of every on-site care unit per triage category, from the incident's shared counts only,
+so that they know where a patient can go without asking by radio.
+
+Rationale: the product owner, 2026-11-21. Numbers only, no patient data (least knowledge).
+
+Tags: should, med, m70
+
+Needs: dsn
+
 ### 4.11 Med package: electronic patient care record (ePCR)
 
 #### EPCR-1 — One record per patient
@@ -530,6 +543,19 @@ import the bundle; the layout belongs to the profile, so each state and organisa
 adapt it ([ADR-0089](../adr/0089-handover-document-from-typst-templates.md)).
 
 Tags: must, med, m69
+
+Needs: dsn
+
+#### EPCR-21 — Patients in the crew's workspace
+`req~epcr-21~1`
+
+While a person is on the crew of a unit and may read clinical data, ORDO shall let them
+register patients with their unit and document them in the crew's own workspace, showing
+only the patients their units hold or are handed and not yet taken, and shall open every
+patient's record at an address of its own in the workspace the person works in
+([ADR-0093](../adr/0093-patients-apart-from-the-uhs.md)).
+
+Tags: must, med, m70
 
 Needs: dsn
 

@@ -1148,7 +1148,9 @@
   .places__sum { display: grid; gap: var(--ordo-space-2); align-content: start; justify-items: start; }
   .places__bar { display: block; inline-size: 100%; block-size: var(--ordo-space-2); border-radius: var(--ordo-radius-small); background: var(--ordo-color-surface-sunken); overflow: hidden; }
   .places__bar-fill { display: block; block-size: 100%; border: 0; border-radius: 0; }
-  @media (max-width: 40rem) {
+  /* Narrow by its column, not the screen: beside a record, or on a phone. */
+  .places { container-type: inline-size; }
+  @container (max-width: 34rem) {
     .places__all, .places__unit { grid-template-columns: minmax(0, 1fr); padding: var(--ordo-space-3); }
     .places__strips { grid-template-columns: minmax(0, 1fr) auto; }
     .places__boxes { grid-column: 1 / -1; grid-row: 2; }

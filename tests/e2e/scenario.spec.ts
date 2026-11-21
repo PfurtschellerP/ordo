@@ -339,7 +339,7 @@ test("ORDO in the browser", async ({ browser }) => {
 
   await test.step("the patient record documents identity, vital signs and a photo", async () => {
     await openRecord(anna, "DE-0044");
-    expect(pathOf(anna), "the record has its own address").toBe("/med.uhs/patients/DE-0044");
+    expect(pathOf(anna), "the record has its own address").toBe("/patient/DE-0044");
     await expect(anna.locator("[aria-labelledby=section-triage] .history li").first(), "the algorithm used is recorded").toContainText("nach PRIOR");
     await openSection(anna, "section-triage");
     await anna.getByRole("button", { name: "Nachsichtung DE-0044: SK I", exact: true }).click();
@@ -2053,14 +2053,24 @@ test("ORDO in the browser", async ({ browser }) => {
     }
     await audit(medic, "Crew workspace");
     await crewTask.getByRole("button", { name: "Patient aufnehmen" }).click();
-    await expect.poll(() => title(medic), { message: "the registration opens in the UHS workspace" }).toContain("Sanität – UHS");
+    // [itest->dsn~crew-patients~1]
+    // ADR-0093: the crew registers in its own workspace, not the UHS's.
+    await expect.poll(() => title(medic), { message: "the registration opens in the crew's workspace" }).toContain("Sanität – Besatzung");
+    await expect(medic.locator(".uhs-chooser, #working-uhs"), "no UHS to choose").toHaveCount(0);
     await expect(medic.locator(".register-case"), "the registration names the Auftrag").toContainText("Aus dem Auftrag „Bühne Nord, links“ für SanTrp 1");
     await expect(medic.locator("#tag")).toBeFocused();
     // [itest->dsn~patient-holder~1]
     // EPCR-16 (ADR-0087): the crew registers the patient with its own unit.
     await expect(medic.locator("#uhs"), "the crew's unit is chosen").toHaveValue("unit:SanTrp 1");
+    await expect(medic.locator("#uhs option[value^='unit:']"), "only its own units are offered").toHaveCount(await medic.locator("#uhs option").count() - 1);
     await register(medic, "DE-0077", 1);
     await expect(medic.locator(".patient-card[data-tag='DE-0077']"), "held by the unit").toContainText("SanTrp 1");
+    await expect(medic.locator(".patient-card"), "least knowledge: only what the unit holds").toHaveCount(1);
+    // [itest->dsn~crew-places~1]
+    // UHS-19: where a patient can go, without a radio call; numbers only.
+    const crewPlaces = medic.locator(".crew-places");
+    await expect(crewPlaces.locator(".places__unit", { hasText: "UHS Eingang" }), "every UHS with its free places").toContainText(/\d+ frei von \d+/);
+    await expect(crewPlaces, "no orders or transports of the UHS").not.toContainText("Anordnungen");
     // [itest->dsn~quick-handover~1]
     // EPCR-18: a quick handover by QR code; Anna, at UHS Eingang, opens its address and
     // takes the patient there.
@@ -2070,7 +2080,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(quick).toContainText("Schnellübergabe offen");
     await expect(quick.locator(".handover-code__image"), "the code, drawn on the device").toBeVisible();
     const link = await quick.locator(".handover-code__link").getAttribute("href");
-    expect(link, "the code names no clinical data").toMatch(/\/med\.uhs\/patients\/DE-0077\?handover=[0-9A-Z]{26}$/);
+    // [itest->dsn~patient-address~1]
+    expect(link, "the patient's own address; the code names no clinical data").toMatch(/\/patient\/DE-0077\?handover=[0-9A-Z]{26}$/);
+    await expect.poll(() => medic.evaluate(() => location.pathname), { message: "the record at its own address" }).toBe("/patient/DE-0077");
+    await expect.poll(() => title(medic), { message: "in the crew's workspace" }).toContain("Sanität – Besatzung");
     await audit(medic, "Quick handover");
     await shot(medic, "quick-handover");
     await expect.poll(() => status(medic), { message: "the handover is sent" }).toContain("Alles gesendet");
@@ -2096,6 +2109,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => status(receiver), { message: "the taking is sent" }).toContain("Alles gesendet");
     await receiver.context().close();
     await expect(quick, "taken: the code is gone on the crew's device").toHaveCount(0);
+    await expect(medic.locator(".detail .notice"), "and the record with it: the patient is no longer the crew's").toContainText("nicht (mehr) bei Ihrem Einsatzmittel");
+    await expect(medic.locator(".patient-card[data-tag='DE-0077']"), "gone from the crew's list").toHaveCount(0);
     await openWorkspace(medic, "Besatzung");
     await expect(crewTask.getByRole("button", { name: "Patient aufnehmen" }), "taken over: offered no more").toHaveCount(0);
     await expect(crewTask.locator(".task-card__taken")).toHaveText(/^Patient aufgenommen von SanTrp 1 \(\d\d:\d\d\)$/);

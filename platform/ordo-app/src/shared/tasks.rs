@@ -483,7 +483,8 @@ fn CrewPart(
             crate::shared::reports::set_pending_case(case);
         }
         if let Some(nav) = nav {
-            nav.go(crate::shell::nav::Route::view("med.uhs", "patients"));
+            // In the crew's own workspace (ADR-0093).
+            nav.go(crate::shell::nav::Route::view("units.crew", "patients"));
         }
     };
     view! {

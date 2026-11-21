@@ -63,7 +63,7 @@ fn quick_link(tag: &str, handover: &str) -> String {
     let origin = web_sys::window()
         .and_then(|w| w.location().origin().ok())
         .unwrap_or_default();
-    let route = crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", tag);
+    let route = crate::shell::nav::Route::patient(tag);
     format!("{origin}{}?handover={handover}", route.to_path())
 }
 
@@ -657,8 +657,7 @@ pub(crate) fn TakeDialog(
     });
     let taken = Callback::new(move |tag: String| {
         close.run(());
-        let route =
-            crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", &tag);
+        let route = crate::shell::nav::Route::patient(&tag);
         nav.go(route);
         crate::shell::views::after_render(|| crate::shell::views::focus("record-title"));
     });
@@ -769,7 +768,7 @@ pub(crate) fn IncomingHandovers(
                 <ul class="incoming__list">
                     {move || list.get().into_iter().map(|(p, to)| {
                         let open = p.handover.clone().expect("open");
-                        let route = crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", &p.tag);
+                        let route = crate::shell::nav::Route::patient(&p.tag);
                         let (tag, from, at) = (p.tag.clone(), core::holder_name(core, &p.holder()), open.at.wall_ms);
                         let to_name = core::holder_name(core, &to);
                         view! {
@@ -803,11 +802,7 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         .map(|(p, to)| {
             (
                 text::handover_bell(&p.tag, &core::holder_name(core, &to)),
-                crate::shell::nav::Route::record(
-                    crate::med::patients::WORKSPACE,
-                    "patients",
-                    &p.tag,
-                ),
+                crate::shell::nav::Route::patient(&p.tag),
             )
         })
         .collect()
@@ -827,6 +822,11 @@ mod tests {
         assert_eq!(
             parse_link("https://ordo.example.org/med.uhs/patients/DE-0044"),
             None
+        );
+        assert_eq!(
+            parse_link("https://ordo.example.org/patient/DE-0044?handover=01JD"),
+            Some(("DE-0044".to_owned(), "01JD".to_owned())),
+            "the patient's own address (ADR-0093)"
         );
         assert_eq!(parse_link("ordo:pair?code=x"), None);
     }

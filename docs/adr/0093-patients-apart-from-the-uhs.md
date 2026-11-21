@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-21
 ---
 
@@ -27,11 +27,12 @@ Behandlungsplätze) that are not theirs. The product owner found this suboptimal
 
 ## Decision Outcome
 
-Proposed: options 2 and 3 together.
+Chosen: options 2 and 3 together (product owner, 2026-11-21).
 
-* *Besatzung* gets a third view, *Patienten*: the patients held by the units whose crew
-  names the person (EPCR-16), each with its open handover, and the register form with the
-  own unit chosen. "Patient aufnehmen" on an Auftrag opens it there, with the Auftrag
+* *Besatzung* gets a third view, *Patienten*: only the patients the units whose crew names
+  the person hold now, or are handed and have not taken yet (least knowledge: once a
+  patient is taken by someone else, the crew no longer sees them, which also takes them off
+  the crew's mind), and the register form with only the own units. "Patient aufnehmen" on an Auftrag opens it there, with the Auftrag
   named. The UHS workspace keeps its list, per UHS, and its other views.
 * The record is one component at one address, `/patient/<tag>`, inside whichever
   workspace the person is in; old addresses (`/med.uhs/patients/<tag>`, the QR codes
@@ -46,7 +47,8 @@ Proposed: options 2 and 3 together.
 * Bad, because the crew's view and the UHS list are two lists of patients; both use one
   list component, filtered by holder.
 
-### Open question for the product owner
+### Answered by the product owner
 
-Should the crew's *Patienten* also show patients the unit handed over, for the rest of
-the incident (read only), or only those it holds?
+A crew sees only the patients it holds now, not those it handed over (2026-11-21): the
+principle of least knowledge, and less to keep in mind. This is what the app shows; the
+device still keeps the clinical compartment it may read (sync is per compartment).

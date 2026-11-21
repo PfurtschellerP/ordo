@@ -1346,6 +1346,59 @@ Needs: impl, utest, itest
 
 Tags: must, m69
 
+#### Crew patients
+`dsn~crew-patients~1`
+
+The crew's workspace (*Besatzung*, shared package) has a view *Patienten* that needs read
+access to `med.clinical`; the Med package fills it with the patients page in the scope
+*Crew* ([ADR-0093](../adr/0093-patients-apart-from-the-uhs.md)): no UHS to choose, no staff
+requests, the register form offers only the person's units, and list and record show only
+the patients for which `Patient::seen_by_crew` holds: present, and held by one of the
+person's units or handed over to one and not taken yet. A record that stops being the
+crew's closes and says why. "Patient aufnehmen" on an Auftrag opens this view.
+
+Covers:
+
+* [req~epcr-21~1](../requirements/04-med.md#epcr-21--patients-in-the-crews-workspace)
+
+Needs: impl, utest, itest
+
+Tags: must, m70
+
+#### Free places for crews
+`dsn~crew-places~1`
+
+The crew's *Patienten* view shows *Freie Behandlungsplätze* with the component of the
+command's overview (*Behandlungsplätze*): every UHS with its strips per triage category,
+built from the shared compartment only (the places and the patient-count connector, as
+in *Command treatment places*), without the orders and transports the UHS sees. The
+handover form names the free places of each UHS as well.
+
+Covers:
+
+* [req~uhs-19~1](../requirements/04-med.md#uhs-19--free-places-for-crews)
+
+Needs: impl, itest
+
+Tags: should, m70
+
+#### Patient address
+`dsn~patient-address~1`
+
+Every link to a patient (lists, bell, handovers, quick handover codes) is
+`/patient/<tag>`. The shell places it in the workspace shown last, if that workspace has a
+view *Patienten* the person may open, else in the first one that has; the address stays
+in the browser. Old addresses (`/med.uhs/patients/<tag>`) still work. The record's back
+link leads to the patients view of its workspace.
+
+Covers:
+
+* [req~epcr-21~1](../requirements/04-med.md#epcr-21--patients-in-the-crews-workspace)
+
+Needs: impl, utest, itest
+
+Tags: must, m70
+
 #### Taking a patient onto a place
 `dsn~take-with-place~1`
 

@@ -6,7 +6,7 @@ Try ORDO on your own computer: one server, Dex with demo accounts, the web app.
 deploy/demo/demo.sh          # start on this computer: http://127.0.0.1:18090/
 deploy/demo/demo.sh lan      # start for phones and tablets in the local network (below)
 deploy/demo/demo.sh stop     # stop (data stays in deploy/demo/.data)
-deploy/demo/demo.sh reset    # stop and delete the demo data
+deploy/demo/demo.sh reset    # stop and delete the demo data (keeps the certificate)
 ```
 
 Needs Docker or Podman (for Dex), Rust, and for the first start `trunk` and
@@ -68,6 +68,8 @@ The firewall of this computer must let the devices reach TCP 18443 (ORDO), 18080
 certificate) and 5556 (login), e.g. `sudo firewall-cmd --add-port={18443,18080,5556}/tcp`
 on Fedora (until the next reboot). The certificate authority stays in
 `deploy/demo/.data/caddy` and is reused at the next start, so devices trust it once;
-`demo.sh reset` deletes it. Remove the certificate from the devices when the test is over.
+`demo.sh reset` deletes the demo's data but keeps it; `demo.sh reset-all` deletes it too,
+and every device then needs the new certificate. Remove the certificate from the devices
+when the test is over.
 
 Not for real use: fixed passwords, demo certificates, the login page (Dex) in plain HTTP.

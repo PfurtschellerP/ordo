@@ -82,6 +82,13 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 view! { <overview::OverviewView core revision /> }.into_any(),
             )]
         }
+        // [impl->dsn~crew-patients~1]
+        // The crew's patients in its own workspace (ADR-0093).
+        ("units.crew", "patients") => vec![(
+            0,
+            view! { <patients::PatientsView core revision nav record=Signal::from(record) scope=patients::Scope::Crew /> }
+                .into_any(),
+        )],
         ("med.uhs", _) => vec![(
             0,
             view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }
