@@ -1307,16 +1307,20 @@ Needs: impl, itest
 Tags: must, m12
 
 #### UHS capacity by category
-`dsn~uhs-capacity-by-category~1`
+`dsn~uhs-capacity-by-category~2`
 
 `uhs.updated` schema version 4 carries a unit's capacity per triage category (the whole
 map; zeros left out, an empty map clears it), set in the UHS details panel for every
-category but the deceased. With a map, the unit's `capacity` is its sum. `uhs.placesSet`
-schema version 2 gives each place an optional category; the Med package makes the places
-for a map (`places_by_category`: per category in its order, IDs like `immediate-1`, an
-existing place keeping its label, so patients keep their places), and the app sets them
-when the map changes, labelled "SK I – Platz 1". The Med overview shows each category's
-patients against its capacity ("1 / 2").
+category but the deceased. The unit's `capacity` stays the whole: the map's sum must not
+exceed it (the panel refuses to save and says so, and shows the split as typed: "4 nach
+Kategorie, 1 ohne Kategorie"), and the rest are places for any category (feedback of
+2026-11-21; before, the capacity became the map's sum). `uhs.placesSet` schema version 2
+gives each place an optional category; the Med package makes the places for a map and a
+capacity (`places_by_category`: per category in its order, IDs like `immediate-1`, then
+the rest as `p1`, `p2`, ...; an existing place keeps its label, so patients keep their
+places), and the app sets them when the map or the capacity changes, labelled "SK I –
+Platz 1" and "Platz 1". The Med overview shows each category's patients against its
+capacity ("1 / 2").
 
 Covers:
 

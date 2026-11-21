@@ -111,17 +111,27 @@ pub struct Place {
 /// Payload schema of `uhs.placesSet`: 2 adds the category of each place.
 pub const UHS_PLACES_SCHEMA: u32 = 2;
 
-// [impl->dsn~uhs-capacity-by-category~1]
-/// Treatment places for a capacity per triage category: `n` places per category, in the
-/// order of the categories, with IDs like `immediate-1`. A place with the same ID in
-/// `existing` keeps its label, so patients keep their places; `label` names new ones (the
-/// app's words, never this package's).
+// [impl->dsn~uhs-capacity-by-category~2]
+/// Treatment places for a capacity per triage category within the unit's whole capacity
+/// `total`: `n` places per category, in the order of the categories, with IDs like
+/// `immediate-1`, then the rest of `total` as places for any category, `p1`, `p2`, ... (as
+/// a unit without categories has them). A place with the same ID in `existing` keeps its
+/// label, so patients keep their places; `label` and `any_label` name new ones (the app's
+/// words, never this package's). The caller checks that the categories fit in `total`.
 pub fn places_by_category(
     capacities: &BTreeMap<TriageCategory, u32>,
+    total: u32,
     existing: &[Place],
     label: impl Fn(TriageCategory, u32) -> String,
+    any_label: impl Fn(u32) -> String,
 ) -> Vec<Place> {
-    capacities
+    let kept = |id: &str| {
+        existing
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| p.label.clone())
+    };
+    let mut places: Vec<Place> = capacities
         .iter()
         .flat_map(|(&category, &n)| (1..=n).map(move |k| (category, k)))
         .map(|(category, k)| {
@@ -130,17 +140,23 @@ pub fn places_by_category(
                 .and_then(|v| v.as_str().map(str::to_owned))
                 .unwrap_or_default();
             let id = format!("{key}-{k}");
-            let label = existing
-                .iter()
-                .find(|p| p.id == id)
-                .map_or_else(|| label(category, k), |p| p.label.clone());
             Place {
+                label: kept(&id).unwrap_or_else(|| label(category, k)),
                 id,
-                label,
                 category: Some(category),
             }
         })
-        .collect()
+        .collect();
+    let kept_for_categories = u32::try_from(places.len()).unwrap_or(u32::MAX);
+    places.extend((1..=total.saturating_sub(kept_for_categories)).map(|i| {
+        let id = format!("p{i}");
+        Place {
+            label: kept(&id).unwrap_or_else(|| any_label(i)),
+            id,
+            category: None,
+        }
+    }));
+    places
 }
 
 /// Payload of `uhs.placesSet`: the treatment places of one unit, replacing earlier lists.
@@ -1886,13 +1902,14 @@ mod tests {
         assert_eq!(d.staff, ["anna"], "a field left out keeps its value");
     }
 
-    // [utest->dsn~uhs-capacity-by-category~1]
+    // [utest->dsn~uhs-capacity-by-category~2]
     #[test]
     fn a_capacity_per_category_gives_places_per_category_and_keeps_existing_ones() {
         use TriageCategory::{Immediate, Minor, Urgent};
         let capacities = BTreeMap::from([(Minor, 2), (Immediate, 1), (Urgent, 0)]);
         let label = |c: TriageCategory, k: u32| format!("{c:?} {k}");
-        let places = places_by_category(&capacities, &[], label);
+        let any = |i: u32| format!("Platz {i}");
+        let places = places_by_category(&capacities, 5, &[], label, any);
         assert_eq!(
             places
                 .iter()
@@ -1902,18 +1919,37 @@ mod tests {
                 ("immediate-1", Some(Immediate)),
                 ("minor-1", Some(Minor)),
                 ("minor-2", Some(Minor)),
+                ("p1", None),
+                ("p2", None),
             ],
-            "in the order of the categories, none for a zero"
+            "in the order of the categories, none for a zero, the rest of the capacity for any"
         );
-        let renamed = vec![Place {
-            id: "minor-1".into(),
-            label: "Liege grün".into(),
-            category: Some(Minor),
-        }];
-        let again = places_by_category(&capacities, &renamed, label);
+        let renamed = vec![
+            Place {
+                id: "minor-1".into(),
+                label: "Liege grün".into(),
+                category: Some(Minor),
+            },
+            Place {
+                id: "p1".into(),
+                label: "Trage am Eingang".into(),
+                category: None,
+            },
+        ];
+        let again = places_by_category(&capacities, 4, &renamed, label, any);
         assert_eq!(
             again[1].label, "Liege grün",
             "an existing place keeps its label"
+        );
+        assert_eq!(
+            again[3].label, "Trage am Eingang",
+            "a place for any category too"
+        );
+        assert_eq!(again.len(), 4);
+        assert_eq!(
+            places_by_category(&capacities, 2, &[], label, any).len(),
+            3,
+            "never fewer places than the categories ask for"
         );
 
         // The capacities are kept per field; zeros are left out; places of version 1 decode.

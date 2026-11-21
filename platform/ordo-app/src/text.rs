@@ -716,7 +716,26 @@ pub fn patient_count(n: usize) -> String {
 
 // Capacity per triage category (UHS-13)
 pub const UHS_CAPACITIES_LEGEND: &str = "Kapazität nach Sichtungskategorie (optional)";
-pub const UHS_CAPACITIES_HINT: &str = "Mit Zahlen hier ist die Kapazität ihre Summe, und die UHS bekommt ihre Behandlungsplätze je Sichtungskategorie.";
+pub const UHS_CAPACITIES_HINT: &str = "Behandlungsplätze, die für eine Sichtungskategorie freigehalten werden; zusammen höchstens die Kapazität. Die übrigen Plätze sind ohne Kategorie.";
+
+/// How a UHS's capacity is split, as typed.
+pub fn uhs_places_split(kept: u32, total: u32) -> String {
+    if kept > total {
+        format!("Zurzeit {kept} Plätze nach Kategorie: mehr als die Kapazität von {total}.")
+    } else {
+        format!(
+            "Zurzeit {kept} nach Kategorie, {} ohne Kategorie.",
+            total - kept
+        )
+    }
+}
+
+/// The places per category do not fit in the capacity.
+pub fn uhs_places_exceed(kept: u32, total: u32) -> String {
+    format!(
+        "Die Plätze nach Kategorie ({kept}) sind mehr als die Kapazität ({total}). Bitte die Kapazität erhöhen oder weniger Plätze freihalten."
+    )
+}
 
 pub fn places_set(n: u32) -> String {
     format!("{n} Behandlungsplätze")

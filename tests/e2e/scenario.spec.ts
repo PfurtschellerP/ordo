@@ -1347,13 +1347,21 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#uhs-details-dialog").getByLabel("Führer", { exact: true }).fill("0");
     await ben.locator("#uhs-details-dialog").getByLabel("Unterführer", { exact: true }).fill("1");
     await ben.locator("#uhs-details-dialog").getByLabel("Mannschaft", { exact: true }).fill("3");
-    // [itest->dsn~uhs-capacity-by-category~1]
-    // UHS-13: a capacity per triage category, which also sets its places.
-    await ben.locator("#uhs-details-dialog").getByLabel("SK I", { exact: true }).fill("1");
-    await ben.locator("#uhs-details-dialog").getByLabel("SK II", { exact: true }).fill("1");
-    await ben.locator("#uhs-details-dialog").getByLabel("SK III", { exact: true }).fill("2");
-    await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Speichern" }).click();
-    await expect(ben.locator("#uhs-details-dialog").getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
+    // [itest->dsn~uhs-capacity-by-category~2]
+    // UHS-13: places kept per triage category, within the capacity; the rest for any.
+    const uhsDialog = ben.locator("#uhs-details-dialog");
+    await uhsDialog.getByLabel("SK I", { exact: true }).fill("1");
+    await uhsDialog.getByLabel("SK II", { exact: true }).fill("1");
+    await uhsDialog.getByLabel("SK III", { exact: true }).fill("9");
+    await expect(uhsDialog.locator(".hint", { hasText: "Zurzeit" }), "the split, as typed").toContainText("Zurzeit 11 Plätze nach Kategorie: mehr als die Kapazität von 5.");
+    await uhsDialog.getByRole("button", { name: "Speichern" }).click();
+    await expect(uhsDialog.getByRole("alert"), "more places than the capacity are refused").toHaveText(/Die Plätze nach Kategorie \(11\) sind mehr als die Kapazität \(5\)/);
+    await uhsDialog.getByLabel("SK III", { exact: true }).fill("2");
+    await expect(uhsDialog.locator(".hint", { hasText: "Zurzeit" })).toContainText("Zurzeit 4 nach Kategorie, 1 ohne Kategorie.");
+    await uhsDialog.getByRole("button", { name: "Speichern" }).click();
+    await expect(uhsDialog.getByRole("status").filter({ hasText: "Gespeichert" }), "saved").toBeVisible();
+    await expect(uhsDialog.getByRole("alert"), "and the message is gone").toHaveCount(0);
+    await expect(uhsDialog.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity stays as typed").toHaveValue("5");
     await shot(ben, "edit-dialog");
     await ben.keyboard.press("Escape");
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
@@ -1956,8 +1964,8 @@ test("ORDO in the browser", async ({ browser }) => {
 
     await openView(ben, "Lagekarte");
     await expect
-      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient, against the capacity by category" })
-      .toBe("Gesamt: 0 · Belegung: 0 / 4 · Entlassen: 1");
+      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient, against its whole capacity" })
+      .toBe("Gesamt: 0 · Belegung: 0 / 5 · Entlassen: 1");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked

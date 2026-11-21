@@ -1170,7 +1170,9 @@
   }
   .places__any { background: var(--ordo-color-surface-default); color: var(--ordo-color-text-primary); border-color: var(--ordo-color-border-strong); }
   .places__sums { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
-  .places__sum { display: grid; gap: var(--ordo-space-2); align-content: start; justify-items: start; }
+  /* Badge, figure and bar each on a row shared by all categories in a line (subgrid), so a
+     "voll" label never pushes its bar below the others. */
+  .places__sum { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--ordo-space-2); align-items: center; justify-items: start; }
   .places__bar { display: block; inline-size: 100%; block-size: var(--ordo-space-2); border-radius: var(--ordo-radius-small); background: var(--ordo-color-surface-sunken); overflow: hidden; }
   .places__bar-fill { display: block; block-size: 100%; border: 0; border-radius: 0; }
   /* Narrow by its column, not the screen: beside a record, or on a phone. */

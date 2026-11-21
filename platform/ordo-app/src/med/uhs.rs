@@ -132,14 +132,30 @@ fn UhsDetailsPanel(
         revision.track();
         core::incident_people(core)
     });
-    let error = RwSignal::new(None::<&'static str>);
+    let error = RwSignal::new(None::<String>);
     let current_capacity = capacity;
+    // How the capacity is split, as typed: places by category and the rest for any.
+    let split = Memo::new(move |_| {
+        let total = cap.get().trim().parse::<u32>().ok()?;
+        let kept: u32 = capacities
+            .iter()
+            .filter_map(|c| c.get().trim().parse::<u32>().ok())
+            .sum();
+        Some((kept, total))
+    });
     let save = {
         let (id, current_name) = (id.clone(), name.clone());
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
-            // [impl->dsn~uhs-capacity-by-category~1]
-            // A capacity per category, if given, makes the total.
+            // [impl->dsn~uhs-capacity-by-category~2]
+            // The capacity is the whole; places per category, if given, fit in it.
+            let capacity = match cap.get_untracked().trim().parse::<u32>() {
+                Ok(n) if n > 0 => n,
+                _ => {
+                    error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
+                    return;
+                }
+            };
             let mut by_category = std::collections::BTreeMap::new();
             for (category, value) in CAPACITY_CATEGORIES.into_iter().zip(capacities) {
                 let value = value.get_untracked();
@@ -152,25 +168,19 @@ fn UhsDetailsPanel(
                         by_category.insert(category, n);
                     }
                     Err(_) => {
-                        error.set(Some(text::UHS_CAPACITY_NUMBER));
+                        error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
                         return;
                     }
                 }
             }
-            let capacity = if by_category.is_empty() {
-                let Ok(capacity) = cap.get_untracked().trim().parse::<u32>() else {
-                    error.set(Some(text::UHS_CAPACITY_NUMBER));
-                    return;
-                };
-                capacity
-            } else {
-                let sum = by_category.values().sum::<u32>();
-                cap.set(sum.to_string());
-                sum
-            };
+            let kept = by_category.values().sum::<u32>();
+            if kept > capacity {
+                error.set(Some(text::uhs_places_exceed(kept, capacity)));
+                return;
+            }
             let chosen = new_name.get_untracked().trim().to_owned();
             if chosen.is_empty() {
-                error.set(Some(text::UHS_NAME_NEEDED));
+                error.set(Some(text::UHS_NAME_NEEDED.to_owned()));
                 return;
             }
             // [impl->dsn~uhs-as-unit~1]
@@ -178,7 +188,7 @@ fn UhsDetailsPanel(
             let (reported, special) = match strength.read() {
                 Ok(read) => read,
                 Err(e) => {
-                    error.set(Some(e));
+                    error.set(Some(e.to_owned()));
                     return;
                 }
             };
@@ -212,18 +222,27 @@ fn UhsDetailsPanel(
                 special: (special != details.special).then(|| special.clone()),
                 capacities: (by_category != details.capacities).then(|| by_category.clone()),
             };
-            if core::update_uhs(core, revision, &update).is_ok() {
-                error.set(None);
-                saved.set(true);
-                // [impl->dsn~treatment-places~3]
-                // The places follow the capacity: per category, or one per patient.
-                if !by_category.is_empty() {
-                    if update.capacities.is_some() {
-                        let _ = core::set_category_places(core, revision, &id, &by_category);
-                    }
-                } else if update.capacities.is_some() || capacity != current_capacity {
-                    let _ = core::set_places(core, revision, &id, capacity);
+            if let Err(e) = core::update_uhs(core, revision, &update) {
+                error.set(Some(e));
+                return;
+            }
+            // [impl->dsn~treatment-places~3]
+            // The places follow the capacity: per category and the rest for any, or one per
+            // patient.
+            let changed = update.capacities.is_some() || capacity != current_capacity;
+            let placed = match (changed, by_category.is_empty()) {
+                (false, _) => Ok(()),
+                (true, false) => {
+                    core::set_category_places(core, revision, &id, &by_category, capacity)
                 }
+                (true, true) => core::set_places(core, revision, &id, capacity),
+            };
+            match placed {
+                Ok(()) => {
+                    error.set(None);
+                    saved.set(true);
+                }
+                Err(e) => error.set(Some(e)),
             }
         }
     };
@@ -360,7 +379,10 @@ fn UhsDetailsPanel(
                                 })
                                 .collect_view()}
                         </fieldset>
-                        <p id=format!("uhs-capacities-hint-{slug}") class="hint">{text::UHS_CAPACITIES_HINT}</p>
+                        <p id=format!("uhs-capacities-hint-{slug}") class="hint">
+                            {text::UHS_CAPACITIES_HINT} " "
+                            {move || split.get().map(|(kept, total)| text::uhs_places_split(kept, total))}
+                        </p>
                         <div class="actions">
                             <button type="submit" class="button">{text::UHS_SAVE}</button>
                             <p role="status" class="hint">{move || saved.get().then_some(text::SAVED)}</p>
@@ -674,7 +696,7 @@ pub fn CountCard(
                 {CATEGORIES
                     .into_iter()
                     .map(|k| {
-                        // [impl->dsn~uhs-capacity-by-category~1]
+                        // [impl->dsn~uhs-capacity-by-category~2]
                         let of = capacities.get(&k).map(|n| format!(" / {n}"));
                         view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}{of}</span></li> }
                     })

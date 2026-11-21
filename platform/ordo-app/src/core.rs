@@ -880,20 +880,28 @@ pub fn set_places(
     )
 }
 
-// [impl->dsn~uhs-capacity-by-category~1]
-/// Sets a unit's treatment places from its capacity per triage category (UHS-13): places
-/// kept for each category; existing ones keep their labels and patients.
+// [impl->dsn~uhs-capacity-by-category~2]
+/// Sets a unit's treatment places from its capacity per triage category (UHS-13) within
+/// its whole capacity `total`: places kept for each category, the rest for any; existing
+/// ones keep their labels and patients.
 pub fn set_category_places(
     core: Handle,
     revision: RwSignal<u64>,
     uhs: &str,
     capacities: &std::collections::BTreeMap<ordo_contracts::TriageCategory, u32>,
+    total: u32,
 ) -> Result<(), String> {
     let existing = core
         .with_value(|c| patients::places(&c.events(patients::UHS_COMPARTMENT)))
         .remove(uhs)
         .unwrap_or_default();
-    let places = patients::places_by_category(capacities, &existing, text::category_place_label);
+    let places = patients::places_by_category(
+        capacities,
+        total,
+        &existing,
+        text::category_place_label,
+        text::place_label,
+    );
     if places == existing {
         return Ok(());
     }
