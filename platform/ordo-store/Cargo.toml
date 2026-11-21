@@ -15,7 +15,7 @@ publish = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
-rusqlite = { version = "0.41", default-features = false, features = ["ffi-sqlite-wasm-rs"] }
+rusqlite = { version = "0.42", default-features = false, features = ["ffi-sqlite-wasm-rs"] }
 sqlite-wasm-rs = { version = "0.6", features = ["wasm-bindgen"] }
 sqlite-wasm-vfs = { version = "0.3", features = ["sahpool"] }
 wasm-bindgen = "=0.2.130"
