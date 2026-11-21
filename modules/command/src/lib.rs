@@ -391,6 +391,9 @@ pub mod kinds {
     /// See [`super::ASSIGNED`].
     pub const ASSIGNED: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::ASSIGNED, 1);
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[POSITION_CREATED, POSITION_CLOSED, LEADER_SET, ASSIGNED];
 }
 
 #[cfg(test)]

@@ -235,19 +235,24 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~uhs-details~4]
     const eingang = dora.locator(".uhs-card", { hasText: "UHS Eingang" });
     await dora.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(eingang.locator(".uhs-on-map"), "its place is on the situation map").toHaveText("Auf der Lagekarte: noch nicht gesetzt");
-    await eingang.getByLabel("Name", { exact: true }).fill("anna@localhost");
-    await eingang.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
-    await expect(eingang.locator(".uhs-card__staff"), "and assigned staff; the panel stays open").toHaveText("Personal: 1 Person");
-    // A UHS can be renamed (and here back again).
-    await eingang.getByLabel("Name der UHS").fill("UHS Tor");
-    await eingang.getByRole("button", { name: "Speichern" }).click();
+    // One dialog for the list (ADR edit dialog): it stays open while the list updates.
+    const details = dora.locator("#uhs-details-dialog");
+    await expect(details.locator(".uhs-on-map"), "its place is on the situation map").toHaveText("Auf der Lagekarte: noch nicht gesetzt");
+    await details.getByLabel("Name", { exact: true }).fill("anna@localhost");
+    await details.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(eingang.locator(".uhs-card__staff"), "and assigned staff; the dialog stays open").toHaveText("Personal: 1 Person");
+    await expect(details.locator(".crew-list"), "by name").toContainText("Anna Schmidt");
+    // A UHS can be renamed (and here back again), in the same dialog.
+    await details.getByLabel("Name der UHS").fill("UHS Tor");
+    await details.getByRole("button", { name: "Speichern" }).click();
+    await expect(details.locator("[role=status]"), "saving says so").toHaveText("Gespeichert.");
     const tor = dora.locator(".uhs-card", { hasText: "UHS Tor" });
     await expect(tor.locator(".uhs-card__name"), "renamed").toHaveText("UHS Tor");
-    await tor.getByLabel("Name der UHS").fill("UHS Eingang");
-    await tor.getByRole("button", { name: "Speichern" }).click();
+    await expect(dora.getByRole("dialog", { name: "UHS Tor bearbeiten" }), "the dialog follows its item").toBeVisible();
+    await details.getByLabel("Name der UHS").fill("UHS Eingang");
+    await details.getByRole("button", { name: "Speichern" }).click();
     await expect(eingang.locator(".uhs-card__name")).toHaveText("UHS Eingang");
-    // [itest->dsn~edit-dialog~1]
+    // [itest->dsn~edit-dialog~2]
     // Editing happens in a dialog, so the list does not shift; Escape closes it and the
     // focus goes back to its button.
     const editButton = dora.getByRole("button", { name: "Ort und Personal von UHS Eingang" });
@@ -419,7 +424,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
     await saveForm(anna, "history");
 
-    // [itest->dsn~record-overview~1]
+    // [itest->dsn~record-overview~2]
     // EPCR-14: the record opens on its overview; the header keeps the essentials in view.
     await openView(anna, "Behandlungsplätze");
     await openView(anna, "Patienten");
@@ -436,7 +441,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(anna, "Record overview");
     // A quick action opens its form in *Dokumentation*.
     await anna.locator(".quick-actions").getByRole("button", { name: "Neuer Eintrag: Vitalwerte" }).click();
-    await expect(anna.getByRole("tab", { name: "Dokumentation" })).toHaveAttribute("aria-selected", "true");
+    await expect(anna.getByRole("tab", { name: /^Doku(mentation)?$/ })).toHaveAttribute("aria-selected", "true");
     await expect(anna.locator("[aria-labelledby=section-vitals] form.editor")).toBeVisible();
     await anna.locator("[aria-labelledby=section-vitals]").getByRole("button", { name: "Abbrechen" }).click();
     // [itest->dsn~record-timeline~1]
@@ -791,19 +796,44 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(badges.every(Boolean), "every triage badge has a shape and a text label").toBe(true);
     await audit(anna, "Med workspace");
 
-    // [itest->dsn~patient-pathway~1]
-    await openRecord(anna, "DE-0045");
-    const move = async (to: string) => {
-      await openSection(anna, "section-stay");
-      await anna.locator("#move-to").selectOption({ label: to });
-      await anna.getByRole("button", { name: "Verlegen", exact: true }).click();
-    };
-    await move("UHS Bühne Nord");
-    await expect(anna.locator(".patient-card[data-tag='DE-0045']"), "the patient is where they were moved").toContainText("UHS Bühne Nord");
+    // [itest->dsn~patient-pathway~2]
+    // [itest->dsn~patient-handover~1]
+    // EPCR-17 (ADR-0087): a move to another UHS is a handover; the receiver takes it.
+    await openRecord(anna, "DE-0045", "Übergabe");
+    const handover = anna.locator("form.handover-form");
+    await expect(anna.locator(".journey__step--next"), "the way ends with where next").toContainText("an wen übergeben");
+    await handover.getByLabel(/^UHS oder Behandlungsplatz/).check();
+    const north = await anna.locator("#handover-target option", { hasText: "UHS Bühne Nord" }).getAttribute("value");
+    await anna.locator("#handover-target").selectOption(north!);
+    await anna.locator("#handover-note").fill("Schmerzen im linken Arm");
+    await expect(handover.locator("#handover-gets")).toHaveText("Was UHS Bühne Nord bekommt");
+    await audit(anna, "Handover");
+    await shot(anna, "handover");
+    await anna.getByRole("button", { name: "An UHS Bühne Nord übergeben" }).click();
+    const open = anna.locator("#handover-open");
+    await expect(open, "both sides see it open").toContainText("Übergabe an UHS Bühne Nord offen");
+    await expect(open).toContainText("Schmerzen im linken Arm");
+    await expect(anna.locator(".record__read-only"), "until taken, the UHS still writes").toHaveCount(0);
+    await expect(anna.locator(".patient-card[data-tag='DE-0045']"), "and the list says so").toContainText("Übergabe an UHS Bühne Nord offen");
+    await expect.poll(() => status(anna), { message: "the handover is sent" }).toContain("Alles gesendet");
+    // Nobody is on Bühne Nord's staff list: the physician takes the patient for it.
+    const physician = await newDevice(browser);
+    await loginPair(physician, server, "petra@example.org");
+    await openIncident(physician, INCIDENT);
+    await openView(physician, "Patienten");
+    await openRecord(physician, "DE-0045", "Übersicht");
+    await physician.getByRole("button", { name: "Übernehmen für UHS Bühne Nord" }).click();
+    await expect(physician.locator("#handover-open"), "taken: no longer open").toHaveCount(0);
+    await expect.poll(() => status(physician), { message: "the taking is sent" }).toContain("Alles gesendet");
+    await physician.context().close();
+    await expect(open, "taken on the other device too").toHaveCount(0);
+    await expect(anna.locator(".patient-card[data-tag='DE-0045']"), "the patient is where they were taken").toContainText("UHS Bühne Nord");
+    await showTabOf(anna, "[aria-labelledby=section-stay]");
     const way = anna.locator("[aria-labelledby=section-stay] .history li");
-    await expect(way.nth(1), "the way, with time and person").toContainText("Verlegt: UHS Eingang → UHS Bühne Nord");
-    await expect(way, "admitted, moved").toHaveCount(2);
-    await expect(anna.locator(".record__read-only"), "handed over: the other UHS's staff writes it now").toContainText("UHS Bühne Nord");
+    await expect(way, "registered, handed over, taken").toHaveCount(3);
+    await expect(way.nth(1), "the way, with time and person").toContainText("Übergabe an UHS Bühne Nord");
+    await expect(way.nth(2)).toContainText("Übernommen: UHS Bühne Nord");
+    await expect(anna.locator(".record__read-only"), "taken: the other UHS's staff writes it now").toContainText("UHS Bühne Nord");
 
     // [itest->dsn~uhs-overview~3]
     // UHS-8: the places of every UHS, to see which is full and where else a patient could go.
@@ -906,7 +936,15 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(atLargeText[0], "at 150 % text size the menu still opens above the bar").toBeLessThanOrEqual(atLargeText[1] + 1);
     await shot(anna, "launcher-phone", false);
     await anna.locator("#launcher-bar-button").click();
-    await openRecord(anna, "DE-0042");
+    // [itest->dsn~record-overview~2]
+    // The record on phones (concept 2026-11-19): short tab labels, and the quick actions in
+    // the bottom bar within thumb reach, one block with the views.
+    await openRecord(anna, "DE-0044", "Übersicht");
+    await expect(anna.getByRole("tab", { name: "Doku", exact: true }), "a short label for Dokumentation").toBeVisible();
+    const bar = anna.locator("#bottom-bar .quick-actions--bar");
+    await expect(bar.getByRole("button", { name: "Übergeben" }), "the handover within thumb reach").toBeVisible();
+    await expect(bar.locator("button"), "the forms marked quick, and the handover").toHaveCount(4);
+    await expect(anna.locator(".quick-actions--page").getByRole("button", { name: "Übergeben" }), "not twice").toBeHidden();
     await shot(anna, "record-phone", false);
     await expect(anna.locator(".master"), "on phones the record is a page of its own").toBeHidden();
     await anna.goBack();
@@ -1087,19 +1125,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".strength-on-scene__total"), "strength on scene").toHaveText("3 Einsatzmittel · Stärke 0/1/2/3 · ohne Stärkemeldung: 1");
     await ben.getByRole("button", { name: "Besatzung von RTW 83/1 (0)" }).click();
     await ben.locator("#crew-rtw-83-1").fill("anna@localhost");
-    await card.getByLabel("Notfallsanitäter/in").check();
+    await ben.locator("#crew-dialog").getByLabel("Notfallsanitäter/in").check();
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     // Anna is in the register since she got her role (ADR-0076).
     // [itest->dsn~double-booking~1]
-    await expect(card.locator(".assigned-elsewhere"), "UNIT-8: someone on a UHS's staff is not booked twice").toContainText(
+    await expect(ben.locator("#crew-dialog .assigned-elsewhere"), "UNIT-8: someone on a UHS's staff is not booked twice").toContainText(
       "anna@localhost ist schon bei UHS Eingang eingeteilt.",
     );
-    await expect(card.locator(".crew-list"), "not added yet").toHaveCount(0);
+    await expect(ben.locator("#crew-dialog .crew-list"), "not added yet").toHaveCount(0);
     await audit(ben, "Assigned elsewhere");
-    await card.locator(".assigned-elsewhere").getByRole("button", { name: "Abbrechen" }).click();
+    await ben.locator("#crew-dialog .assigned-elsewhere").getByRole("button", { name: "Abbrechen" }).click();
     await ben.locator("#crew-rtw-83-1").fill("ben@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await expect(card.locator(".crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
+    await expect(ben.locator("#crew-dialog .crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
     await ben.keyboard.press("Escape");
 
     // [itest->dsn~tasks~7]
@@ -1180,9 +1218,9 @@ test("ORDO in the browser", async ({ browser }) => {
     const uhsCard = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 1 Person");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(uhsCard.locator(".crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
-    await uhsCard.getByLabel("Name", { exact: true }).fill("petra@localhost");
-    await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await expect(ben.locator("#uhs-details-dialog .crew-list"), "people by name, not by user ID").toContainText("Anna Schmidt");
+    await ben.locator("#uhs-details-dialog").getByLabel("Name", { exact: true }).fill("petra@localhost");
+    await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
     await expect.poll(() => status(ben), { message: "the staff list is sent" }).toContain("Alles gesendet");
     await settle(ben);
@@ -1190,18 +1228,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".strength-on-scene__total"), "its staff count").toHaveText("3 Einsatzmittel · Stärke 0/1/3/4 · ohne Stärkemeldung: 1");
     // [itest->dsn~uhs-as-unit~1]
     // The UHS as a unit: its organisation, service and strength, counted instead of its staff.
-    await uhsCard.getByLabel("Organisation", { exact: true }).fill("DRK Musterstadt");
-    await uhsCard.getByLabel("Dienst", { exact: true }).selectOption("medical");
-    await uhsCard.getByLabel("Führer", { exact: true }).fill("0");
-    await uhsCard.getByLabel("Unterführer", { exact: true }).fill("1");
-    await uhsCard.getByLabel("Mannschaft", { exact: true }).fill("3");
+    await ben.locator("#uhs-details-dialog").getByLabel("Organisation", { exact: true }).fill("DRK Musterstadt");
+    await ben.locator("#uhs-details-dialog").getByLabel("Dienst", { exact: true }).selectOption("medical");
+    await ben.locator("#uhs-details-dialog").getByLabel("Führer", { exact: true }).fill("0");
+    await ben.locator("#uhs-details-dialog").getByLabel("Unterführer", { exact: true }).fill("1");
+    await ben.locator("#uhs-details-dialog").getByLabel("Mannschaft", { exact: true }).fill("3");
     // [itest->dsn~uhs-capacity-by-category~1]
     // UHS-13: a capacity per triage category, which also sets its places.
-    await uhsCard.getByLabel("SK I", { exact: true }).fill("1");
-    await uhsCard.getByLabel("SK II", { exact: true }).fill("1");
-    await uhsCard.getByLabel("SK III", { exact: true }).fill("2");
-    await uhsCard.getByRole("button", { name: "Speichern" }).click();
-    await expect(uhsCard.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
+    await ben.locator("#uhs-details-dialog").getByLabel("SK I", { exact: true }).fill("1");
+    await ben.locator("#uhs-details-dialog").getByLabel("SK II", { exact: true }).fill("1");
+    await ben.locator("#uhs-details-dialog").getByLabel("SK III", { exact: true }).fill("2");
+    await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Speichern" }).click();
+    await expect(ben.locator("#uhs-details-dialog").getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity is their sum").toHaveValue("4");
+    await shot(ben, "edit-dialog");
     await ben.keyboard.press("Escape");
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
@@ -1218,10 +1257,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await notation(true);
     await expect(total, "five numbers").toHaveText("3 Einsatzmittel · Stärke 0/0/2/4/6 · ohne Stärkemeldung: 1");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(uhsCard.getByLabel("Zugführer", { exact: true }), "the forms name the detailed parts").toHaveValue("0");
-    await uhsCard.getByLabel("Führer von Verbänden", { exact: true }).fill("1");
-    await uhsCard.getByLabel("Ärzte", { exact: true }).fill("1");
-    await uhsCard.getByRole("button", { name: "Speichern" }).click();
+    await expect(ben.locator("#uhs-details-dialog").getByLabel("Zugführer", { exact: true }), "the forms name the detailed parts").toHaveValue("0");
+    await ben.locator("#uhs-details-dialog").getByLabel("Führer von Verbänden", { exact: true }).fill("1");
+    await ben.locator("#uhs-details-dialog").getByLabel("Ärzte", { exact: true }).fill("1");
+    await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Speichern" }).click();
     await expect(total, "with the special functions after it").toHaveText("3 Einsatzmittel · Stärke 1/0/2/4/7 (davon 1 × Ärzte) · ohne Stärkemeldung: 1");
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#unit-unit-leaders"), "the unit form asks for leaders of formations too").toBeVisible();
@@ -1238,18 +1277,18 @@ test("ORDO in the browser", async ({ browser }) => {
     const doraCard = dora.locator(".unit-card[data-unit='RTW 83/1']");
     await doraCard.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
     await dora.locator("#crew-rtw-83-1").fill("max@localhost");
-    await doraCard.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    await dora.locator("#crew-dialog").getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
     // [itest->dsn~crews-from-register~2]
-    await expect(doraCard.locator("[role=alert]", { hasText: "Helferregister" }), "HELP-3: crews come from the helper register").toContainText(
+    await expect(dora.locator("#crew-dialog [role=alert]", { hasText: "Helferregister" }), "HELP-3: crews come from the helper register").toContainText(
       "max@localhost ist nicht im Helferregister.",
     );
-    await doraCard.getByRole("button", { name: "Erfassen und hinzufügen: max@localhost" }).click();
-    await expect(doraCard.locator(".crew-list")).toContainText("max@localhost");
+    await dora.locator("#crew-dialog").getByRole("button", { name: "Erfassen und hinzufügen: max@localhost" }).click();
+    await expect(dora.locator("#crew-dialog .crew-list")).toContainText("max@localhost");
     await dora.keyboard.press("Escape");
     await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
     // The same account on the staff list: the helper registered on the other device.
-    await uhsCard.getByLabel("Name", { exact: true }).fill("max@localhost");
-    await uhsCard.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+    await ben.locator("#uhs-details-dialog").getByLabel("Name", { exact: true }).fill("max@localhost");
+    await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Zum Personal hinzufügen" }).click();
     await expect(uhsCard.locator(".uhs-card__staff"), "this device does not know of the other booking").toHaveText("Personal: 3 Personen");
     await ben.keyboard.press("Escape");
     await server.start();
@@ -1267,12 +1306,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await card.getByRole("button", { name: /^Besatzung von RTW 83\/1/ }).click();
     await ben.locator("#crew-rtw-83-1").fill("max@localhost");
     await ben.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    await expect(card.locator(".assigned-elsewhere"), "found in the register, by account").toContainText("max@localhost ist schon bei UHS Eingang eingeteilt.");
-    await card.getByRole("button", { name: "Hierher umsetzen: max@localhost zu RTW 83/1" }).click();
+    await expect(ben.locator("#crew-dialog .assigned-elsewhere"), "found in the register, by account").toContainText("max@localhost ist schon bei UHS Eingang eingeteilt.");
+    await ben.locator("#crew-dialog").getByRole("button", { name: "Hierher umsetzen: max@localhost zu RTW 83/1" }).click();
     await expect(ben.locator(".strength-on-scene__several"), "booked once again").toHaveCount(0);
     await expect(total).toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
     await expect(uhsCard.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
-    await expect(card.locator(".crew-list li"), "on the crew once").toHaveCount(2);
+    await expect(ben.locator("#crew-dialog .crew-list li"), "on the crew once").toHaveCount(2);
     await ben.keyboard.press("Escape");
     await audit(ben, "Resources workspace");
     await shot(ben, "resources");
@@ -1632,10 +1671,9 @@ test("ORDO in the browser", async ({ browser }) => {
     // A UHS's place is its symbol on the map, set from its details panel.
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
-    const gate = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
     await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(gate.locator(".uhs-on-map")).toHaveText("Auf der Lagekarte: noch nicht gesetzt");
-    await gate.getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }).click();
+    await expect(ben.locator("#uhs-details-dialog .uhs-on-map")).toHaveText("Auf der Lagekarte: noch nicht gesetzt");
+    await ben.locator("#uhs-details-dialog").getByRole("link", { name: "Auf der Karte setzen: UHS Eingang" }).click();
     await expect(ben.locator("#map-editor-title"), "the editor opens, ready to place it").toHaveText("Lagekarte bearbeiten");
     await expect(tool("Symbol setzen")).toHaveAttribute("aria-pressed", "true");
     await expect(ben.locator("#place-reference")).toHaveValue(/.+/);
@@ -1645,7 +1683,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(objects.filter({ hasText: "UHS Eingang · UHS" }), "the UHS is on the map").toHaveCount(1);
     await ben.goBack();
     await ben.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
-    await expect(gate.locator(".uhs-on-map"), "the panel shows where it is").toHaveText(/^Auf der Lagekarte: 48\.\d{5}, 10\.\d{5}$/);
+    await expect(ben.locator("#uhs-details-dialog .uhs-on-map"), "the panel shows where it is").toHaveText(/^Auf der Lagekarte: 48\.\d{5}, 10\.\d{5}$/);
     await ben.goForward();
     await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
     await openWorkspace(ben, "Führung");
@@ -1818,13 +1856,13 @@ test("ORDO in the browser", async ({ browser }) => {
     const team = ben.locator(".unit-card[data-unit='SanTrp 1']");
     await team.getByRole("button", { name: /^Besatzung von SanTrp 1/ }).click();
     await ben.locator("#crew-santrp-1").fill("petra@localhost");
-    await team.getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
-    const enter = team.getByRole("button", { name: "Erfassen und hinzufügen: petra@localhost" });
-    const move = team.getByRole("button", { name: "Hierher umsetzen: petra@localhost zu SanTrp 1" });
+    await ben.locator("#crew-dialog").getByRole("button", { name: "Zur Besatzung hinzufügen" }).click();
+    const enter = ben.locator("#crew-dialog").getByRole("button", { name: "Erfassen und hinzufügen: petra@localhost" });
+    const move = ben.locator("#crew-dialog").getByRole("button", { name: "Hierher umsetzen: petra@localhost zu SanTrp 1" });
     await expect(enter.or(move)).toBeVisible();
     if (await enter.isVisible()) await enter.click();
     await move.click();
-    await expect(team.locator(".crew-list"), "by her name in the register; the crew keeps her account").toContainText("Dr. Petra Lang");
+    await expect(ben.locator("#crew-dialog .crew-list"), "by her name in the register; the crew keeps her account").toContainText("Dr. Petra Lang");
     await ben.keyboard.press("Escape");
 
     // REP-1, ADR-0081: the command records the report as an Auftrag, with its pin on the
@@ -1931,7 +1969,39 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(medic), { message: "the registration opens in the UHS workspace" }).toContain("Sanität – UHS");
     await expect(medic.locator(".register-case"), "the registration names the Auftrag").toContainText("Aus dem Auftrag „Bühne Nord, links“ für SanTrp 1");
     await expect(medic.locator("#tag")).toBeFocused();
-    await register(medic, "DE-0077", 1, "UHS Eingang");
+    // [itest->dsn~patient-holder~1]
+    // EPCR-16 (ADR-0087): the crew registers the patient with its own unit.
+    await expect(medic.locator("#uhs"), "the crew's unit is chosen").toHaveValue("unit:SanTrp 1");
+    await register(medic, "DE-0077", 1);
+    await expect(medic.locator(".patient-card[data-tag='DE-0077']"), "held by the unit").toContainText("SanTrp 1");
+    // [itest->dsn~quick-handover~1]
+    // EPCR-18: a quick handover by QR code; Anna, at UHS Eingang, opens its address and
+    // takes the patient there.
+    await openRecord(medic, "DE-0077", "Übergabe");
+    await medic.getByRole("button", { name: "QR-Code zeigen" }).click();
+    const quick = medic.locator("#handover-open");
+    await expect(quick).toContainText("Schnellübergabe offen");
+    await expect(quick.locator(".handover-code__image"), "the code, drawn on the device").toBeVisible();
+    const link = await quick.locator(".handover-code__link").getAttribute("href");
+    expect(link, "the code names no clinical data").toMatch(/\/med\.uhs\/patients\/DE-0077\?handover=[0-9A-Z]{26}$/);
+    await audit(medic, "Quick handover");
+    await shot(medic, "quick-handover");
+    await expect.poll(() => status(medic), { message: "the handover is sent" }).toContain("Alles gesendet");
+    const receiver = await newDevice(browser);
+    await loginPair(receiver, server, "anna@example.org");
+    await openIncident(receiver, INCIDENT);
+    await openView(receiver, "Patienten");
+    await receiver.goto(link!);
+    const take = receiver.locator("#take-dialog");
+    await expect(take.locator("#take-title")).toHaveText("Patient DE-0077 übernehmen");
+    await expect(take, "from where").toContainText("Bisher bei SanTrp 1");
+    await take.locator("#take-to").selectOption({ label: "UHS Eingang" });
+    await take.getByRole("button", { name: "Übernehmen", exact: true }).click();
+    await expect(receiver.locator("#record-title"), "the record opens").toHaveText("Patient DE-0077");
+    await expect(receiver.locator(".record__where"), "now at the UHS").toContainText("UHS Eingang");
+    await expect.poll(() => status(receiver), { message: "the taking is sent" }).toContain("Alles gesendet");
+    await receiver.context().close();
+    await expect(quick, "taken: the code is gone on the crew's device").toHaveCount(0);
     await openWorkspace(medic, "Besatzung");
     await expect(crewTask.getByRole("button", { name: "Patient aufnehmen" }), "taken over: offered no more").toHaveCount(0);
     await expect(crewTask.locator(".task-card__taken")).toHaveText(/^Patient aufgenommen von SanTrp 1 \(\d\d:\d\d\)$/);
@@ -2101,7 +2171,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(dora, "Zugriff");
     await openView(dora, "Geräte");
     await expect(dora.locator("#devices-title")).toHaveText("Geräte");
-    await expect(dora.locator(".device-card"), "an admin sees all devices, the guest's phone and tablet too").toHaveCount(12);
+    await expect(dora.locator(".device-card"), "an admin sees all devices, the guest's phone and tablet too").toHaveCount(14);
     await expect(dora.locator(".device-card h3", { hasText: "Laptop Einsatzplanung" }), "with the name chosen at pairing").toContainText("dieses Gerät");
     await audit(dora, "Devices");
     const tablet = dora.locator(".device-card", { hasText: "Ben Weber" });
@@ -2110,7 +2180,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Revoke confirmation", [1200]);
     await shot(dora, "devices-revoke");
     await dora.getByRole("button", { name: "Ja, sperren" }).click();
-    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(11);
+    await expect(dora.locator(".device-card"), "the revoked tablet is gone from the list").toHaveCount(13);
     await expect.poll(() => announced(dora)).toContain("gesperrt");
 
     // Ben's tablet is cut off at once and deletes its key and data.

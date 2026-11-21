@@ -907,6 +907,10 @@ fn Workspace(
         <div class="layout">
             <div class="navigation">
               <div class="navigation__inner">
+                // [impl->dsn~record-overview~2]
+                // On phones a page may put its own actions here, above the views, within
+                // thumb reach (the patient record's quick actions); empty elsewhere.
+                <div id="bottom-bar" class="navigation__extra"></div>
                 <div class="launcher">
                     <DisclosureButton id="launcher-bar-button" controls="launcher-panel" open
                         class="launcher__button launcher__button--bar" on_open=Some(close_profile)>
@@ -1029,7 +1033,7 @@ fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
         }
     };
     let Some(el) = find() else { return };
-    // [impl->dsn~record-overview~1]
+    // [impl->dsn~record-overview~2]
     let tab = el
         .closest("[role=tabpanel][hidden]")
         .ok()
@@ -1055,6 +1059,37 @@ fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
 }
 
 /// Moves keyboard focus to the element with `id` (after navigation).
+/// Call inside a closure that rebuilds part of a page (a list after a new event): the
+/// element that has the focus, if it has an ID, gets it back once the part is rebuilt, so
+/// nobody typing or tabbing there loses their place.
+pub(crate) fn keep_focus() {
+    use wasm_bindgen::JsCast;
+    let document = || web_sys::window().and_then(|w| w.document());
+    let Some(id) = document()
+        .and_then(|d| d.active_element())
+        .map(|e| e.id())
+        .filter(|id| !id.is_empty())
+    else {
+        return;
+    };
+    request_animation_frame(move || {
+        let Some(d) = document() else { return };
+        // Only focus that was lost (to the page itself) comes back.
+        let body = d.body().map(web_sys::Element::from);
+        if d.active_element()
+            .is_some_and(|e| Some(&e) != body.as_ref())
+        {
+            return;
+        }
+        if let Some(el) = d
+            .get_element_by_id(&id)
+            .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = el.focus();
+        }
+    });
+}
+
 pub(crate) fn focus(id: &str) {
     when_shown(id, |el| {
         let _ = el.focus();

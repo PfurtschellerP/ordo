@@ -252,6 +252,9 @@ pub mod kinds {
         super::PATIENT_REGISTERED,
         1,
     );
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[RECORDED, CLOSED, PATIENT_REGISTERED];
 }
 
 #[cfg(test)]

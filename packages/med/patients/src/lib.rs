@@ -614,6 +614,44 @@ pub enum Stay {
         /// The transport request, if transported.
         transport: Option<String>,
     },
+    /// Handed over within ORDO, open until taken (ADR-0087).
+    HandedOver {
+        /// The holder named; none for a quick handover.
+        to: Option<Holder>,
+        /// The note for the receiver.
+        note: Option<String>,
+    },
+    /// Taken by the next holder, or back by the holder before (`from == to`).
+    Taken {
+        /// The holder before.
+        from: Holder,
+        /// The holder now.
+        to: Holder,
+    },
+    /// Handed over outside ORDO: the patient left the incident (ADR-0087).
+    HandedOutside {
+        /// Who took the patient, e.g. "Klinikum Mitte, ZNA".
+        receiver: String,
+        /// The note for the receiver.
+        note: Option<String>,
+    },
+}
+
+impl Stay {
+    /// Whether the patient left the incident with it: discharged, or handed over outside
+    /// ORDO.
+    pub fn leaves(&self) -> bool {
+        matches!(self, Self::Discharged { .. } | Self::HandedOutside { .. })
+    }
+
+    /// Whether it says where the patient is (admitted, discharged, left), as opposed to a
+    /// change of holder within the incident.
+    fn is_presence(&self) -> bool {
+        matches!(
+            self,
+            Self::Admitted | Self::Discharged { .. } | Self::HandedOutside { .. }
+        )
+    }
 }
 
 /// One admission or discharge with time and person.
@@ -633,9 +671,40 @@ pub struct StayEntry {
 pub const TRIAGE_SCHEMA: u32 = 3;
 
 /// Schema version of `patients.registered`: 4 since it names the patient case it came from
-/// (REP-3, ADR-0075), 5 since it names the patient Auftrag instead (ADR-0081); older
-/// payloads decode unchanged.
-pub const REGISTERED_SCHEMA: u32 = 5;
+/// (REP-3, ADR-0075), 5 since it names the patient Auftrag instead (ADR-0081), 6 since a
+/// unit's crew may hold the patient instead of a UHS (ADR-0087); older payloads decode
+/// unchanged.
+pub const REGISTERED_SCHEMA: u32 = 6;
+
+// [impl->dsn~patient-holder~1]
+/// Who has a patient and writes their record (ADR-0087): an on-site care unit's staff, or
+/// a unit's crew. One holder at a time; a handover moves the patient to the next.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Holder {
+    /// A UHS, treatment area or collection point ([`UhsCreated::id`]).
+    Uhs(String),
+    /// A unit by its call sign, whose crew has the patient (UNIT-5).
+    Unit(String),
+}
+
+impl Holder {
+    /// The UHS, if a UHS holds the patient.
+    pub fn uhs(&self) -> Option<&str> {
+        match self {
+            Self::Uhs(id) => Some(id),
+            Self::Unit(_) => None,
+        }
+    }
+
+    /// The unit, if a unit's crew holds the patient.
+    pub fn unit(&self) -> Option<&str> {
+        match self {
+            Self::Unit(unit) => Some(unit),
+            Self::Uhs(_) => None,
+        }
+    }
+}
 
 /// Payload of `patients.registered`: the minimum needed (requirement PAT-1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -644,8 +713,14 @@ pub struct Registered {
     pub tag: String,
     /// Triage category.
     pub category: TriageCategory,
-    /// ID of the on-site care unit ([`UhsCreated::id`]).
+    /// ID of the on-site care unit ([`UhsCreated::id`]); empty when a unit holds the
+    /// patient (schema version 6).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub uhs: String,
+    /// The unit whose crew holds the patient instead of a UHS, by call sign (ADR-0087,
+    /// schema version 6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
     /// The triage algorithm used ([`triage::Algorithm::id`]), if the person named one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<String>,
@@ -676,6 +751,89 @@ impl Registered {
     pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
         codec::to_cbor(self)
     }
+
+    /// Who holds the patient from registration on.
+    pub fn holder(&self) -> Holder {
+        match &self.unit {
+            Some(unit) => Holder::Unit(unit.clone()),
+            None => Holder::Uhs(self.uhs.clone()),
+        }
+    }
+}
+
+/// Event type: the holder of a patient hands them over (ADR-0087): to a UHS or a unit
+/// named, to whoever takes them with the QR code (quick handover), or outside ORDO.
+pub const HANDED_OVER: &str = "patients.handedOver";
+/// Event type: a patient handed over was taken, by the receiving holder's people, or back
+/// by the holder who handed them over.
+pub const TAKEN: &str = "patients.taken";
+
+// [impl->dsn~patient-handover~1]
+/// Payload of `patients.handedOver` (clinical compartment). Within ORDO the patient stays
+/// with the holder until taken, so responsibility never falls between two.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandedOver {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// The handover's ID (ULID): [`Taken`] names it, and the quick handover's QR code.
+    pub handover: String,
+    /// The holder it is handed over to; none for a quick handover (whoever takes it with
+    /// the code) or outside ORDO.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<Holder>,
+    /// Who takes the patient outside ORDO, e.g. "Klinikum Mitte, ZNA": the patient leaves
+    /// the incident at once, as at a discharge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outside: Option<String>,
+    /// The transport request the receiving unit serves, if handed over to a transport.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
+    /// A note for the receiver, e.g. what happened on the way.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl HandedOver {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// Payload of `patients.taken` (clinical compartment).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Taken {
+    /// Number of the triage tag.
+    pub tag: String,
+    /// The handover taken ([`HandedOver::handover`]).
+    pub handover: String,
+    /// Who holds the patient from now on: the receiver's UHS or unit, or the holder before
+    /// when taken back.
+    pub holder: Holder,
+}
+
+impl Taken {
+    /// CBOR payload.
+    pub fn encode(&self) -> Result<Vec<u8>, CodecError> {
+        codec::to_cbor(self)
+    }
+}
+
+/// A handover not taken yet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpenHandover {
+    /// Its ID.
+    pub id: String,
+    /// The holder named; none for a quick handover.
+    pub to: Option<Holder>,
+    /// The transport request, if handed over to a transport.
+    pub transport: Option<String>,
+    /// The note for the receiver.
+    pub note: Option<String>,
+    /// When it was handed over.
+    pub at: Hlc,
+    /// Who handed over.
+    pub by: UserId,
 }
 
 impl Retriaged {
@@ -703,8 +861,15 @@ pub struct TriageEntry {
 pub struct Patient {
     /// Number of the triage tag.
     pub tag: String,
-    /// On-site care unit.
+    /// On-site care unit holding the patient; empty while a unit's crew holds them.
     pub uhs: String,
+    /// The unit whose crew holds the patient, if not a UHS (ADR-0087).
+    pub unit: Option<String>,
+    /// The handover not taken yet, if any.
+    pub handover: Option<OpenHandover>,
+    /// The handovers taken, so one taken before its handover arrives (clocks of two
+    /// devices offline) does not open again.
+    taken: Vec<String>,
     /// All triage decisions, oldest first. Never empty.
     pub history: Vec<TriageEntry>,
     /// Transport priority level and when it was set (see [`Patient::transport_priority`]).
@@ -717,13 +882,45 @@ pub struct Patient {
 
 impl Patient {
     // [impl->dsn~uhs-discharge~1]
-    /// The discharge, while the patient is discharged (the latest entry of the stay).
+    /// How the patient left, while they are gone: the discharge, or the handover outside
+    /// ORDO (the latest entry of the stay that says where the patient is).
     pub fn discharge(&self) -> Option<&StayEntry> {
         self.stay
             .iter()
             .rev()
-            .find(|e| !matches!(e.change, Stay::Moved { .. }))
-            .filter(|e| matches!(e.change, Stay::Discharged { .. }))
+            .find(|e| e.change.is_presence())
+            .filter(|e| e.change.leaves())
+    }
+
+    /// Whether the handover `id` was taken (or taken back).
+    pub fn handover_taken(&self, id: &str) -> bool {
+        self.taken.iter().any(|t| t == id)
+    }
+
+    // [impl->dsn~patient-holder~1]
+    /// Who holds the patient now.
+    pub fn holder(&self) -> Holder {
+        match &self.unit {
+            Some(unit) => Holder::Unit(unit.clone()),
+            None => Holder::Uhs(self.uhs.clone()),
+        }
+    }
+
+    /// Makes `holder` the patient's holder; the treatment place is freed when it changes.
+    fn hold(&mut self, holder: &Holder) {
+        if self.holder() != *holder {
+            self.place = None;
+        }
+        match holder {
+            Holder::Uhs(id) => {
+                self.uhs.clone_from(id);
+                self.unit = None;
+            }
+            Holder::Unit(unit) => {
+                self.uhs.clear();
+                self.unit = Some(unit.clone());
+            }
+        }
     }
 
     /// Whether the patient is in their unit (admitted and not discharged since).
@@ -772,6 +969,8 @@ pub struct PatientRegister {
 
 enum Change {
     Registered(Registered),
+    HandedOver(HandedOver),
+    Taken(Taken),
     Retriaged(Retriaged),
     Priority(TransportPrioritySet),
     Place(PlaceAssigned),
@@ -790,6 +989,8 @@ impl PatientRegister {
             .filter_map(|e| {
                 let change = match e.body.event_type.as_str() {
                     REGISTERED => Change::Registered(codec::from_cbor(&e.payload).ok()?),
+                    HANDED_OVER => Change::HandedOver(codec::from_cbor(&e.payload).ok()?),
+                    TAKEN => Change::Taken(codec::from_cbor(&e.payload).ok()?),
                     RETRIAGED => Change::Retriaged(codec::from_cbor(&e.payload).ok()?),
                     TRANSPORT_PRIORITY => Change::Priority(codec::from_cbor(&e.payload).ok()?),
                     PLACE_ASSIGNED => Change::Place(codec::from_cbor(&e.payload).ok()?),
@@ -821,8 +1022,15 @@ impl PatientRegister {
                             register.patients.insert(
                                 r.tag.clone(),
                                 Patient {
+                                    unit: r.unit.clone(),
+                                    uhs: if r.unit.is_some() {
+                                        String::new()
+                                    } else {
+                                        r.uhs
+                                    },
+                                    handover: None,
+                                    taken: Vec::new(),
                                     tag: r.tag,
-                                    uhs: r.uhs,
                                     history: vec![entry],
                                     priority: None,
                                     place: None,
@@ -836,6 +1044,63 @@ impl PatientRegister {
                         }
                     }
                 }
+                // [impl->dsn~patient-handover~1]
+                // Within ORDO the patient stays with the holder until taken; outside ORDO
+                // they leave at once. A later handover replaces an open one.
+                Change::HandedOver(h) => match register.patients.get_mut(&h.tag) {
+                    Some(patient) if patient.is_present() => {
+                        let change = match h.outside {
+                            Some(receiver) => {
+                                patient.handover = None;
+                                patient.place = None;
+                                Stay::HandedOutside {
+                                    receiver,
+                                    note: h.note,
+                                }
+                            }
+                            None => {
+                                if !patient.taken.contains(&h.handover) {
+                                    patient.handover = Some(OpenHandover {
+                                        id: h.handover,
+                                        to: h.to.clone(),
+                                        transport: h.transport,
+                                        note: h.note.clone(),
+                                        at,
+                                        by: by.clone(),
+                                    });
+                                }
+                                Stay::HandedOver {
+                                    to: h.to,
+                                    note: h.note,
+                                }
+                            }
+                        };
+                        patient.stay.push(StayEntry { change, at, by });
+                    }
+                    Some(_) => {}
+                    None => register.notices.push(Notice::UnknownPatient(h.tag)),
+                },
+                Change::Taken(t) => match register.patients.get_mut(&t.tag) {
+                    Some(patient) if patient.is_present() => {
+                        if patient
+                            .handover
+                            .as_ref()
+                            .is_some_and(|h| h.id == t.handover)
+                        {
+                            patient.handover = None;
+                        }
+                        patient.taken.push(t.handover);
+                        let from = patient.holder();
+                        patient.hold(&t.holder);
+                        patient.stay.push(StayEntry {
+                            change: Stay::Taken { from, to: t.holder },
+                            at,
+                            by,
+                        });
+                    }
+                    Some(_) => {}
+                    None => register.notices.push(Notice::UnknownPatient(t.tag)),
+                },
                 Change::Retriaged(r) => match register.patients.get_mut(&r.tag) {
                     Some(patient) => patient.history.push(TriageEntry {
                         category: r.category,
@@ -859,6 +1124,7 @@ impl PatientRegister {
                 Change::Discharged(d) => match register.patients.get_mut(&d.tag) {
                     Some(patient) => {
                         patient.place = None;
+                        patient.handover = None;
                         patient.stay.push(StayEntry {
                             change: Stay::Discharged {
                                 outcome: d.outcome,
@@ -870,13 +1136,13 @@ impl PatientRegister {
                     }
                     None => register.notices.push(Notice::UnknownPatient(d.tag)),
                 },
-                // [impl->dsn~patient-pathway~1]
+                // [impl->dsn~patient-pathway~2]
                 // A move frees the place; moving a discharged patient, or to the unit the
                 // patient is in, changes nothing.
                 Change::Moved(m) => match register.patients.get_mut(&m.tag) {
                     Some(patient) if patient.is_present() && patient.uhs != m.uhs => {
-                        patient.place = None;
-                        let from = std::mem::replace(&mut patient.uhs, m.uhs.clone());
+                        let from = patient.uhs.clone();
+                        patient.hold(&Holder::Uhs(m.uhs.clone()));
                         patient.stay.push(StayEntry {
                             change: Stay::Moved { from, to: m.uhs },
                             at,
@@ -925,7 +1191,8 @@ impl PatientRegister {
     // [impl->dsn~server-derived-connectors~2]
     /// Patient counts per on-site care unit, sorted by unit: the patients in the unit per
     /// triage category, how many were discharged, its taken places (sorted) and its
-    /// patients without a place.
+    /// patients without a place. The patients with units' crews count under an empty
+    /// `uhs` (ADR-0087), without naming the units.
     pub fn counts(&self) -> BTreeMap<String, PatientCountsV1> {
         let mut counts: BTreeMap<String, PatientCountsV1> = BTreeMap::new();
         for patient in self.patients.values() {
@@ -981,8 +1248,18 @@ impl Deriver for PatientCountsDeriver {
         let incident = event.body.incident.clone();
         let events = self.events.entry(incident.clone()).or_default();
         events.push(event.clone());
-        let counts = PatientRegister::from_events(events).counts();
+        let mut counts = PatientRegister::from_events(events).counts();
         let published = self.published.entry(incident).or_default();
+        // A unit whose last patient left (moved, handed over) is counted again with zero,
+        // so nobody keeps seeing its old numbers.
+        for uhs in published.keys() {
+            counts
+                .entry(uhs.clone())
+                .or_insert_with(|| PatientCountsV1 {
+                    uhs: uhs.clone(),
+                    ..Default::default()
+                });
+        }
         let mut derived = Vec::new();
         for (uhs, now) in &counts {
             if published.get(uhs) != Some(now)
@@ -1073,6 +1350,13 @@ pub mod kinds {
     pub const READMITTED: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::READMITTED, 1);
 
+    /// See [`super::HANDED_OVER`].
+    pub const HANDED_OVER: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::HANDED_OVER, 1);
+
+    /// See [`super::TAKEN`].
+    pub const TAKEN: EventKind = EventKind::new(super::COMPARTMENT, super::MODULE, super::TAKEN, 1);
+
     /// See [`super::transport::LINKED`].
     pub const TRANSPORT_LINKED: EventKind = EventKind::new(
         super::COMPARTMENT,
@@ -1136,6 +1420,27 @@ pub mod kinds {
         super::record::PHOTO_REMOVED,
         1,
     );
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[
+        REGISTERED,
+        RETRIAGED,
+        TRANSPORT_PRIORITY,
+        PLACE_ASSIGNED,
+        DISCHARGED,
+        MOVED,
+        HANDED_OVER,
+        TAKEN,
+        READMITTED,
+        TRANSPORT_LINKED,
+        UHS_CREATED,
+        UHS_UPDATED,
+        UHS_CLOSED,
+        UHS_PLACES,
+        EPCR_ENTRY,
+        PHOTO_ATTACHED,
+        PHOTO_REMOVED,
+    ];
 }
 
 /// Events for unit tests, shared by the modules of this package.
@@ -1196,6 +1501,7 @@ mod tests {
     fn registered(n: u64, tag: &str, category: TriageCategory) -> AppliedEvent {
         let r = Registered {
             report: None,
+            unit: None,
             task: None,
             tag: tag.into(),
             uhs: "uhs-1".into(),
@@ -1285,6 +1591,7 @@ mod tests {
     fn the_algorithm_used_is_recorded_and_older_triage_payloads_still_decode() {
         let r = Registered {
             report: None,
+            unit: None,
             task: None,
             tag: "DE-0001".into(),
             category: TriageCategory::Urgent,
@@ -1545,7 +1852,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~patient-pathway~1]
+    // [utest->dsn~patient-pathway~2]
     #[test]
     fn a_patient_moves_between_units_and_counts_where_they_are() {
         let moved = |n: u64, tag: &str, uhs: &str| {
@@ -1621,5 +1928,133 @@ mod tests {
             "the latest discharge states the outcome"
         );
         assert_eq!(patient.stay.len(), 3);
+    }
+
+    fn handed_over(
+        n: u64,
+        by: &str,
+        id: &str,
+        to: Option<Holder>,
+        outside: Option<&str>,
+    ) -> AppliedEvent {
+        let h = HandedOver {
+            tag: "DE-0001".into(),
+            handover: id.into(),
+            to,
+            outside: outside.map(str::to_owned),
+            transport: None,
+            note: Some("Blutzucker kontrollieren".into()),
+        };
+        event(n, by, HANDED_OVER, h.encode().unwrap())
+    }
+
+    fn taken(n: u64, by: &str, id: &str, holder: Holder) -> AppliedEvent {
+        let t = Taken {
+            tag: "DE-0001".into(),
+            handover: id.into(),
+            holder,
+        };
+        event(n, by, TAKEN, t.encode().unwrap())
+    }
+
+    // [utest->dsn~patient-holder~1]
+    // [utest->dsn~patient-handover~1]
+    #[test]
+    fn a_crew_registers_hands_over_and_the_uhs_takes_the_patient() {
+        let crew = Registered {
+            unit: Some("SanTrp 1".into()),
+            uhs: String::new(),
+            ..match codec::from_cbor(&registered(1, "DE-0001", TriageCategory::Urgent).payload) {
+                Ok(r) => r,
+                Err(e) => panic!("{e}"),
+            }
+        };
+        let unit = Holder::Unit("SanTrp 1".into());
+        let uhs = Holder::Uhs("uhs-1".into());
+        let mut events = vec![
+            event(1, "max", REGISTERED, crew.encode().unwrap()),
+            handed_over(2, "max", "h1", Some(uhs.clone()), None),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert_eq!(p.holder(), unit, "still with the crew until taken");
+        assert_eq!(p.uhs, "", "no UHS while a crew holds the patient");
+        assert_eq!(
+            p.handover.as_ref().map(|h| (h.id.as_str(), h.to.clone())),
+            Some(("h1", Some(uhs.clone())))
+        );
+        assert_eq!(
+            register.counts()[""].urgent,
+            1,
+            "counted with the units' crews"
+        );
+
+        events.push(taken(3, "anna", "h1", uhs.clone()));
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert_eq!(p.holder(), uhs);
+        assert_eq!(p.handover, None, "taken: no longer open");
+        assert_eq!(
+            p.stay.iter().map(|e| &e.change).collect::<Vec<_>>(),
+            [
+                &Stay::Admitted,
+                &Stay::HandedOver {
+                    to: Some(uhs.clone()),
+                    note: Some("Blutzucker kontrollieren".into())
+                },
+                &Stay::Taken {
+                    from: unit.clone(),
+                    to: uhs.clone()
+                },
+            ]
+        );
+        let counts = register.counts();
+        assert_eq!(counts["uhs-1"].urgent, 1, "now counted at the UHS");
+        assert!(!counts.contains_key(""), "none left with a crew");
+
+        // A quick handover taken before it arrives (clocks of two offline devices) does
+        // not open again.
+        let events = vec![
+            event(1, "max", REGISTERED, crew.encode().unwrap()),
+            taken(3, "anna", "h2", uhs.clone()),
+            handed_over(4, "max", "h2", None, None),
+        ];
+        let p = PatientRegister::from_events(&events)
+            .patient("DE-0001")
+            .cloned()
+            .unwrap();
+        assert_eq!((p.holder(), p.handover), (uhs.clone(), None));
+
+        // Outside ORDO the patient leaves at once, as at a discharge.
+        let events = vec![
+            event(1, "max", REGISTERED, crew.encode().unwrap()),
+            handed_over(2, "max", "h3", None, Some("Klinikum Mitte, ZNA")),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert!(!p.is_present());
+        assert!(
+            matches!(&p.discharge().unwrap().change, Stay::HandedOutside { receiver, .. } if receiver == "Klinikum Mitte, ZNA")
+        );
+        assert_eq!(register.counts()[""].discharged, 1);
+    }
+
+    // [utest->dsn~server-derived-connectors~2]
+    #[test]
+    fn a_unit_whose_last_patient_left_is_counted_again_with_zero() {
+        let moved = Moved {
+            tag: "DE-0001".into(),
+            uhs: "uhs-2".into(),
+        };
+        let mut deriver = PatientCountsDeriver::default();
+        deriver.on_event(&registered(1, "DE-0001", TriageCategory::Minor));
+        let derived = deriver.on_event(&event(2, "anna", MOVED, moved.encode().unwrap()));
+        let counts: Vec<PatientCountsV1> = derived
+            .iter()
+            .map(|d| codec::from_cbor(&d.payload).unwrap())
+            .collect();
+        assert_eq!(counts.len(), 2, "both units: {counts:?}");
+        assert!(counts.iter().any(|c| c.uhs == "uhs-1" && c.minor == 0));
+        assert!(counts.iter().any(|c| c.uhs == "uhs-2" && c.minor == 1));
     }
 }

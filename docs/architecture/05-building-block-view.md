@@ -1212,7 +1212,7 @@ Needs: impl, utest, itest
 Tags: must, m6
 
 #### Record overview
-`dsn~record-overview~1`
+`dsn~record-overview~2`
 
 The record page ([concept](https://claude.ai/artifact/DuACJqM6EXsZKuXRh81xd6), agreed with
 the product owner on 2026-11-20, [ADR-0088](../adr/0088-record-overview-from-the-profile.md))
@@ -1220,19 +1220,27 @@ has a header, a bar of quick actions and four tabs (WAI-ARIA tabs pattern,
 `shell::ui::TabList`). The header does not stick to the top of the screen: a bar over the
 page would hide focused controls (WCAG 2.4.11); the tabs keep each part short instead.
 
-* **Header:** tag, triage category (badge with colour, label and shape), the fields the
-  profile marks for the header (`header`, e.g. name, age, allergies), where the patient is
-  (UHS and place) and since when, the transport and whether everything is sent.
-* **Quick actions:** one button per form the profile marks `quick`, plus *Sichtung* and
-  *Foto*; each opens that input in *Dokumentation*. On phones the bar sits at the bottom.
+* **Header:** tag and triage category (badge with colour, label and shape) on one line,
+  the fields the profile marks for the header (`header`, e.g. name, age, allergies), who
+  holds the patient (a UHS and place, or a unit) and since when, the transport, and an
+  open handover ([Patient handover](#patient-handover)).
+* **Quick actions:** one button per form the profile marks `quick`, plus *Sichtung*,
+  *Foto* and *Übergeben*; each opens that input in *Dokumentation*, or the tab *Übergabe*.
+  On phones the forms and *Übergeben* sit in the shell's bottom bar (`#bottom-bar`, filled
+  through a portal), icon above word, within thumb reach; that bar and the app's views are
+  one fixed block, and the page keeps as much space free below it and as scroll padding,
+  so it never covers the end of the page or a focused control.
 * **Übersicht** (opens first): one tile per form the profile marks `tile` with its latest
   entry (series) or its current values (snapshot), short labels from the SDC `shortText`
   extension, the time with how long ago it was ("14:31 (vor 59 Min.)", updated every
-  30 seconds, `shell::ui::Ago`), plus open orders and the patient's way (registration,
-  moves, discharge, transport). Only documented values; nothing is rated (EPCR-9).
+  30 seconds, `shell::ui::Ago`), plus open orders and the patient's way. The person's tile
+  (the first form with header fields) shows the photo's preview, if there is one. On phones
+  the tiles stand in one column and number values two per row.
 * **Verlauf:** the timeline ([Record timeline](#record-timeline)).
-* **Dokumentation:** place, photo, triage, orders and every form, as before.
-* **Übergabe:** moving, discharging and the transport request.
+* **Dokumentation** ("Doku" where the record is narrow: on phones, or beside the list;
+  a container query): place, photo, triage, orders and every form.
+* **Übergabe:** the way and the handover ([Patient handover](#patient-handover)), the
+  discharge and the transport request.
 
 Anything that opens or focuses an input inside a hidden tab (a quick action, the command
 palette) first shows that tab.
@@ -1244,6 +1252,73 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m67
+
+#### Patient holder
+`dsn~patient-holder~1`
+
+A patient is with one holder at a time ([ADR-0087](../adr/0087-patients-travel-between-units.md)):
+a UHS, written by its staff list, or a unit, written by its crew (UNIT-5). Registration
+names it (`patients.registered` schema 6: `uhs`, or `unit` with its call sign); the app
+offers the UHS the person may write and the units whose crew names them, and from a
+patient Auftrag the crew's own unit first. The register keeps the holder (`Patient::holder`,
+the UHS empty while a unit holds the patient); the Med write guard keeps each unit's crew
+over time next to the staff lists and judges every clinical event by the holder valid at
+its clock. The counts list the patients with units' crews under an empty UHS (*Bei
+Einsatzmitteln*), without naming the units, and the command's overview shows them so under
+the treatment places; a holder whose last patient left is counted again with zero.
+
+Covers:
+
+* [req~epcr-16~1](../requirements/04-med.md#epcr-16--patient-with-a-units-crew)
+
+Needs: impl, utest, itest
+
+Tags: must, m68
+
+#### Patient handover
+`dsn~patient-handover~1`
+
+The holder's people hand the patient over on the tab *Übergabe* (concept, 2026-11-19): the
+patient's way as steps, then four choices as cards (a UHS, a unit, a transport's unit, or
+outside ORDO), the receiver, an optional note, what the receiver gets and what follows.
+`patients.handedOver` names the handover (ULID), the holder or the receiver outside ORDO,
+the transport and the note. Within ORDO the patient stays with the holder, who keeps
+writing, until the receiver takes them with `patients.taken`; until then the record's
+header shows *Übergabe an … offen* on both sides with "Übernehmen" for the receiver and
+"Übergabe zurücknehmen" for the holder (a taking by the holder itself). Patients handed
+over to someone the person writes for appear under *Übergaben an Sie* and in the bell. The
+guard accepts a taking from the people of the holder named, or of the patient's holder.
+Outside ORDO the patient leaves at once, as at a discharge, and may be readmitted. A move
+between UHS is a handover to that UHS; `patients.moved` of earlier events is still read.
+
+Covers:
+
+* [req~epcr-17~1](../requirements/04-med.md#epcr-17--handover-within-the-incident)
+* [req~epcr-19~1](../requirements/04-med.md#epcr-19--handover-outside-ordo)
+
+Needs: impl, utest, itest
+
+Tags: must, m68
+
+#### Quick handover
+`dsn~quick-handover~1`
+
+*Schnellübergabe* records a handover that names no holder and shows a QR code that the
+device draws itself (`qrcode`, offline too). The code is the address of the patient's
+record in the app with `?handover=` and the handover's ID: no clinical data, and it grants
+nothing by itself. Any camera opens it; *Übergabe scannen* reads a photo of it in ORDO
+(rqrr, [ADR-0073](../adr/0073-registration-cards-read-in-attempts-diet-kept.md)). Either way the take dialog asks
+where the patient goes among the holders the person writes, and records `patients.taken`;
+if the record or the handover has not reached the device yet, it says so. The guard
+accepts a quick handover's taking for any holder its author writes.
+
+Covers:
+
+* [req~epcr-18~1](../requirements/04-med.md#epcr-18--quick-handover-by-qr-code)
+
+Needs: impl, utest, itest
+
+Tags: must, m68
 
 #### Record timeline
 `dsn~record-timeline~1`

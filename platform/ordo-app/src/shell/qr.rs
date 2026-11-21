@@ -1,7 +1,20 @@
 //! QR codes in photos (ADR-0073): the grey values of a photo are read with rqrr in a few
 //! attempts, each at another size and smoothness, until one gives a code. Photos of a
 //! screen carry its pixel grid and moiré, and a code may be small in the photo; no single
-//! size reads them all. Pure Rust, so it is tested without a browser.
+//! size reads them all. Pure Rust, so it is tested without a browser. And QR codes the
+//! device draws itself, offline too (the quick handover, ADR-0087).
+
+// [impl->dsn~quick-handover~1]
+/// The QR code of `text` as SVG, dark on light with its quiet zone, or none if too long.
+pub fn svg(text: &str) -> Option<String> {
+    let code = qrcode::QrCode::new(text.as_bytes()).ok()?;
+    Some(
+        code.render::<qrcode::render::svg::Color<'_>>()
+            .min_dimensions(224, 224)
+            .quiet_zone(true)
+            .build(),
+    )
+}
 
 /// Longest edge, in pixels, of a photo as read: larger ones are averaged down
 /// ([`grey_blocks`]).

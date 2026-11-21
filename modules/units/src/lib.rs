@@ -768,6 +768,9 @@ pub mod kinds {
         super::CREW_SET,
         super::CREW_SCHEMA,
     );
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[STATUS_CHANGED, ADDED, RELEASED, CREW_SET];
 }
 
 #[cfg(test)]

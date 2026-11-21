@@ -248,6 +248,9 @@ pub mod kinds {
     /// See [`super::REMOVED`].
     pub const REMOVED: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::REMOVED, 1);
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[PLACED, REMOVED];
 }
 
 #[cfg(test)]

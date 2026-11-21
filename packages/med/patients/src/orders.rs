@@ -632,6 +632,9 @@ pub mod kinds {
     /// See [`super::CONFIRMED`].
     pub const CONFIRMED: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::CONFIRMED, 1);
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[GIVEN, UPDATED, RECORDED, CONFIRMED];
 }
 
 #[cfg(test)]

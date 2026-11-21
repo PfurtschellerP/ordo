@@ -20,11 +20,10 @@ pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {
     })
 }
 
-/// What someone types into a unit's details panel, and whether it is open: kept by the
-/// view under its owner, so a list that updates while they type keeps it.
+/// What someone types into the UHS dialog: one draft for the list's one dialog, filled
+/// with the UHS's values when the dialog opens, and kept while the list updates.
 #[derive(Clone, Copy)]
 struct UhsDraft {
-    open: RwSignal<bool>,
     name: RwSignal<String>,
     capacity: RwSignal<String>,
     person: RwSignal<String>,
@@ -36,6 +35,9 @@ struct UhsDraft {
     capacities: [RwSignal<String>; 5],
     /// Where the person being added to the staff is assigned already (UNIT-8).
     elsewhere: RwSignal<Vec<ordo_units::Post>>,
+    /// Whether the details were saved since the last change: said after the dialog's
+    /// content is rebuilt with the saved values.
+    saved: RwSignal<bool>,
 }
 
 /// The triage categories a UHS can keep capacity and places for (UHS-13): all but the
@@ -43,45 +45,41 @@ struct UhsDraft {
 const CAPACITY_CATEGORIES: [TriageCategory; 5] = [Immediate, Urgent, Minor, Expectant, Uninjured];
 
 impl UhsDraft {
-    /// The draft of the unit `id`, created under `owner` the first time, filled with its
-    /// current values.
-    fn kept(
-        drafts: StoredValue<std::collections::HashMap<String, UhsDraft>>,
-        owner: &Owner,
-        id: &str,
-        name: &str,
-        capacity: u32,
-        details: &med::UhsDetails,
-    ) -> Self {
-        let mut out = None;
-        drafts.update_value(|m| {
-            let d = *m.entry(id.to_owned()).or_insert_with(|| {
-                owner.with(|| UhsDraft {
-                    open: RwSignal::new(false),
-                    name: RwSignal::new(name.to_owned()),
-                    capacity: RwSignal::new(capacity.to_string()),
-                    person: RwSignal::new(String::new()),
-                    organisation: RwSignal::new(details.organisation.clone().unwrap_or_default()),
-                    service: RwSignal::new(details.service.clone().unwrap_or_default()),
-                    strength: crate::shared::units::StrengthDraft::new(
-                        details.strength,
-                        &details.special,
-                    ),
-                    capacities: CAPACITY_CATEGORIES.map(|c| {
-                        RwSignal::new(
-                            details
-                                .capacities
-                                .get(&c)
-                                .map(ToString::to_string)
-                                .unwrap_or_default(),
-                        )
-                    }),
-                    elsewhere: RwSignal::new(Vec::new()),
-                })
-            });
-            out = Some(d);
-        });
-        out.expect("inserted")
+    fn new() -> Self {
+        Self {
+            name: RwSignal::new(String::new()),
+            capacity: RwSignal::new(String::new()),
+            person: RwSignal::new(String::new()),
+            organisation: RwSignal::new(String::new()),
+            service: RwSignal::new(String::new()),
+            strength: crate::shared::units::StrengthDraft::new(None, &Default::default()),
+            capacities: CAPACITY_CATEGORIES.map(|_| RwSignal::new(String::new())),
+            elsewhere: RwSignal::new(Vec::new()),
+            saved: RwSignal::new(false),
+        }
+    }
+
+    /// Fills the draft with the current values of a UHS.
+    fn fill(&self, name: &str, capacity: u32, details: &med::UhsDetails) {
+        self.name.set(name.to_owned());
+        self.capacity.set(capacity.to_string());
+        self.person.set(String::new());
+        self.organisation
+            .set(details.organisation.clone().unwrap_or_default());
+        self.service
+            .set(details.service.clone().unwrap_or_default());
+        self.strength.fill(details.strength, &details.special);
+        for (c, value) in CAPACITY_CATEGORIES.into_iter().zip(self.capacities) {
+            value.set(
+                details
+                    .capacities
+                    .get(&c)
+                    .map(ToString::to_string)
+                    .unwrap_or_default(),
+            );
+        }
+        self.elsewhere.set(Vec::new());
+        self.saved.set(false);
     }
 }
 
@@ -99,8 +97,8 @@ fn staff_member(core: Handle, entry: &str) -> crate::shared::units::Who {
 }
 
 // [impl->dsn~uhs-details~4]
-/// Name, capacity, place on the situation map and assigned staff of one unit (UHS-1),
-/// behind a disclosure.
+/// Name, capacity, place on the situation map and assigned staff of one UHS (UHS-1), in
+/// the list's edit dialog.
 #[component]
 fn UhsDetailsPanel(
     core: Handle,
@@ -112,10 +110,12 @@ fn UhsDetailsPanel(
     details: med::UhsDetails,
     draft: UhsDraft,
     /// Patients in it now, from the counts: a UHS with patients is not closed (UHS-17).
-    patients: u32,
+    #[prop(into)]
+    patients: Signal<u32>,
+    /// Closes the dialog.
+    on_done: Callback<()>,
 ) -> impl IntoView {
     let UhsDraft {
-        open,
         name: new_name,
         capacity: cap,
         person,
@@ -124,6 +124,7 @@ fn UhsDetailsPanel(
         strength,
         capacities,
         elsewhere,
+        saved,
     } = draft;
     let slug = core::slug(&id);
     let staff = details.staff.clone();
@@ -213,6 +214,7 @@ fn UhsDetailsPanel(
             };
             if core::update_uhs(core, revision, &update).is_ok() {
                 error.set(None);
+                saved.set(true);
                 // [impl->dsn~treatment-places~3]
                 // The places follow the capacity: per category, or one per patient.
                 if !by_category.is_empty() {
@@ -313,81 +315,83 @@ fn UhsDetailsPanel(
             }
         })
         .collect_view();
+    let part = |key: &str| format!("uhs-part-{key}-{slug}");
     view! {
-        <crate::shell::ui::EditDialog
-            id=format!("uhs-details-{slug}")
-            open
-            title=text::uhs_edit_title(&name)
-            button_class="button button--small button--quiet button--with-icon"
-            label=Some(Signal::derive({
-                let name = name.clone();
-                move || text::uhs_details_label(&name)
-            }))
-            button=Box::new(|| view! { <crate::shell::ui::Icon name="pencil" />{text::UHS_DETAILS} }.into_any())
-        >
-            <form class="form form--inline" novalidate on:submit=save>
-                <div class="field">
-                    <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
-                    <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
-                </div>
-                <div class="field field--small">
-                    <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
-                    <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
-                </div>
-                <div class="field">
-                    <label for=format!("uhs-organisation-{slug}")>{text::UNIT_ORGANISATION}</label>
-                    <input id=format!("uhs-organisation-{slug}") type="text" autocomplete="off" bind:value=organisation />
-                </div>
-                <div class="field">
-                    <label for=format!("uhs-service-{slug}")>{text::UNIT_SERVICE}</label>
-                    <select id=format!("uhs-service-{slug}") prop:value=move || service.get() on:change=move |ev| service.set(event_target_value(&ev))>
-                        <option value="">{text::NO_SERVICE}</option>
-                        {crate::shared::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
-                    </select>
-                </div>
-                <crate::shared::units::StrengthFields draft=strength prefix=format!("uhs-{slug}") title=text::UHS_STRENGTH
-                    detailed=Signal::derive(move || { revision.track(); crate::shared::units::detailed(core) }) />
-                <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
-                <fieldset class="choices strength-input" aria-describedby=format!("uhs-capacities-hint-{slug}")>
-                    <legend>{text::UHS_CAPACITIES_LEGEND}</legend>
-                    {CAPACITY_CATEGORIES
-                        .into_iter()
-                        .zip(capacities)
-                        .map(|(category, value)| {
-                            let id = format!("uhs-capacity-{}-{slug}", core::slug(text::label(category)));
-                            view! {
-                                <div class="field field--small">
-                                    <label for=id.clone()>{text::label(category)}</label>
-                                    <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value
-                                        title=text::description(category) />
-                                </div>
-                            }
-                        })
-                        .collect_view()}
-                </fieldset>
-                <p id=format!("uhs-capacities-hint-{slug}") class="hint">{text::UHS_CAPACITIES_HINT}</p>
-                <button type="submit" class="button button--small">{text::UHS_SAVE}</button>
-            </form>
-            <p role="alert" class="error">{move || error.get()}</p>
-            <UhsOnMap core revision id=id.clone() name=name.clone() written=details.location.clone() />
-            <h4>{text::UHS_STAFF}</h4>
-            {if staff.is_empty() {
-                view! { <p class="hint">{text::UHS_STAFF_NONE}</p> }.into_any()
-            } else {
-                view! { <ul class="crew-list">{members}</ul> }.into_any()
-            }}
-            <form class="form form--inline" novalidate on:submit=add>
-                <div class="field">
-                    <label for=format!("uhs-staff-{slug}")>{text::CREW_MEMBER}</label>
-                    <input id=format!("uhs-staff-{slug}") type="text" autocomplete="off"
-                        list=format!("uhs-staff-{slug}-people") bind:value=person />
-                    <crate::shell::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people core />
-                </div>
-                <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
-            </form>
-            <crate::shared::units::AssignedElsewhere person elsewhere here=here.label.clone() on_move />
-            <CloseUhs core revision id=id.clone() name=name.clone() patients open />
-        </crate::shell::ui::EditDialog>
+        <div class="edit-dialog__columns">
+            <section class="edit-dialog__part" aria-labelledby=part("data")>
+                <h3 id=part("data")>{text::UHS_DATA}</h3>
+                    <form class="form" novalidate on:submit=save on:input=move |_| saved.set(false)>
+                        <div class="field">
+                            <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
+                            <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
+                        </div>
+                        <div class="field field--small">
+                            <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
+                            <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
+                        </div>
+                        <div class="field">
+                            <label for=format!("uhs-organisation-{slug}")>{text::UNIT_ORGANISATION}</label>
+                            <input id=format!("uhs-organisation-{slug}") type="text" autocomplete="off" bind:value=organisation />
+                        </div>
+                        <div class="field">
+                            <label for=format!("uhs-service-{slug}")>{text::UNIT_SERVICE}</label>
+                            <select id=format!("uhs-service-{slug}") prop:value=move || service.get() on:change=move |ev| service.set(event_target_value(&ev))>
+                                <option value="">{text::NO_SERVICE}</option>
+                                {crate::shared::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
+                            </select>
+                        </div>
+                        <crate::shared::units::StrengthFields draft=strength prefix=format!("uhs-{slug}") title=text::UHS_STRENGTH
+                            detailed=Signal::derive(move || { revision.track(); crate::shared::units::detailed(core) }) />
+                        <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
+                        <fieldset class="choices strength-input" aria-describedby=format!("uhs-capacities-hint-{slug}")>
+                            <legend>{text::UHS_CAPACITIES_LEGEND}</legend>
+                            {CAPACITY_CATEGORIES
+                                .into_iter()
+                                .zip(capacities)
+                                .map(|(category, value)| {
+                                    let id = format!("uhs-capacity-{}-{slug}", core::slug(text::label(category)));
+                                    view! {
+                                        <div class="field field--small">
+                                            <label for=id.clone()>{text::label(category)}</label>
+                                            <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value
+                                                title=text::description(category) />
+                                        </div>
+                                    }
+                                })
+                                .collect_view()}
+                        </fieldset>
+                        <p id=format!("uhs-capacities-hint-{slug}") class="hint">{text::UHS_CAPACITIES_HINT}</p>
+                        <div class="actions">
+                            <button type="submit" class="button">{text::UHS_SAVE}</button>
+                            <p role="status" class="hint">{move || saved.get().then_some(text::SAVED)}</p>
+                        </div>
+                    </form>
+                <p role="alert" class="error">{move || error.get()}</p>
+            </section>
+            <section class="edit-dialog__part" aria-labelledby=part("place")>
+                <h3 id=part("place")>{text::UHS_ON_MAP}</h3>
+                <UhsOnMap core revision id=id.clone() name=name.clone() written=details.location.clone() />
+            </section>
+            <section class="edit-dialog__part" aria-labelledby=part("staff")>
+                <h3 id=part("staff")>{text::UHS_STAFF}</h3>
+                {if staff.is_empty() {
+                    view! { <p class="hint">{text::UHS_STAFF_NONE}</p> }.into_any()
+                } else {
+                    view! { <ul class="crew-list">{members}</ul> }.into_any()
+                }}
+                <form class="form form--inline" novalidate on:submit=add>
+                    <div class="field">
+                        <label for=format!("uhs-staff-{slug}")>{text::CREW_MEMBER}</label>
+                        <input id=format!("uhs-staff-{slug}") type="text" autocomplete="off"
+                            list=format!("uhs-staff-{slug}-people") bind:value=person />
+                        <crate::shell::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people core />
+                    </div>
+                    <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
+                </form>
+                <crate::shared::units::AssignedElsewhere person elsewhere here=here.label.clone() on_move />
+            </section>
+        </div>
+        <CloseUhs core revision id=id.clone() name=name.clone() patients on_done />
     }
 }
 
@@ -400,9 +404,9 @@ fn CloseUhs(
     revision: RwSignal<u64>,
     id: String,
     name: String,
-    patients: u32,
-    /// The dialog it sits in, closed with the UHS.
-    open: RwSignal<bool>,
+    patients: Signal<u32>,
+    /// Closes the dialog it sits in, with the UHS.
+    on_done: Callback<()>,
 ) -> impl IntoView {
     let asking = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);
@@ -413,7 +417,7 @@ fn CloseUhs(
         move |_| match core::close_uhs(core, revision, &id) {
             Ok(()) => {
                 asking.set(false);
-                open.set(false);
+                on_done.run(());
             }
             Err(e) => error.set(Some(e)),
         }
@@ -421,13 +425,12 @@ fn CloseUhs(
     view! {
         <div class="danger-zone">
             <h3>{text::UHS_CLOSE_TITLE}</h3>
-            <p id=hint.clone() class="hint">{if patients > 0 {
-                text::uhs_close_blocked(patients)
-            } else {
-                text::UHS_CLOSE_HINT.to_owned()
+            <p id=hint.clone() class="hint">{move || match patients.get() {
+                0 => text::UHS_CLOSE_HINT.to_owned(),
+                n => text::uhs_close_blocked(n),
             }}</p>
             <Show when=move || !asking.get()>
-                <button type="button" class="button button--small button--danger" disabled={patients > 0}
+                <button type="button" class="button button--small button--danger" disabled={move || patients.get() > 0}
                     aria-describedby=hint.clone() on:click=move |_| asking.set(true)>
                     {text::UHS_CLOSE}
                 </button>
@@ -528,17 +531,35 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
         })
     });
     let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
-    // Drafts of the panels, created under this view's owner (see `UhsDraft`).
-    let owner = Owner::current().expect("a view has an owner");
-    let drafts = StoredValue::new(std::collections::HashMap::<String, UhsDraft>::new());
-    let draft = move |id: &str, name: &str, capacity: u32, details: &med::UhsDetails| {
-        UhsDraft::kept(drafts, &owner, id, name, capacity, details)
-    };
+    // [impl->dsn~edit-dialog~2]
+    // One dialog for the list: the UHS being edited, as the dialog shows it, changes only
+    // when that UHS changes; the list may update under it.
+    let draft = UhsDraft::new();
+    let editing = RwSignal::new(None::<String>);
+    let back = RwSignal::new(String::new());
+    let edited = Memo::new(move |_| {
+        let id = editing.get()?;
+        rows.with(|r| {
+            r.iter()
+                .find(|row| row.0 == id)
+                .map(|(id, name, capacity, details, _)| {
+                    (id.clone(), name.clone(), *capacity, details.clone())
+                })
+        })
+    });
+    let held = Memo::new(move |_| {
+        editing
+            .get()
+            .and_then(|id| rows.with(|r| r.iter().find(|row| row.0 == id).map(|row| row.4)))
+            .unwrap_or(0)
+    });
+    let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="uhs-resources-title" class="card">
             <h2 id="uhs-resources-title">{text::UHS_RESOURCES_TITLE}</h2>
             {move || {
                 let rows = rows.get();
+                crate::shell::views::keep_focus();
                 if rows.is_empty() {
                     return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
                 }
@@ -547,16 +568,24 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                     <ul class="unit-list">
                         {rows
                             .into_iter()
-                            .map(|(id, name, capacity, details, patients)| {
+                            .map(|(id, name, capacity, details, _)| {
                                 let staff = text::uhs_staff_count(details.staff.len());
+                                let button = format!("uhs-details-{}-button", core::slug(&id));
                                 view! {
                                     <li class="unit-card uhs-card" data-uhs=id.clone()>
                                         <h3 class="uhs-card__name">{name.clone()}</h3>
                                         <p class="uhs-card__staff">{staff}</p>
-                                        {editable.then(|| view! {
-                                            <UhsDetailsPanel core revision id=id.clone() name=name.clone() capacity
-                                                details=details.clone() draft=draft(&id, &name, capacity, &details) patients />
-                                        })}
+                                        {editable.then({
+                                            let id = id.clone();
+                                            move || view! {
+                                            <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::UHS_DETAILS
+                                                label=text::uhs_details_label(&name)
+                                                on_click=Callback::new(move |()| {
+                                                    draft.fill(&name, capacity, &details);
+                                                    back.set(button.clone());
+                                                    editing.set(Some(id.clone()));
+                                                }) />
+                                        }})}
                                     </li>
                                 }
                             })
@@ -565,6 +594,14 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                 }
                 .into_any()
             }}
+            <crate::shell::ui::EditDialog id="uhs-details" open=Signal::derive(move || edited.with(Option::is_some))
+                on_close=close back
+                title=Signal::derive(move || edited.with(|e| e.as_ref().map(|e| text::uhs_edit_title(&e.1)).unwrap_or_default()))>
+                {move || edited.get().map(|(id, name, capacity, details)| {
+                    crate::shell::views::keep_focus();
+                    view! { <UhsDetailsPanel core revision id name capacity details draft patients=held on_done=close /> }
+                })}
+            </crate::shell::ui::EditDialog>
             <Show when=move || editable.get()>
                 <NewUhsForm core revision />
             </Show>

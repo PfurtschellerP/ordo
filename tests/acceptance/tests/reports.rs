@@ -102,6 +102,7 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
         uhs: "uhs-1".into(),
         algorithm: None,
         report: None,
+        unit: None,
         task: Some(id.clone()),
     };
     record(

@@ -53,8 +53,9 @@ accepted with the answers of 2026-11-20.
   following DIVI MIND where it fits; to be checked against what hospitals and control
   centres accept before it is built.
 * **Who hands over outside ORDO.** Every holder (a field crew may hand a patient straight
-  to an ambulance from outside the incident). Proposed by the developers on 2026-11-20;
-  the product owner may narrow it.
+  to an ambulance from outside the incident). Proposed by the developers on 2026-11-20,
+  confirmed by the product owner on 2026-11-21, with PDF/A-3; the document's template is
+  [ADR-0089](0089-handover-document-from-typst-templates.md).
 * **Counts.** The patient counts for the command count patients per holder: per UHS as
   today, and "bei Einsatzmitteln" for patients with crews.
 

@@ -76,10 +76,16 @@ const LAYOUT_CHECKS = () => {
   if (doc.scrollWidth > doc.clientWidth + 1) problems.push(`page scrolls horizontally: ${doc.scrollWidth} > ${doc.clientWidth}`);
   for (const box of document.querySelectorAll(".card, .record__section, .entry, .editor")) {
     if (visible(box) && box.scrollWidth > box.clientWidth + 1) {
-      // Name the innermost element that sticks out, to make the fix obvious.
+      // Name the innermost element that sticks out, and where it starts: the outermost
+      // ones whose parent fits, to make the fix obvious.
       const right = box.getBoundingClientRect().right - parseFloat(getComputedStyle(box).paddingRight);
-      const culprit = [...box.querySelectorAll("*")].reverse().find((e) => visible(e) && e.getBoundingClientRect().right > right + 1);
-      const what = culprit ? `; sticks out: ${describe(culprit, (culprit as HTMLElement).innerText || culprit.id || "")}` : "";
+      const out = (e: Element) => visible(e) && e.getBoundingClientRect().right > right + 1;
+      const all = [...box.querySelectorAll("*")];
+      const culprit = [...all].reverse().find(out);
+      const starts = all.filter((e) => out(e) && (e.parentElement === box || !out(e.parentElement!))).slice(0, 3);
+      const what = culprit
+        ? `; sticks out: ${describe(culprit, (culprit as HTMLElement).innerText || culprit.id || "")}; starts at: ${starts.map((e) => describe(e, (e as HTMLElement).innerText || e.id || "")).join(" | ")}`
+        : "";
       problems.push(`content wider than its box: ${describe(box, (box as HTMLElement).innerText || "")} (${box.scrollWidth} > ${box.clientWidth}${what})`);
     }
   }
@@ -91,7 +97,8 @@ const LAYOUT_CHECKS = () => {
     const before = window.scrollY;
     window.scrollTo(0, doc.scrollHeight);
     const content = [...document.querySelectorAll("#main h2, #main h3, #main p, #main li, #main button, #main a, #main input, #main select, #main textarea, #main label, #main td, #main th")]
-      .filter((e) => visible(e) && !bars.some((b) => b.contains(e)));
+      // An open modal dialog sits in the top layer, above every bar.
+      .filter((e) => visible(e) && !bars.some((b) => b.contains(e)) && !e.closest("dialog[open]"));
     for (const bar of bars) {
       const b = bar.getBoundingClientRect();
       const hit = content.find((e) => {

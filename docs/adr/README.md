@@ -93,5 +93,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0086](0086-the-incident-command-sets-up-the-uhs.md) | The incident command sets up and manages every UHS | accepted; partly superseded by 0087 | 2026-11-19 |
 | [0087](0087-patients-travel-between-units.md) | A patient is registered where they are found and handed over between units | accepted | 2026-11-20 |
 | [0088](0088-record-overview-from-the-profile.md) | The record overview comes from the profile | accepted | 2026-11-20 |
+| [0089](0089-handover-document-from-typst-templates.md) | The handover document is made from a Typst template in the profile | proposed | 2026-11-21 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

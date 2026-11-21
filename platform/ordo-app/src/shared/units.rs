@@ -104,6 +104,17 @@ impl StrengthDraft {
         }
     }
 
+    /// Fills it with `strength` and `special` again.
+    pub fn fill(&self, strength: Option<Strength>, special: &Special) {
+        let filled = Self::new(strength, special);
+        for (part, value) in self.parts.into_iter().zip(filled.parts) {
+            part.set(value.get_untracked());
+            value.dispose();
+        }
+        self.special.set(filled.special.get_untracked());
+        filled.special.dispose();
+    }
+
     /// Empties it.
     pub fn clear(&self) {
         for s in self.parts {
@@ -450,11 +461,10 @@ pub(crate) fn AssignedElsewhere(
     }
 }
 
-/// What someone types into a unit's crew panel, and whether it is open: kept by the view
-/// under its owner, so the list can update while they type.
+/// What someone types into the crew dialog: one draft for the list's one dialog, emptied
+/// when it opens and kept while the list updates.
 #[derive(Clone, Copy)]
 struct CrewDraft {
-    open: RwSignal<bool>,
     person: RwSignal<String>,
     qualifications: RwSignal<BTreeSet<String>>,
     /// Where the person being added is assigned already (UNIT-8).
@@ -708,6 +718,11 @@ fn CrewEditor(
     }
 }
 
+/// The ID of a unit's crew button.
+fn crew_button(unit: &str) -> String {
+    format!("crew-{}-button", core::slug(unit))
+}
+
 /// One unit: what it is, its strength, status since when, crew, and releasing it.
 #[component]
 fn UnitCard(
@@ -715,7 +730,8 @@ fn UnitCard(
     revision: RwSignal<u64>,
     unit: Unit,
     editable: bool,
-    draft: CrewDraft,
+    /// Opens the list's crew dialog for this unit.
+    on_crew: Callback<()>,
     /// The open positions (ID, title) and the unit's position (CMD-2).
     positions: Vec<(String, String)>,
     position: Option<String>,
@@ -723,7 +739,6 @@ fn UnitCard(
     let u = unit;
     let name = u.unit.clone();
     let shown = status_shown(&u);
-    let crew_open = draft.open;
     let release = editable.then(|| {
         let name = name.clone();
         vec![Action {
@@ -771,18 +786,8 @@ fn UnitCard(
             {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
                 <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
             }))}
-            <crate::shell::ui::EditDialog
-                id=format!("crew-{}", core::slug(&name))
-                open=crew_open
-                title=text::crew_title(&name)
-                button_class="button button--small button--quiet button--with-icon"
-                label=Some(Signal::derive(move || crew_label.clone()))
-                button=Box::new(move || view! {
-                    <crate::shell::ui::Icon name=if editable { "pencil" } else { "users" } />{text::CREW}
-                }.into_any())
-            >
-                <CrewEditor core revision unit=u.clone() editable draft />
-            </crate::shell::ui::EditDialog>
+            <crate::shell::ui::EditButton id=crew_button(&name) label=crew_label
+                icon=if editable { "pencil" } else { "users" } word=text::CREW on_click=on_crew />
             {release.map(|actions| view! { <Actions actions /> })}
         </li>
     }
@@ -929,23 +934,30 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
     });
     let present = Memo::new(move |_| register.with(|r| r.present().cloned().collect::<Vec<_>>()));
-    // Drafts of the crew panels, created under this view's owner (see `CrewDraft`).
-    let owner = Owner::current().expect("a view has an owner");
-    let drafts = StoredValue::new(std::collections::HashMap::<String, CrewDraft>::new());
-    let draft = move |unit: &str| {
-        let mut out = None;
-        drafts.update_value(|m| {
-            out = Some(*m.entry(unit.to_owned()).or_insert_with(|| {
-                owner.with(|| CrewDraft {
-                    open: RwSignal::new(false),
-                    person: RwSignal::new(String::new()),
-                    qualifications: RwSignal::new(BTreeSet::new()),
-                    elsewhere: RwSignal::new(Vec::new()),
-                    unregistered: RwSignal::new(false),
-                })
-            }));
-        });
-        out.expect("inserted")
+    // [impl->dsn~edit-dialog~2]
+    // One crew dialog for the list; the unit in it changes only when that unit changes.
+    let draft = CrewDraft {
+        person: RwSignal::new(String::new()),
+        qualifications: RwSignal::new(BTreeSet::new()),
+        elsewhere: RwSignal::new(Vec::new()),
+        unregistered: RwSignal::new(false),
+    };
+    let editing = RwSignal::new(None::<String>);
+    let edited = Memo::new(move |_| {
+        let name = editing.get()?;
+        present.with(|units| units.iter().find(|u| u.unit == name).cloned())
+    });
+    let close = Callback::new(move |()| editing.set(None));
+    let back = RwSignal::new(String::new());
+    let open_crew = move |unit: String| {
+        Callback::new(move |()| {
+            back.set(crew_button(&unit));
+            draft.person.set(String::new());
+            draft.qualifications.set(BTreeSet::new());
+            draft.elsewhere.set(Vec::new());
+            draft.unregistered.set(false);
+            editing.set(Some(unit.clone()));
+        })
     };
     let released = Memo::new(move |_| {
         register.with(|r| {
@@ -972,6 +984,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let units = present.get();
                 let editable = can_edit.get();
                 revision.track();
+                crate::shell::views::keep_focus();
                 let structure = crate::shared::command::structure(core);
                 let positions = crate::shared::command::position_choices(&structure);
                 if units.is_empty() {
@@ -982,16 +995,24 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         {units
                             .into_iter()
                             .map(|unit| {
-                                let draft = draft(&unit.unit);
                                 let position = structure.unit_positions.get(&unit.unit).cloned();
                                 let positions = positions.clone();
-                                view! { <UnitCard core revision unit editable draft positions position /> }
+                                let on_crew = open_crew(unit.unit.clone());
+                                view! { <UnitCard core revision unit editable on_crew positions position /> }
                             })
                             .collect_view()}
                     </ul>
                 }
                 .into_any()
             }}
+            <crate::shell::ui::EditDialog id="crew" open=Signal::derive(move || edited.with(Option::is_some))
+                on_close=close back
+                title=Signal::derive(move || edited.with(|u| u.as_ref().map(|u| text::crew_title(&u.unit)).unwrap_or_default()))>
+                {move || edited.get().map(|unit| {
+                    crate::shell::views::keep_focus();
+                    view! { <CrewEditor core revision unit editable=can_edit.get_untracked() draft /> }
+                })}
+            </crate::shell::ui::EditDialog>
             <details class="released-list" hidden=move || released.with(Vec::is_empty)>
                 <summary>{move || text::released_list(released.with(Vec::len))}</summary>
                 <ul class="unit-list">

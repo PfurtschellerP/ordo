@@ -664,7 +664,8 @@
   .record h2 { margin: 0; }
   /* The record at a glance (EPCR-14, ADR-0088): a header, quick actions, tabs; the
      overview's tiles and the timeline. */
-  .record { gap: var(--ordo-space-4); }
+  .record { gap: var(--ordo-space-4); grid-template-columns: minmax(0, 1fr); }
+  .record__header { grid-template-columns: minmax(0, 1fr); }
   .record__header {
     display: grid; gap: var(--ordo-space-2);
     background: var(--ordo-color-surface-raised);
@@ -746,11 +747,108 @@
     .timeline__line { grid-template-columns: 4rem minmax(0, 1fr); }
     .timeline__text, .timeline__by { grid-column: 2; }
   }
+  /* The record's identity: tag and triage on one line. */
+  .record__id { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-3); }
+  .tabs__short { display: none; }
+  .record-tile__photo {
+    width: 6rem; height: 6rem; object-fit: cover; border-radius: var(--ordo-radius-small);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  /* The patient's way as steps (ADR-0087): the current one with a thick border, the next one
+     dashed; arrows between them are drawn, not read. */
+  .journey { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
+  .journey__step {
+    display: grid; gap: var(--ordo-space-1); align-content: start; min-width: min(10rem, 100%);
+    padding: var(--ordo-space-3); background: var(--ordo-color-surface-raised);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .journey__step--now { border-width: var(--ordo-size-border-thick); border-color: var(--ordo-color-text-link); }
+  .journey__step--next { border-style: dashed; }
+  .handover-form { display: grid; gap: var(--ordo-space-4); }
+  .handover-choices { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; border: 0; min-inline-size: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); }
+  .handover-choices legend { padding: 0; margin-block-end: var(--ordo-space-2); font-weight: var(--ordo-font-weight-bold); }
+  /* A choice is a card with its radio button; the chosen one has a thick border and an
+     outline, not colour alone. */
+  .handover-choice {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ordo-space-1) var(--ordo-space-2); align-content: start;
+    padding: var(--ordo-space-3) var(--ordo-space-4); cursor: pointer;
+    background: var(--ordo-color-surface-raised);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .handover-choice input { margin: 0.2rem 0 0; }
+  .handover-choice .hint { grid-column: 2; }
+  .handover-choice--on { border-color: var(--ordo-color-text-link); outline: var(--ordo-size-border-thick) solid var(--ordo-color-text-link); outline-offset: -1px; }
+  .handover-form__details, .handover-form__info { display: grid; gap: var(--ordo-space-4);
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); align-items: start; }
+  .handover-form__details textarea { width: 100%; }
+  .handover-form__info section {
+    display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3) var(--ordo-space-4);
+    background: var(--ordo-color-surface-sunken); border-radius: var(--ordo-radius-medium);
+  }
+  .handover-form__info ul { margin: 0; padding-inline-start: var(--ordo-space-5); display: grid; gap: var(--ordo-space-1); }
+  .handover-form .actions, .handover-open .actions, .handover-quick .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--ordo-space-3); }
+  .handover-open { display: grid; gap: var(--ordo-space-2); border: var(--ordo-size-border-thick) solid var(--ordo-color-feedback-info-text); }
+  .handover-open .actions { justify-content: flex-start; }
+  .handover-open__title { margin: 0; display: flex; align-items: center; gap: var(--ordo-space-2); font-size: var(--ordo-font-size-4); }
+  .handover-code { display: grid; gap: var(--ordo-space-2); justify-items: start; }
+  /* The image brings its own light background and quiet zone, so it scans in every theme. */
+  .handover-code__image { width: 100%; max-width: 14rem; height: auto; border-radius: var(--ordo-radius-small); }
+  .handover-open > *, .handover-code > * { min-width: 0; }
+  .handover-code__link { overflow-wrap: anywhere; }
+  .incoming__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-3); }
+  .incoming__item { display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3);
+    border: var(--ordo-size-border-thick) solid var(--ordo-color-feedback-info-text); border-radius: var(--ordo-radius-medium); }
+  .incoming__item .actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .scan-handover { display: grid; gap: var(--ordo-space-1); justify-items: start; }
+  .patient-card__handover { display: inline-flex; align-items: center; gap: var(--ordo-space-1); font-weight: var(--ordo-font-weight-bold); }
+  /* Where the record is narrow (a phone, or the column beside the list), its tabs share
+     the width and long labels are shortened, instead of scrolling. */
+  .record { container-type: inline-size; }
+  @container (max-width: 34rem) {
+    .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
+    .tabs__tab { padding-inline: var(--ordo-space-1); white-space: normal; }
+    .tabs__long { display: none; }
+    .tabs__short { display: inline; }
+  }
+  /* The quick actions' bottom bar exists on phones only. */
+  .navigation__extra { display: none; }
+  /* Phones (after the rules above, so these win): the record compact, its quick actions in
+     the bottom bar. */
+  @media (max-width: 48rem) {
+    /* The page's own bar above the views (the record's quick actions): one block, and the
+       content keeps that much more space free below. */
+    .navigation:has(.navigation__extra:not(:empty)) { flex-wrap: wrap; }
+    /* The views and the menu stay on one row below it. */
+    .navigation:has(.navigation__extra:not(:empty)) .views { flex-basis: 0; }
+    .navigation__extra { display: block; order: -2; flex: 1 0 100%; }
+    .navigation__extra:empty { display: none; }
+    /* The bar's height is measured by the page (--bottom-bar-height); 12rem until then. */
+    .layout:has(.navigation__extra:not(:empty)) { padding-bottom: calc(var(--bottom-bar-height, 12rem) + var(--ordo-space-4)); }
+    :root:has(.navigation__extra:not(:empty)) { scroll-padding-block-end: calc(var(--bottom-bar-height, 12rem) + var(--ordo-space-4)); }
+    .quick-actions--bar {
+      display: flex; gap: var(--ordo-space-1);
+      padding-block-end: var(--ordo-space-2); margin-block-end: var(--ordo-space-1);
+      border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    }
+    .quick-actions--bar .quick-actions__button {
+      flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: var(--ordo-space-1);
+      padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
+      text-align: center; hyphens: auto; overflow-wrap: break-word;
+    }
+    .quick-actions--page .quick-actions__button--bar { display: none; }
+    .record__title { font-size: var(--ordo-font-size-4); }
+    .record-tile__values--numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .record-tile__values--numbers dd { font-size: var(--ordo-font-size-4); }
+  }
   .record__index { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .record__body { display: grid; gap: var(--ordo-space-5); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
   /* Read only (UHS-10): nothing to start editing with; the notice above says why. */
   .record__body:disabled :is(button, form, select, input, textarea, label.button, .photo-actions) { display: none; }
   .record__section { display: grid; gap: var(--ordo-space-3); padding-top: var(--ordo-space-4); border-top: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
+  /* Never wider than the card on phones: wide fields (date and time) shrink with it. */
+  .record__section, .record__section .form { grid-template-columns: minmax(0, 1fr); }
+  .record__section :is(input, select, textarea) { max-width: 100%; min-width: 0; }
   .record__section h3, .record__section h4 { margin: 0; font-size: var(--ordo-font-size-4); }
   .record__section h4 { font-size: var(--ordo-font-size-3); }
   .record__section p { margin: 0; }
@@ -1300,34 +1398,51 @@
     box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
   }
   .palette::backdrop, .edit-dialog::backdrop { background: rgb(0 0 0 / 0.45); }
-  /* Edit dialog: editing a card opens its form here, so the card list never shifts. */
+  /* Edit dialog (8.6, pattern "edit dialog"): one per card list, so the list never shifts
+     and may update under it. Header and footer stay; the body scrolls between them and
+     puts its parts in columns where there is room. */
   .edit-dialog {
-    width: min(48rem, calc(100vw - 2 * var(--ordo-space-4))); max-height: calc(100vh - 4rem);
-    margin: 5vh auto auto; padding: 0; overflow-y: auto;
+    width: min(72rem, calc(100vw - 2 * var(--ordo-space-4))); max-height: calc(100dvh - 2 * var(--ordo-space-5));
+    margin: auto; padding: 0; overflow: hidden;
+    flex-direction: column;
     background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
     border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-large);
     box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
   }
-  .edit-dialog__content { display: grid; gap: var(--ordo-space-3); padding: var(--ordo-space-4); }
-  .edit-dialog__header {
-    position: sticky; top: calc(-1 * var(--ordo-space-4)); z-index: 1;
+  .edit-dialog[open] { display: flex; }
+  .edit-dialog__header, .edit-dialog__footer {
     display: flex; align-items: center; gap: var(--ordo-space-3);
-    margin: calc(-1 * var(--ordo-space-4)) calc(-1 * var(--ordo-space-4)) 0;
-    padding: var(--ordo-space-3) var(--ordo-space-4);
+    padding: var(--ordo-space-3) var(--ordo-space-5);
     background: var(--ordo-color-surface-raised);
-    border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
   }
+  .edit-dialog__header { justify-content: space-between; border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
+  .edit-dialog__footer { justify-content: flex-end; border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
   .edit-dialog__title { margin: 0; font-size: var(--ordo-font-size-4); }
+  .edit-dialog__body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    display: grid; gap: var(--ordo-space-5); align-content: start;
+    padding: var(--ordo-space-5);
+  }
+  /* The parts of an item side by side, as many as fit at 20rem or more each. */
+  .edit-dialog__columns {
+    display: grid; gap: var(--ordo-space-5) var(--ordo-space-6); align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  }
+  .edit-dialog__part { display: grid; gap: var(--ordo-space-3); align-content: start; min-width: 0; }
+  .edit-dialog__part h3 { font-size: var(--ordo-font-size-3); }
+  .edit-dialog__part .form { display: grid; gap: var(--ordo-space-3); }
+  .edit-dialog__part .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-3); }
   .edit-dialog h3, .edit-dialog h4, .edit-dialog p { margin-block: 0; }
   .danger-zone {
     display: grid; gap: var(--ordo-space-2); justify-items: start;
-    margin-block-start: var(--ordo-space-3); padding-block-start: var(--ordo-space-3);
+    padding-block-start: var(--ordo-space-4);
     border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
   }
   .danger-zone .actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   @media (max-width: 40rem) {
     .edit-dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+    .edit-dialog__header, .edit-dialog__footer, .edit-dialog__body { padding-inline: var(--ordo-space-4); }
   }
   .palette__content { display: grid; gap: var(--ordo-space-3); padding: var(--ordo-space-4); }
   .palette__title { margin: 0; font-size: var(--ordo-font-size-3); }

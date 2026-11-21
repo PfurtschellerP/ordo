@@ -20,6 +20,7 @@ fn svg(name: &str) -> &'static str {
     icons!(
         "ambulance",
         "app-window",
+        "arrow-right-left",
         "bell",
         "camera",
         "chart-column",
@@ -43,7 +44,9 @@ fn svg(name: &str) -> &'static str {
         "pencil",
         "pentagon",
         "plus",
+        "qr-code",
         "refresh-cw",
+        "scan-line",
         "search",
         "spline",
         "tablet-smartphone",
@@ -285,29 +288,55 @@ pub fn Disclosure(
     }
 }
 
-// [impl->dsn~edit-dialog~1]
-/// Editing an item of a card list: its button opens a modal dialog with the form, so the
-/// list keeps its layout while someone edits (pattern "edit dialog"). The dialog keeps the
-/// focus inside; Escape, its close button or a click on the backdrop closes it, and the
-/// focus returns to the button. On phones it fills the screen.
+// [impl->dsn~edit-dialog~2]
+/// The button that opens a list's [`EditDialog`] for one item: it names the item, says it
+/// opens a dialog, and gets the focus back when the dialog closes (its ID is the dialog's
+/// `back`).
+#[component]
+pub fn EditButton(
+    #[prop(into)] id: String,
+    /// The button's accessible name, with the item, e.g. "Ort und Personal: UHS Eingang".
+    #[prop(into)]
+    label: String,
+    icon: &'static str,
+    /// The visible word, e.g. "Ort und Personal".
+    word: &'static str,
+    on_click: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <button id=id type="button" class="button button--small button--quiet button--with-icon"
+            aria-haspopup="dialog" aria-label=label on:click=move |_| on_click.run(())>
+            <Icon name=icon />{word}
+        </button>
+    }
+}
+
+// [impl->dsn~edit-dialog~2]
+/// Editing an item of a card list (pattern "edit dialog"): a modal dialog with the item's
+/// form, one per list rather than one per card, so the list can update under it (new
+/// events, other people's changes) without closing or rebuilding it. Header with the title
+/// and a close button stays at the top, a footer with "Fertig" at the bottom; the body
+/// scrolls between them, in columns on wide screens. Escape, either button or a click on
+/// the backdrop closes it, and the focus returns to `back`. On phones it fills the screen.
 #[component]
 pub fn EditDialog(
     #[prop(into)] id: String,
-    open: RwSignal<bool>,
+    /// Whether it is shown.
+    #[prop(into)]
+    open: Signal<bool>,
+    /// Closes it (the caller forgets the item).
+    on_close: Callback<()>,
     /// The dialog's heading, e.g. "UHS Eingang bearbeiten".
     #[prop(into)]
     title: Signal<String>,
-    #[prop(into)] button_class: String,
-    /// The button's accessible name when its content is not enough.
-    #[prop(default = None)]
-    label: Option<Signal<String>>,
-    /// The button's content.
-    button: Children,
+    /// The ID of the button that opened it.
+    #[prop(into)]
+    back: Signal<String>,
     children: Children,
 ) -> impl IntoView {
+    use wasm_bindgen::JsCast;
     let dialog = NodeRef::<leptos::html::Dialog>::new();
-    let (button_id, title_id) = (format!("{id}-button"), format!("{id}-title"));
-    let back = button_id.clone();
+    let title_id = format!("{id}-title");
     Effect::new(move |was: Option<bool>| {
         let now = open.get();
         if let Some(d) = dialog.get() {
@@ -317,44 +346,57 @@ pub fn EditDialog(
                 d.close();
             }
             if was == Some(true) && !now {
-                crate::shell::views::focus(&back);
+                focus(&back.get_untracked());
             }
         }
         now
     });
+    // Only a press and release both on the backdrop close it: not a click on the
+    // scrollbar (inside the box), nor a text selection dragged out of a field.
+    let outside = move |ev: &leptos::ev::MouseEvent| {
+        let Some(d) = dialog.get_untracked() else {
+            return false;
+        };
+        let d: &web_sys::Element = d.as_ref();
+        let target = ev
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::Element>().ok());
+        let r = d.get_bounding_client_rect();
+        let (x, y) = (f64::from(ev.client_x()), f64::from(ev.client_y()));
+        target.is_some_and(|t| t == *d)
+            && (x < r.left() || x > r.right() || y < r.top() || y > r.bottom())
+    };
+    let pressed_outside = StoredValue::new(false);
     view! {
-        <button id=button_id type="button" class=button_class aria-haspopup="dialog"
-            aria-label=move || label.map(|l| l.get())
-            on:click=move |_| open.set(true)>
-            {button()}
-        </button>
         <dialog node_ref=dialog id=format!("{id}-dialog") class="edit-dialog" aria-labelledby=title_id.clone()
-            on:cancel=move |_: leptos::ev::Event| open.set(false)
+            on:cancel=move |_: leptos::ev::Event| on_close.run(())
             on:close=move |_| {
-                if dialog.get_untracked().is_some_and(|d| !d.open()) {
-                    open.set(false);
+                if open.get_untracked() {
+                    on_close.run(());
                 }
             }
+            on:pointerdown=move |ev: leptos::ev::PointerEvent| pressed_outside.set_value(outside(&ev))
             on:click=move |ev| {
-                // A click on the backdrop (outside the content) closes it.
-                if ev.target() == ev.current_target() {
-                    open.set(false);
+                if pressed_outside.get_value() && outside(&ev) {
+                    on_close.run(());
                 }
+                pressed_outside.set_value(false);
             }
         >
-            <div class="edit-dialog__content">
-                <div class="edit-dialog__header">
-                    <h2 id=title_id.clone() class="edit-dialog__title">{move || title.get()}</h2>
-                    <IconButton icon="x" word=crate::text::CLOSE quiet=true label=crate::text::CLOSE
-                        on_click=Callback::new(move |()| open.set(false)) />
-                </div>
-                {children()}
-            </div>
+            <header class="edit-dialog__header">
+                <h2 id=title_id.clone() class="edit-dialog__title">{move || title.get()}</h2>
+                <IconButton icon="x" word=crate::text::CLOSE quiet=true label=crate::text::CLOSE
+                    on_click=on_close />
+            </header>
+            <div class="edit-dialog__body">{children()}</div>
+            <footer class="edit-dialog__footer">
+                <button type="button" class="button" on:click=move |_| on_close.run(())>{crate::text::DONE}</button>
+            </footer>
         </dialog>
     }
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// The tabs of a page (WAI-ARIA tabs pattern): one tab per part, the chosen one pressed;
 /// arrow keys, Home and End move between them. The parts are [`TabPanel`]s with the same
 /// `id` and keys.
@@ -364,11 +406,11 @@ pub fn TabList(
     /// What the tabs are, for screen readers, e.g. "Bereiche der Akte".
     #[prop(into)]
     label: String,
-    /// Key and label of each tab, in order.
-    tabs: Vec<(&'static str, String)>,
+    /// Each tab, in order.
+    tabs: Vec<Tab>,
     chosen: RwSignal<&'static str>,
 ) -> impl IntoView {
-    let keys: Vec<&'static str> = tabs.iter().map(|(k, _)| *k).collect();
+    let keys: Vec<&'static str> = tabs.iter().map(|(k, ..)| *k).collect();
     let tab_id = {
         let id = id.clone();
         move |key: &str| format!("{id}-tab-{key}")
@@ -395,15 +437,22 @@ pub fn TabList(
         <div role="tablist" class="tabs" aria-label=label on:keydown=keydown>
             {tabs
                 .into_iter()
-                .map(|(key, text)| {
+                .map(|(key, text, short)| {
                     let on = move || chosen.get() == key;
+                    // On phones the short label shows instead; the name is what is seen.
+                    let label = match short {
+                        Some(short) => view! {
+                            <span class="tabs__long">{text}</span><span class="tabs__short">{short}</span>
+                        }.into_any(),
+                        None => text.into_any(),
+                    };
                     view! {
                         <button type="button" role="tab" class="tabs__tab" id=tab_id(key)
                             aria-selected=move || on().to_string()
                             aria-controls=format!("{id}-panel-{key}")
                             tabindex=move || if on() { "0" } else { "-1" }
                             on:click=move |_| chosen.set(key)>
-                            {text}
+                            {label}
                         </button>
                     }
                 })
@@ -411,6 +460,10 @@ pub fn TabList(
         </div>
     }
 }
+
+/// One tab of a [`TabList`]: its key, its label, and a shorter label for phones, if the
+/// label is long (e.g. "Doku" for "Dokumentation").
+pub type Tab = (&'static str, String, Option<String>);
 
 /// One part of a page with [`TabList`]: shown while its tab is chosen. Hidden parts stay
 /// on the page, so unsaved input survives switching (ADR-0029).
@@ -429,7 +482,7 @@ pub fn TabPanel(
     }
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// How long ago `at` was, e.g. "(vor 59 Min.)", counted on every 30 seconds, so a value's
 /// age is seen at a glance. Not announced as it changes.
 #[component]

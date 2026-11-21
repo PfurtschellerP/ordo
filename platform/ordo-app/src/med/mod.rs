@@ -2,6 +2,7 @@
 //! treatment places, staff requests, and the UHS the incident command sets up.
 
 pub(crate) mod commands;
+pub(crate) mod handover;
 pub(crate) mod log;
 pub(crate) mod orders;
 pub(crate) mod overview;
@@ -49,7 +50,11 @@ pub(crate) const PACKAGE: Package = Package {
         provide_context(orders::Performers::default());
     },
     sections,
-    bell: staffing::bell,
+    bell: |core| {
+        let mut items = handover::bell(core);
+        items.extend(staffing::bell(core));
+        items
+    },
     palette: commands::PALETTE,
     log: log::PART,
 };

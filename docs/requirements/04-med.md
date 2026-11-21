@@ -432,6 +432,60 @@ Tags: must, med, m67
 
 Needs: dsn
 
+#### EPCR-16 — Patient with a unit's crew
+`req~epcr-16~1`
+
+When a member of a unit's crew registers a patient, ORDO shall let them register the
+patient with their unit, accept documentation of that patient from the unit's crew, judged
+by the crew valid at the time, and count the patient for the incident command as with
+units' crews.
+
+Rationale: the person in the field registers the patient where they are found and hands
+them over later ([ADR-0087](../adr/0087-patients-travel-between-units.md), product owner,
+2026-11-19).
+
+Tags: must, med, m68
+
+Needs: dsn
+
+#### EPCR-17 — Handover within the incident
+`req~epcr-17~1`
+
+When the holder of a patient hands them over to a UHS or a unit of the incident, ORDO
+shall keep the patient with the holder until the receiving UHS's staff or unit's crew
+takes them, show the open handover to both sides with time, person and note, and from the
+taking on accept documentation only from the receiver.
+
+Tags: must, med, m68
+
+Needs: dsn
+
+#### EPCR-18 — Quick handover by QR code
+`req~epcr-18~1`
+
+When the holder of a patient chooses a quick handover, ORDO shall show a QR code that
+names only the patient's record and the handover, and shall let a person who opens or
+scans it take the patient for a UHS or unit they document for, also while their devices
+are offline.
+
+Tags: must, med, m68
+
+Needs: dsn
+
+#### EPCR-19 — Handover outside ORDO
+`req~epcr-19~1`
+
+When the holder of a patient hands them over to someone outside ORDO, ORDO shall record
+who took them, when and the note, and take the patient out of the incident as at a
+discharge.
+
+Rationale: a handover document for the receiver (PDF/A-3 with an embedded HL7 FHIR
+bundle) follows ([ADR-0089](../adr/0089-handover-document-from-typst-templates.md)).
+
+Tags: must, med, m68
+
+Needs: dsn
+
 ### 4.11.1 Med package: medical orders
 
 Orders (*Anordnungen*) are given by physicians and carried out by the crew

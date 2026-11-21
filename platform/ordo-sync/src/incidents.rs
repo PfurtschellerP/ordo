@@ -329,6 +329,16 @@ pub mod kinds {
     /// See [`super::ROLE_WITHDRAWN`].
     pub const ROLE_WITHDRAWN: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::ROLE_WITHDRAWN, 1);
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[
+        PLANNED,
+        STATE_CHANGED,
+        DETAILS_CHANGED,
+        PAUSE_CHANGED,
+        ROLE_GRANTED,
+        ROLE_WITHDRAWN,
+    ];
 }
 
 #[cfg(test)]

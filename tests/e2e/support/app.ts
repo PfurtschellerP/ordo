@@ -130,7 +130,9 @@ export async function openRecord(page: Page, tag: string, tab = "Dokumentation")
 
 /** Chooses a tab of the open record (EPCR-14): Übersicht, Verlauf, Dokumentation, Übergabe. */
 export async function recordTab(page: Page, name: string): Promise<void> {
-  const tab = page.getByRole("tab", { name, exact: true });
+  // Where the record is narrow (beside the list, on phones), "Dokumentation" reads "Doku".
+  const label = name === "Dokumentation" ? /^Doku(mentation)?$/ : name;
+  const tab = page.getByRole("tab", { name: label, exact: true });
   if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }

@@ -670,20 +670,21 @@ pub fn register(
     revision: RwSignal<u64>,
     tag: &str,
     category: TriageCategory,
-    uhs: &str,
+    holder: &patients::Holder,
     case: Option<(&str, &str)>,
 ) -> Result<(), String> {
     let payload = Registered {
         tag: tag.to_owned(),
         category,
-        uhs: uhs.to_owned(),
+        uhs: holder.uhs().unwrap_or_default().to_owned(),
         algorithm: triage_algorithm(),
         report: None,
+        unit: holder.unit().map(str::to_owned),
         task: case.map(|(task, _)| task.to_owned()),
     }
     .encode()
     .map_err(|e| e.to_string())?;
-    let announcement = text::registered(tag, category, &uhs_name(core, uhs));
+    let announcement = text::registered(tag, category, &holder_name(core, holder));
     record(
         core,
         revision,
@@ -946,30 +947,6 @@ pub fn discharge(
         patients::kinds::DISCHARGED,
         &payload,
         text::discharged(&discharge.tag, discharge.outcome),
-    )
-}
-
-// [impl->dsn~patient-pathway~1]
-/// Moves a patient to another on-site unit (PAT-5).
-pub fn move_patient(
-    core: Handle,
-    revision: RwSignal<u64>,
-    tag: &str,
-    uhs: &str,
-) -> Result<(), String> {
-    let payload = patients::Moved {
-        tag: tag.to_owned(),
-        uhs: uhs.to_owned(),
-    }
-    .encode()
-    .map_err(|e| e.to_string())?;
-    let announcement = text::patient_moved(tag, &uhs_name(core, uhs));
-    record(
-        core,
-        revision,
-        patients::kinds::MOVED,
-        &payload,
-        announcement,
     )
 }
 
@@ -1645,6 +1622,10 @@ pub fn restore_photo(
 
 /// Display name of a UHS by ID (the ID if unknown).
 pub fn uhs_name(core: Handle, id: &str) -> String {
+    // The counts of the patients with units' crews (ADR-0087).
+    if id.is_empty() {
+        return text::WITH_UNITS.to_owned();
+    }
     core.with_value(|c| {
         let events = c.events(patients::UHS_COMPARTMENT);
         patients::uhs_list(&events)
@@ -1652,6 +1633,53 @@ pub fn uhs_name(core: Handle, id: &str) -> String {
             .find(|u| u.id == id)
             .map_or_else(|| id.to_owned(), |u| u.name)
     })
+}
+
+/// A patient's holder as people call it: the UHS's name, or the unit's call sign.
+pub fn holder_name(core: Handle, holder: &patients::Holder) -> String {
+    match holder {
+        patients::Holder::Uhs(id) => uhs_name(core, id),
+        patients::Holder::Unit(unit) => unit.clone(),
+    }
+}
+
+// [impl->dsn~patient-handover~1]
+/// Hands a patient over (ADR-0087), with a new handover ID, and returns it.
+pub fn hand_over(
+    core: Handle,
+    revision: RwSignal<u64>,
+    mut handover: patients::HandedOver,
+) -> Result<String, String> {
+    handover.handover = new_ulid()
+        .ok_or("Keine Zufallszahlen verfügbar")?
+        .to_string();
+    let announcement = match (&handover.to, &handover.outside) {
+        (_, Some(receiver)) => text::handed_outside(&handover.tag, receiver),
+        (Some(to), None) => text::handed_over(&handover.tag, &holder_name(core, to)),
+        (None, None) => text::handed_over_quick(&handover.tag),
+    };
+    let payload = handover.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::kinds::HANDED_OVER,
+        &payload,
+        announcement,
+    )?;
+    Ok(handover.handover)
+}
+
+// [impl->dsn~patient-handover~1]
+/// Takes a patient handed over, for `taken.holder` (or back).
+pub fn take(core: Handle, revision: RwSignal<u64>, taken: &patients::Taken) -> Result<(), String> {
+    let payload = taken.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::kinds::TAKEN,
+        &payload,
+        text::taken(&taken.tag, &holder_name(core, &taken.holder)),
+    )
 }
 
 /// Records an event of `kind`, saves the replica, says `announcement` and sends it.

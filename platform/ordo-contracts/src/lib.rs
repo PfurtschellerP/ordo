@@ -29,10 +29,12 @@ pub enum TriageCategory {
 /// `med.patientCounts.v1`: number of patients per triage category in one on-site care
 /// unit, and (schema version 2) which of its treatment places are taken and how many of its
 /// patients have none. Published by the Med package into the shared `incident` compartment.
-/// A place ID names a place, never who lies on it.
+/// A place ID names a place, never who lies on it. Since schema version 3 an empty `uhs`
+/// counts the patients with units' crews (ADR-0087), without naming the units.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatientCountsV1 {
-    /// The on-site care unit (UHS, treatment area, collection point).
+    /// The on-site care unit (UHS, treatment area, collection point); empty for the
+    /// patients with units' crews (schema version 3).
     pub uhs: String,
     /// Patients in category immediate.
     pub immediate: u32,
@@ -60,8 +62,9 @@ pub struct PatientCountsV1 {
 }
 
 impl PatientCountsV1 {
-    /// Payload schema version: 2 adds the taken places and the patients without one.
-    pub const SCHEMA_VERSION: u32 = 2;
+    /// Payload schema version: 2 adds the taken places and the patients without one, 3 the
+    /// counts with an empty `uhs` for the patients with units' crews.
+    pub const SCHEMA_VERSION: u32 = 3;
     /// Module that publishes the contract.
     pub const MODULE: &'static str = "med.patients";
     /// Event type of the contract.

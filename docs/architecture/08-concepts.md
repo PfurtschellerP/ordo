@@ -228,14 +228,14 @@ First contracts:
 #### Server-derived connectors
 `dsn~server-derived-connectors~2`
 
-A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit ID, one number per triage category (patients in the unit), the number discharged, and (schema version 2) the IDs of its taken treatment places and the number of its present patients without a place. A place ID names a place, never who lies on it.
+A package registers a deriver for its source compartment with the server. For every newly ordered event of that compartment, the server passes the decrypted event to the deriver and publishes what it returns — signed by the server — into the target compartment. The Med deriver publishes `med.patientCounts.v1` for every on-site care unit whose counts changed; the payload contains only the unit ID, one number per triage category (patients in the unit), the number discharged, and (schema version 2) the IDs of its taken treatment places and the number of its present patients without a place. A place ID names a place, never who lies on it. Since schema version 3, an empty unit ID counts the patients with units' crews ([ADR-0087](../adr/0087-patients-travel-between-units.md)), without naming the units; a unit whose last patient left is published again with zero.
 
 Covers:
 
 * [req~pat-6~2](../requirements/04-med.md#pat-6--patient-counts-for-command)
 * [req~conn-3~1](../requirements/05-police-and-connectors.md#conn-3--minimum-necessary-data)
 
-Needs: impl, itest
+Needs: impl, utest, itest
 
 Tags: must, m1
 
@@ -1361,17 +1361,18 @@ Needs: impl, itest
 Tags: should, m57
 
 #### Patient pathway
-`dsn~patient-pathway~1`
+`dsn~patient-pathway~2`
 
-A patient's way through the on-site units (in a MANV: collection point → treatment area,
-or a UHS) is recorded as it happens. Registration places the patient in a unit; a crew
-moves them on with `patients.moved` (the new unit, clinical compartment), which frees the
-treatment place. The register keeps the current unit and the whole way with time and
-person, next to admission and discharge (see *Discharge from the UHS*, which takes them
-out of the unit with the outcome and the transport). Counts and load follow the current unit, so a
-moved patient counts where they are. Moving a discharged patient changes nothing: they
-are readmitted first. The record shows the way as the section *Patientenweg*, with a
-choice of the incident's other units to move to.
+A patient's way through the incident is recorded as it happens: registration with a
+holder (a UHS or a unit's crew), each handover and taking between holders
+([ADR-0087](../adr/0087-patients-travel-between-units.md), [Patient
+handover](05-building-block-view.md#patient-handover)), the discharge or the handover
+outside ORDO. A change of holder frees the treatment place. The register keeps the current
+holder and the whole way with time and person, next to admission and discharge (see
+*Discharge from the UHS*). Counts and load follow the current holder, so a patient counts
+where they are. Handing over a discharged patient changes nothing: they are readmitted
+first. Moves of earlier events (`patients.moved`, before ADR-0087) are still read. The
+record shows the way as steps on the tab *Übergabe* and on the overview.
 
 Covers:
 
@@ -1626,7 +1627,8 @@ More icons and fewer words, by rules (agreed with the product owner on 2026-11-1
 * **One icon, one meaning**, from the Lucide set (`design/assets/icons/lucide/`):
   map-pin = show on the map, info = details, pencil = edit, trash-2 = remove or dissolve,
   x = withdraw or close, plus = add, undo-2 = undo, ellipsis = more actions,
-  camera = take a photo, upload = upload.
+  camera = take a photo, upload = upload, arrow-right-left = hand over (a patient),
+  qr-code = show a code to scan, scan-line = scan a code.
 * **Words where there is room.** A row's icon buttons show their word too where the row is
   wide (container queries); main actions always keep their word.
 * **Removing by icon can be undone.** A short "… entfernt. Rückgängig" follows at the
@@ -1648,14 +1650,22 @@ Needs: impl, itest
 Tags: should, m64
 
 #### Edit dialog
-`dsn~edit-dialog~1`
+`dsn~edit-dialog~2`
 
 Editing an item of a card list (a UHS, a unit's crew) opens a modal `dialog` instead of
 unfolding the form inside the card, so the list keeps its layout (feedback of
-2026-11-20). The button names the action with its item; the dialog has a heading with the
-item's name and a close button, keeps the focus inside, closes on Escape, on its close
-button or on a click beside it, and gives the focus back to the button. On phones it fills
-the screen. Actions with consequences (closing a UHS) sit at its bottom and ask once more.
+2026-11-20). There is one dialog per list, not per card: the list updates under it (new
+events, other people's changes) without closing or rebuilding it, and it changes only when
+its own item does (feedback of 2026-11-21). The card's button (`shell::ui::EditButton`)
+names the action with its item and gets the focus back. The dialog has a header with the
+item's name and a close button, a body that scrolls between header and footer and puts the
+item's parts (e.g. *Angaben*, *Auf der Lagekarte*, *Personal*) in columns of at least
+20 rem where there is room (up to 72 rem wide), and a footer with *Fertig*. It keeps the
+focus inside and closes on Escape, on either button, or on a press and release on the
+backdrop, but not on a click on its scrollbar or a text selection dragged out of a field.
+Saving says so (*Gespeichert.*). On phones it fills the screen. Actions with consequences
+(closing a UHS) sit at its bottom and ask once more. Where a list is rebuilt while someone
+works in it, the focused element gets the focus back (`shell::views::keep_focus`).
 `shell::ui::EditDialog` is the one implementation.
 
 Covers:

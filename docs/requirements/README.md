@@ -153,7 +153,8 @@ the build fails.
 | 64 — Map object cards | `m64` | Pointing at an object on the situation map with a mouse, a tap or the list opens a card at the object with its details and actions: an Auftrag's state and unit, a unit's status, Auftrag, strength and qualifications, a UHS's occupancy (MAP-11) |
 | 65 — Duty pause and unused devices | `m65` | The command pauses and resumes a helper's duty (HELP-8); devices unused for 30 days are removed as if blocked (ORG-14) |
 | 66 — Treatment places for the command | `m66` | The incident command sets up and manages every UHS (UHS-1, ADR-0086); *Behandlungsplätze* shows the free places per triage category of every UHS in *Führung* from the patient counts (UHS-16, PAT-6) and in the UHS module (UHS-8); packages plug in through a registry, so a new one changes no shared file (MOD-2, MOD-3, ADR-0010, ADR-0011) |
-| 67 — Patient record overview and handover | `m67` | The patient record opens on an overview with tabs, one timeline and quick actions; patients are handed over between UHS, crews and transports, also by QR code (ADR-0087); the command closes a UHS without patients (UHS-17); the log puts the patient counts into words |
+| 67 — Patient record overview | `m67` | The patient record opens on an overview with tabs, one timeline and quick actions (ADR-0088); the command closes a UHS without patients (UHS-17); the log puts the patient counts into words |
+| 68 — Patient handover | `m68` | A crew registers a patient with its unit; patients are handed over between UHS, crews and transports and taken by the receiver, also by QR code, or handed over outside ORDO (ADR-0087); the record's phone layout puts the quick actions within thumb reach |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -162,5 +163,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67,m68 docs platform modules packages tests
 ```

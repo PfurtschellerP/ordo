@@ -16,7 +16,7 @@ use ordo_med_patients::record::{
     self, EntryRecorded, Field, FieldType, Form, FormCatalogue, FormKind, Records, Value,
 };
 use ordo_med_patients::transport::TransportStatus;
-use ordo_med_patients::{self as med, Discharged, Outcome, Patient, PatientRegister, Stay};
+use ordo_med_patients::{self as med, Discharged, Holder, Outcome, Patient, PatientRegister, Stay};
 use wasm_bindgen::JsCast;
 
 use crate::attachments::Availability;
@@ -28,7 +28,7 @@ use crate::shell::ui::{Action, Actions, Icon, IncidentPeople, RadioChips, Sugges
 use crate::shell::views::{Nav, after_render, focus};
 use crate::text;
 
-const WORKSPACE: &str = "med.uhs";
+pub(crate) const WORKSPACE: &str = "med.uhs";
 /// Patient photos: longest edge and JPEG quality, tried in this order (ADR-0028).
 /// Full photo: longest side and JPEG quality, tried in order until it fits.
 const PHOTO_STEPS: [(f64, f64); 4] = [(1600.0, 0.8), (1280.0, 0.75), (1024.0, 0.7), (800.0, 0.6)];
@@ -201,10 +201,20 @@ pub fn PatientsView(
         request_animation_frame(|| focus("tag"));
     }
     provide_context(crate::shared::reports::ActiveCase(RwSignal::new(pending)));
+    // [impl->dsn~quick-handover~1]
+    // Opened from a quick handover's code: the dialog to take the patient.
+    let taking = RwSignal::new(
+        record
+            .get_untracked()
+            .zip(core::url_param("handover").filter(|h| !h.is_empty())),
+    );
     view! {
+        <crate::med::handover::TakeDialog core revision nav register taking />
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
                 <UhsChooser core revision working />
+                <crate::med::handover::IncomingHandovers core revision nav register />
+                <crate::med::handover::ScanHandover taking />
                 // [impl->dsn~uhs-staff-request~2]
                 <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
                 <RegisterForm core revision nav register />
@@ -254,6 +264,50 @@ pub fn writable_uhs(core: Handle) -> Vec<String> {
     })
 }
 
+// [impl->dsn~patient-holder~1]
+/// Where this person may hold patients (ADR-0087): the UHS they may write, then the units
+/// whose crew names them, with their names. The server decides again for every event.
+pub fn writable_holders(core: Handle) -> Vec<(Holder, String)> {
+    let writable = writable_uhs(core);
+    uhs_list(core)
+        .into_iter()
+        .filter(|u| writable.contains(&u.id))
+        .map(|u| (Holder::Uhs(u.id), u.name))
+        .chain(
+            crate::shared::crew::my_units(core)
+                .into_iter()
+                .map(|u| (Holder::Unit(u.unit.clone()), u.unit)),
+        )
+        .collect()
+}
+
+/// Whether this person writes the patients of `holder`.
+pub fn may_write(core: Handle, holder: &Holder) -> bool {
+    match holder {
+        Holder::Uhs(id) => writable_uhs(core).contains(id),
+        Holder::Unit(_) => {
+            core.with_value(|c| c.may(core::permission::ALL_UHS))
+                || writable_holders(core).iter().any(|(h, _)| h == holder)
+        }
+    }
+}
+
+/// A holder as the value of a choice: a UHS by its ID, a unit as `unit:` and its call sign.
+pub fn holder_key(holder: &Holder) -> String {
+    match holder {
+        Holder::Uhs(id) => id.clone(),
+        Holder::Unit(unit) => format!("unit:{unit}"),
+    }
+}
+
+/// The holder of a choice's value ([`holder_key`]); none if empty.
+pub fn holder_of_key(key: &str) -> Option<Holder> {
+    match key.strip_prefix("unit:") {
+        Some(unit) => Some(Holder::Unit(unit.to_owned())),
+        None => (!key.is_empty()).then(|| Holder::Uhs(key.to_owned())),
+    }
+}
+
 // [impl->dsn~uhs-staff~3]
 /// "Meine UHS" at the top of the UHS module (UHS-9): the person chooses where they work;
 /// registration and the patient list follow. The device remembers the choice.
@@ -287,6 +341,27 @@ fn UhsChooser(core: Handle, revision: RwSignal<u64>, working: WorkingUhs) -> imp
     }
 }
 
+/// The options of a choice of holders: the UHS, then the units, each in its group.
+pub(crate) fn holder_options(
+    list: Vec<(Holder, String)>,
+    chosen: RwSignal<String>,
+) -> impl IntoView {
+    let (uhs, units): (Vec<_>, Vec<_>) = list.into_iter().partition(|(h, _)| h.uhs().is_some());
+    let option = move |(holder, name): (Holder, String)| {
+        let key = holder_key(&holder);
+        let value = key.clone();
+        view! { <option value=value selected=move || chosen.get() == key>{name}</option> }
+    };
+    view! {
+        {(!uhs.is_empty()).then(|| view! {
+            <optgroup label=text::HOLDERS_UHS>{uhs.into_iter().map(option).collect_view()}</optgroup>
+        })}
+        {(!units.is_empty()).then(|| view! {
+            <optgroup label=text::HOLDERS_UNITS>{units.into_iter().map(option).collect_view()}</optgroup>
+        })}
+    }
+}
+
 #[component]
 fn RegisterForm(
     core: Handle,
@@ -301,35 +376,40 @@ fn RegisterForm(
     let category = RwSignal::new(None::<TriageCategory>);
     let error = RwSignal::new(None::<String>);
     let last = RwSignal::new(None::<String>);
-    // Only where this person may write (UHS-10), starting with the working UHS (UHS-9).
+    // [impl->dsn~patient-holder~1]
+    // Only where this person may write (UHS-10): their UHS, then the units whose crew
+    // names them (ADR-0087), starting with the working UHS (UHS-9). `uhs` holds the
+    // choice's value (`holder_key`).
     let list = Memo::new(move |_| {
         revision.track();
-        let writable = writable_uhs(core);
-        uhs_list(core)
-            .into_iter()
-            .filter(|u| writable.contains(&u.id))
-            .collect::<Vec<_>>()
+        writable_holders(core)
     });
+    let offers =
+        move |key: &str| list.with_untracked(|l| l.iter().any(|(h, _)| holder_key(h) == key));
     if let Some(working) = use_context::<WorkingUhs>() {
         Effect::new(move || {
             let chosen = working.0.get();
-            if list.with(|l| l.iter().any(|u| u.id == chosen)) {
+            list.track();
+            if offers(&chosen) {
                 uhs.set(chosen);
             }
         });
     }
     // [impl->dsn~reports~3]
-    // From a patient case: the unit's UHS first, where the command structure names one.
+    // From a patient case: the crew's own unit, which then hands the patient over
+    // (ADR-0087); else the unit's UHS, where the command structure names one.
     let case = use_context::<crate::shared::reports::ActiveCase>().map(|c| c.0);
     if let Some(case) = case {
         Effect::new(move || {
             let Some(c) = case.get() else { return };
-            let offered =
-                crate::shared::reports::unit_uhs(&crate::shared::command::structure(core), &c.unit);
-            if let Some(id) =
-                offered.filter(|id| list.with_untracked(|l| l.iter().any(|u| &u.id == id)))
-            {
-                uhs.set(id);
+            list.track();
+            let own = holder_key(&Holder::Unit(c.unit.clone()));
+            let offered = Some(own).filter(|k| offers(k)).or_else(|| {
+                crate::shared::reports::unit_uhs(&crate::shared::command::structure(core), &c.unit)
+                    .filter(|id| offers(id))
+            });
+            if let Some(key) = offered {
+                uhs.set(key);
             }
         });
     }
@@ -338,10 +418,9 @@ fn RegisterForm(
     let place = RwSignal::new(String::new());
     let free_places = Memo::new(move |_| {
         revision.track();
-        let chosen = uhs.get();
-        if chosen.is_empty() {
+        let Some(Holder::Uhs(chosen)) = holder_of_key(&uhs.get()) else {
             return Vec::new();
-        }
+        };
         let places = core
             .with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)))
             .remove(&chosen)
@@ -372,12 +451,15 @@ fn RegisterForm(
         ev.prevent_default();
         let value = tag.get().trim().to_owned();
         let Some(chosen) = category.get() else { return };
-        if value.is_empty() || uhs.get().is_empty() {
+        let Some(holder) = holder_of_key(&uhs.get()) else {
+            return;
+        };
+        if value.is_empty() {
             return;
         }
         let from = case.and_then(|c| c.get_untracked());
         let from_case = from.as_ref().map(|c| (c.task.as_str(), c.unit.as_str()));
-        match core::register(core, revision, &value, chosen, &uhs.get(), from_case) {
+        match core::register(core, revision, &value, chosen, &holder, from_case) {
             Ok(()) => {
                 let on = place.get_untracked();
                 let label = free_places
@@ -445,10 +527,7 @@ fn RegisterForm(
                         <label for="uhs">{text::REGISTER_UHS}</label>
                         <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
                             <option value="" selected=move || uhs.get().is_empty()>{text::UHS_CHOOSE}</option>
-                            {list.get().into_iter().map(|u| {
-                                let chosen = u.id.clone();
-                                view! { <option value=u.id.clone() selected=move || uhs.get() == chosen>{u.name}</option> }
-                            }).collect_view()}
+                            {holder_options(list.get(), uhs)}
                         </select>
                         <Show when=move || free_places.with(|f| !f.is_empty())>
                             <label for="register-place">{text::PLACE}</label>
@@ -522,6 +601,8 @@ struct Card {
     /// The place's ID, for the places of the working UHS.
     place_id: Option<String>,
     discharged: Option<Outcome>,
+    /// An open handover, in words (ADR-0087).
+    handover: Option<String>,
 }
 
 /// One patient in the list: a link to the record.
@@ -561,6 +642,9 @@ fn PatientLink(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl I
                     {card.priority.map(|label| view! { <PriorityBadge label /> })}
                 </span>
                 <span class="patient-card__name">{card.name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
+                {card.handover.map(|h| view! {
+                    <span class="patient-card__handover"><crate::shell::ui::Icon name="arrow-right-left" />{h}</span>
+                })}
                 <span class="patient-card__meta">
                     {place.map(|p| view! { <span class="patient-card__place">{p}</span> " · " })}
                     {card.uhs} " · " {text::triage_count(card.triages)} " · "
@@ -600,14 +684,29 @@ fn PatientList(
                 .collect()
         });
         let working = working.map(|w| w.0.get()).unwrap_or_default();
+        let here = Holder::Uhs(working.clone());
         register.with(|r| {
             records.with(|records| {
                 r.patients()
-                    .filter(|p| working.is_empty() || p.uhs == working)
+                    // At one UHS: its patients and those handed over to it.
+                    .filter(|p| {
+                        working.is_empty()
+                            || p.uhs == working
+                            || p.handover
+                                .as_ref()
+                                .is_some_and(|h| h.to.as_ref() == Some(&here))
+                    })
                     .map(|p| Card {
                         tag: p.tag.clone(),
                         category: p.category(),
-                        uhs: names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone()),
+                        uhs: match &p.unit {
+                            Some(unit) => unit.clone(),
+                            None => names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone()),
+                        },
+                        handover: p.handover.as_ref().map(|h| match &h.to {
+                            Some(to) => text::handover_open_to(&core::holder_name(core, to)),
+                            None => text::HANDOVER_OPEN_QUICK.to_owned(),
+                        }),
                         triages: p.history.len(),
                         name: person_name(records, &p.tag),
                         pending: pending.contains(&p.tag),
@@ -889,13 +988,14 @@ fn PatientRecord(
         }
         .into_any();
     }
-    // The UHS's name when this person may only read the patient's record (UHS-10).
+    // The holder's name when this person may only read the patient's record (UHS-10,
+    // ADR-0087).
     let read_only = {
         let tag = tag.clone();
         Memo::new(move |_| {
             revision.track();
-            let uhs = register.with(|r| r.patient(&tag).map(|p| p.uhs.clone()))?;
-            (!writable_uhs(core).contains(&uhs)).then(|| core::uhs_name(core, &uhs))
+            let holder = register.with(|r| r.patient(&tag).map(Patient::holder))?;
+            (!may_write(core, &holder)).then(|| core::holder_name(core, &holder))
         })
     };
     let sections: Vec<(String, String)> = [
@@ -911,7 +1011,7 @@ fn PatientRecord(
             .map(|f| (format!("section-{}", f.id), f.label.clone())),
     )
     .collect();
-    // [impl->dsn~record-overview~1]
+    // [impl->dsn~record-overview~2]
     // The page opens on the overview (EPCR-14); the tabs keep their input when switched.
     let chosen = RwSignal::new(crate::med::record::OVERVIEW);
     let filter = RwSignal::new(String::new());
@@ -919,7 +1019,8 @@ fn PatientRecord(
     use crate::med::record::{DOCUMENTATION, HANDOVER, OVERVIEW, TIMELINE};
     use crate::shell::ui::{TabList, TabPanel};
     // Each tab's content takes its own copy.
-    let (t_header, t_overview, t_timeline, t_doc, t_handover) = (
+    let (t_header, t_notice, t_overview, t_timeline, t_doc, t_handover) = (
+        tag.clone(),
         tag.clone(),
         tag.clone(),
         tag.clone(),
@@ -934,10 +1035,11 @@ fn PatientRecord(
                 {move || read_only.get().map(|uhs| view! {
                     <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
                 })}
+                <crate::med::handover::HandoverNotice core revision tag=t_notice register />
                 <TabList id="record" label=text::RECORD_TABS tabs=crate::med::record::tabs() chosen />
             </header>
             <Show when=writable>
-                <crate::med::record::QuickActions />
+                <crate::med::record::QuickActions chosen />
             </Show>
             <TabPanel id="record" key=OVERVIEW chosen>
                 <crate::med::record::OverviewTiles core revision tag=t_overview register records chosen filter />
@@ -973,6 +1075,7 @@ fn PatientRecord(
                 </fieldset>
             </TabPanel>
             <TabPanel id="record" key=HANDOVER chosen>
+                <crate::med::handover::HandoverPanel core revision tag=t_handover.clone() register />
                 <fieldset class="record__body" disabled=move || read_only.get().is_some()>
                     <StaySection core revision tag=t_handover.clone() register />
                     <crate::med::transports::TransportSection core revision tag=t_handover />
@@ -987,7 +1090,9 @@ fn PatientRecord(
 fn discharged_outcome(patient: &Patient) -> Option<Outcome> {
     match patient.discharge()?.change {
         Stay::Discharged { outcome, .. } => Some(outcome),
-        Stay::Admitted | Stay::Moved { .. } => None,
+        // Handed over outside ORDO: as transported, for the lists.
+        Stay::HandedOutside { .. } => Some(Outcome::Transported),
+        _ => None,
     }
 }
 
@@ -1066,29 +1171,19 @@ fn StaySection(
         .map(|o| (o.id().to_owned(), text::outcome(o).to_owned()))
         .collect();
     // Copy handles: the inputs are built again each time they show.
-    let (moving, submit, options) = (
-        StoredValue::new(tag.clone()),
-        StoredValue::new(submit),
-        StoredValue::new(options),
-    );
+    let (submit, options) = (StoredValue::new(submit), StoredValue::new(options));
     view! {
         <section class="record__section" aria-labelledby="section-stay">
-            <h3 id="section-stay" tabindex="-1">{text::STAY_TITLE}</h3>
+            <h3 id="section-stay" tabindex="-1">{text::DISCHARGE_TITLE}</h3>
             <ol class="history">
                 {move || {
                     // Also when names arrive (ORG-7).
                     revision.track();
                     patient.with(|p| {
                         p.iter()
-                            .flat_map(|p| p.stay.iter())
-                            .map(|e| {
-                                let what = match &e.change {
-                                    Stay::Admitted => text::ADMITTED.to_owned(),
-                                    Stay::Moved { from, to } => {
-                                        text::moved(&core::uhs_name(core, from), &core::uhs_name(core, to))
-                                    }
-                                    Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
-                                };
+                            .flat_map(|p| p.stay.iter().enumerate().map(move |(i, e)| (p, i, e)))
+                            .map(|(p, i, e)| {
+                                let what = crate::med::record::stay_words(core, p, i, e);
                                 let when = text::by_at(
                                     &crate::shell::profile::display_name(core, &e.by),
                                     &core::clock(e.at.wall_ms),
@@ -1103,9 +1198,7 @@ fn StaySection(
                 when=move || present.get()
                 fallback=move || view! { <Actions actions=readmit() /> }
             >
-                // [impl->dsn~patient-pathway~1]
                 <SectionInputs id="section-stay" open_text=text::STAY_OPEN>
-                <MoveForm core revision tag=moving.get_value() patient />
                 <form class="form stay-form" novalidate on:submit=submit.get_value()>
                     <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.get_value() value=outcome />
                     {move || {
@@ -1124,50 +1217,6 @@ fn StaySection(
                 </SectionInputs>
             </Show>
         </section>
-    }
-}
-
-// [impl->dsn~patient-pathway~1]
-/// Moving a patient to another unit of the incident (MANV: collection point → treatment
-/// area).
-#[component]
-fn MoveForm(
-    core: Handle,
-    revision: RwSignal<u64>,
-    tag: String,
-    patient: Memo<Option<Patient>>,
-) -> impl IntoView {
-    let target = RwSignal::new(String::new());
-    let others = Memo::new(move |_| {
-        revision.track();
-        let here = patient.with(|p| p.as_ref().map(|p| p.uhs.clone()));
-        uhs_list(core)
-            .into_iter()
-            .filter(|u| Some(&u.id) != here.as_ref())
-            .map(|u| (u.id, u.name))
-            .collect::<Vec<_>>()
-    });
-    let submit = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
-        let tag = tag.clone();
-        let to = target.get_untracked();
-        if !to.is_empty() && core::move_patient(core, revision, &tag, &to).is_ok() {
-            target.set(String::new());
-        }
-    };
-    view! {
-        <Show when=move || others.with(|o| !o.is_empty())>
-            <form class="form form--inline move-form" on:submit=submit.clone()>
-                <div class="field">
-                    <label for="move-to">{text::MOVE_TO}</label>
-                    <select id="move-to" prop:value=move || target.get() on:change=move |ev| target.set(event_target_value(&ev))>
-                        <option value="">{text::MOVE_CHOOSE}</option>
-                        {move || others.get().into_iter().map(|(id, name)| view! { <option value=id>{name}</option> }).collect_view()}
-                    </select>
-                </div>
-                <button type="submit" class="button">{text::MOVE}</button>
-            </form>
-        </Show>
     }
 }
 
@@ -1337,6 +1386,19 @@ fn PhotoSection(
         }
     };
     let alt = text::photo_alt(&tag);
+    let caption = {
+        let tag = tag.clone();
+        move || {
+            records.with(|r| {
+                r.get(&tag).and_then(|r| r.photo()).map(|p| {
+                    text::photo_taken(
+                        &core::clock(p.at.wall_ms),
+                        &crate::shell::profile::display_name(core, &p.by),
+                    )
+                })
+            })
+        }
+    };
     let remove_tag = tag.clone();
     view! {
         <section class="record__section" aria-labelledby="section-photo">
@@ -1345,6 +1407,7 @@ fn PhotoSection(
                 Some((_, kind, src)) => view! {
                     <img class="photo" src=src alt=alt.clone()
                         data-photo=if kind == PhotoKind::Full { "full" } else { "preview" } />
+                    <p class="photo__caption">{caption.clone()}</p>
                     {match kind {
                         PhotoKind::Full => None,
                         PhotoKind::Loading => Some(view! { <p class="hint">{text::PHOTO_PREVIEW_LOADING}</p> }),

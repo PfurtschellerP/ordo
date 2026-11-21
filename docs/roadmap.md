@@ -388,11 +388,15 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
     6. *Patient record and handover* (m67). Done 2026-11-20: the record opens on an
        overview with header, quick actions, tiles and tabs, and has one timeline
        (EPCR-14, EPCR-15, [ADR-0088](adr/0088-record-overview-from-the-profile.md)); the
-       command closes a UHS without patients (UHS-17); editing a card opens a dialog. Next:
-       patients registered where they are found and handed over between UHS, crews and
-       transports, confirmed by the receiver, also by QR code
-       ([ADR-0087](adr/0087-patients-travel-between-units.md)); then the handover
-       document for outside ORDO (PDF/A-3 with FHIR).
+       command closes a UHS without patients (UHS-17); editing a card opens a dialog.
+    7. *Patient handover* (m68). Done 2026-11-21: a crew registers a patient with its
+       unit; patients are handed over between UHS, crews and transports and taken by the
+       receiver, also by QR code, or handed over outside ORDO (EPCR-16 to EPCR-19,
+       [ADR-0087](adr/0087-patients-travel-between-units.md)); one edit dialog per list;
+       the record's phone layout. Next: the handover document for outside ORDO, PDF/A-3
+       with an HL7 FHIR bundle from a Typst template in the profile
+       ([ADR-0089](adr/0089-handover-document-from-typst-templates.md), proposed); then
+       the component gallery, reviewing and unifying every UI element (8.6.5).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

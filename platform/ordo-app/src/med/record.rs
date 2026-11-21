@@ -8,7 +8,7 @@ use leptos::prelude::*;
 use ordo_med_patients::orders::OrderBook;
 use ordo_med_patients::record::{self, Field, FieldType, Form, FormKind, Overview, Value};
 use ordo_med_patients::transport::TransportStatus;
-use ordo_med_patients::{self as med, PatientRegister, Stay};
+use ordo_med_patients::{self as med, Holder, Patient, PatientRegister, Stay, StayEntry};
 
 use crate::core::{self, Handle};
 use crate::med::patients::FORMS;
@@ -23,13 +23,17 @@ pub(crate) const TIMELINE: &str = "timeline";
 pub(crate) const DOCUMENTATION: &str = "documentation";
 pub(crate) const HANDOVER: &str = "handover";
 
-/// The record's tabs, in order.
-pub(crate) fn tabs() -> Vec<(&'static str, String)> {
+/// The record's tabs, in order, with a short label for phones where needed.
+pub(crate) fn tabs() -> Vec<crate::shell::ui::Tab> {
     vec![
-        (OVERVIEW, text::RECORD_OVERVIEW.to_owned()),
-        (TIMELINE, text::RECORD_TIMELINE.to_owned()),
-        (DOCUMENTATION, text::RECORD_DOCUMENTATION.to_owned()),
-        (HANDOVER, text::RECORD_HANDOVER.to_owned()),
+        (OVERVIEW, text::RECORD_OVERVIEW.to_owned(), None),
+        (TIMELINE, text::RECORD_TIMELINE.to_owned(), None),
+        (
+            DOCUMENTATION,
+            text::RECORD_DOCUMENTATION.to_owned(),
+            Some(text::RECORD_DOCUMENTATION_SHORT.to_owned()),
+        ),
+        (HANDOVER, text::RECORD_HANDOVER.to_owned(), None),
     ]
 }
 
@@ -76,7 +80,7 @@ fn entry_facts(
     facts
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// The values of the fields the profile puts in the header (e.g. name, allergies).
 fn header_facts(record: Option<&record::Record>) -> Vec<(String, String)> {
     let Some(record) = record else {
@@ -105,7 +109,7 @@ fn header_facts(record: Option<&record::Record>) -> Vec<(String, String)> {
         .collect()
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// The header of the record: tag, triage category, the profile's header fields, where
 /// the patient is and since when, the transport, and whether it is discharged.
 #[component]
@@ -148,11 +152,14 @@ pub(crate) fn RecordHeader(
             let since = patient.stay.last().map(|s| s.at.wall_ms);
             let discharged = match patient.discharge().map(|d| &d.change) {
                 Some(Stay::Discharged { outcome, .. }) => Some(text::discharged_as(*outcome)),
+                Some(Stay::HandedOutside { receiver, .. }) => {
+                    Some(text::handed_outside_step(receiver))
+                }
                 _ => None,
             };
             Some((
                 patient.category(),
-                core::uhs_name(core, &patient.uhs),
+                core::holder_name(core, &patient.holder()),
                 place,
                 triaged,
                 since,
@@ -161,10 +168,11 @@ pub(crate) fn RecordHeader(
             ))
         })
     };
+    let title = text::patient_title(&tag);
     view! {
-        <h2 id="record-title" tabindex="-1" class="record__title">{text::patient_title(&tag)}</h2>
         {move || state.get().map(|(category, uhs, place, triaged, since, transport, discharged)| view! {
-            <div class="record__badges">
+            <div class="record__id">
+                <h2 id="record-title" tabindex="-1" class="record__title">{title.clone()}</h2>
                 <TriageBadge category />
                 {discharged.map(|d| view! { <strong class="record__discharged">{d}</strong> })}
             </div>
@@ -194,36 +202,100 @@ pub(crate) fn RecordHeader(
     }
 }
 
-// [impl->dsn~record-overview~1]
-/// The quick actions: one per form the profile marks `quick`, then triage and photo.
-/// Each opens its input in *Dokumentation* (the tab shows first).
+// [impl->dsn~record-overview~2]
+/// The quick actions: one per form the profile marks `quick`, then triage, photo and the
+/// handover. Each opens its input in *Dokumentation*, or the tab *Übergabe* (the tab shows
+/// first). In the page on wide screens; on phones the forms and the handover sit in the
+/// bottom bar, within thumb reach, and triage and photo stay in the page.
 #[component]
-pub(crate) fn QuickActions() -> impl IntoView {
-    let forms = FORMS.forms.iter().filter(|f| f.shows(Overview::Quick)).map(|form| {
-        let (target, label) = match form.kind {
-            FormKind::Series => (format!("new-{}", form.id), text::new_entry_label(&form.label)),
-            FormKind::Snapshot => (format!("edit-{}", form.id), text::edit_label(&form.label)),
+pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
+    let actions = move |bar: bool| {
+        let forms = FORMS.forms.iter().filter(|f| f.shows(Overview::Quick)).map(move |form| {
+            let (target, label) = match form.kind {
+                FormKind::Series => (format!("new-{}", form.id), text::new_entry_label(&form.label)),
+                FormKind::Snapshot => (format!("edit-{}", form.id), text::edit_label(&form.label)),
+            };
+            view! {
+                <button type="button" class="button button--small button--with-icon quick-actions__button quick-actions__button--bar"
+                    aria-label=label on:click=move |_| crate::shell::views::click(&target)>
+                    <crate::shell::ui::Icon name="plus" /><span>{form.label.clone()}</span>
+                </button>
+            }
+        });
+        let handover = move |_| {
+            chosen.set(HANDOVER);
+            crate::shell::views::after_render(|| crate::shell::views::focus("section-way"));
         };
         view! {
-            <button type="button" class="button button--small button--with-icon quick-actions__button"
-                aria-label=label on:click=move |_| crate::shell::views::click(&target)>
-                <crate::shell::ui::Icon name="plus" />{form.label.clone()}
+            {forms.collect_view()}
+            {(!bar).then(|| view! {
+                <button type="button" class="button button--small button--with-icon quick-actions__button"
+                    on:click=move |_| crate::shell::views::open_inputs("section-triage")>
+                    <crate::shell::ui::Icon name="pencil" />{text::TRIAGE_OPEN}
+                </button>
+                <button type="button" class="button button--small button--with-icon quick-actions__button"
+                    on:click=move |_| crate::shell::views::focus("section-photo")>
+                    <crate::shell::ui::Icon name="camera" />{text::PHOTO_TITLE}
+                </button>
+            })}
+            <button type="button" class="button button--small button--with-icon quick-actions__button quick-actions__button--bar quick-actions__handover"
+                on:click=handover>
+                <crate::shell::ui::Icon name="arrow-right-left" /><span>{text::HANDOVER_BUTTON}</span>
             </button>
         }
+    };
+    // The bottom bar exists once the shell is in the page.
+    let slot = RwSignal::new(None::<web_sys::Element>);
+    request_animation_frame(move || {
+        slot.set(
+            web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id("bottom-bar")),
+        );
+        measure_bottom_bar();
     });
+    // Its height depends on the words and the text size: measured again on resizing.
+    let resized = window_event_listener(leptos::ev::resize, move |_| measure_bottom_bar());
+    on_cleanup(move || resized.remove());
     view! {
-        <nav class="quick-actions" aria-label=text::QUICK_ACTIONS>
-            {forms.collect_view()}
-            <button type="button" class="button button--small button--with-icon quick-actions__button"
-                on:click=move |_| crate::shell::views::open_inputs("section-triage")>
-                <crate::shell::ui::Icon name="pencil" />{text::TRIAGE_OPEN}
-            </button>
-            <button type="button" class="button button--small button--with-icon quick-actions__button"
-                on:click=move |_| crate::shell::views::focus("section-photo")>
-                <crate::shell::ui::Icon name="camera" />{text::PHOTO_TITLE}
-            </button>
+        <nav class="quick-actions quick-actions--page" aria-label=text::QUICK_ACTIONS>
+            {actions(false)}
         </nav>
+        {move || slot.get().map(|mount| view! {
+            <leptos::portal::Portal mount>
+                <nav class="quick-actions quick-actions--bar" aria-label=text::QUICK_ACTIONS>
+                    {actions(true)}
+                </nav>
+            </leptos::portal::Portal>
+        })}
     }
+}
+
+/// Puts the height of the phone's bottom bar (views and the page's own actions) into
+/// `--bottom-bar-height` on the root, so the page keeps exactly that much space free below
+/// and as scroll padding (WCAG 2.4.11). Set through the style object, which the content
+/// security policy allows.
+fn measure_bottom_bar() {
+    use wasm_bindgen::JsCast;
+    request_animation_frame(|| {
+        let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+            return;
+        };
+        let height = document
+            .query_selector(".navigation")
+            .ok()
+            .flatten()
+            .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+            .map_or(0, |e| e.offset_height());
+        if let Some(root) = document
+            .document_element()
+            .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = root
+                .style()
+                .set_property("--bottom-bar-height", &format!("{height}px"));
+        }
+    });
 }
 
 /// A button that shows a tab, e.g. "Ganzer Verlauf".
@@ -251,7 +323,7 @@ fn TabLink(
     }
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// The overview: a tile per form the profile marks `tile`, the open orders and the
 /// patient's way.
 #[component]
@@ -264,11 +336,21 @@ pub(crate) fn OverviewTiles(
     chosen: RwSignal<&'static str>,
     filter: RwSignal<String>,
 ) -> impl IntoView {
+    // The person's tile (the first with fields in the header) shows the photo too.
+    let person = FORMS
+        .forms
+        .iter()
+        .filter(|f| f.shows(Overview::Tile))
+        .find(|f| f.fields.iter().any(|x| x.header))
+        .map(|f| f.id.as_str());
     let tiles = FORMS
         .forms
         .iter()
         .filter(|f| f.shows(Overview::Tile))
-        .map(|form| view! { <FormTile tag=tag.clone() form records chosen filter /> })
+        .map(|form| {
+            let photo = person == Some(form.id.as_str());
+            view! { <FormTile tag=tag.clone() form records chosen filter photo /> }
+        })
         .collect_view();
     let orders = {
         let tag = tag.clone();
@@ -339,9 +421,44 @@ pub(crate) fn OverviewTiles(
     }
 }
 
-/// The patient's way: registration, moves, discharge and transports, oldest first; the
-/// current step marked.
-fn way_steps(
+/// The holder the patient was registered with: the one the first change of holder left,
+/// else the current one.
+fn first_holder(patient: &Patient) -> Holder {
+    patient
+        .stay
+        .iter()
+        .find_map(|s| match &s.change {
+            Stay::Moved { from, .. } => Some(Holder::Uhs(from.clone())),
+            Stay::Taken { from, .. } => Some(from.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| patient.holder())
+}
+
+// [impl->dsn~patient-handover~1]
+/// The `i`-th entry of a patient's stay in words, for the way, the timeline and the stay's
+/// history: e.g. "Erfasst · SanTrp 1", "Übergabe an UHS Eingang", "Übernommen: UHS
+/// Eingang".
+pub(crate) fn stay_words(core: Handle, patient: &Patient, i: usize, entry: &StayEntry) -> String {
+    let name = |h: &Holder| core::holder_name(core, h);
+    match &entry.change {
+        Stay::Admitted if i == 0 => text::way_registered(&name(&first_holder(patient))),
+        Stay::Admitted => text::READMITTED_STEP.to_owned(),
+        Stay::Moved { from, to } => {
+            text::moved(&core::uhs_name(core, from), &core::uhs_name(core, to))
+        }
+        Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
+        Stay::HandedOver { to: Some(to), .. } => text::handover_to(&name(to)),
+        Stay::HandedOver { to: None, .. } => text::HANDOVER_QUICK_STEP.to_owned(),
+        Stay::Taken { from, to } if from == to => text::handover_taken_back(&name(to)),
+        Stay::Taken { to, .. } => text::handover_taken_by(&name(to)),
+        Stay::HandedOutside { receiver, .. } => text::handed_outside_step(receiver),
+    }
+}
+
+/// The patient's way: registration, handovers, discharge and transports, oldest first;
+/// the current step marked.
+pub(crate) fn way_steps(
     core: Handle,
     tag: &str,
     register: Memo<PatientRegister>,
@@ -349,25 +466,12 @@ fn way_steps(
     let Some(patient) = register.with_untracked(|r| r.patient(tag).cloned()) else {
         return Vec::new();
     };
-    let mut steps: Vec<(u64, String)> = Vec::new();
-    // The UHS of the registration: the one the first move left, else the current one.
-    let first = patient
+    let steps: Vec<(u64, String)> = patient
         .stay
         .iter()
-        .find_map(|s| match &s.change {
-            Stay::Moved { from, .. } => Some(from.clone()),
-            _ => None,
-        })
-        .unwrap_or_else(|| patient.uhs.clone());
-    for (i, entry) in patient.stay.iter().enumerate() {
-        let what = match &entry.change {
-            Stay::Admitted if i == 0 => text::way_registered(&core::uhs_name(core, &first)),
-            Stay::Admitted => text::READMITTED_STEP.to_owned(),
-            Stay::Moved { to, .. } => core::uhs_name(core, to),
-            Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
-        };
-        steps.push((entry.at.wall_ms, what));
-    }
+        .enumerate()
+        .map(|(i, entry)| (entry.at.wall_ms, stay_words(core, &patient, i, entry)))
+        .collect();
     let present = patient.is_present();
     let mut out: Vec<(String, String, bool)> = steps
         .iter()
@@ -397,7 +501,7 @@ fn way_steps(
     out
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// The tile of one form: its latest entry (series) or its current values (snapshot), with
 /// the time and how long ago.
 #[component]
@@ -407,8 +511,30 @@ fn FormTile(
     records: Memo<Records>,
     chosen: RwSignal<&'static str>,
     filter: RwSignal<String>,
+    /// Whether it shows the patient's photo (the person's tile), if there is one.
+    photo: bool,
 ) -> impl IntoView {
     let heading = format!("tile-{}", form.id);
+    // [impl->dsn~record-overview~2]
+    // The photo's preview, inside its event: shown at once, offline too.
+    let image = {
+        let tag = tag.clone();
+        Memo::new(move |_| {
+            use base64::Engine;
+            photo.then(|| {
+                records.with(|r| {
+                    r.get(&tag).and_then(|r| r.photo()).map(|p| {
+                        format!(
+                            "data:{};base64,{}",
+                            p.media_type,
+                            base64::engine::general_purpose::STANDARD.encode(&p.data)
+                        )
+                    })
+                })
+            })?
+        })
+    };
+    let alt = text::photo_alt(&tag);
     let labelled = heading.clone();
     let latest = {
         let tag = tag.clone();
@@ -469,6 +595,9 @@ fn FormTile(
                     }
                 })}
             </div>
+            {move || image.get().map(|src| view! {
+                <img class="record-tile__photo" src=src alt=alt.clone() />
+            })}
             {move || match latest.get() {
                 None => view! { <p class="hint">{text::NOTHING_DOCUMENTED}</p> }.into_any(),
                 Some((_, facts, _)) => view! {
@@ -586,7 +715,7 @@ pub(crate) fn timeline(
                 kind: PHOTOS.to_owned(),
                 label: text::PHOTO_TITLE.to_owned(),
                 text: text::PHOTO_ADDED.to_owned(),
-                by: String::new(),
+                by: name(&p.by),
                 corrected: false,
                 corrects: None,
                 saved: 0,
@@ -616,18 +745,8 @@ pub(crate) fn timeline(
                 saved: 0,
             });
         }
-        for s in &patient.stay {
-            let what = match &s.change {
-                Stay::Admitted => format!(
-                    "{} · {}",
-                    text::ADMITTED,
-                    core::uhs_name(core, &patient.uhs)
-                ),
-                Stay::Moved { from, to } => {
-                    text::moved(&core::uhs_name(core, from), &core::uhs_name(core, to))
-                }
-                Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
-            };
+        for (i, s) in patient.stay.iter().enumerate() {
+            let what = stay_words(core, patient, i, s);
             lines.push(Line {
                 at: s.at.wall_ms,
                 kind: WAY.to_owned(),

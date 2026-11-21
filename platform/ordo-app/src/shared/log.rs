@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use leptos::prelude::*;
 use ordo_core::codec;
 use ordo_sync::AppliedEvent;
+use ordo_sync::incidents as inc;
 use serde::de::DeserializeOwned;
 
 use crate::core::{self, Handle};
@@ -76,19 +77,23 @@ impl From<String> for Line {
 /// How a person is named in the log, from their user ID or a written name.
 pub(crate) type Naming<'a> = &'a dyn Fn(&str) -> String;
 
+/// One event type in words; `None` if the payload does not read.
+pub(crate) type Describe = fn(&AppliedEvent, &Names, Naming) -> Option<Line>;
+
 // [impl->dsn~package-registry~1]
-/// A package's part of the log: the names it learns from its events, and its events in
-/// words (none for another package's events).
+/// A package's part of the log: the names it learns from its events, and its event types
+/// in words. A table rather than a match, so a test can check that every event type of
+/// every module has its words.
 pub(crate) struct LogPart {
     pub(crate) learn: fn(&AppliedEvent, &mut Names),
-    pub(crate) describe: fn(&AppliedEvent, &Names, Naming) -> Option<Line>,
+    pub(crate) describe: &'static [(&'static str, Describe)],
 }
 
 impl LogPart {
     /// A part with no events.
     pub(crate) const NONE: Self = Self {
         learn: |_, _| {},
-        describe: |_, _, _| None,
+        describe: &[],
     };
 }
 
@@ -98,7 +103,9 @@ impl LogPart {
 fn describe(e: &AppliedEvent, c: &Names, name: Naming) -> Line {
     PACKAGES
         .iter()
-        .find_map(|p| (p.log.describe)(e, c, name))
+        .flat_map(|p| p.log.describe)
+        .find(|(event_type, _)| *event_type == e.body.event_type.as_str())
+        .and_then(|(_, words)| words(e, c, name))
         .unwrap_or_else(|| {
             text::log_unknown(e.body.module.as_str(), e.body.event_type.as_str()).into()
         })
@@ -107,7 +114,7 @@ fn describe(e: &AppliedEvent, c: &Names, name: Naming) -> Line {
 /// The shared modules' part of the log.
 pub(crate) const PART: LogPart = LogPart {
     learn: learn_shared,
-    describe: describe_shared,
+    describe: DESCRIBE,
 };
 
 fn learn_shared(e: &AppliedEvent, c: &mut Names) {
@@ -145,49 +152,78 @@ fn learn_shared(e: &AppliedEvent, c: &mut Names) {
                 c.set("object", p.object, p.label);
             }
         }
+        ordo_helpers::REGISTERED | ordo_helpers::UPDATED => {
+            if let Some(ordo_helpers::HelperChange {
+                helper,
+                fields:
+                    ordo_helpers::Fields {
+                        name: Some(name), ..
+                    },
+            }) = decode(e)
+            {
+                c.set("helper", helper, name);
+            }
+        }
         _ => {}
     }
 }
 
-fn describe_shared(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
-    use ordo_sync::incidents as inc;
-    Some(match e.body.event_type.as_str() {
-        inc::PLANNED => text::log_planned(&decode::<inc::Planned>(e)?.name).into(),
-        inc::STATE_CHANGED => {
-            text::incident_state_changed(decode::<inc::StateChanged>(e)?.state).into()
-        }
-        inc::DETAILS_CHANGED => {
+const DESCRIBE: &[(&str, Describe)] = &[
+    (inc::PLANNED, |e, _, _| {
+        Some(text::log_planned(&decode::<inc::Planned>(e)?.name).into())
+    }),
+    (inc::STATE_CHANGED, |e, _, _| {
+        Some(text::incident_state_changed(decode::<inc::StateChanged>(e)?.state).into())
+    }),
+    (inc::DETAILS_CHANGED, |e, _, _| {
+        Some({
             decode::<inc::Details>(e)?;
             text::INCIDENT_DETAILS_SAVED.to_owned().into()
-        }
-        inc::PAUSE_CHANGED => text::incident_paused(decode::<inc::PauseChange>(e)?.paused)
-            .to_owned()
-            .into(),
-        inc::ROLE_GRANTED => {
+        })
+    }),
+    (inc::PAUSE_CHANGED, |e, _, _| {
+        Some(
+            text::incident_paused(decode::<inc::PauseChange>(e)?.paused)
+                .to_owned()
+                .into(),
+        )
+    }),
+    (inc::ROLE_GRANTED, |e, _, name| {
+        Some({
             let p = decode::<inc::RoleChange>(e)?;
             text::role_granted(&name(p.user.as_str()), &p.role).into()
-        }
-        inc::ROLE_WITHDRAWN => {
+        })
+    }),
+    (inc::ROLE_WITHDRAWN, |e, _, name| {
+        Some({
             let p = decode::<inc::RoleChange>(e)?;
             text::role_withdrawn(&name(p.user.as_str()), &p.role).into()
-        }
-        ordo_units::ADDED => {
+        })
+    }),
+    (ordo_units::ADDED, |e, _, _| {
+        Some({
             let p = decode::<ordo_units::UnitAdded>(e)?;
             text::log_unit_added(&p.unit, &p.unit_type, &p.organisation).into()
-        }
-        ordo_units::STATUS_CHANGED => {
+        })
+    }),
+    (ordo_units::STATUS_CHANGED, |e, _, _| {
+        Some({
             let p = decode::<ordo_units::StatusChanged>(e)?;
             text::status_set(&p.unit, &p.status).into()
-        }
-        ordo_units::RELEASED => {
-            text::unit_released(&decode::<ordo_units::Released>(e)?.unit).into()
-        }
-        ordo_units::CREW_SET => {
+        })
+    }),
+    (ordo_units::RELEASED, |e, _, _| {
+        Some(text::unit_released(&decode::<ordo_units::Released>(e)?.unit).into())
+    }),
+    (ordo_units::CREW_SET, |e, _, _| {
+        Some({
             let p = decode::<ordo_units::CrewSet>(e)?;
             text::log_crew(&p.unit, p.members.len()).into()
-        }
-        // [impl->dsn~reports~3]
-        ordo_tasks::GIVEN => {
+        })
+    }),
+    // [impl->dsn~reports~3]
+    (ordo_tasks::GIVEN, |e, c, name| {
+        Some({
             let p = decode::<ordo_tasks::TaskGiven>(e)?;
             let person = p.person.as_deref().map(name);
             let to = p
@@ -207,29 +243,41 @@ fn describe_shared(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
                 .into(),
                 _ => text::log_task_given(to, &p.text).into(),
             }
-        }
-        ordo_tasks::ASSIGNED => {
+        })
+    }),
+    (ordo_tasks::ASSIGNED, |e, c, _| {
+        Some({
             let p = decode::<ordo_tasks::TaskAssigned>(e)?;
             text::log_task_assigned(c.get("task", &p.task), &p.unit).into()
-        }
-        ordo_tasks::PATIENT_REGISTERED => {
+        })
+    }),
+    (ordo_tasks::PATIENT_REGISTERED, |e, c, _| {
+        Some({
             let p = decode::<ordo_tasks::PatientRegistered>(e)?;
             text::log_report_patient(c.get("task", &p.task), &p.unit).into()
-        }
-        // [impl->dsn~reports~3]
-        ordo_reports::RECORDED => {
+        })
+    }),
+    // [impl->dsn~reports~3]
+    (ordo_reports::RECORDED, |e, _, _| {
+        Some({
             let p = decode::<ordo_reports::Recorded>(e)?;
             text::log_report_recorded(&p).into()
-        }
-        ordo_reports::CLOSED => {
+        })
+    }),
+    (ordo_reports::CLOSED, |e, c, _| {
+        Some({
             let p = decode::<ordo_reports::Closed>(e)?;
             text::log_report_closed(c.get("report", &p.report)).into()
-        }
-        ordo_reports::PATIENT_REGISTERED => {
+        })
+    }),
+    (ordo_reports::PATIENT_REGISTERED, |e, c, _| {
+        Some({
             let p = decode::<ordo_reports::PatientRegistered>(e)?;
             text::log_report_patient(c.get("report", &p.report), &p.unit).into()
-        }
-        ordo_tasks::UPDATED => {
+        })
+    }),
+    (ordo_tasks::UPDATED, |e, c, _| {
+        Some({
             let p = decode::<ordo_tasks::TaskUpdated>(e)?;
             let task = c.get("task", &p.task);
             match &p.unit {
@@ -237,20 +285,28 @@ fn describe_shared(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
                 None => text::log_task_updated(task, p.status.map(text::task_status)),
             }
             .into()
-        }
-        ordo_command::POSITION_CREATED => {
+        })
+    }),
+    (ordo_command::POSITION_CREATED, |e, c, _| {
+        Some({
             let p = decode::<ordo_command::PositionCreated>(e)?;
             text::position_created(c.get("position", &p.position)).into()
-        }
-        ordo_command::POSITION_CLOSED => {
+        })
+    }),
+    (ordo_command::POSITION_CLOSED, |e, c, _| {
+        Some({
             let p = decode::<ordo_command::PositionClosed>(e)?;
             text::log_position_closed(c.get("position", &p.position)).into()
-        }
-        ordo_command::LEADER_SET => {
+        })
+    }),
+    (ordo_command::LEADER_SET, |e, c, name| {
+        Some({
             let p = decode::<ordo_command::LeaderSet>(e)?;
             text::log_leader(c.get("position", &p.position), &name(&p.leader)).into()
-        }
-        ordo_command::ASSIGNED => {
+        })
+    }),
+    (ordo_command::ASSIGNED, |e, c, _| {
+        Some({
             let p = decode::<ordo_command::Assigned>(e)?;
             let what = p
                 .unit
@@ -258,16 +314,69 @@ fn describe_shared(e: &AppliedEvent, c: &Names, name: Naming) -> Option<Line> {
                 .or(p.uhs.as_deref().map(|u| c.get("uhs", u)))
                 .unwrap_or_default();
             text::log_assigned(what, p.position.as_deref().map(|p| c.get("position", p))).into()
-        }
-        ordo_map::PLACED => {
-            text::log_map_placed(&decode::<ordo_map::ObjectPlaced>(e)?.label).into()
-        }
-        ordo_map::REMOVED => {
+        })
+    }),
+    (ordo_map::PLACED, |e, _, _| {
+        Some(text::log_map_placed(&decode::<ordo_map::ObjectPlaced>(e)?.label).into())
+    }),
+    (ordo_map::REMOVED, |e, c, _| {
+        Some({
             let p = decode::<ordo_map::ObjectRemoved>(e)?;
             text::log_map_removed(c.get("object", &p.object)).into()
-        }
-        _ => return None,
-    })
+        })
+    }),
+    (ordo_helpers::REGISTERED, |e, _, _| {
+        let p = decode::<ordo_helpers::HelperChange>(e)?;
+        Some(text::log_helper_registered(p.fields.name.as_deref().unwrap_or(&p.helper)).into())
+    }),
+    (ordo_helpers::UPDATED, |e, c, _| {
+        let p = decode::<ordo_helpers::HelperChange>(e)?;
+        Some(
+            text::log_helper_updated(c.get("helper", &p.helper), &helper_changes(&p.fields)).into(),
+        )
+    }),
+];
+
+/// What a change of a helper says, in words: the times of duty and pause with their
+/// clock, the other fields by name only (their values may be private, e.g. the diet).
+fn helper_changes(f: &ordo_helpers::Fields) -> Vec<String> {
+    let time = |label: &str, at: Option<u64>| {
+        at.map(|t| match t {
+            0 => text::log_cleared(label),
+            t => format!("{label} {}", core::clock(t)),
+        })
+    };
+    let mut changes: Vec<String> = [
+        time(text::HELPER_DUTY_START, f.duty_start),
+        time(text::HELPER_DUTY_END, f.duty_end),
+        f.paused.map(|t| match t {
+            0 => text::LOG_PAUSE_ENDED.to_owned(),
+            t => text::log_pause_since(&core::clock(t)),
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let address =
+        f.address.is_some() || f.street.is_some() || f.postcode.is_some() || f.town.is_some();
+    let named = [
+        (f.name.is_some(), text::HELPER_NAME),
+        (f.birth_date.is_some(), text::HELPER_BIRTH_DATE_LABEL),
+        (address, text::LOG_ADDRESS),
+        (f.phone.is_some(), text::HELPER_PHONE),
+        (f.organisation.is_some(), text::UNIT_ORGANISATION),
+        (f.qualifications.is_some(), text::QUALIFICATIONS_SHORT),
+        (f.diet.is_some(), text::HELPER_DIET),
+        (f.account.is_some(), text::HELPER_ACCOUNT_LABEL),
+    ];
+    let fields: Vec<&str> = named
+        .into_iter()
+        .filter_map(|(set, label)| set.then_some(label))
+        .collect();
+    if !fields.is_empty() {
+        changes.push(text::log_fields_changed(&fields));
+    }
+    changes
 }
 
 /// The log of the open incident, as this device knows it.
@@ -380,5 +489,43 @@ fn LogEntry(entry: Entry) -> impl IntoView {
                 {(!entry.sent).then(|| view! { " · " <span class="log-entry__pending">{text::LOG_PENDING}</span> })}
             </span>
         </li>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // [utest->dsn~incident-log~1]
+    #[test]
+    fn every_kind_of_event_has_its_words_in_one_package() {
+        let kinds = [
+            ordo_sync::incidents::kinds::ALL,
+            ordo_command::kinds::ALL,
+            ordo_helpers::kinds::ALL,
+            ordo_map::kinds::ALL,
+            ordo_reports::kinds::ALL,
+            ordo_tasks::kinds::ALL,
+            ordo_units::kinds::ALL,
+            ordo_med_patients::kinds::ALL,
+            ordo_med_patients::hospitals::kinds::ALL,
+            ordo_med_patients::orders::kinds::ALL,
+            ordo_med_patients::staffing::kinds::ALL,
+            ordo_med_patients::transport::kinds::ALL,
+        ];
+        let types = kinds
+            .iter()
+            .flat_map(|k| k.iter().map(|k| k.event_type))
+            .chain([ordo_contracts::PatientCountsV1::EVENT_TYPE]);
+        for event_type in types {
+            let parts = PACKAGES
+                .iter()
+                .filter(|p| p.log.describe.iter().any(|(t, _)| *t == event_type))
+                .count();
+            assert_eq!(
+                parts, 1,
+                "{event_type} is put into words by {parts} packages"
+            );
+        }
     }
 }

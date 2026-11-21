@@ -10,7 +10,7 @@ use crate::core::{self, Handle};
 use crate::text;
 
 /// The units present whose crew names this person (by their account).
-fn my_units(core: Handle) -> Vec<Unit> {
+pub(crate) fn my_units(core: Handle) -> Vec<Unit> {
     core.with_value(|c| {
         let me = c.replica.user().to_string();
         UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT))

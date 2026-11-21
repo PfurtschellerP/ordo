@@ -80,7 +80,6 @@ replace it.
 | tonic, tonic-prost, prost | Dex's gRPC API for local accounts (ADR-0060) | 2026-10/11 | grpc, tokio-rs | – |
 | bcrypt | Password hashes for Dex | 2026-07 | personal (Keats) | another bcrypt crate (Dex needs bcrypt) |
 | rcgen | Certificates of the Dex API | 2026-08 | rustls | – |
-| qrcode | Pairing QR code as SVG | 2024-07 | personal (kennytm) | `fast_qr`; watch |
 | time | Dates of certificates and map builds | 2026-08 | time-rs | `jiff` |
 | tracing, tracing-subscriber | Logs (JSON) | 2025-12, 2026-03 | tokio-rs | – |
 | getrandom | Randomness from the system | 2026-06 | rust-random | – |
@@ -100,6 +99,7 @@ replace it.
 | x-wing (with ml-kem, x25519-dalek, sha3) | Key grants sealed for each device, hybrid post-quantum (ADR-0080) | 2026-10 | RustCrypto | `libcrux-kem`; **watch**: version 0.1, not audited, X-Wing still an IETF draft |
 | thiserror | Error types | 2026-09 | personal (dtolnay) | – |
 | percent-encoding | URLs | 2025-08 | servo | – |
+| qrcode | QR codes as SVG: pairing and guest codes on the server, the quick handover on the device, offline (ADR-0087) | 2024-07 | personal (kennytm) | `fast_qr`; watch |
 
 ### Web app and storage worker
 

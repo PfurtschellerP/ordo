@@ -43,6 +43,8 @@ struct Overview {
     /// People on more than one post, with their posts (UNIT-8).
     several: Vec<String>,
     uhs: Vec<PlaceRow>,
+    /// The patients with units' crews, in words, if any (ADR-0087).
+    with_units: Option<String>,
 }
 
 fn overview(core: Handle) -> Overview {
@@ -91,6 +93,13 @@ fn overview(core: Handle) -> Overview {
             med::overview::occupancies(&incident),
         )
     });
+    // [impl->dsn~patient-holder~1]
+    // Patients with units' crews count under an empty UHS, without naming the units.
+    let with_units = counts.get("").and_then(|c| {
+        let by = CATEGORIES.map(|k| (text::label(k), c.get(k)));
+        let total: u32 = by.iter().map(|(_, n)| n).sum();
+        (total > 0).then(|| text::with_units(total, &by))
+    });
     let uhs = crate::med::uhs::uhs_list(core)
         .into_iter()
         .map(|u| {
@@ -135,6 +144,7 @@ fn overview(core: Handle) -> Overview {
         unreported: on_scene.unreported,
         several: crate::shared::units::several_labels(&on_scene.people.several()),
         uhs,
+        with_units,
     }
 }
 
@@ -297,6 +307,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <section class="tile tile--uhs" aria-labelledby="tile-uhs">
                     <TileHead id="tile-uhs" icon="tent" title=text::PLACES route=uhs link=text::OPEN_COUNTS />
                     <TreatmentPlaces rows=Signal::derive(move || o.with(|o| o.uhs.clone())) level=Level::H4 />
+                    {move || o.with(|o| o.with_units.clone()).map(|t| view! { <p class="tile__with-units">{t}</p> })}
                 </section>
 
                 <section class="tile tile--quick" aria-labelledby="tile-quick">

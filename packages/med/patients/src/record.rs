@@ -92,7 +92,7 @@ pub struct Form {
     pub overview: Vec<Overview>,
 }
 
-// [impl->dsn~record-overview~1]
+// [impl->dsn~record-overview~2]
 /// Where a form shows outside its section of the record (ADR-0088).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -709,8 +709,10 @@ pub struct Photo {
     pub data: Vec<u8>,
     /// The full photo as an attachment, if any.
     pub full: Option<AttachmentRef>,
-    /// When and by whom.
+    /// When it was attached.
     pub at: Hlc,
+    /// Who attached it.
+    pub by: UserId,
 }
 
 /// The care record of one patient.
@@ -805,6 +807,7 @@ impl Records {
                                 data: photo.preview,
                                 full: Some(photo.photo),
                                 at,
+                                by: by.clone(),
                             });
                     }
                 }
@@ -942,7 +945,7 @@ mod tests {
         assert_eq!(vitals.sums[0].of, vec!["gcs_eye", "gcs_verbal"]);
     }
 
-    // [utest->dsn~record-overview~1]
+    // [utest->dsn~record-overview~2]
     #[test]
     fn the_profile_marks_forms_and_fields_for_the_overview() {
         const MARK: &str = "urn:ordo:fhir:StructureDefinition:record-overview";

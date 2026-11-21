@@ -29,6 +29,7 @@ fn clinical(world: &mut World, user: &str, event_type: &str, payload: &[u8]) {
 fn register(world: &mut World, user: &str, tag: &str, category: TriageCategory) {
     let payload = Registered {
         report: None,
+        unit: None,
         task: None,
         tag: tag.into(),
         category,
@@ -751,6 +752,7 @@ fn several_uhs_and_units_in_one_incident() {
     ] {
         let payload = Registered {
             report: None,
+            unit: None,
             task: None,
             tag: tag.into(),
             category,

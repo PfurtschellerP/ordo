@@ -486,6 +486,9 @@ pub mod kinds {
         super::UPDATED,
         super::UPDATED_SCHEMA,
     );
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[REQUESTED, UPDATED];
 }
 
 #[cfg(test)]

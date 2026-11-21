@@ -171,6 +171,9 @@ pub mod kinds {
     /// See [`super::CLOSED`].
     pub const CLOSED: EventKind =
         EventKind::new(super::COMPARTMENT, super::MODULE, super::CLOSED, 1);
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[REQUESTED, CLOSED];
 }
 
 #[cfg(test)]

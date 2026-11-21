@@ -132,7 +132,7 @@ pub fn device_revoked(short: &str) -> String {
 pub const REGISTER_TITLE: &str = "Patient registrieren";
 pub const REGISTER_TAG: &str = "Nummer der Patientenanhängekarte";
 pub const REGISTER_CATEGORY: &str = "Sichtungskategorie";
-pub const REGISTER_UHS: &str = "UHS";
+pub const REGISTER_UHS: &str = "Patient bei";
 pub const REGISTER_SUBMIT: &str = "Registrieren";
 
 pub const BOARD_EMPTY: &str = "Noch keine Patienten registriert.";
@@ -332,6 +332,10 @@ pub const PHOTO_PREVIEW_LOADING: &str = "Vorschau – das volle Foto wird gelade
 pub const PHOTO_PREVIEW_UNAVAILABLE: &str =
     "Vorschau – das volle Foto ist noch nicht auf dem Server. Es wird später erneut geladen.";
 pub const PHOTO_PURPOSE: &str = "Nur zur Identifikation. Das Foto wird verkleinert, ohne Kamera- und Ortsdaten gespeichert und nur an Berechtigte übertragen.";
+/// Under the photo: "Aufgenommen 14:31 von Anna Schmidt".
+pub fn photo_taken(at: &str, by: &str) -> String {
+    format!("Aufgenommen {at} von {by}")
+}
 pub fn photo_alt(tag: &str) -> String {
     format!("Foto von Patient {tag}")
 }
@@ -907,17 +911,19 @@ pub fn ordered_by_order(giver: &str, at: &str) -> String {
 
 // Admission and discharge (UHS-3).
 pub const STAY_TITLE: &str = "Patientenweg";
-pub const STAY_OPEN: &str = "Verlegen oder entlassen";
+pub const STAY_OPEN: &str = "Entlassen …";
+/// The stay section on the tab *Übergabe*: admissions and discharges; moving is a handover.
+pub const DISCHARGE_TITLE: &str = "Aufnahme und Entlassung";
 pub const TRIAGE_OPEN: &str = "Sichtung ändern";
 pub const ORDERS_OPEN: &str = "Neue Anordnung";
 pub const SECTION_CLOSE: &str = "Schließen";
 /// Closes a dialog.
 pub const CLOSE: &str = "Schließen";
+pub const DONE: &str = "Fertig";
 pub const DISCHARGE_OUTCOME: &str = "Entlassen mit Ergebnis";
 pub const DISCHARGE: &str = "Entlassen";
 pub const DISCHARGE_CHOOSE: &str = "Bitte das Ergebnis der Entlassung wählen.";
 pub const READMIT: &str = "Wieder aufnehmen";
-pub const ADMITTED: &str = "Aufgenommen";
 
 pub fn outcome(outcome: ordo_med_patients::Outcome) -> &'static str {
     use ordo_med_patients::Outcome as O;
@@ -1040,9 +1046,6 @@ pub const VERSION_UNSUPPORTED: &str =
     "Diese App und der Server haben keine gemeinsame Version. Bitte die Seite neu laden.";
 
 // Patient pathway (PAT-5).
-pub const MOVE_TO: &str = "Verlegen nach";
-pub const MOVE_CHOOSE: &str = "Einheit wählen";
-pub const MOVE: &str = "Verlegen";
 
 /// "Verlegt: Patientenablage Nord → Behandlungsplatz"
 pub fn moved(from: &str, to: &str) -> String {
@@ -1205,6 +1208,8 @@ pub fn released_at(at: &str) -> String {
 
 // UHS details (UHS-1).
 pub const UHS_DETAILS: &str = "Ort und Personal";
+pub const UHS_DATA: &str = "Angaben";
+pub const SAVED: &str = "Gespeichert.";
 pub const UHS_NAME_NEEDED: &str = "Die UHS braucht einen Namen.";
 pub const UHS_LOCATION: &str = "Ort";
 pub const UHS_ON_MAP: &str = "Auf der Lagekarte";
@@ -1254,6 +1259,7 @@ pub const RECORD_TABS: &str = "Bereiche der Akte";
 pub const RECORD_OVERVIEW: &str = "Übersicht";
 pub const RECORD_TIMELINE: &str = "Verlauf";
 pub const RECORD_DOCUMENTATION: &str = "Dokumentation";
+pub const RECORD_DOCUMENTATION_SHORT: &str = "Doku";
 pub const RECORD_HANDOVER: &str = "Übergabe";
 pub const RECORD_AT: &str = "Bei";
 pub const RECORD_TRIAGED: &str = "Gesichtet";
@@ -1266,6 +1272,136 @@ pub const ORDER: &str = "Anordnung";
 pub const ORDERS_OPEN_TITLE: &str = "Offene Anordnungen";
 pub const ORDERS_ALL: &str = "Alle Anordnungen in der Dokumentation";
 pub const ORDERS_NONE_OPEN: &str = "Keine offenen Anordnungen.";
+// Handover (ADR-0087).
+pub const HOLDERS_UHS: &str = "UHS";
+pub const HOLDERS_UNITS: &str = "Einsatzmittel";
+/// The patient counts of patients with units' crews.
+pub const WITH_UNITS: &str = "Bei Einsatzmitteln";
+pub fn handed_over(tag: &str, to: &str) -> String {
+    format!("Patient {tag} an {to} übergeben, Übernahme offen")
+}
+pub fn handed_over_quick(tag: &str) -> String {
+    format!("Schnellübergabe für Patient {tag} gestartet")
+}
+pub fn handed_outside(tag: &str, receiver: &str) -> String {
+    format!("Patient {tag} außerhalb von ORDO übergeben an {receiver}")
+}
+pub fn taken(tag: &str, by: &str) -> String {
+    format!("Patient {tag} übernommen von {by}")
+}
+pub fn handover_to(to: &str) -> String {
+    format!("Übergabe an {to}")
+}
+pub const HANDOVER_QUICK_STEP: &str = "Schnellübergabe per QR-Code";
+pub fn handover_taken_by(by: &str) -> String {
+    format!("Übernommen: {by}")
+}
+pub fn handover_taken_back(by: &str) -> String {
+    format!("Übergabe zurückgenommen: {by}")
+}
+pub fn handed_outside_step(receiver: &str) -> String {
+    format!("Übergeben an {receiver} (außerhalb von ORDO)")
+}
+pub fn handover_open_to(to: &str) -> String {
+    format!("Übergabe an {to} offen")
+}
+pub const HANDOVER_OPEN_QUICK: &str = "Schnellübergabe offen";
+/// "Noch bei SanTrp 1 · übergeben 14:31 von Max Muster".
+pub fn handover_open_since(holder: &str, at: &str, by: &str) -> String {
+    format!("Noch bei {holder} · übergeben {at} von {by}")
+}
+pub const HANDOVER_OPEN_HINT: &str = "Bis zur Übernahme dokumentiert die bisherige Stelle weiter; die übernehmende Stelle bestätigt mit „Übernehmen“.";
+pub const HANDOVER_OPEN_QUICK_HINT: &str = "Die übernehmende Stelle scannt den QR-Code mit ORDO oder der Kamera ihres Geräts und wählt, wohin der Patient kommt.";
+pub const HANDOVER_NOTE_SHORT: &str = "Notiz:";
+pub fn handover_take(to: &str) -> String {
+    format!("Übernehmen für {to}")
+}
+pub const HANDOVER_TAKE: &str = "Übernehmen";
+pub fn handover_take_label(tag: &str) -> String {
+    format!("Übernehmen: Patient {tag}")
+}
+pub const HANDOVER_TAKE_TO: &str = "Übernehmen für";
+pub const HANDOVER_TAKE_BACK: &str = "Übergabe zurücknehmen";
+pub const HANDOVER_FAILED: &str = "Die Übergabe konnte nicht gespeichert werden.";
+pub const HANDOVER_WAY: &str = "Weg des Patienten";
+pub const HANDOVER_NEXT: &str = "an wen übergeben";
+pub const HANDOVER_TITLE: &str = "Patient übergeben";
+pub const HANDOVER_TO: &str = "Übergeben an";
+pub const HANDOVER_TO_UHS: &str = "UHS oder Behandlungsplatz";
+pub const HANDOVER_TO_UHS_HINT: &str =
+    "Im Einsatz. Die Akte geht mit; das Personal der UHS dokumentiert weiter.";
+pub const HANDOVER_TO_UNIT: &str = "Einsatzmittel";
+pub const HANDOVER_TO_UNIT_HINT: &str =
+    "Im Einsatz, z. B. ein RTW. Seine Besatzung dokumentiert weiter.";
+pub const HANDOVER_TO_TRANSPORT: &str = "Transport";
+pub const HANDOVER_TO_TRANSPORT_HINT: &str =
+    "Das Einsatzmittel eines angeforderten Transports übernimmt; das Ziel folgt aus dem Transport.";
+pub const HANDOVER_TO_OUTSIDE: &str = "Außerhalb von ORDO";
+pub const HANDOVER_TO_OUTSIDE_HINT: &str =
+    "Z. B. Klinik, anderer Rettungsdienst, Polizei. Der Patient verlässt den Einsatz.";
+pub fn handover_target_label(kind: &str) -> String {
+    format!("Welche Stelle: {kind}")
+}
+pub fn handover_no_target(transport: bool) -> &'static str {
+    if transport {
+        "Kein Transport mit zugewiesenem Einsatzmittel. Transport im Abschnitt „Transport“ anfordern."
+    } else {
+        "Keine andere Stelle im Einsatz."
+    }
+}
+pub const HANDOVER_RECEIVER: &str = "An wen";
+pub const HANDOVER_RECEIVER_HINT: &str =
+    "Z. B. „Klinikum Mitte, Notaufnahme“ oder „RTW Florian Kreis 3/83-1“.";
+pub const HANDOVER_RECEIVER_MISSING: &str = "Bitte angeben, an wen der Patient übergeben wird.";
+pub const HANDOVER_TARGET_MISSING: &str = "Bitte wählen, an wen der Patient übergeben wird.";
+pub const HANDOVER_NOTE: &str = "Übergabe-Notiz (optional)";
+pub const HANDOVER_NOTE_EXAMPLE: &str = "z. B. Verlauf auf dem Weg";
+pub const HANDOVER_RECEIVER_ANY: &str = "die übernehmende Stelle";
+pub fn handover_gets(to: &str) -> String {
+    format!("Was {to} bekommt")
+}
+pub const HANDOVER_GETS_RECORD: &str = "die ganze Akte mit Verlauf, Fotos und Anordnungen";
+pub const HANDOVER_GETS_NOTE: &str = "wer übergeben hat, wann, und die Übergabe-Notiz";
+pub const HANDOVER_GETS_OUTSIDE: &str =
+    "die Übergabe mit Empfänger, Zeit und Notiz im Verlauf; ein Übergabedokument (PDF) folgt";
+pub const HANDOVER_AFTER: &str = "Danach";
+pub const HANDOVER_AFTER_INSIDE: &str = "Bis zur Übernahme dokumentieren Sie weiter, und beide Seiten sehen „Übergabe offen“. Nach der Übernahme lesen Sie die Akte weiter, schreiben aber nicht mehr.";
+pub const HANDOVER_AFTER_OUTSIDE: &str = "Der Patient verlässt den Einsatz sofort und zählt als entlassen. Kommt er zurück, „Wieder aufnehmen“.";
+pub const HANDOVER_BUTTON: &str = "Übergeben";
+pub fn handover_button(to: &str) -> String {
+    format!("An {to} übergeben")
+}
+pub const QUICK_HANDOVER: &str = "Schnellübergabe";
+pub const QUICK_HANDOVER_HINT: &str = "Wenn noch offen ist, wer übernimmt: ORDO zeigt einen QR-Code. Wer ihn scannt, wählt, wohin der Patient kommt. Der Code enthält keine medizinischen Daten.";
+pub const QUICK_HANDOVER_START: &str = "QR-Code zeigen";
+pub const QUICK_CODE_ALT: &str = "QR-Code der Schnellübergabe";
+pub const QUICK_CODE_HINT: &str =
+    "Mit ORDO („Übergabe scannen“) oder der Kamera des übernehmenden Geräts scannen.";
+pub const SCAN_HANDOVER: &str = "Übergabe scannen";
+pub const SCAN_HANDOVER_HINT: &str = "Foto vom QR-Code einer Schnellübergabe.";
+pub const SCAN_READING: &str = "Der QR-Code wird gelesen …";
+pub const SCAN_NO_HANDOVER: &str = "Auf dem Foto ist kein QR-Code einer Übergabe zu erkennen.";
+pub fn take_title(tag: &str) -> String {
+    format!("Patient {tag} übernehmen")
+}
+pub fn take_from(holder: &str) -> String {
+    format!("Bisher bei {holder}. Wählen Sie, wo der Patient bei Ihnen ist.")
+}
+pub const TAKE_NOT_HERE: &str = "Die Akte ist noch nicht auf diesem Gerät. Sobald es verbunden ist, kommt sie an; dieses Fenster bleibt offen.";
+pub const TAKE_NOT_ARRIVED: &str = "Die Übergabe selbst ist noch nicht auf diesem Gerät. Die Übernahme gilt, sobald beide Geräte wieder verbunden sind.";
+pub const TAKE_GONE: &str =
+    "Der Patient ist nicht mehr im Einsatz (entlassen oder außerhalb übergeben).";
+pub const TAKE_TAKEN: &str = "Diese Übergabe ist schon übernommen.";
+pub const TAKE_NOWHERE: &str = "Sie stehen auf keiner Personalliste einer UHS und in keiner Besatzung. Die Einsatzleitung teilt Sie ein.";
+pub const INCOMING_TITLE: &str = "Übergaben an Sie";
+pub fn incoming_line(from: &str, to: &str) -> String {
+    format!("von {from} an {to}")
+}
+pub const RECORD_OPEN: &str = "Akte";
+pub fn handover_bell(tag: &str, to: &str) -> String {
+    format!("Übergabe an {to}: Patient {tag}")
+}
+
 pub const READMITTED_STEP: &str = "Wieder aufgenommen";
 pub const CLEARED: &str = "gelöscht";
 pub const PHOTO_ADDED: &str = "Foto hinzugefügt";
@@ -1920,6 +2056,16 @@ pub fn log_corrects(at: &str) -> String {
 
 /// The patient counts of a UHS as the log shows them (derived by the server, ADR-0024):
 /// "Patientenzahlen UHS Eingang: 5 (SK I 1 · SK III 4), 1 ohne Platz, 2 entlassen".
+/// "Bei Einsatzmitteln: 2 (SK I 1 · SK II 1)".
+pub fn with_units(total: u32, counts: &[(&str, u32)]) -> String {
+    let parts: Vec<String> = counts
+        .iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|(label, n)| format!("{label} {n}"))
+        .collect();
+    format!("{WITH_UNITS}: {total} ({})", parts.join(" · "))
+}
+
 pub fn log_counts(uhs: &str, counts: &[(&str, u32)], unplaced: u32, discharged: u32) -> String {
     let total: u32 = counts.iter().map(|(_, n)| n).sum();
     let mut out = format!("Patientenzahlen {uhs}: {total}");
@@ -1950,6 +2096,28 @@ pub fn log_planned(name: &str) -> String {
 
 pub fn log_unit_added(unit: &str, unit_type: &str, organisation: &str) -> String {
     format!("{} ({unit_type}, {organisation})", unit_added(unit))
+}
+
+pub fn log_helper_registered(name: &str) -> String {
+    format!("{name} aufgenommen")
+}
+/// "Anna Schmidt: Dienstbeginn 14:00 · Angaben geändert: Telefon".
+pub fn log_helper_updated(name: &str, changes: &[String]) -> String {
+    if changes.is_empty() {
+        return format!("Angaben zu {name} gespeichert");
+    }
+    format!("{name}: {}", changes.join(" · "))
+}
+pub fn log_cleared(label: &str) -> String {
+    format!("{label} gelöscht")
+}
+pub const LOG_PAUSE_ENDED: &str = "Pause beendet";
+pub fn log_pause_since(at: &str) -> String {
+    format!("Pause ab {at}")
+}
+pub const LOG_ADDRESS: &str = "Anschrift";
+pub fn log_fields_changed(fields: &[&str]) -> String {
+    format!("Angaben geändert: {}", fields.join(", "))
 }
 
 pub fn log_crew(unit: &str, n: usize) -> String {
@@ -2461,7 +2629,7 @@ pub fn card_read(card: &str, name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    // [utest->dsn~record-overview~1]
+    // [utest->dsn~record-overview~2]
     #[test]
     fn ages_read_at_a_glance() {
         let min = 60_000;

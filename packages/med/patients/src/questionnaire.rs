@@ -136,7 +136,7 @@ impl Item {
             .filter(|s| !s.trim().is_empty())
     }
 
-    // [impl->dsn~record-overview~1]
+    // [impl->dsn~record-overview~2]
     /// The overview marks of the item, each one of `allowed`.
     fn marks(&self, allowed: &[&str]) -> Result<Vec<String>, CatalogueError> {
         self.extension

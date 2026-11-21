@@ -342,6 +342,9 @@ pub mod kinds {
         super::UPDATED,
         super::SCHEMA,
     );
+
+    /// Every kind above, e.g. for the incident log to check it names them all.
+    pub const ALL: &[EventKind] = &[REGISTERED, UPDATED];
 }
 
 #[cfg(test)]

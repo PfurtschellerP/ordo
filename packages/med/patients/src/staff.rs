@@ -1,9 +1,11 @@
-//! Only a UHS's staff writes its patients (UHS-10, ADR-0056, ADR-0082, ADR-0086): the
-//! server's write guard for the clinical compartment and the UHS's own settings. A UHS
-//! without anyone on its staff list is written only by roles allowed at every UHS; its
-//! settings and staff list only by the incident command. Each event is judged by the staff
-//! list valid at its clock, so documentation made offline stays valid when the list changes
-//! in between. A staff request (UHS-15) is made only by someone on the UHS's staff list.
+//! Only a patient's holder writes them (UHS-10, ADR-0056, ADR-0082, ADR-0086, ADR-0087):
+//! the server's write guard for the clinical compartment and the UHS's own settings. The
+//! holder is a UHS, written by its staff list, or a unit, written by its crew (UNIT-5). A
+//! UHS without anyone on its staff list is written only by roles allowed at every UHS; its
+//! settings and staff list only by the incident command. Each event is judged by the lists
+//! valid at its clock, so documentation made offline stays valid when a list changes in
+//! between. A handover is taken by the people of the holder that takes it. A staff request
+//! (UHS-15) is made only by someone on the UHS's staff list.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,8 +15,9 @@ use ordo_sync::{AppliedEvent, WriteGuard};
 use serde::Deserialize;
 
 use crate::{
-    COMPARTMENT, DISCHARGED, MOVED, READMITTED, REGISTERED, UHS_CLOSED, UHS_COMPARTMENT,
-    UHS_CREATED, UHS_PLACES, UHS_UPDATED, UhsClosed, UhsCreated, UhsUpdated,
+    COMPARTMENT, DISCHARGED, HANDED_OVER, HandedOver, Holder, MOVED, READMITTED, REGISTERED, TAKEN,
+    Taken, UHS_CLOSED, UHS_COMPARTMENT, UHS_CREATED, UHS_PLACES, UHS_UPDATED, UhsClosed,
+    UhsCreated, UhsUpdated,
 };
 
 /// The permission of roles allowed at every UHS (Cedar action `all_uhs`).
@@ -32,6 +35,19 @@ struct Refers {
     order: Option<String>,
     #[serde(default)]
     uhs: Option<String>,
+    #[serde(default)]
+    unit: Option<String>,
+}
+
+impl Refers {
+    /// The holder a registration names.
+    fn holder(&self) -> Option<Holder> {
+        match (&self.unit, &self.uhs) {
+            (Some(unit), _) => Some(Holder::Unit(unit.clone())),
+            (None, Some(uhs)) => Some(Holder::Uhs(uhs.clone())),
+            (None, None) => None,
+        }
+    }
 }
 
 /// A value over time, in clock order.
@@ -48,13 +64,17 @@ fn at<T>(history: &History<T>, at: Hlc) -> Option<&T> {
     i.checked_sub(1).map(|i| &history[i].1)
 }
 
-/// One incident's staff lists and where its patients are, over time.
+/// One incident's staff lists, crews and who holds its patients, over time.
 #[derive(Default)]
 struct Incident {
     staff: BTreeMap<String, History<Vec<String>>>,
+    /// The crew of each unit (accounts and names), over time (UNIT-5).
+    crews: BTreeMap<String, History<Vec<String>>>,
     /// The UHS set up so far.
     created: BTreeSet<String>,
-    patients: BTreeMap<String, History<String>>,
+    patients: BTreeMap<String, History<Holder>>,
+    /// Each handover within ORDO: its patient and the holder it names, if any.
+    handovers: BTreeMap<String, (String, Option<Holder>)>,
     /// Whether a patient is discharged, over time.
     discharged: BTreeMap<String, History<bool>>,
     /// When each closed UHS was closed (UHS-17).
@@ -69,10 +89,17 @@ impl Incident {
         self.created.contains(uhs) || self.staff.contains_key(uhs)
     }
 
-    /// Whether `user` may write the patients of `uhs` at `when`: on its staff list then
-    /// (ADR-0086: an empty list names nobody, also not the UHS's creator).
-    fn may(&self, uhs: &str, user: &str, when: Hlc) -> bool {
-        !self.knows(uhs) || self.on_list(uhs, user, when)
+    /// Whether `user` may write the patients of `holder` at `when`: on the UHS's staff list
+    /// then (ADR-0086: an empty list names nobody, also not the UHS's creator), or on the
+    /// unit's crew (ADR-0087). A unit whose crew is not known yet cannot be judged.
+    fn may(&self, holder: &Holder, user: &str, when: Hlc) -> bool {
+        match holder {
+            Holder::Uhs(uhs) => !self.knows(uhs) || self.on_list(uhs, user, when),
+            Holder::Unit(unit) => self.crews.get(unit).is_none_or(|h| {
+                at(h, when)
+                    .is_some_and(|crew| crew.iter().any(|m| ordo_units::same_person(m, user)))
+            }),
+        }
     }
 
     /// Whether `user` is on the staff list of `uhs` at `when` (an empty list names nobody).
@@ -92,7 +119,7 @@ impl Incident {
     /// Whether a patient not discharged is in `uhs` at `when`.
     fn holds(&self, uhs: &str, when: Hlc) -> bool {
         self.patients.iter().any(|(tag, h)| {
-            at(h, when).is_some_and(|u| u == uhs)
+            at(h, when).is_some_and(|u| u.uhs() == Some(uhs))
                 && !self
                     .discharged
                     .get(tag)
@@ -102,20 +129,40 @@ impl Incident {
         })
     }
 
-    /// The UHS a clinical event is about, if known: the one registered at, the one a
-    /// patient leaves, or the patient's UHS at the event's time.
-    fn uhs_of(&self, e: &AppliedEvent) -> Option<String> {
+    /// The holder of the patient `tag` at `when`, if known.
+    fn holder_at(&self, tag: &str, when: Hlc) -> Option<&Holder> {
+        self.patients.get(tag).and_then(|h| at(h, when))
+    }
+
+    /// The holder a clinical event is about, if known: the one registered with, the one a
+    /// patient leaves, or the patient's holder at the event's time.
+    fn holder_of(&self, e: &AppliedEvent) -> Option<Holder> {
         let refers: Refers = codec::from_cbor(&e.payload).ok()?;
         if e.body.event_type.as_str() == REGISTERED {
-            return refers.uhs;
+            return refers.holder();
         }
         let tag = refers
             .tag
             .or_else(|| refers.order.and_then(|o| self.orders.get(&o).cloned()))?;
-        self.patients
-            .get(&tag)
-            .and_then(|h| at(h, e.body.hlc))
-            .cloned()
+        self.holder_at(&tag, e.body.hlc).cloned()
+    }
+
+    // [impl->dsn~patient-handover~1]
+    /// Whether `user` may take a handover with `taken` at `when`: they write the holder
+    /// that takes the patient, and a handover that names a holder is taken by it, or back
+    /// by the patient's holder.
+    fn may_take(&self, taken: &Taken, user: &str, when: Hlc) -> bool {
+        if !self.may(&taken.holder, user, when) {
+            return false;
+        }
+        match self.handovers.get(&taken.handover) {
+            Some((tag, Some(to))) if *tag == taken.tag => {
+                *to == taken.holder || self.holder_at(tag, when) == Some(&taken.holder)
+            }
+            // A quick handover: any holder its taker writes. One not known yet (made
+            // offline) cannot be judged.
+            _ => true,
+        }
     }
 }
 
@@ -134,6 +181,7 @@ impl UhsStaffGuard {
 
 impl WriteGuard for UhsStaffGuard {
     fn observes(&self, compartment: &CompartmentId) -> bool {
+        // The units' crews live in the incident compartment too.
         compartment.as_str() == COMPARTMENT || compartment.as_str() == UHS_COMPARTMENT
     }
 
@@ -166,9 +214,16 @@ impl WriteGuard for UhsStaffGuard {
             };
         }
         // Nobody brings a patient into a closed UHS.
-        if matches!(e.body.event_type.as_str(), REGISTERED | MOVED)
-            && let (Some(incident), Ok(Refers { uhs: Some(uhs), .. })) =
-                (self.incident(e), codec::from_cbor::<Refers>(&e.payload))
+        let into = match e.body.event_type.as_str() {
+            REGISTERED | MOVED => codec::from_cbor::<Refers>(&e.payload)
+                .ok()
+                .and_then(|r| r.uhs),
+            TAKEN => codec::from_cbor::<Taken>(&e.payload)
+                .ok()
+                .and_then(|t| t.holder.uhs().map(str::to_owned)),
+            _ => None,
+        };
+        if let (Some(incident), Some(uhs)) = (self.incident(e), into)
             && incident.closed_at(&uhs, e.body.hlc)
         {
             return false;
@@ -179,10 +234,15 @@ impl WriteGuard for UhsStaffGuard {
         let Some(incident) = self.incident(e) else {
             return true;
         };
+        let user = e.body.author.user.as_ref();
+        if e.body.event_type.as_str() == TAKEN {
+            return codec::from_cbor::<Taken>(&e.payload)
+                .is_ok_and(|t| incident.may_take(&t, user, e.body.hlc));
+        }
         // A patient not known yet (documented offline) cannot be judged.
         incident
-            .uhs_of(e)
-            .is_none_or(|uhs| incident.may(&uhs, e.body.author.user.as_ref(), e.body.hlc))
+            .holder_of(e)
+            .is_none_or(|holder| incident.may(&holder, user, e.body.hlc))
     }
 
     fn observe(&mut self, e: &AppliedEvent) {
@@ -208,13 +268,36 @@ impl WriteGuard for UhsStaffGuard {
                 }
             }
             REGISTERED | MOVED => {
-                if let Ok(Refers {
-                    tag: Some(tag),
-                    uhs: Some(uhs),
-                    ..
-                }) = codec::from_cbor(&e.payload)
+                if let Ok(refers) = codec::from_cbor::<Refers>(&e.payload)
+                    && let (Some(tag), Some(holder)) = (refers.tag.clone(), refers.holder())
                 {
-                    insert(incident.patients.entry(tag).or_default(), when, uhs);
+                    insert(incident.patients.entry(tag).or_default(), when, holder);
+                }
+            }
+            TAKEN => {
+                if let Ok(Taken { tag, holder, .. }) = codec::from_cbor(&e.payload) {
+                    insert(incident.patients.entry(tag).or_default(), when, holder);
+                }
+            }
+            // [impl->dsn~patient-handover~1]
+            // Handed over outside ORDO, the patient has left, as at a discharge.
+            HANDED_OVER => {
+                if let Ok(h) = codec::from_cbor::<HandedOver>(&e.payload) {
+                    if h.outside.is_some() {
+                        insert(incident.discharged.entry(h.tag).or_default(), when, true);
+                    } else {
+                        incident.handovers.insert(h.handover, (h.tag, h.to));
+                    }
+                }
+            }
+            ordo_units::CREW_SET if e.body.module.as_str() == ordo_units::MODULE => {
+                if let Ok(crew) = codec::from_cbor::<ordo_units::CrewSet>(&e.payload) {
+                    let people = crew
+                        .members
+                        .into_iter()
+                        .map(|m| m.account.unwrap_or(m.name))
+                        .collect();
+                    insert(incident.crews.entry(crew.unit).or_default(), when, people);
                 }
             }
             UHS_CLOSED => {
@@ -280,6 +363,7 @@ mod tests {
     fn registered(n: u64, by: &str, tag: &str, uhs: &str) -> AppliedEvent {
         let r = Registered {
             report: None,
+            unit: None,
             task: None,
             tag: tag.into(),
             category: TriageCategory::Minor,
@@ -637,6 +721,158 @@ mod tests {
         assert!(
             !g.allows(&ask(3, "anna", "sued"), &[]),
             "a UHS without a list"
+        );
+    }
+
+    fn crew(n: u64, unit: &str, people: &[&str]) -> AppliedEvent {
+        let c = ordo_units::CrewSet {
+            unit: unit.into(),
+            members: people
+                .iter()
+                .map(|p| ordo_units::CrewMember {
+                    name: (*p).into(),
+                    qualifications: Vec::new(),
+                    helper: None,
+                    account: Some(format!("{p}@ordo.example.org")),
+                })
+                .collect(),
+        };
+        event(
+            n,
+            "dora",
+            ordo_units::MODULE,
+            ordo_units::COMPARTMENT,
+            ordo_units::CREW_SET,
+            c.encode().unwrap(),
+        )
+    }
+
+    fn with_crew(n: u64, by: &str, tag: &str, unit: &str) -> AppliedEvent {
+        let r = Registered {
+            report: None,
+            unit: Some(unit.into()),
+            task: None,
+            tag: tag.into(),
+            category: TriageCategory::Minor,
+            uhs: String::new(),
+            algorithm: None,
+        };
+        event(
+            n,
+            by,
+            crate::MODULE,
+            COMPARTMENT,
+            REGISTERED,
+            r.encode().unwrap(),
+        )
+    }
+
+    fn handed(n: u64, by: &str, id: &str, to: Option<Holder>) -> AppliedEvent {
+        let h = HandedOver {
+            tag: "DE-1".into(),
+            handover: id.into(),
+            to,
+            outside: None,
+            transport: None,
+            note: None,
+        };
+        event(
+            n,
+            by,
+            crate::MODULE,
+            COMPARTMENT,
+            HANDED_OVER,
+            h.encode().unwrap(),
+        )
+    }
+
+    fn take(n: u64, by: &str, id: &str, holder: Holder) -> AppliedEvent {
+        let t = Taken {
+            tag: "DE-1".into(),
+            handover: id.into(),
+            holder,
+        };
+        event(
+            n,
+            by,
+            crate::MODULE,
+            COMPARTMENT,
+            TAKEN,
+            t.encode().unwrap(),
+        )
+    }
+
+    // [utest->dsn~patient-holder~1]
+    // [utest->dsn~patient-handover~1]
+    #[test]
+    fn a_crew_writes_its_patient_until_the_uhs_named_takes_it() {
+        let (unit, nord) = (Holder::Unit("SanTrp 1".into()), Holder::Uhs("nord".into()));
+        let start = [
+            created(1, "dora", "nord"),
+            staff(2, "dora", "nord", &["anna"]),
+            crew(3, "SanTrp 1", &["max"]),
+        ];
+        let g = guard(&start);
+        assert!(
+            g.allows(&with_crew(4, "max", "DE-1", "SanTrp 1"), &[]),
+            "its crew registers"
+        );
+        assert!(
+            !g.allows(&with_crew(4, "anna", "DE-1", "SanTrp 1"), &[]),
+            "nobody else"
+        );
+        let mut events = start.to_vec();
+        events.extend([
+            with_crew(4, "max", "DE-1", "SanTrp 1"),
+            handed(5, "max", "h1", Some(nord.clone())),
+        ]);
+        let g = guard(&events);
+        assert!(
+            g.allows(&retriaged(6, "max", "DE-1"), &[]),
+            "the crew writes until taken"
+        );
+        assert!(
+            !g.allows(&retriaged(6, "anna", "DE-1"), &[]),
+            "the UHS not yet"
+        );
+        assert!(
+            !g.allows(&take(6, "max", "h1", nord.clone()), &[]),
+            "the crew does not take it for the UHS"
+        );
+        assert!(
+            !g.allows(&take(6, "anna", "h1", Holder::Uhs("sued".into())), &[]),
+            "nor anyone for another holder"
+        );
+        assert!(
+            g.allows(&take(6, "anna", "h1", nord.clone()), &[]),
+            "the UHS's staff takes it"
+        );
+        assert!(
+            g.allows(&take(6, "max", "h1", unit.clone()), &[]),
+            "or the crew takes it back"
+        );
+        events.push(take(6, "anna", "h1", nord.clone()));
+        let g = guard(&events);
+        assert!(
+            g.allows(&retriaged(7, "anna", "DE-1"), &[]),
+            "now the UHS writes"
+        );
+        assert!(
+            !g.allows(&retriaged(7, "max", "DE-1"), &[]),
+            "and the crew reads only"
+        );
+
+        // A quick handover: whoever takes it, for a holder they write.
+        let mut events = start.to_vec();
+        events.extend([
+            with_crew(4, "max", "DE-1", "SanTrp 1"),
+            handed(5, "max", "h2", None),
+        ]);
+        let g = guard(&events);
+        assert!(g.allows(&take(6, "anna", "h2", nord.clone()), &[]));
+        assert!(
+            !g.allows(&take(6, "carl", "h2", nord), &[]),
+            "not someone off its staff list"
         );
     }
 }
