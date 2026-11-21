@@ -157,6 +157,7 @@ the build fails.
 | 68 — Patient handover | `m68` | A crew registers a patient with its unit; patients are handed over between UHS, crews and transports and taken by the receiver, also by QR code, or handed over outside ORDO (ADR-0087); the record's phone layout puts the quick actions within thumb reach |
 | 69 — Handover follow-ups | `m69` | A triage card number is registered only once and a duplicate from offline devices is shown; the receiver chooses the treatment place when taking a patient; the patient's way is a flow chart |
 | 70 — Patients apart from the UHS | `m70` | Crews register and document their patients in their own workspace and see only those they hold; every record has an address of its own (ADR-0093) |
+| 71 — Component gallery | `m71` | Every component in every theme at `/gallery`, with usage and accessibility notes, audited in every theme; the UI elements reviewed and unified (ADR-0094) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -165,5 +166,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67,m68,m69,m70 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67,m68,m69,m70,m71 docs platform modules packages tests
 ```

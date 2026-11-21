@@ -403,7 +403,7 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                         .map(|c| (channel_id(c), text::order_channel(c).to_owned()))
                         .collect() />
                     <div class="field">
-                        <label class="choice chip">
+                        <label class="choice">
                             <input id="order-read-back" type="checkbox" bind:checked=read_back />
                             {text::ORDER_READ_BACK}
                         </label>

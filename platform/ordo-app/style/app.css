@@ -32,6 +32,19 @@
   h2 { font-size: var(--ordo-font-size-5); }
   p { margin: 0 0 var(--ordo-space-4); }
 
+  /* Every disclosure's summary looks and works the same: a link-coloured line, a full
+     touch target (the gallery's "Disclosure"). */
+  summary {
+    display: block; cursor: pointer; color: var(--ordo-color-text-link);
+    min-height: var(--ordo-size-touch-target);
+    padding-block: max(0px, calc((var(--ordo-size-touch-target) - 1lh) / 2));
+  }
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  /* The arrow is drawn, not read (empty alternative text). */
+  summary::before { content: "▸"; content: "▸" / ""; margin-inline-end: var(--ordo-space-2); }
+  details[open] > summary::before { content: "▾"; content: "▾" / ""; }
+
   :focus-visible {
     outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color);
     outline-offset: var(--ordo-component-focus-ring-offset);
@@ -53,7 +66,7 @@
 }
 
 @layer components {
-  .page { padding: var(--ordo-space-5); display: grid; gap: var(--ordo-space-5); max-width: 80rem; margin: 0 auto; }
+  .page { padding: var(--ordo-space-5); display: grid; gap: var(--ordo-space-5); align-content: start; max-width: 80rem; margin: 0 auto; }
   .page--narrow { max-width: 40rem; }
   .page:focus { outline: none; }
 
@@ -89,6 +102,8 @@
   .row > input { flex: 1 1 16rem; }
 
   label, legend { font-weight: var(--ordo-font-weight-bold); }
+  /* A legend lines up with the labels next to it. */
+  legend { padding: 0; }
 
   /* Every text-like input looks the same: phone numbers, numbers, searches (the address
      search) and date-times too. */
@@ -149,7 +164,7 @@
   /* EPCR-12: the other answer of an open choice, on its own line below the chips. */
   .choices__other { flex-basis: 100%; }
   .choice { display: inline-flex; align-items: center; gap: var(--ordo-space-2); min-height: var(--ordo-size-touch-target); cursor: pointer; }
-  .choice input { width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--ordo-color-action-primary-background); }
+  .choice input { flex: none; width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--ordo-color-action-primary-background); }
 
   /* Triage badge: colour + label + shape (A11Y-3). */
   .triage {
@@ -277,7 +292,9 @@
   }
 
   .form--inline { display: flex; flex-wrap: wrap; align-items: end; gap: var(--ordo-space-3); margin-top: var(--ordo-space-4); }
-  .field { display: grid; gap: var(--ordo-space-2); flex: 1 1 14rem; min-width: 0; }
+  /* A field's parts sit at its top: in a row of fields, one without a hint does not stretch
+     its input to the row's height. */
+  .field { display: grid; gap: var(--ordo-space-2); align-content: start; flex: 1 1 14rem; min-width: 0; }
   .field--small { flex: 0 1 10rem; }
   .field input:not([type="checkbox"], [type="radio"]), .field select { width: 100%; }
 
@@ -416,6 +433,8 @@
   /* Icons (Lucide, ui::Icon): decorative, sized with the text, coloured like it. */
   .icon { display: inline-flex; flex: none; inline-size: var(--ordo-size-icon); block-size: var(--ordo-size-icon); }
   .icon svg { inline-size: 100%; block-size: 100%; }
+  /* An icon at the start of a notice keeps its distance from the words. */
+  :is(.notice, .error) > .icon:first-child { margin-inline-end: var(--ordo-space-2); vertical-align: text-bottom; }
   kbd {
     font-family: var(--ordo-font-family-mono); font-size: var(--ordo-font-size-1); font-weight: var(--ordo-font-weight-regular);
     padding: 0 var(--ordo-space-1); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
@@ -625,7 +644,9 @@
   }
   .patient-card:hover { border-color: var(--ordo-color-text-link); }
   .patient-card[aria-current="page"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-button-primary-background); }
-  .patient-card__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ordo-space-2); }
+  /* The number at the start, the badges together at the end. */
+  .patient-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
+  .patient-card__head > .triage { margin-inline-start: auto; }
   .patient-card__tag { font-size: var(--ordo-font-size-4); font-weight: var(--ordo-font-weight-bold); }
   .patient-card__name { font-weight: var(--ordo-font-weight-bold); }
   .patient-card__meta { color: var(--ordo-color-text-secondary); }
@@ -640,7 +661,10 @@
   .transport-list, .order-list, .hospital-list, .free-units { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; list-style: none; }
   .transport-card h3, .hospital-card h3 { margin: 0; font-size: var(--ordo-font-size-4); }
   .transport-card p, .order-card p, .hospital-card p { margin: 0; }
-  .hospital-card__form { margin-block-start: var(--ordo-space-3); }
+  /* An item card's head: its name, and its edit button at the end of the line. */
+  .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ordo-space-2); min-width: 0; }
+  .card-head > :is(h2, h3, h4) { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .card-head > .button { margin-inline-start: auto; }
   .order-form { display: grid; gap: var(--ordo-space-2); }
   .history-list ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
   .transport-assign { display: grid; gap: var(--ordo-space-2); grid-template-columns: minmax(0, 1fr); }
@@ -903,7 +927,8 @@
     .navigation:has(.navigation__extra:not(:empty)) :is(.views, .launcher) { display: none; }
     .quick-actions--bar { border-block-end: 0; margin-block-end: 0; padding-block-end: 0; }
   }
-  .record__index { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .record__index nav { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); padding-block-start: var(--ordo-space-2); }
+  .record__index summary { font-weight: var(--ordo-font-weight-bold); }
   .record__body { display: grid; gap: var(--ordo-space-5); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
   /* Read only (UHS-10): nothing to start editing with; the notice above says why. */
   .record__body:disabled :is(button, form, select, input, textarea, label.button, .photo-actions) { display: none; }
@@ -1068,8 +1093,8 @@
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-large); padding: var(--ordo-space-4) var(--ordo-space-5);
   }
-  .tile--map { grid-column: span 7; grid-row: span 2; padding: 0; overflow: hidden; }
-  .tile--map .tile__head { padding: var(--ordo-space-4) var(--ordo-space-5) 0; }
+  /* The map sits inside the tile's padding like any content, framed on its own. */
+  .tile--map { grid-column: span 7; grid-row: span 2; }
   .tile--dispatch, .tile--people { grid-column: span 5; }
   /* The treatment places across the width (UHS-16); the quick links below. */
   .tile--uhs, .tile--quick { grid-column: 1 / -1; }
@@ -1085,8 +1110,8 @@
   .tile__link { display: inline-flex; align-items: center; min-height: var(--ordo-size-touch-target); color: var(--ordo-color-text-link); font-weight: var(--ordo-font-weight-bold); }
   .tile__map { flex: 1 1 auto; display: grid; min-height: 18rem; }
   .tile__map .situation__frame, .tile__map .situation__map { height: 100%; min-height: 18rem; }
-  .tile__chips { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); padding: 0 var(--ordo-space-5) var(--ordo-space-4); }
-  .tile--map .offline-region { margin: 0; padding: 0 var(--ordo-space-5) var(--ordo-space-4); }
+  .tile__facts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
+  .tile--map .offline-region { margin: 0; }
   .tile--map .offline-region:empty { display: none; }
   .tile__figure { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ordo-space-2); }
   .tile__figure--stacked { flex-direction: column; align-items: flex-start; gap: 0; }
@@ -1395,7 +1420,7 @@
   .notices a { overflow-wrap: anywhere; color: var(--ordo-color-text-link); }
   .notices__parts { margin: 0; padding-inline-start: var(--ordo-space-5); display: grid; gap: var(--ordo-space-3); }
   .notices__crates { display: grid; gap: var(--ordo-space-2); }
-  .notices__crates summary { cursor: pointer; min-height: var(--ordo-size-touch-target); padding-block: var(--ordo-space-2); overflow-wrap: anywhere; }
+  .notices__crates summary { overflow-wrap: anywhere; }
   .notices__crates .notice__crate { color: var(--ordo-color-text-secondary); }
   .notices__crates pre {
     white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 var(--ordo-space-3);
@@ -1410,18 +1435,17 @@
   .load-list__details-panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .load-list__details-panel h4 { margin: 0; }
   .record__discharged { margin: 0; }
-  .corrected summary, .history-list summary, .discharged-list summary, .released-list summary, .object-card__names summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 
   .editor { padding: var(--ordo-space-4); background: var(--ordo-color-surface-sunken); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
-  .field-block { display: grid; gap: var(--ordo-space-2); }
-  .field-block input[type="text"], .field-block textarea { width: 100%; }
+  .field textarea { width: 100%; }
   /* On very narrow screens "Jetzt" moves below the field instead of sticking out. */
   .row--tight { flex-wrap: wrap; gap: var(--ordo-space-2); }
   .row--tight > input { flex: 1 1 auto; min-width: 0; }
   .field-error { margin: 0; color: var(--ordo-color-feedback-error-text); font-weight: var(--ordo-font-weight-bold); }
   .field-error:empty { display: none; }
-  .field-block--invalid input, .field-block--invalid textarea { border-color: var(--ordo-color-feedback-error-text); border-style: dashed; }
-  .field-block--invalid legend::after, .field-block--invalid label::after { content: " ⚠"; }
+  /* An invalid field says so by more than colour: a dashed border, a sign and the message. */
+  .field--invalid :is(input, textarea, select) { border-color: var(--ordo-color-feedback-error-text); border-style: dashed; }
+  .field--invalid :is(legend, label)::after { content: " ⚠"; }
 
   /* A date and time needs no more than this, and keeps to its column on phones. iOS gives
      these fields an intrinsic width wider than a narrow screen unless their native look
@@ -1450,7 +1474,6 @@
   .pairing-qr__code { width: min(256px, 100%); height: auto; border-radius: var(--ordo-radius-small); }
   .pairing-qr__user-code { font-size: var(--ordo-font-size-5); font-weight: var(--ordo-font-weight-bold); margin: 0; }
   .pairing-qr a { overflow-wrap: anywhere; }
-  .manual-pairing summary { cursor: pointer; min-height: var(--ordo-size-touch-target); display: flex; align-items: center; color: var(--ordo-color-text-link); }
 }
 
 /* Command palette (ADR-0030): a modal dialog near the top, like a spotlight search. */
@@ -1538,5 +1561,58 @@
   }
   @media (forced-colors: active) {
     .palette__option[aria-selected="true"] { outline: 3px solid Highlight; }
+  }
+}
+
+/* Component gallery (ADR-0094): each entry a card with its notes and its example. */
+@layer components {
+  .gallery { max-width: 64rem; }
+  .gallery__part { display: grid; gap: var(--ordo-space-4); }
+  .gallery__part > h2 { margin: var(--ordo-space-5) 0 0; }
+  .gallery__contents-title { font-size: var(--ordo-font-size-4); margin: 0 0 var(--ordo-space-2); }
+  .gallery__contents { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2) var(--ordo-space-4); list-style: none; margin: 0; padding: 0; }
+  .gallery__contents a { display: inline-flex; align-items: center; min-height: var(--ordo-size-touch-target); color: var(--ordo-color-text-link); }
+  .gallery__theme { max-width: 20rem; }
+  .gallery__entry { display: grid; gap: var(--ordo-space-3); min-width: 0; }
+  .gallery__entry h3 { margin: 0; font-size: var(--ordo-font-size-4); }
+  .gallery__code { margin: 0; overflow-wrap: anywhere; }
+  .gallery__notes { margin: 0; display: grid; gap: var(--ordo-space-2); }
+  .gallery__notes div { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: var(--ordo-space-3); }
+  .gallery__notes dt { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-text-secondary); }
+  .gallery__notes dd { margin: 0; overflow-wrap: anywhere; }
+  @container card (max-width: 32rem) {
+    .gallery__notes div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  }
+  .gallery__example {
+    display: grid; gap: var(--ordo-space-4); min-width: 0; padding: var(--ordo-space-4);
+    background: var(--ordo-color-surface-default);
+    border: var(--ordo-size-border-thin) dashed var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+  }
+  .gallery__example > * { margin: 0; }
+  .gallery__swatches, .gallery__icons, .gallery__scale, .gallery__radii { list-style: none; margin: 0; padding: 0; }
+  .gallery__swatches { display: grid; gap: var(--ordo-space-2); grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
+  .gallery__swatch { display: flex; align-items: center; gap: var(--ordo-space-2); min-width: 0; }
+  .gallery__swatch code { overflow-wrap: anywhere; font-size: var(--ordo-font-size-1); }
+  .gallery__colour {
+    flex: none; inline-size: 2.5rem; block-size: 2.5rem;
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-small);
+  }
+  .gallery__scale { display: grid; gap: var(--ordo-space-2); }
+  .gallery__scale li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-1) var(--ordo-space-3); min-width: 0; }
+  .gallery__scale code { flex: 0 1 10rem; }
+  .gallery__scale li > span { min-width: 0; overflow-wrap: anywhere; }
+  .gallery__space { flex: none; display: block; block-size: var(--ordo-space-4); background: var(--ordo-color-action-primary-background); }
+  .gallery__radii { display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
+  .gallery__radius { padding: var(--ordo-space-3); border: var(--ordo-size-border-thick) solid var(--ordo-color-border-strong); }
+  .gallery__icons { display: grid; gap: var(--ordo-space-2) var(--ordo-space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); }
+  .gallery__icons li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--ordo-space-2); align-items: center; }
+  .gallery__icons .hint { grid-column: 2; }
+  .gallery__panel { padding-block: var(--ordo-space-2); }
+  /* Phones: less frame, more room for the examples. */
+  @media (max-width: 40rem) {
+    .gallery { padding: var(--ordo-space-3); }
+    .gallery__entry { padding: var(--ordo-space-3); }
+    .gallery__example { padding: var(--ordo-space-2); }
   }
 }

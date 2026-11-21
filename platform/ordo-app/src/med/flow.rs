@@ -254,6 +254,16 @@ pub(crate) fn PatientFlow(
         revision.track();
         register.with(|r| patient_stations(core, &tag, r))
     });
+    view! { <FlowChart list next /> }
+}
+
+// [impl->dsn~patient-flow~1]
+/// The chart drawn from its stations; also shown in the component gallery.
+#[component]
+pub(crate) fn FlowChart(
+    #[prop(into)] list: Signal<Vec<Station>>,
+    #[prop(into)] next: Signal<bool>,
+) -> impl IntoView {
     view! {
         <ol class="flow">
             {move || list.get().into_iter().map(|s| {

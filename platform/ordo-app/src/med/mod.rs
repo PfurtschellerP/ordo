@@ -4,6 +4,7 @@
 pub(crate) mod commands;
 pub(crate) mod document;
 pub(crate) mod flow;
+pub(crate) mod gallery;
 pub(crate) mod handover;
 pub(crate) mod log;
 pub(crate) mod orders;
@@ -59,6 +60,7 @@ pub(crate) const PACKAGE: Package = Package {
     },
     palette: commands::PALETTE,
     log: log::PART,
+    gallery: gallery::PARTS,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {

@@ -18,7 +18,7 @@ use ordo_med_patients::{self as med, PatientRegister};
 use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
-use crate::shell::ui::{Action, Actions, CheckChips, Disclosure, History, RadioChips};
+use crate::shell::ui::{Action, Actions, CheckChips, History, RadioChips};
 use crate::text;
 
 /// What can be requested, from the profile (checked at build time, see `build.rs`).
@@ -418,6 +418,20 @@ fn HospitalBoard(
     board: Memo<TransportBoard>,
 ) -> impl IntoView {
     let sent = Memo::new(move |_| board.with(TransportBoard::sent_to_hospitals));
+    // [impl->dsn~edit-dialog~2]
+    // One dialog for the list; the hospital it shows changes only when its entry does.
+    let editing = RwSignal::new(None::<String>);
+    let back = RwSignal::new(String::new());
+    let edited = Memo::new(move |_| {
+        let id = editing.get()?;
+        hospitals.with(|h| {
+            h.by_name()
+                .into_iter()
+                .find(|x| x.entry.hospital == id)
+                .map(|x| x.entry.clone())
+        })
+    });
+    let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="hospitals-title" class="card">
             <h2 id="hospitals-title">{text::HOSPITALS_TITLE}</h2>
@@ -433,13 +447,22 @@ fn HospitalBoard(
                             .into_iter()
                             .map(|hospital| {
                                 let n = sent.get(&hospital.entry.hospital).copied().unwrap_or(0);
-                                view! { <HospitalCard core revision hospital sent=n /> }
+                                view! { <HospitalCard core revision hospital sent=n editing back /> }
                             })
                             .collect_view()}
                     </ul>
                 }
                 .into_any()
             }}
+            <crate::shell::ui::EditDialog id="hospital-edit" open=Signal::derive(move || edited.with(Option::is_some))
+                on_close=close back
+                title=Signal::derive(move || edited.with(|e| e.as_ref().map(|e| text::hospital_edit_title(&e.name)).unwrap_or_default()))>
+                {move || edited.get().map(|entry| view! {
+                    <div class="edit-dialog__part">
+                        <HospitalForm core revision entry done=close />
+                    </div>
+                })}
+            </crate::shell::ui::EditDialog>
             <h3>{text::HOSPITAL_ADD}</h3>
             <HospitalForm core revision />
         </section>
@@ -469,13 +492,16 @@ fn capacity_line(core: Handle, hospital: &Hospital) -> String {
 }
 
 /// One hospital: what it offers, its capacity and the patients sent; entering capacity,
-/// and changing the entry behind a disclosure.
+/// and its button to the list's edit dialog.
 #[component]
 fn HospitalCard(
     core: Handle,
     revision: RwSignal<u64>,
     hospital: Hospital,
     sent: usize,
+    /// The list's dialog: which hospital it edits, and the button to return to.
+    editing: RwSignal<Option<String>>,
+    back: RwSignal<String>,
 ) -> impl IntoView {
     let entry = hospital.entry.clone();
     let offers: Vec<String> = entry
@@ -489,13 +515,21 @@ fn HospitalCard(
                 .map(|c| label(&HOSPITALS.capabilities, c)),
         )
         .collect();
-    let editing = RwSignal::new(false);
-    let done = Callback::new(move |()| editing.set(false));
     let name = entry.name.clone();
     let (id, title) = (entry.hospital.clone(), entry.name.clone());
+    let button = format!("hospital-edit-{}-button", core::slug(&id));
+    let chosen = id.clone();
     view! {
-        <li class="hospital-card" data-hospital=id.clone()>
-            <h3>{title}</h3>
+        <li class="hospital-card" data-hospital=id>
+            <div class="card-head">
+                <h3>{title}</h3>
+                <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::HOSPITAL_EDIT
+                    label=text::hospital_edit_label(&name)
+                    on_click=Callback::new(move |()| {
+                        back.set(button.clone());
+                        editing.set(Some(chosen.clone()));
+                    }) />
+            </div>
             {(!offers.is_empty()).then(|| view! { <p>{offers.join(" · ")}</p> })}
             <p class="hospital-card__capacity">{crate::shell::profile::naming({
                 let hospital = hospital.clone();
@@ -503,17 +537,6 @@ fn HospitalCard(
             })}</p>
             <p class="hospital-card__sent"><strong>{text::sent(sent)}</strong></p>
             <CapacityForm core revision hospital=hospital.clone() />
-            <Disclosure
-                id=format!("hospital-{id}")
-                open=editing
-                class="hospital-card__edit"
-                button_class="button button--small icon-button"
-                panel_class="hospital-card__form"
-                label=Some(Signal::derive(move || text::hospital_edit_label(&name)))
-                button=Box::new(|| view! { <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::HOSPITAL_EDIT}</span> }.into_any())
-            >
-                <HospitalForm core revision entry done />
-            </Disclosure>
         </li>
     }
 }

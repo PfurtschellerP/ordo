@@ -393,10 +393,16 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        unit; patients are handed over between UHS, crews and transports and taken by the
        receiver, also by QR code, or handed over outside ORDO (EPCR-16 to EPCR-19,
        [ADR-0087](adr/0087-patients-travel-between-units.md)); one edit dialog per list;
-       the record's phone layout. Next: the handover document for outside ORDO, PDF/A-3
-       with an HL7 FHIR bundle from a Typst template in the profile
-       ([ADR-0089](adr/0089-handover-document-from-typst-templates.md), proposed); then
-       the component gallery, reviewing and unifying every UI element (8.6.5).
+       the record's phone layout. Then, also 2026-11-21: the handover document for outside
+       ORDO, PDF/A-3 with an HL7 FHIR bundle from a Typst template in the profile, made on
+       the server ([ADR-0089](adr/0089-handover-document-from-typst-templates.md)).
+    8. *Component gallery* (m71). Done 2026-11-21: `/gallery` shows every building block
+       in every theme with usage and accessibility notes, and is audited in every theme
+       ([ADR-0094](adr/0094-component-gallery-in-the-app.md)); the review unified
+       buttons in item cards, fields, single check boxes, tags against hints and
+       disclosures; the record's section index is folded and its values are compact in
+       narrow columns; the overview's map tile has room around its map. Next: more of
+       each package's building blocks in the gallery (unit, task and map object cards).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

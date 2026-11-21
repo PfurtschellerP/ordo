@@ -800,9 +800,10 @@ pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         <div class="tile__map">
             <MapFrame node state />
         </div>
-        <div class="tile__chips">
-            <span id="overview-objects" class="tag">{move || text::summary_map(s.map.with(|m| m.objects.len()))}</span>
-            <span class="tag" data-from=move || match state.get() {
+        // Sentences, not tags: a tag holds a word or two (architecture 8.6.5).
+        <ul class="tile__facts">
+            <li id="overview-objects">{move || text::summary_map(s.map.with(|m| m.objects.len()))}</li>
+            <li class="hint" data-from=move || match state.get() {
                 MapState::Ready(from) if from == text::MAP_FROM_DEVICE => "device",
                 MapState::Ready(_) => "server",
                 MapState::Loading => "loading",
@@ -811,8 +812,8 @@ pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 MapState::Ready(from) => from,
                 MapState::Loading => text::MAP_LOADING,
                 MapState::Unavailable => text::MAP_UNAVAILABLE,
-            }}</span>
-        </div>
+            }}</li>
+        </ul>
         <OfflineRegion core state handle />
     }
 }

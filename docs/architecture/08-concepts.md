@@ -1567,9 +1567,63 @@ flowchart LR
 
 ### 8.6.5 Design-system documentation
 
-A component gallery (built with ORDO itself, served by `ordo serve --gallery`) shows
-every component in every theme, with usage and accessibility notes. It is also the page
-the automated accessibility tests run against.
+A component gallery, built with ORDO itself at `/gallery`
+([ADR-0094](../adr/0094-component-gallery-in-the-app.md)), shows every component in every
+theme, with usage and accessibility notes. It is also the page the automated
+accessibility tests run against. Its parts:
+
+| Part | Shows |
+|---|---|
+| Foundations | Colour roles, type sizes, spacing, radii and the icons with their meaning |
+| Actions | Buttons (primary, default, danger, small, with icon, icon only, off), links |
+| Fields | Text, select, text area, check box, chips, choice cards, hints and errors |
+| Status | Triage badges, tags, the connection state, notices, the undo bar |
+| Containers | Cards, tiles, record tiles, disclosures, tabs, the edit dialog |
+| Lists | History, log entries, facts, tables, times ("vor 3 Min.") |
+| Packages | Each package's own building blocks (patient card, treatment places, counts) |
+
+The review that built the gallery (2026-11-21) set these rules; new components follow
+them:
+
+- **Buttons:** one component, `.button` with `--primary` (one per form or card),
+  `--danger`, `--small`, `--with-icon`; `--quiet` puts an ending action (cancel, edit) at
+  the end of its row. A button that is off is greyed out and dashed. Only the header and
+  the navigation bars have buttons of their own.
+- **Item cards:** the name and the edit button share the card's head (`.card-head`), the
+  button at the end of the line; editing opens the list's edit dialog, never a form
+  unfolding in the card ([Edit dialog](#edit-dialog)).
+- **Fields:** `.field` with label, hint and error; `.field--invalid` marks an invalid one.
+  A legend lines up with the labels beside it.
+- **Choices:** chips for groups of short answers; a single check box with a sentence is a
+  plain `.choice`, not a chip.
+- **Tags and hints:** a tag holds a word or two (*Geplant*, *2 fällig*); a sentence is a
+  hint (`.hint`), never boxed.
+- **Disclosures:** every `summary` looks the same (link colour, full touch target, a drawn
+  arrow that is not read).
+- **Pages:** a page's parts sit at its top; short pages and tabs do not stretch to fill
+  the screen.
+- **Spacing:** from the token scale only: `space-2` inside a group, `space-3` between
+  fields, `space-4` between groups, `space-5` inside and between cards.
+
+#### Component gallery
+`dsn~component-gallery~1`
+
+The app shows the gallery at `/gallery`, before pairing and without a server, like the
+licence notices. It renders the real components of `shell::ui` and, through the package
+registry (`Package::gallery`), each package's own building blocks, with sample data
+only. Each entry names the component, says when to use it and what it does for
+accessibility, and shows its states (e.g. off, invalid, empty, full). A theme switch on
+the page applies the day, night and high-contrast themes to the whole page, as the app's
+setting does, without storing it. The rendered-page audit opens the gallery in every
+theme and at 320 CSS px.
+
+Covers:
+
+* [req~ds-1~1](../requirements/07-quality.md#ds-1--one-design-system)
+
+Needs: impl, utest, itest
+
+Tags: must, m71
 
 ### 8.6.6 Design items
 

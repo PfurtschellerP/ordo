@@ -39,6 +39,8 @@ pub struct Package {
     pub palette: crate::shell::palette::PalettePart,
     /// Its events in the incident log.
     pub log: crate::shared::log::LogPart,
+    /// Its building blocks in the component gallery (ADR-0094).
+    pub gallery: &'static [crate::shell::gallery::Part],
 }
 
 /// The packages the app is built with: the one place that names them. Their order is the

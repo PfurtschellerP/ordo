@@ -1048,6 +1048,9 @@ pub fn sent(n: usize) -> String {
 pub fn hospital_edit_label(name: &str) -> String {
     format!("Bearbeiten: {name}")
 }
+pub fn hospital_edit_title(name: &str) -> String {
+    format!("{name} bearbeiten")
+}
 
 pub fn capacity_save_label(name: &str) -> String {
     format!("{CAPACITY_SAVE}: {name}")

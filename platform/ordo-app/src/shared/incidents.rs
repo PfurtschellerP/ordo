@@ -302,7 +302,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </div>
                 // [impl->dsn~detailed-strength~1]
                 <div class="field">
-                    <label class="choice chip">
+                    <label class="choice">
                         <input id="incident-strength-detailed" type="checkbox" disabled=move || !manage.get()
                             bind:checked=strength_detailed />
                         {text::STRENGTH_DETAILED}

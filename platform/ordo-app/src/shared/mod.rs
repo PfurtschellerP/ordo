@@ -4,6 +4,7 @@
 pub(crate) mod command;
 pub(crate) mod commands;
 pub(crate) mod crew;
+pub(crate) mod gallery;
 pub(crate) mod helpers;
 pub(crate) mod incidents;
 pub(crate) mod log;
@@ -174,6 +175,7 @@ pub(crate) const PACKAGE: Package = Package {
     bell: tasks::bell,
     palette: commands::PALETTE,
     log: log::PART,
+    gallery: gallery::PARTS,
 };
 
 fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {

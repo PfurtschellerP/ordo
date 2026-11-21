@@ -150,7 +150,7 @@ fn overview(core: Handle) -> Overview {
 
 /// A tile's head: icon, heading and the link to its page.
 #[component]
-fn TileHead(
+pub(crate) fn TileHead(
     id: &'static str,
     icon: &'static str,
     title: &'static str,

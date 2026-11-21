@@ -573,8 +573,8 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                 let button = format!("uhs-details-{}-button", core::slug(&id));
                                 view! {
                                     <li class="unit-card uhs-card" data-uhs=id.clone()>
+                                        <div class="card-head">
                                         <h3 class="uhs-card__name">{name.clone()}</h3>
-                                        <p class="uhs-card__staff">{staff}</p>
                                         {editable.then({
                                             let id = id.clone();
                                             move || view! {
@@ -586,6 +586,8 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                                     editing.set(Some(id.clone()));
                                                 }) />
                                         }})}
+                                        </div>
+                                        <p class="uhs-card__staff">{staff}</p>
                                     </li>
                                 }
                             })

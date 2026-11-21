@@ -99,11 +99,12 @@ fn Screens(
     let pathname = location.pathname;
     // A memo, so moving between views does not build the device's screen anew.
     let on_notices = Memo::new(move |_| pathname.get() == crate::admin::notices::PATH);
+    let on_gallery = Memo::new(move |_| pathname.get() == crate::shell::gallery::PATH);
     // The screen before the notices, to return to.
     let previous = StoredValue::new("/".to_owned());
     Effect::new(move || {
         let path = pathname.get();
-        if path != crate::admin::notices::PATH {
+        if path != crate::admin::notices::PATH && path != crate::shell::gallery::PATH {
             previous.set_value(format!("{path}{}", location.search.get()));
         }
     });
@@ -111,6 +112,10 @@ fn Screens(
         {move || {
             if on_notices.get() {
                 return view! { <crate::admin::notices::NoticesPage back=previous.get_value() /> }.into_any();
+            }
+            // [impl->dsn~component-gallery~1]
+            if on_gallery.get() {
+                return view! { <crate::shell::gallery::GalleryPage back=previous.get_value() /> }.into_any();
             }
             match (pairing.get(), guest_code.clone()) {
                 (None, Some(code)) => view! { <GuestPairing pairing code /> }.into_any(),
@@ -463,6 +468,25 @@ pub(crate) fn apply_theme(theme: &str) {
     apply_setting("data-theme", THEME_KEY, theme);
 }
 
+/// Shows a colour theme without remembering it (the component gallery's switch).
+pub(crate) fn show_theme(theme: &str) {
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    {
+        let _ = if theme.is_empty() {
+            root.remove_attribute("data-theme")
+        } else {
+            root.set_attribute("data-theme", theme)
+        };
+    }
+}
+
+/// The colour theme this device remembers (`""` = follow the system).
+pub(crate) fn stored_theme() -> String {
+    core::preference(THEME_KEY).unwrap_or_default()
+}
+
 // [impl->dsn~header-layout~2]
 /// Applies the handedness (`""` = right, `"left"`) and remembers it on this device: the
 /// bottom bar puts the menu at the end the thumb reaches.
@@ -550,6 +574,13 @@ impl Nav {
         let navigate = use_navigate();
         Self {
             navigate: StoredValue::new_local(Box::new(navigate)),
+        }
+    }
+
+    /// Navigation that goes nowhere: for the component gallery's sample links.
+    pub fn inert() -> Self {
+        Self {
+            navigate: StoredValue::new_local(Box::new(|_: &str, _: NavigateOptions| {})),
         }
     }
 

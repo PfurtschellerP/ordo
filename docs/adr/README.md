@@ -98,5 +98,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0091](0091-vim-keys-move-across-the-whole-page.md) | Vim keys move across the whole page | accepted | 2026-11-21 |
 | [0092](0092-a-card-registered-twice-is-renumbered-by-the-later-registration.md) | A card registered twice is renumbered by the later registration | accepted | 2026-11-21 |
 | [0093](0093-patients-apart-from-the-uhs.md) | Patients apart from the UHS: the record opens where the person works | accepted | 2026-11-21 |
+| [0094](0094-component-gallery-in-the-app.md) | The component gallery is a page of the app | accepted | 2026-11-21 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

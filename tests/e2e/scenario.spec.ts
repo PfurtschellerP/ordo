@@ -130,6 +130,35 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(dora, "Licence notices");
     await dora.getByRole("link", { name: "Zurück" }).click();
     await expect(dora.getByRole("button", { name: "Anmelden" }), "back where the person came from").toBeVisible();
+    // [itest->dsn~component-gallery~1]
+    // DS-1, ADR-0094: the component gallery, before pairing, with the real components.
+    await dora.goto(`${server.url}gallery`);
+    await expect(dora.getByRole("heading", { level: 1 })).toHaveText("Component gallery");
+    for (const part of ["Foundations", "Actions", "Fields", "Status and messages", "Containers", "Lists and values", "Sanität", "Einsatz"]) {
+      await expect(dora.getByRole("heading", { level: 2, name: part, exact: true }), `the part ${part}`).toBeVisible();
+    }
+    await expect(dora.locator("#gallery-icons li"), "every icon with its meaning").not.toHaveCount(0);
+    await expect(dora.locator("#gallery-patient-cards .patient-card"), "the package's own building blocks").toHaveCount(5);
+    await dora.getByRole("button", { name: "Ort und Personal: UHS Eingang" }).click();
+    await expect(dora.getByRole("dialog", { name: "UHS Eingang bearbeiten" })).toBeVisible();
+    await dora.keyboard.press("Escape");
+    await expect(dora.getByRole("dialog")).toHaveCount(0);
+    await expect(dora.getByRole("button", { name: "Ort und Personal: UHS Eingang" }), "the focus returns").toBeFocused();
+    await dora.getByRole("button", { name: "Entfernen: Sammelstelle" }).click();
+    await expect(dora.locator(".undo-bar"), "a removal offers to undo").toContainText("Sammelstelle entfernt.");
+    await dora.getByRole("button", { name: "Rückgängig" }).click();
+    await expect(dora.locator(".undo-bar"), "undone, the bar goes").not.toContainText("Sammelstelle");
+    await dora.locator("#gallery-theme").selectOption("night");
+    await expect(dora.locator("html"), "the switch shows the theme").toHaveAttribute("data-theme", "night");
+    await shot(dora, "gallery-night");
+    await dora.locator("#gallery-theme").selectOption("high-contrast");
+    await shot(dora, "gallery-high-contrast");
+    await dora.locator("#gallery-theme").selectOption("day");
+    await shot(dora, "gallery");
+    await audit(dora, "Component gallery");
+    await dora.getByRole("link", { name: "Zurück" }).click();
+    await expect(dora.getByRole("button", { name: "Anmelden" })).toBeVisible();
+    await expect(dora.locator("html"), "the device's own theme again: the gallery stores none").not.toHaveAttribute("data-theme", /.+/);
     // [itest->dsn~oidc-login~1]
     await expect(dora.locator("#device-name"), "a device name is suggested from the browser").toHaveValue(/^\w+ auf \w+$/);
     await loginPair(dora, server, "dora@example.org", "Laptop Einsatzplanung");
@@ -1840,9 +1869,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
+    // [itest->dsn~edit-dialog~2]
+    // The entry is changed in the list's edit dialog, as every item of a card list.
     await hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }).click();
-    await hospital.getByLabel("Stroke Unit").check();
-    await hospital.getByRole("button", { name: "Klinik speichern" }).click();
+    const hospitalDialog = ben.getByRole("dialog", { name: "Klinikum Mitte bearbeiten" });
+    await hospitalDialog.getByLabel("Stroke Unit").check();
+    await hospitalDialog.getByRole("button", { name: "Klinik speichern" }).click();
+    await expect(ben.getByRole("dialog"), "saving closes the dialog").toHaveCount(0);
+    await expect(hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }), "the focus returns").toBeFocused();
     await expect(hospital, "the entry is changed").toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
     await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 0");
 

@@ -343,7 +343,7 @@ fn ProviderForm(
                 </div>
             </div>
             <div class="field">
-                <label class="choice chip">
+                <label class="choice">
                     <input id="provider-skip-email" type="checkbox" bind:checked=skip />
                     {text::PROVIDER_SKIP_EMAIL}
                 </label>
@@ -392,7 +392,7 @@ fn TestPanel(core: Handle, test: LoginTest, pending: Pending) -> impl IntoView {
             view! {
                 <p class="notice" id="provider-test-result">{text::provider_test_passed(&user, person.as_deref(), email.as_deref())}</p>
                 <div class="field">
-                    <label class="choice chip">
+                    <label class="choice">
                         <input id="provider-confirm" type="checkbox" bind:checked=confirmed />
                         {text::provider_confirm(&name)}
                     </label>

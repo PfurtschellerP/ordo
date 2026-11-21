@@ -7,63 +7,69 @@ use leptos::prelude::*;
 
 use crate::shell::views::focus;
 
-/// The SVG of a Lucide icon (`design/assets/icons/lucide`, ISC), by name.
-fn svg(name: &str) -> &'static str {
-    macro_rules! icons {
-        ($($name:literal),* $(,)?) => {
+/// The icons the app ships (Lucide, `design/assets/icons/lucide`, ISC), and the SVG of each
+/// by name.
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        /// Every icon's name, for the component gallery.
+        pub const ICONS: &[&str] = &[$($name),*];
+
+        /// The SVG of an icon, by name.
+        fn svg(name: &str) -> &'static str {
             match name {
                 $($name => include_str!(concat!("../../../../design/assets/icons/lucide/", $name, ".svg")),)*
                 _ => "",
             }
-        };
-    }
-    icons!(
-        "ambulance",
-        "app-window",
-        "arrow-right-left",
-        "bell",
-        "camera",
-        "chart-column",
-        "clipboard-list",
-        "cloud-check",
-        "cloud-off",
-        "cloud-upload",
-        "crosshair",
-        "ellipsis",
-        "file-down",
-        "flag",
-        "id-card",
-        "info",
-        "keyboard",
-        "key-round",
-        "layout-grid",
-        "log-in",
-        "log-out",
-        "map",
-        "map-pin",
-        "mouse-pointer-2",
-        "network",
-        "notebook-text",
-        "pencil",
-        "pentagon",
-        "plus",
-        "qr-code",
-        "refresh-cw",
-        "scan-line",
-        "search",
-        "spline",
-        "tablet-smartphone",
-        "tent",
-        "trash-2",
-        "triangle-alert",
-        "truck",
-        "undo-2",
-        "upload",
-        "users",
-        "x",
-        "zap",
-    )
+        }
+    };
 }
+
+icons!(
+    "ambulance",
+    "app-window",
+    "arrow-right-left",
+    "bell",
+    "camera",
+    "chart-column",
+    "clipboard-list",
+    "cloud-check",
+    "cloud-off",
+    "cloud-upload",
+    "crosshair",
+    "ellipsis",
+    "file-down",
+    "flag",
+    "id-card",
+    "info",
+    "keyboard",
+    "key-round",
+    "layout-grid",
+    "log-in",
+    "log-out",
+    "map",
+    "map-pin",
+    "mouse-pointer-2",
+    "network",
+    "notebook-text",
+    "pencil",
+    "pentagon",
+    "plus",
+    "qr-code",
+    "refresh-cw",
+    "scan-line",
+    "search",
+    "spline",
+    "tablet-smartphone",
+    "tent",
+    "trash-2",
+    "triangle-alert",
+    "truck",
+    "undo-2",
+    "upload",
+    "users",
+    "x",
+    "zap",
+);
 
 // [impl->dsn~compact-navigation~2]
 /// A decorative icon: the text next to it carries the meaning (never an icon alone).

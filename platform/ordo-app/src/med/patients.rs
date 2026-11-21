@@ -755,6 +755,58 @@ struct Card {
     twice: bool,
 }
 
+/// Sample cards for the component gallery: one of each kind, the second open.
+pub(crate) fn gallery_cards() -> AnyView {
+    let card = |tag: &str, category, name: Option<&str>| Card {
+        tag: tag.to_owned(),
+        category,
+        uhs: "UHS Bühne Nord".to_owned(),
+        triages: 1,
+        name: name.map(str::to_owned),
+        pending: false,
+        priority: None,
+        place: None,
+        place_id: None,
+        discharged: None,
+        handover: None,
+        twice: false,
+    };
+    let cards = vec![
+        card("DE-0042", TriageCategory::Immediate, None),
+        Card {
+            priority: Some("Transportpriorität".to_owned()),
+            place: Some("Platz 2".to_owned()),
+            triages: 2,
+            ..card("DE-0044", TriageCategory::Urgent, Some("Mustermann, Max"))
+        },
+        Card {
+            handover: Some("Übergabe an UHS Eingang offen".to_owned()),
+            pending: true,
+            ..card("DE-0045", TriageCategory::Minor, None)
+        },
+        Card {
+            twice: true,
+            ..card("DE-0046", TriageCategory::Minor, None)
+        },
+        Card {
+            discharged: Some(Outcome::Transported),
+            ..card(
+                "DE-0047",
+                TriageCategory::Expectant,
+                Some("Musterfrau, Erika"),
+            )
+        },
+    ];
+    let nav = Nav::inert();
+    let selected = Signal::stored(Some("DE-0044".to_owned()));
+    view! {
+        <ul class="patient-list" data-keys="list">
+            {cards.into_iter().map(|card| view! { <PatientCard card nav selected /> }).collect_view()}
+        </ul>
+    }
+    .into_any()
+}
+
 /// One patient in the list: a link to the record.
 #[component]
 fn PatientCard(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl IntoView {
@@ -1215,16 +1267,21 @@ fn PatientRecord(
                 <crate::med::record::Timeline core revision tag=t_timeline register records filter />
             </TabPanel>
             <TabPanel id="record" key=DOCUMENTATION chosen>
-                <nav class="record__index" aria-label=text::SECTIONS>
-                    {sections
-                        .into_iter()
-                        .map(|(id, label)| {
-                            view! {
-                                <button type="button" class="chip" on:click=move |_| focus(&id)>{label}</button>
-                            }
-                        })
-                        .collect_view()}
-                </nav>
+                // The way to each section, folded: the quick actions and the overview's tiles
+                // lead to the sections too, so this is not seen first (calmer record).
+                <details class="record__index">
+                    <summary>{text::SECTIONS}</summary>
+                    <nav aria-label=text::SECTIONS>
+                        {sections
+                            .into_iter()
+                            .map(|(id, label)| {
+                                view! {
+                                    <button type="button" class="chip" on:click=move |_| focus(&id)>{label}</button>
+                                }
+                            })
+                            .collect_view()}
+                    </nav>
+                </details>
                 // [impl->dsn~uhs-staff~3]
                 // Where the person may not write (UHS-10), nothing offers it: the disabled
                 // fieldset turns off every control, and the style hides them.
@@ -2589,7 +2646,7 @@ fn FieldInput(
         }
     };
     view! {
-        <div class="field-block" class:field-block--invalid=move || error.get().is_some()>
+        <div class="field" class:field--invalid=move || error.get().is_some()>
             {input}
             {hint.map(|h| view! { <p id=hint_id class="hint">{h}</p> })}
             <p id=error_id class="field-error">{move || error.get()}</p>

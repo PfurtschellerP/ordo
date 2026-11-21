@@ -805,9 +805,9 @@ Needs: dsn
 #### DS-1 — One design system
 `req~ds-1~1`
 
-One consistent design system for all packages: components, layout, icons, motion and wording rules, documented with live examples
+ORDO shall have one consistent design system for all packages (components, layout, icons, motion and wording rules), documented with live examples.
 
-Tags: must, quality
+Tags: must, quality, m71
 
 Needs: dsn
 

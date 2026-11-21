@@ -753,7 +753,11 @@ fn UnitCard(
     let crew_label = text::crew_label(&name, u.crew.len());
     view! {
         <li class="unit-card" data-unit=name.clone()>
-            <h3 class="unit-card__name">{name.clone()}</h3>
+            <div class="card-head">
+                <h3 class="unit-card__name">{name.clone()}</h3>
+                <crate::shell::ui::EditButton id=crew_button(&name) label=crew_label
+                    icon=if editable { "pencil" } else { "users" } word=text::CREW on_click=on_crew />
+            </div>
             <p class="unit-card__details">
                 {details(&u)}
                 {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength special=u.special.clone() detailed=detailed(core) /> })}
@@ -786,8 +790,6 @@ fn UnitCard(
             {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
                 <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
             }))}
-            <crate::shell::ui::EditButton id=crew_button(&name) label=crew_label
-                icon=if editable { "pencil" } else { "users" } word=text::CREW on_click=on_crew />
             {release.map(|actions| view! { <Actions actions /> })}
         </li>
     }
