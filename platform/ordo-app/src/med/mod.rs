@@ -2,6 +2,7 @@
 //! treatment places, staff requests, and the UHS the incident command sets up.
 
 pub(crate) mod commands;
+pub(crate) mod document;
 pub(crate) mod flow;
 pub(crate) mod handover;
 pub(crate) mod log;

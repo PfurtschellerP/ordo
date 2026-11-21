@@ -77,6 +77,9 @@ struct Incident {
     handovers: BTreeMap<String, (String, Option<Holder>)>,
     /// Whether a patient is discharged, over time.
     discharged: BTreeMap<String, History<bool>>,
+    /// Each registration: who made it, for which holder, when (PAT-12: who may change
+    /// its number).
+    registrations: BTreeMap<String, (String, Holder, Hlc)>,
     /// When each closed UHS was closed (UHS-17).
     closed: BTreeMap<String, Hlc>,
     orders: BTreeMap<String, String>,
@@ -239,6 +242,19 @@ impl WriteGuard for UhsStaffGuard {
             return codec::from_cbor::<Taken>(&e.payload)
                 .is_ok_and(|t| incident.may_take(&t, user, e.body.hlc));
         }
+        // [impl->dsn~unique-triage-tag~2]
+        // A number is changed by whoever made the later registration, or by its holder's
+        // people.
+        if e.body.event_type.as_str() == crate::RETAGGED {
+            return codec::from_cbor::<crate::retag::Retagged>(&e.payload).is_ok_and(|r| {
+                incident
+                    .registrations
+                    .get(&r.registration)
+                    .is_none_or(|(by, holder, _)| {
+                        by == user || incident.may(holder, user, e.body.hlc)
+                    })
+            });
+        }
         // A patient not known yet (documented offline) cannot be judged.
         incident
             .holder_of(e)
@@ -271,7 +287,27 @@ impl WriteGuard for UhsStaffGuard {
                 if let Ok(refers) = codec::from_cbor::<Refers>(&e.payload)
                     && let (Some(tag), Some(holder)) = (refers.tag.clone(), refers.holder())
                 {
+                    if e.body.event_type.as_str() == REGISTERED {
+                        incident.registrations.insert(
+                            e.body.id.to_string(),
+                            (e.body.author.user.to_string(), holder.clone(), when),
+                        );
+                    }
                     insert(incident.patients.entry(tag).or_default(), when, holder);
+                }
+            }
+            // [impl->dsn~unique-triage-tag~2]
+            // The later registration's patient has its own number from its registration
+            // on; the old number keeps its first holder.
+            crate::RETAGGED => {
+                if let Ok(r) = codec::from_cbor::<crate::retag::Retagged>(&e.payload)
+                    && let Some((_, holder, at)) =
+                        incident.registrations.get(&r.registration).cloned()
+                {
+                    if let Some(old) = incident.patients.get_mut(&r.tag) {
+                        old.retain(|(t, _)| *t != at);
+                    }
+                    insert(incident.patients.entry(r.new_tag).or_default(), at, holder);
                 }
             }
             TAKEN => {

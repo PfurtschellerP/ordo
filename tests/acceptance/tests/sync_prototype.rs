@@ -1655,3 +1655,50 @@ fn events_are_decoded_once_and_shared_until_the_stream_changes() {
     );
     assert_eq!(register_of(&mut world, "clara").patients().count(), 2);
 }
+
+/// Scenario: Two devices offline register the same card number; the later one changes it.
+// [itest->dsn~unique-triage-tag~2]
+#[test]
+fn a_card_registered_twice_offline_is_renumbered_by_the_later_registration() {
+    let mut world = World::new();
+    world.sync();
+    world.set_online("anna", false);
+    world.set_online("clara", false);
+    register(&mut world, "anna", "DE-0050", Immediate);
+    register(&mut world, "clara", "DE-0050", Minor);
+    world.set_online("anna", true);
+    world.set_online("clara", true);
+    world.sync();
+    let seen = register_of(&mut world, "anna");
+    let again = &seen.patient("DE-0050").unwrap().registered_again;
+    assert_eq!(again.len(), 1, "both devices see the duplicate");
+    assert_eq!(again[0].by.localpart(), "clara", "Clara registered later");
+
+    let change = patients::retag::Retagged {
+        tag: "DE-0050".into(),
+        registration: again[0].event.clone(),
+        new_tag: "DE-0051".into(),
+    }
+    .encode()
+    .unwrap();
+    clinical(&mut world, "clara", patients::RETAGGED, &change);
+    world.sync();
+    for user in ["anna", "clara"] {
+        let register = register_of(&mut world, user);
+        let first = register.patient("DE-0050").unwrap();
+        assert!(first.registered_again.is_empty(), "{user}: resolved");
+        assert_eq!(first.category(), Immediate);
+        assert_eq!(
+            register.patient("DE-0051").unwrap().category(),
+            Minor,
+            "{user}: Clara's patient"
+        );
+    }
+    let mut counts = counts_of(&mut world, "ben");
+    counts.sort();
+    assert_eq!(
+        counts.iter().map(|c| c.0 + c.1 + c.2).sum::<u32>(),
+        2,
+        "the command counts two patients again"
+    );
+}

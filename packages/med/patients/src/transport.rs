@@ -311,6 +311,8 @@ impl TransportBoard {
     /// made twice keeps its first version; updates apply in clock order, the latest
     /// sets the status; updates for unknown requests are ignored.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
+        // Card numbers changed after a duplicate (PAT-12) are read as changed.
+        let events = &*crate::retag::read(events);
         let mut requests: Vec<(Hlc, UserId, TransportRequested)> = Vec::new();
         let mut updates: Vec<(Hlc, UserId, TransportUpdated)> = Vec::new();
         for e in events.iter().filter(|e| e.body.module.as_str() == MODULE) {
@@ -450,6 +452,7 @@ impl TransportBoard {
 
 /// The requests of each patient, oldest first, from events of `med.clinical`.
 pub fn requests_by_patient(clinical_events: &[AppliedEvent]) -> BTreeMap<String, Vec<String>> {
+    let clinical_events = &*crate::retag::read(clinical_events);
     let mut links: Vec<(Hlc, TransportLinked)> = clinical_events
         .iter()
         .filter(|e| e.body.module.as_str() == crate::MODULE && e.body.event_type.as_str() == LINKED)

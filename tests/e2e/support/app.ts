@@ -128,6 +128,13 @@ export async function openRecord(page: Page, tag: string, tab = "Dokumentation")
   await recordTab(page, tab);
 }
 
+/** Chooses a tab of a page in tabs (dsn page-tabs), e.g. Personal: Helfende, Führungsstruktur, Geräte. */
+export async function pageTab(page: Page, name: string): Promise<void> {
+  const tab = page.locator("#main [role=tablist]").first().getByRole("tab", { name, exact: true });
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
 /** Chooses a tab of the open record (EPCR-14): Übersicht, Verlauf, Dokumentation, Übergabe. */
 export async function recordTab(page: Page, name: string): Promise<void> {
   // Where the record is narrow (beside the list, on phones), "Dokumentation" reads "Doku".

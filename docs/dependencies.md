@@ -57,6 +57,21 @@ crates update.
   Cedar, openidconnect and object_store on the server. `deny.toml` lists them until those
   crates move to `jiff` or `time`.
 
+## Findings of 2026-11-21
+
+* **Proposed: Typst for the handover document** (ADR-0089), on the server only. `typst`,
+  `typst-layout` and `typst-pdf` 0.15 (Apache-2.0, typst GmbH and community) bring 165
+  crates to the server (399 to 564): Typst's own crates, krilla and hayro (PDF), ICU
+  (Unicode), resvg/usvg (SVG), syntect (code highlighting), hayagriva (bibliographies) and
+  wasmi (plugins). The app is unchanged. All licences pass.
+* **Advisories it brings,** waiting for the product owner's decision before it is merged:
+  quick-xml 0.38 (via hayagriva's citationberg) has two flaws, RUSTSEC-2026-0194 and
+  RUSTSEC-2026-0195, which need XML a template loads itself; ORDO's templates come from
+  reviewed profiles and get only ORDO's JSON and the patient's photo. Fixed quick-xml
+  0.41 and 0.42 are in the tree already, for the rest of Typst. Unmaintained, without
+  known vulnerability: bincode 1.3.3 and yaml-rust (via syntect), unsafe-libyaml (Typst's
+  `yaml()`), rustybuzz and ttf-parser (Typst's text shaping and fonts).
+
 ## Direct dependencies
 
 "Personal" means the repository belongs to one person rather than an organisation: a
@@ -87,6 +102,7 @@ replace it.
 | futures-util | Stream helpers for WebSockets | 2026-08 | rust-lang | – |
 | toml, toml_edit | Configuration, profiles | 2026-11 | toml-rs | – |
 | tempfile (tests), tokio-tungstenite (tests, load device) | | 2026-03, 2026-07 | personal (Stebalien), snapview | – |
+| typst, typst-layout, typst-pdf | The handover document: the profile's template to PDF/A-3a and PDF/UA-1 (ADR-0089) | 2026 (0.15.1) | typst GmbH, community | a PDF drawn in code (`krilla`), without templates |
 
 ### Shared by server and app
 

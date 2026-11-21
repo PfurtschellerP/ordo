@@ -64,6 +64,10 @@ pub const CREW_TRANSPORTS: &str = "Transporte für Ihr Einsatzmittel";
 pub const CREW_NONE_HERE: &str = "Sie sind in diesem Einsatz in keiner Besatzung eingetragen. Die Einsatzleitung trägt Sie unter Vorbereitung – Einsatzmittel ein.";
 pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
+pub const PAGE_TABS: &str = "Teile der Seite";
+pub const TAB_HELPERS: &str = "Helfende";
+pub const TAB_STRUCTURE: &str = "Führungsstruktur";
+pub const TAB_DEVICES: &str = "Geräte";
 pub const WS_ACCESS: &str = "Zugriff";
 pub const WS_INFO: &str = "Info";
 /// The UHS as a unit (UHS-12).
@@ -140,7 +144,16 @@ pub fn tag_registered_again(person: &str, holder: &str, time: &str) -> String {
     format!("Noch einmal registriert {time} von {person} ({holder}).")
 }
 pub const TAG_TWICE: &str = "Karte zweimal registriert";
-pub const TAG_TWICE_HINT: &str = "Zwei Geräte haben diese Kartennummer registriert, während sie offline waren, oder eine Nummer wurde falsch eingegeben. Bitte prüfen, ob es derselbe Patient ist. Wenn nicht: dem zweiten Patienten eine neue Karte geben und ihn damit registrieren.";
+pub const TAG_TWICE_HINT: &str = "Zwei Geräte haben diese Kartennummer registriert, während sie offline waren, oder eine Nummer wurde falsch eingegeben. Wer später registriert hat, gibt seinem Patienten eine neue Karte und trägt deren Nummer ein; was dieses Gerät seitdem dokumentiert hat, geht mit.";
+pub const RETAG_ASK: &str = "Ihre Registrierung kam später. Bitte geben Sie Ihrem Patienten eine neue Patientenanhängekarte.";
+pub const RETAG_NUMBER: &str = "Nummer der neuen Karte";
+pub const RETAG_SUBMIT: &str = "Nummer ändern";
+pub fn retag_in_use(tag: &str) -> String {
+    format!("Die Karte {tag} ist schon registriert. Bitte eine unbenutzte Karte nehmen.")
+}
+pub fn retagged(old: &str, new: &str) -> String {
+    format!("Patient {old}: neue Kartennummer {new}")
+}
 pub const REGISTER_CATEGORY: &str = "Sichtungskategorie";
 pub const REGISTER_UHS: &str = "Patient bei";
 pub const REGISTER_SUBMIT: &str = "Registrieren";
@@ -317,8 +330,9 @@ pub const KEY_DOES: &str = "Wirkung";
 pub const KEY_HELP: &str = "Diese Übersicht";
 pub const KEY_PALETTE: &str = "Befehlspalette";
 pub const KEY_SEARCH: &str = "Suchen oder filtern";
-pub const KEY_DOWN_UP: &str = "Nächster / vorheriger Eintrag der Liste";
-pub const KEY_FIRST_LAST: &str = "Erster / letzter Eintrag, sonst Seitenanfang / -ende";
+pub const KEY_MOVE: &str =
+    "Zum nächsten Element links, darunter, darüber, rechts – auf der ganzen Seite";
+pub const KEY_FIRST_LAST: &str = "Erstes / letztes Element der Seite";
 pub const KEY_TABS: &str = "Nächster / vorheriger Reiter";
 pub const KEY_VIEWS: &str = "Erste bis vierte Ansicht";
 pub const KEY_MENU: &str = "Menü";
@@ -1363,6 +1377,24 @@ pub const TAKE_PLACE_HINT: &str =
 pub const HANDOVER_TAKE_BACK: &str = "Übergabe zurücknehmen";
 pub const HANDOVER_FAILED: &str = "Die Übergabe konnte nicht gespeichert werden.";
 pub const HANDOVER_WAY: &str = "Weg des Patienten";
+// The handover document (ADR-0089).
+pub const DOCUMENT_TITLE: &str = "Übergabedokument";
+pub const DOCUMENT_HINT: &str = "PDF für die übernehmende Stelle. Alle Daten liegen ihm zusätzlich maschinenlesbar bei, als HL7-FHIR-Bundle (Anhang der PDF-Datei, in PDF-Programmen unter „Anhänge“). Der ORDO-Server erstellt es; dafür braucht das Gerät eine Verbindung.";
+pub const DOCUMENT_BUTTON: &str = "PDF herunterladen";
+pub fn document_label(tag: &str) -> String {
+    format!("PDF herunterladen: Übergabedokument Patient {tag}")
+}
+/// The file name of the saved document.
+pub fn document_file(tag: &str) -> String {
+    format!("Uebergabe-{tag}.pdf")
+}
+pub const DOCUMENT_ASKING: &str = "Wird auf dem Server erstellt …";
+pub const DOCUMENT_SAVED: &str = "Heruntergeladen.";
+pub const DOCUMENT_OFFLINE: &str = "Keine Verbindung zum Server. Das Dokument wird dort erstellt; bitte mit Verbindung erneut versuchen.";
+pub const DOCUMENT_REFUSED: &str =
+    "Sie dürfen das Übergabedokument dieses Patienten nicht abrufen.";
+pub const DOCUMENT_FAILED: &str =
+    "Das Dokument konnte nicht erstellt werden. Bitte erneut versuchen.";
 // The way as a flow chart (dsn patient-flow).
 pub fn flow_registered(time: &str) -> String {
     format!("Erfasst {time}")

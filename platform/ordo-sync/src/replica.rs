@@ -607,6 +607,7 @@ impl Replica {
             | ServerMessage::Accounts(_)
             | ServerMessage::LoginProviders(_)
             | ServerMessage::BlobTicket(_)
+            | ServerMessage::DocumentTicket(_)
             | ServerMessage::Pong => Ok(()),
             // [impl->dsn~outbox-and-resend~1]
             // Refused for what the event is: it leaves the outbox. Refused for the moment

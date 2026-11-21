@@ -92,7 +92,7 @@ impl VersionRange {
 /// carried them in plain text, were dropped (ADR-0080).
 pub const SYNC: VersionRange = VersionRange {
     min: Version::new(1, 4),
-    max: Version::new(1, 4),
+    max: Version::new(1, 5),
 };
 
 /// The version of a hello that names none (ADR-0052).
@@ -116,15 +116,21 @@ pub const SYNC_GUESTS: Version = Version::new(1, 3);
 /// Sync protocol 1.4: `kem_key` in `hello`, key grants sealed for it (ADR-0080).
 pub const SYNC_SEALED_KEYS: Version = Version::new(1, 4);
 
+/// Sync protocol 1.5: `documentTicket`, the handover document (ADR-0089).
+pub const SYNC_DOCUMENTS: Version = Version::new(1, 5);
+
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].
 pub const HTTP: VersionRange = VersionRange {
     min: Version::new(1, 0),
-    max: Version::new(1, 1),
+    max: Version::new(1, 2),
 };
 
 /// HTTP API 1.1: `POST /auth/guest`, pairing with a guest's code (ADR-0077).
 pub const HTTP_GUESTS: Version = Version::new(1, 1);
+
+/// HTTP API 1.2: `GET /documents/handover`, the handover document (ADR-0089).
+pub const HTTP_DOCUMENTS: Version = Version::new(1, 2);
 
 /// The HTTP header that names the API version of a request and of its response.
 pub const HTTP_HEADER: &str = "ORDO-API-Version";

@@ -53,6 +53,8 @@ pub struct App {
     pub(crate) login_tests: crate::providers::Tests,
     /// Refused guest codes per minute (ADR-0077).
     pub(crate) guest_refusals: crate::guests::Refusals,
+    /// Tickets for handover documents (ADR-0089).
+    pub(crate) documents: crate::documents::Documents,
     /// Whether temporary connectors left from before the start were looked for.
     tests_cleaned: AtomicBool,
     /// Up to when lapsed role grants were looked for (ms).
@@ -107,6 +109,7 @@ impl App {
             dex_api,
             login_tests: crate::providers::Tests::default(),
             guest_refusals: crate::guests::Refusals::default(),
+            documents: crate::documents::Documents::default(),
             tests_cleaned: AtomicBool::new(false),
             roles_checked: AtomicU64::new(now_ms()),
             sessions: std::sync::Mutex::new(HashMap::new()),
@@ -405,6 +408,8 @@ impl App {
             .route("/auth/guest", post(crate::guests::pair))
             .route("/auth/device/{id}", get(login::device_status))
             .route("/auth/device/{id}/qr.svg", get(login::device_qr))
+            // [impl->dsn~handover-document~1]
+            .route("/documents/handover", get(crate::documents::handover))
             .route(
                 "/blobs/{hash}",
                 get(crate::blobs::get).put(crate::blobs::put).layer(
@@ -492,6 +497,10 @@ impl App {
         | ClientMessage::MapTicket(_) = message
         {
             return self.map_region(session, message).await;
+        }
+        if let ClientMessage::DocumentTicket(request) = message {
+            self.document_ticket(session, request).await;
+            return Ok(());
         }
         if let ClientMessage::Geocode(request) = message {
             self.geocode(session, request).await;
@@ -645,6 +654,40 @@ impl App {
             let _ = sender.send(answer);
         }
         Ok(())
+    }
+
+    // [impl->dsn~handover-document~1]
+    /// Answers `documentTicket` (protocol 1.5, ADR-0089): a ticket for those who read the
+    /// incident's clinical compartment.
+    async fn document_ticket(
+        &self,
+        session: SessionId,
+        request: ordo_sync::message::DocumentRequest,
+    ) {
+        let (user, version) = {
+            let hub = self.hub.lock().await;
+            (hub.session_user(session), hub.session_version(session))
+        };
+        let Some(user) = user else {
+            return; // not authenticated: nothing
+        };
+        if version.is_none_or(|v| v < ordo_sync::version::SYNC_DOCUMENTS) {
+            return;
+        }
+        let allowed = crate::documents::may(self, &user, &request.incident).await;
+        let answer = ServerMessage::DocumentTicket(ordo_sync::message::DocumentTicket {
+            incident: request.incident.clone(),
+            tag: request.tag.clone(),
+            ticket: allowed.then(|| self.documents.issue(user, request)),
+        });
+        if let Some(sender) = self
+            .sessions
+            .lock()
+            .expect("session registry lock")
+            .get(&session)
+        {
+            let _ = sender.send(answer);
+        }
     }
 
     // [impl->dsn~address-search~1]

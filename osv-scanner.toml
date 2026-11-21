@@ -13,3 +13,31 @@ reason = "paste is unmaintained (no known vulnerability); a compile-time macro u
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0459"
 reason = "SQLite stale memory with a crafted write-ahead log: the server opens only its own database files in its data volume; the fix is blocked until sqlx allows libsqlite3-sys 0.39."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0194"
+reason = "quick-xml 0.38 (via citationberg and hayagriva in Typst, ADR-0089): quadratic time on a tag with many attributes. Reached only when a template loads XML itself; ORDO's handover templates come from reviewed profiles and get only ORDO's own JSON and the patient's photo. Accepted by the product owner on 2026-11-21; remove when Typst moves citationberg to quick-xml 0.41 or later."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0195"
+reason = "quick-xml 0.38 (via citationberg and hayagriva in Typst, ADR-0089): unbounded namespace declarations in NsReader. Same reach as RUSTSEC-2026-0194; accepted by the product owner on 2026-11-21."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0141"
+reason = "bincode 1.3.3 is unmaintained (its team calls it complete; no known vulnerability); via syntect in Typst (ADR-0089), server only."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0206"
+reason = "rustybuzz is unmaintained (no known vulnerability); Typst's text shaping (ADR-0089), server only, with the fonts of the profile."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0192"
+reason = "ttf-parser is unmaintained (no known vulnerability); Typst's font reading (ADR-0089), server only, with the fonts of the profile."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0449"
+reason = "unsafe-libyaml is unmaintained (no known vulnerability); Typst's yaml() loader (ADR-0089), which ORDO's templates do not use."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0320"
+reason = "yaml-rust is unmaintained (no known vulnerability); via syntect in Typst (ADR-0089), server only, no YAML from users."

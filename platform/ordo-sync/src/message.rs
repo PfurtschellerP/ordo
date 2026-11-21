@@ -74,6 +74,9 @@ pub enum ClientMessage {
     DeleteLoginProvider(String),
     /// Asks for a ticket to upload or download an attachment (ADR-0033).
     BlobTicket(BlobRequest),
+    /// Asks for a ticket to fetch a patient's handover document (ADR-0089; permission to
+    /// read `med.clinical`); protocol 1.5.
+    DocumentTicket(DocumentRequest),
     /// Asks the server to answer `pong`: the line is alive (protocol 1.2).
     Ping,
 }
@@ -220,6 +223,31 @@ pub struct MapTicket {
     /// The incident.
     pub incident: IncidentId,
     /// The ticket, valid for 12 hours; `None`: not allowed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
+}
+
+/// A request for a patient's handover document (ADR-0089, protocol 1.5).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentRequest {
+    /// The incident.
+    pub incident: IncidentId,
+    /// The patient's triage tag number.
+    pub tag: String,
+    /// The device's offset from UTC in minutes, for the times in the document.
+    pub utc_offset_minutes: i32,
+}
+
+/// The answer to `documentTicket`: a ticket for `GET /documents/handover` (header
+/// `Authorization: Bearer <ticket>`), or none if the user may not read the clinical
+/// compartment of the incident.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentTicket {
+    /// The incident.
+    pub incident: IncidentId,
+    /// The patient's triage tag number.
+    pub tag: String,
+    /// The ticket, for one fetch within two minutes; `None`: not allowed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ticket: Option<String>,
 }
@@ -719,6 +747,8 @@ pub enum ServerMessage {
     LoginProviders(LoginProviders),
     /// Answer to `blobTicket`.
     BlobTicket(BlobTicket),
+    /// Answer to `documentTicket` (protocol 1.5).
+    DocumentTicket(DocumentTicket),
     /// Answer to `ping` (protocol 1.2).
     Pong,
 }

@@ -36,6 +36,20 @@
     outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color);
     outline-offset: var(--ordo-component-focus-ring-offset);
   }
+  /* Vim keys (ADR-0091): where the focus went, lit up for a moment so the eye finds it; the
+     focus ring stays. Without motion where people asked for less. */
+  .keys-flash {
+    outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color);
+    outline-offset: var(--ordo-component-focus-ring-offset);
+    animation: keys-flash 0.9s ease-out;
+  }
+  @keyframes keys-flash {
+    from { outline-offset: var(--ordo-space-3); box-shadow: 0 0 0 var(--ordo-space-3) var(--ordo-component-focus-ring-color); }
+    to { outline-offset: var(--ordo-component-focus-ring-offset); box-shadow: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .keys-flash { animation: none; }
+  }
 }
 
 @layer components {
@@ -694,6 +708,7 @@
   .tabs__tab[aria-selected="true"] { color: var(--ordo-color-text-primary); border-block-end-color: var(--ordo-color-text-link); }
   .tabs__panel { display: grid; gap: var(--ordo-space-4); min-width: 0; }
   .tabs__panel[hidden] { display: none; }
+  .page__tab { display: grid; gap: var(--ordo-space-5); min-width: 0; }
   .quick-actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   @media (max-width: 40rem) {
     .quick-actions { flex-wrap: nowrap; overflow-x: auto; padding-block-end: var(--ordo-space-1); }
@@ -869,6 +884,24 @@
     .record__title { font-size: var(--ordo-font-size-4); }
     .record-tile__values--numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .record-tile__values--numbers dd { font-size: var(--ordo-font-size-4); }
+    /* The record has the screen (concept of 2026-11-19, feedback of 2026-11-21): the app
+       header shrinks to one row that keeps the connection state (UX-12), the record loses
+       its card frame, its header reads as three short lines, the tabs fill the width, and
+       the quick actions are the only bar at the bottom; "← Alle Patienten" leads back. */
+    :root:has(#main .record) .app-header {
+      grid-template-areas: "start bell status person"; padding-block: var(--ordo-space-2);
+    }
+    :root:has(#main .record) :is(.app-header .search-button, .app-header__incident) { display: none; }
+    :root:has(#main .record) .app-header__title { font-size: var(--ordo-font-size-3); }
+    :root:has(#main .record) .page { padding: var(--ordo-space-3); }
+    .card.record { border: 0; padding: 0; background: none; box-shadow: none; }
+    .record__header { gap: var(--ordo-space-1); padding-block-end: 0; }
+    .record__facts, .record__where { gap: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-2); }
+    .record__where .record__when { display: none; }
+    .record .tabs { gap: 0; }
+    .record .tabs__tab { flex: 1 1 0; padding-inline: var(--ordo-space-1); }
+    .navigation:has(.navigation__extra:not(:empty)) :is(.views, .launcher) { display: none; }
+    .quick-actions--bar { border-block-end: 0; margin-block-end: 0; padding-block-end: 0; }
   }
   .record__index { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .record__body { display: grid; gap: var(--ordo-space-5); border: 0; margin: 0; padding: 0; min-inline-size: 0; }
@@ -1085,8 +1118,10 @@
   .places__number { font-size: var(--ordo-font-size-6); font-weight: var(--ordo-font-weight-bold); line-height: var(--ordo-font-line-height-heading); }
   .places__waiting { margin: 0; font-weight: var(--ordo-font-weight-bold); }
   .places__more, .places__legend { margin: 0; }
-  .places__strips { display: grid; gap: var(--ordo-space-3); margin: 0; min-width: 0; }
-  .places__strip { display: grid; grid-template-columns: 9rem minmax(0, 1fr) auto; gap: var(--ordo-space-3); align-items: center; }
+  /* The strips of a unit share their columns (subgrid): the badge column is as wide as the
+     widest badge, e.g. "ohne Kategorie", so no badge runs into its boxes. */
+  .places__strips { display: grid; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr) auto; gap: var(--ordo-space-3); margin: 0; min-width: 0; }
+  .places__strip { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
   .places__strip > .triage { justify-self: start; }
   .places__boxes { display: flex; flex-wrap: wrap; gap: var(--ordo-space-1); }
   .places__box {
@@ -1115,7 +1150,7 @@
   .places__bar-fill { display: block; block-size: 100%; border: 0; border-radius: 0; }
   @media (max-width: 40rem) {
     .places__all, .places__unit { grid-template-columns: minmax(0, 1fr); padding: var(--ordo-space-3); }
-    .places__strip { grid-template-columns: minmax(0, 1fr) auto; }
+    .places__strips { grid-template-columns: minmax(0, 1fr) auto; }
     .places__boxes { grid-column: 1 / -1; grid-row: 2; }
   }
   .quick-links { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1 1 auto; }

@@ -17,6 +17,7 @@ pub mod orders;
 pub mod overview;
 pub mod questionnaire;
 pub mod record;
+pub mod retag;
 pub mod staff;
 pub mod staffing;
 pub mod transport;
@@ -764,6 +765,9 @@ impl Registered {
 /// Event type: the holder of a patient hands them over (ADR-0087): to a UHS or a unit
 /// named, to whoever takes them with the QR code (quick handover), or outside ORDO.
 pub const HANDED_OVER: &str = "patients.handedOver";
+/// Event type: a card number registered twice gets a new number for the patient registered
+/// later (PAT-12, ADR-0092).
+pub const RETAGGED: &str = "patients.retagged";
 /// Event type: a patient handed over was taken, by the receiving holder's people, or back
 /// by the holder who handed them over.
 pub const TAKEN: &str = "patients.taken";
@@ -860,6 +864,8 @@ pub struct TriageEntry {
 /// offline, or a number typed wrong.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Registration {
+    /// Its event ID, named by [`retag::Retagged`].
+    pub event: String,
     /// When.
     pub at: Hlc,
     /// Who.
@@ -868,7 +874,7 @@ pub struct Registration {
     pub holder: Holder,
 }
 
-// [impl->dsn~unique-triage-tag~1]
+// [impl->dsn~unique-triage-tag~2]
 /// Whether two triage tag numbers are the same card: letters and digits compared, case,
 /// spaces and dashes ignored ("de 0045" is "DE-0045").
 pub fn same_tag(a: &str, b: &str) -> bool {
@@ -1010,7 +1016,9 @@ impl PatientRegister {
     // [impl->dsn~patient-triage-history~1]
     /// Computes the register. The result doesn't depend on the order of `events`.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
-        let mut changes: Vec<(Hlc, UserId, Change)> = events
+        // [impl->dsn~unique-triage-tag~2]
+        let events = retag::read(events);
+        let mut changes: Vec<(Hlc, UserId, String, Change)> = events
             .iter()
             .filter(|e| e.body.module.as_str() == MODULE)
             .filter_map(|e| {
@@ -1026,12 +1034,17 @@ impl PatientRegister {
                     MOVED => Change::Moved(codec::from_cbor(&e.payload).ok()?),
                     _ => return None,
                 };
-                Some((e.body.hlc, e.body.author.user.clone(), change))
+                Some((
+                    e.body.hlc,
+                    e.body.author.user.clone(),
+                    e.body.id.to_string(),
+                    change,
+                ))
             })
             .collect();
-        changes.sort_by_key(|(hlc, _, _)| *hlc);
+        changes.sort_by_key(|(hlc, ..)| *hlc);
         let mut register = Self::default();
-        for (at, by, change) in changes {
+        for (at, by, id, change) in changes {
             match change {
                 Change::Registered(r) => {
                     let entry = TriageEntry {
@@ -1041,10 +1054,11 @@ impl PatientRegister {
                         by: by.clone(),
                     };
                     match register.patients.get_mut(&r.tag) {
-                        // [impl->dsn~unique-triage-tag~1]
+                        // [impl->dsn~unique-triage-tag~2]
                         Some(patient) => {
                             patient.history.push(entry);
                             patient.registered_again.push(Registration {
+                                event: id.clone(),
                                 at,
                                 by,
                                 holder: r.holder(),
@@ -1082,6 +1096,9 @@ impl PatientRegister {
                 // Within ORDO the patient stays with the holder until taken; outside ORDO
                 // they leave at once. A later handover replaces an open one.
                 Change::HandedOver(h) => match register.patients.get_mut(&h.tag) {
+                    // A handover to the holder itself changes nothing.
+                    Some(patient)
+                        if h.outside.is_none() && h.to.as_ref() == Some(&patient.holder()) => {}
                     Some(patient) if patient.is_present() => {
                         let change = match h.outside {
                             Some(receiver) => {
@@ -1201,7 +1218,7 @@ impl PatientRegister {
         register
     }
 
-    // [impl->dsn~unique-triage-tag~1]
+    // [impl->dsn~unique-triage-tag~2]
     /// The patient registered with the card `tag`, compared as [`same_tag`] does.
     pub fn patient_with_card(&self, tag: &str) -> Option<&Patient> {
         self.patient(tag)
@@ -1398,6 +1415,10 @@ pub mod kinds {
     /// See [`super::TAKEN`].
     pub const TAKEN: EventKind = EventKind::new(super::COMPARTMENT, super::MODULE, super::TAKEN, 1);
 
+    /// See [`super::RETAGGED`].
+    pub const RETAGGED: EventKind =
+        EventKind::new(super::COMPARTMENT, super::MODULE, super::RETAGGED, 1);
+
     /// See [`super::transport::LINKED`].
     pub const TRANSPORT_LINKED: EventKind = EventKind::new(
         super::COMPARTMENT,
@@ -1481,6 +1502,7 @@ pub mod kinds {
         EPCR_ENTRY,
         PHOTO_ATTACHED,
         PHOTO_REMOVED,
+        RETAGGED,
     ];
 }
 
@@ -1566,7 +1588,28 @@ mod tests {
         event(n, "clara", READMITTED, r.encode().unwrap())
     }
 
-    // [utest->dsn~unique-triage-tag~1]
+    // [utest->dsn~patient-handover~1]
+    #[test]
+    fn a_handover_to_the_holder_itself_changes_nothing() {
+        let to_itself = HandedOver {
+            tag: "DE-0001".into(),
+            handover: "h1".into(),
+            to: Some(Holder::Uhs("uhs-1".into())),
+            outside: None,
+            transport: None,
+            note: None,
+        };
+        let events = vec![
+            registered(1, "DE-0001", TriageCategory::Minor),
+            event(2, "anna", HANDED_OVER, codec::to_cbor(&to_itself).unwrap()),
+        ];
+        let register = PatientRegister::from_events(&events);
+        let p = register.patient("DE-0001").unwrap();
+        assert!(p.handover.is_none(), "no open handover");
+        assert_eq!(p.stay.len(), 1, "and nothing on the way");
+    }
+
+    // [utest->dsn~unique-triage-tag~2]
     #[test]
     fn a_card_registered_twice_is_kept_once_and_names_the_second_registration() {
         let mut second = Registered {

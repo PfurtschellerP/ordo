@@ -20,6 +20,8 @@ pub(crate) enum Command {
     Search,
     Down,
     Up,
+    Left,
+    Right,
     First,
     Last,
     NextTab,
@@ -44,7 +46,7 @@ pub(crate) struct Keys {
 const PREFIX_MS: f64 = 1000.0;
 
 impl Keys {
-    // [impl->dsn~vim-keys~1]
+    // [impl->dsn~vim-keys~2]
     /// The command of `key` pressed at `now` (ms), if any; `g` waits for the next key.
     pub(crate) fn press(&mut self, key: &str, now: f64) -> Option<Command> {
         let prefixed = self.g.take().is_some_and(|at| now - at <= PREFIX_MS);
@@ -68,6 +70,8 @@ impl Keys {
             "/" => Some(Command::Search),
             "j" => Some(Command::Down),
             "k" => Some(Command::Up),
+            "h" => Some(Command::Left),
+            "l" => Some(Command::Right),
             "G" => Some(Command::Last),
             "o" => Some(Command::Open),
             "i" => Some(Command::Insert),
@@ -88,7 +92,7 @@ pub(crate) const HELP: &[(&str, &str)] = &[
     ("?", text::KEY_HELP),
     (":", text::KEY_PALETTE),
     ("/", text::KEY_SEARCH),
-    ("j / k", text::KEY_DOWN_UP),
+    ("h j k l", text::KEY_MOVE),
     ("g g / G", text::KEY_FIRST_LAST),
     ("g t / g T", text::KEY_TABS),
     ("g 1 … g 4", text::KEY_VIEWS),
@@ -161,26 +165,150 @@ fn query_all(selector: &str) -> Vec<web_sys::HtmlElement> {
         .collect()
 }
 
-/// What the list keys focus in an item.
-const ITEM: &str = "a[href], button:not([hidden]):not([disabled]), summary";
+/// A box on the page, in CSS pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
 
-/// The items of the page's main list: the list holding the focus, else the first one shown.
-fn list_items() -> Vec<web_sys::HtmlElement> {
-    let active = document().and_then(|d| d.active_element());
-    let list = active
-        .and_then(|a| a.closest("[data-keys=list]").ok().flatten())
-        .and_then(|l| l.dyn_into::<web_sys::HtmlElement>().ok())
-        .or_else(|| {
-            query_all("#main [data-keys=list]")
-                .into_iter()
-                .find(|l| l.child_element_count() > 0)
-        });
-    let Some(list) = list else { return Vec::new() };
-    let items = list.children();
-    (0..items.length())
-        .filter_map(|i| items.item(i)?.query_selector(ITEM).ok().flatten())
-        .filter_map(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+impl Rect {
+    fn right(self) -> f64 {
+        self.x + self.w
+    }
+    fn bottom(self) -> f64 {
+        self.y + self.h
+    }
+}
+
+/// The gap between two ranges on one axis; 0 where they overlap.
+fn gap(a0: f64, a1: f64, b0: f64, b1: f64) -> f64 {
+    (b0 - a1).max(a0 - b1).max(0.0)
+}
+
+// [impl->dsn~vim-keys~2]
+/// The box nearest to `from` in the direction of `command` (`Down`, `Up`, `Left`,
+/// `Right`): it must lie beyond `from` that way; the distance across counts more, so the
+/// move stays in its column or row where it can.
+pub(crate) fn nearest(from: Rect, boxes: &[Rect], command: Command) -> Option<usize> {
+    const SLACK: f64 = 2.0;
+    boxes
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| **b != from)
+        .filter_map(|(i, b)| {
+            let across_x = gap(from.x, from.right(), b.x, b.right());
+            let across_y = gap(from.y, from.bottom(), b.y, b.bottom());
+            let score = match command {
+                Command::Down if b.y >= from.bottom() - SLACK => {
+                    (b.y - from.bottom()).max(0.0) + 2.0 * across_x
+                }
+                Command::Up if b.bottom() <= from.y + SLACK => {
+                    (from.y - b.bottom()).max(0.0) + 2.0 * across_x
+                }
+                Command::Right if b.x >= from.right() - SLACK && across_y < from.h.max(b.h) => {
+                    (b.x - from.right()).max(0.0) + 3.0 * across_y
+                }
+                Command::Left if b.right() <= from.x + SLACK && across_y < from.h.max(b.h) => {
+                    (from.x - b.right()).max(0.0) + 3.0 * across_y
+                }
+                _ => return None,
+            };
+            Some((i, score))
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(i, _)| i)
+}
+
+/// What the movement keys go to: links, buttons, summaries, choices, and areas that take
+/// the focus; not text fields and selects, where the keys would type.
+const TARGETS: &[&str] = &[
+    "a[href]",
+    "button:not([disabled])",
+    "summary",
+    "input[type=checkbox]:not([disabled])",
+    "input[type=radio]:not([disabled])",
+    "label.button",
+    "[tabindex='0']",
+];
+
+fn rect(e: &web_sys::HtmlElement) -> Rect {
+    let r = e.get_bounding_client_rect();
+    Rect {
+        x: r.left(),
+        y: r.top(),
+        w: r.width(),
+        h: r.height(),
+    }
+}
+
+/// The targets of the page's main content, shown, in document order.
+fn targets() -> Vec<web_sys::HtmlElement> {
+    let selector = TARGETS
+        .iter()
+        .map(|t| format!("#main {t}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    query_all(&selector)
+        .into_iter()
+        .filter(|e| {
+            let r = rect(e);
+            r.w > 0.0
+                && r.h > 0.0
+                && e.closest("[hidden], dialog:not([open])")
+                    .ok()
+                    .flatten()
+                    .is_none()
+        })
         .collect()
+}
+
+/// Focuses `target`, brings it into view and lights it up briefly, so the eye finds it.
+fn go(target: &web_sys::HtmlElement) {
+    let options = web_sys::FocusOptions::new();
+    options.set_prevent_scroll(true);
+    let _ = target.focus_with_options(&options);
+    let into = web_sys::ScrollIntoViewOptions::new();
+    into.set_block(web_sys::ScrollLogicalPosition::Center);
+    into.set_inline(web_sys::ScrollLogicalPosition::Nearest);
+    target.scroll_into_view_with_scroll_into_view_options(&into);
+    // One light at a time: the one before goes out.
+    for lit in query_all(".keys-flash") {
+        let _ = lit.class_list().remove_1("keys-flash");
+    }
+    let list = target.class_list();
+    let _ = target.offset_width(); // restarts the animation
+    let _ = list.add_1("keys-flash");
+    let again = target.clone();
+    let off = wasm_bindgen::closure::Closure::once_into_js(move || {
+        let _ = again.class_list().remove_1("keys-flash");
+    });
+    if let Some(w) = web_sys::window() {
+        let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(off.unchecked_ref(), 900);
+    }
+}
+
+/// Moves the focus to the nearest target that way; from outside the targets, to the first
+/// one (down, right) or the last (up, left).
+fn step(command: Command) {
+    let all = targets();
+    let active = document()
+        .and_then(|d| d.active_element())
+        .and_then(|a| a.dyn_into::<web_sys::HtmlElement>().ok());
+    let from = active.filter(|a| all.iter().any(|t| t == a));
+    let target = match from {
+        Some(from) => {
+            let boxes: Vec<Rect> = all.iter().map(rect).collect();
+            nearest(rect(&from), &boxes, command).and_then(|i| all.get(i))
+        }
+        None if matches!(command, Command::Down | Command::Right) => all.first(),
+        None => all.last(),
+    };
+    if let Some(t) = target {
+        go(t);
+    }
 }
 
 fn scroll(by: f64) {
@@ -219,7 +347,7 @@ pub(crate) struct Shell {
     pub help: RwSignal<bool>,
 }
 
-// [impl->dsn~vim-keys~1]
+// [impl->dsn~vim-keys~2]
 /// Runs `command` on the page, as a person would.
 fn run(command: Command, shell: Shell) {
     match command {
@@ -237,39 +365,16 @@ fn run(command: Command, shell: Shell) {
             }
             None => shell.palette.set(true),
         },
-        Command::Down | Command::Up => {
-            let items = list_items();
-            let active = document().and_then(|d| d.active_element());
-            let at = items
-                .iter()
-                .position(|i| active.as_ref().is_some_and(|a| a == i.unchecked_ref::<web_sys::Element>()));
-            let target = match (command, at) {
-                (Command::Down, Some(i)) => items.get(i + 1).or(items.get(i)),
-                (Command::Up, Some(i)) => items.get(i.saturating_sub(1)),
-                (Command::Down, None) => items.first(),
-                _ => items.last(),
+        Command::Down | Command::Up | Command::Left | Command::Right => step(command),
+        Command::First | Command::Last => {
+            let all = targets();
+            let target = if command == Command::First {
+                all.first()
+            } else {
+                all.last()
             };
             if let Some(t) = target {
-                let _ = t.focus();
-            }
-        }
-        Command::First | Command::Last => {
-            let items = list_items();
-            let target = if command == Command::First {
-                items.first()
-            } else {
-                items.last()
-            };
-            match target {
-                Some(t) => {
-                    let _ = t.focus();
-                }
-                None => {
-                    if let Some(w) = web_sys::window() {
-                        let y = if command == Command::First { 0.0 } else { f64::MAX / 4.0 };
-                        w.scroll_to_with_x_and_y(0.0, y);
-                    }
-                }
+                go(t);
             }
         }
         Command::NextTab => tab(1),
@@ -329,7 +434,7 @@ fn return_id() -> String {
         .map_or_else(|| "main".to_owned(), |a| a.id())
 }
 
-// [impl->dsn~vim-keys~1]
+// [impl->dsn~vim-keys~2]
 /// Handles a key of the window's key handler; returns whether it used it.
 pub(crate) fn handle(ev: &web_sys::KeyboardEvent, keys: StoredValue<Keys>, shell: Shell) -> bool {
     if !on() || ev.ctrl_key() || ev.alt_key() || ev.meta_key() || ev.is_composing() {
@@ -414,7 +519,7 @@ pub(crate) fn KeyHelp(
 mod tests {
     use super::{Command, Keys};
 
-    // [utest->dsn~vim-keys~1]
+    // [utest->dsn~vim-keys~2]
     #[test]
     fn single_keys_and_the_g_prefix_name_their_commands() {
         let mut keys = Keys::default();
@@ -433,7 +538,58 @@ mod tests {
         assert_eq!(keys.press("x", 20.0), None, "an unknown key does nothing");
     }
 
-    // [utest->dsn~vim-keys~1]
+    // [utest->dsn~vim-keys~2]
+    #[test]
+    fn hjkl_go_to_the_nearest_box_that_way_staying_in_column_or_row() {
+        use super::{Rect, nearest};
+        let r = |x: f64, y: f64| Rect {
+            x,
+            y,
+            w: 100.0,
+            h: 40.0,
+        };
+        // Two columns of cards and a wide button below them.
+        let boxes = [
+            r(0.0, 0.0),
+            r(200.0, 0.0),
+            r(0.0, 100.0),
+            r(200.0, 100.0),
+            Rect {
+                x: 0.0,
+                y: 200.0,
+                w: 300.0,
+                h: 40.0,
+            },
+        ];
+        assert_eq!(
+            nearest(boxes[0], &boxes, Command::Down),
+            Some(2),
+            "j: below, same column"
+        );
+        assert_eq!(
+            nearest(boxes[0], &boxes, Command::Right),
+            Some(1),
+            "l: beside"
+        );
+        assert_eq!(
+            nearest(boxes[3], &boxes, Command::Left),
+            Some(2),
+            "h: beside"
+        );
+        assert_eq!(nearest(boxes[3], &boxes, Command::Up), Some(1), "k: above");
+        assert_eq!(
+            nearest(boxes[3], &boxes, Command::Down),
+            Some(4),
+            "j: across the whole page"
+        );
+        assert_eq!(
+            nearest(boxes[1], &boxes, Command::Right),
+            None,
+            "nothing further right"
+        );
+    }
+
+    // [utest->dsn~vim-keys~2]
     #[test]
     fn g_waits_one_second_then_the_key_counts_on_its_own() {
         let mut keys = Keys::default();

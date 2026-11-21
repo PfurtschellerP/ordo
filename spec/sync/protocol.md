@@ -247,6 +247,21 @@ may read the stream and the attachment was uploaded to it. The bytes travel over
 `Authorization: Bearer <ticket>`. The server MUST refuse an upload whose size or BLAKE3
 hash differs from the name (HTTP 422), and use an upload ticket only once.
 
+## 9a. Documents
+
+A device asks for a patient's handover document
+([ADR-0089](../../docs/adr/0089-handover-document-from-typst-templates.md)) with
+`documentTicket` (version 1.5), naming the incident, the triage tag number and its offset
+from UTC in minutes. The server answers `documentTicket`, with a ticket only for a user who
+may read the incident's `med.clinical` compartment. The device fetches the document with
+`GET /documents/handover` (HTTP API 1.2) and `Authorization: Bearer <ticket>`. The server
+MUST use a ticket once and within two minutes, check the user's access again when it is
+used, refuse a request without a valid ticket (HTTP 403), answer HTTP 404 for an unknown
+patient, and log that it decrypted clinical data for the document. The answer is
+`application/pdf`: PDF/A-3a and PDF/UA-1, with the data attached as an HL7 FHIR bundle
+(`application/fhir+json`, relationship `Data`). A session agreed on 1.4 or earlier gets no
+answer.
+
 ## 10. Changes and open points
 
 Draft 1: the connection is authenticated with a challenge signed by the device key
@@ -292,4 +307,5 @@ clients raises `major`.
 | 1.2 | `getMapRegion`, `cutMapRegion`, `mapRegion` and `mapTicket`; the login provider messages (§7); `listIncidentDevices`, `blockDevice`, `incidentDevices` and `connected` in `device-info` (§6); `geocode` and `geocoded` (ADR-0066) | `/tiles/<incident>.pmtiles` with a ticket; `/auth/test/<token>` |
 | 1.3 | `createGuest`, `setGuestAccess` and `guest` (§7, ADR-0077) | 1.1: `POST /auth/guest` |
 | 1.4 | `kem_key` in `hello`, proof `"ORDO hello v2"`; `keys` sealed for the device (§2, ADR-0080). The server's range starts at 1.4: 1.0–1.3 sent data keys in plain text and were dropped before the first release | unchanged |
+| 1.5 | `documentTicket` and its answer (§9a, ADR-0089) | 1.2: `GET /documents/handover` with a ticket |
 

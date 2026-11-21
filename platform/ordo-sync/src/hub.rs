@@ -696,6 +696,29 @@ impl<P: AccessPolicy> Hub<P> {
             .unwrap_or_default()
     }
 
+    // [impl->dsn~handover-document~1]
+    /// The ordered events of a stream, decrypted, for a document the server makes from
+    /// them (ADR-0014: the server may decrypt; the caller logs that it did).
+    pub fn opened_events(
+        &self,
+        incident: &IncidentId,
+        compartment: &CompartmentId,
+    ) -> Vec<AppliedEvent> {
+        let key = (incident.clone(), compartment.clone());
+        self.stream(incident, compartment)
+            .iter()
+            .filter_map(|e| {
+                let body = e.event.decode_body().ok()?;
+                let payload = self.open_payload(&key, &body)?;
+                Some(AppliedEvent {
+                    seq: Some(e.seq),
+                    body,
+                    payload,
+                })
+            })
+            .collect()
+    }
+
     // [impl->dsn~device-proof~1]
     /// A connection opened: returns the challenge the device must sign in its hello.
     pub fn connect(&mut self, session: SessionId) -> Vec<Outgoing> {
@@ -781,6 +804,7 @@ impl<P: AccessPolicy> Hub<P> {
             | ClientMessage::GetMapRegion(_)
             | ClientMessage::CutMapRegion(_)
             | ClientMessage::MapTicket(_)
+            | ClientMessage::DocumentTicket(_)
             | ClientMessage::Geocode(_)
             // Guests are the home server's (ADR-0077).
             | ClientMessage::CreateGuest(_)

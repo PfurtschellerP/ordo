@@ -25,6 +25,7 @@ openidconnect.workspace = true
 ordo-core.workspace = true
 ordo-crypto.workspace = true
 ordo-helpers.workspace = true
+ordo-med-handover.workspace = true
 ordo-med-patients.workspace = true
 ordo-sync.workspace = true
 qrcode.workspace = true

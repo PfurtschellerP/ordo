@@ -1320,6 +1320,32 @@ Needs: impl, utest, itest
 
 Tags: must, m68
 
+#### Handover document
+`dsn~handover-document~1`
+
+The server makes the document ([ADR-0089](../adr/0089-handover-document-from-typst-templates.md)).
+The app's *Übergabedokument* on the tab *Übergabe* asks for a ticket with `documentTicket`
+(sync protocol 1.5); the server gives one to people who read the incident's
+`med.clinical`, for one fetch within two minutes. `GET /documents/handover` (HTTP API 1.2)
+checks the access again, decrypts the incident's clinical and shared events in the hub,
+logs that it did ([ADR-0014](../adr/0014-clinical-trust-model.md)) and hands them to the
+crate `ordo-med-handover`. It gathers the data (IDs, the profile's labels, what people
+wrote, display names, times in the device's time zone) as JSON, builds an HL7 FHIR R4
+Bundle of type `document` (a Composition, the Patient with the triage tag number, a
+QuestionnaireResponse per entry of the record against the profile's Questionnaire),
+compiles the profile's `med/handover/handover.typ` with its fonts in Typst and writes
+PDF/A-3a and PDF/UA-1, always attaching the bundle (relationship `Data`). Nothing is read
+from the disk or the network while compiling. The app saves the PDF; without a connection
+it says that the server makes it.
+
+Covers:
+
+* [req~epcr-20~1](../requirements/04-med.md#epcr-20--handover-document)
+
+Needs: impl, utest, itest
+
+Tags: must, m69
+
 #### Taking a patient onto a place
 `dsn~take-with-place~1`
 
@@ -1340,20 +1366,29 @@ Needs: impl, itest
 Tags: should, m69
 
 #### Unique triage tag
-`dsn~unique-triage-tag~1`
+`dsn~unique-triage-tag~2`
 
 The register form looks the number up among all patients of the incident on the device
 (`PatientRegister::patient_with_card`, comparing letters and digits only, without case).
 A number found is not registered: the field is marked invalid and says where the patient is
 and since when, with a link to the record. Registrations that still meet (devices offline)
 keep the first one by clock; each later one stays in the patient's triage history and in
-`Patient::registered_again` with time, person and holder. The card in the list and the
-record's header then say *Karte zweimal registriert*, with an icon and words, and how to
-resolve it.
+`Patient::registered_again` with its event ID, time, person and holder. The card in the
+list and the record's header then say *Karte zweimal registriert*, with an icon and words.
+Whoever made a later registration (or the people of its holder) gets *Nummer der neuen
+Karte* and *Nummer ändern* there, which records `patients.retagged` (the old number, the
+registration's event ID, the new number;
+[ADR-0092](../adr/0092-a-card-registered-twice-is-renumbered-by-the-later-registration.md)).
+Every reader of the clinical compartment (register, records, orders, transports) first
+passes the events through `retag::read`: the registration, and the events its device
+recorded about the old number from the registration until the change, are read with the
+new number; stored events stay as they are. The Med write guard lets only the
+registration's author or its holder's people change the number and follows the change in
+its holders.
 
 Covers:
 
-* [req~pat-12~1](../requirements/04-med.md#pat-12--unique-triage-tag-numbers)
+* [req~pat-12~2](../requirements/04-med.md#pat-12--unique-triage-tag-numbers)
 
 Needs: impl, utest, itest
 
@@ -1655,24 +1690,46 @@ Needs: impl, utest, itest
 Tags: should, m23
 
 #### Vim keys
-`dsn~vim-keys~1`
+`dsn~vim-keys~2`
 
 The menu's setting *Tastatur* stores `vim` on the device and sets `data-keymap` on the
 page ([ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md)). The window key handler
-(`shell/keys.rs`) passes keys to a small state machine that knows the `g` prefix (one
-second) and returns a command; it ignores keys in text fields, selects and editable areas,
-with Ctrl, Alt or Meta, while composing and while a dialog is open. The commands act on
-the page as a person would: they focus the first item of the main list (`data-keys="list"`)
-or its first or last item, click the next tab of the main tab list, click the n-th view of
-the view navigation, open the palette or the menu, focus the first search field of the
-main content, and scroll. The key help is a dialog with a table of the keys, opened by `?`
-and from the menu.
+(`shell/keys.rs`) runs before the list keys: a small state machine knows the `g` prefix
+(one second) and returns a command; it ignores keys in text fields, selects and editable
+areas, with Ctrl, Alt or Meta, while composing and while a dialog is open. `h`, `j`, `k`
+and `l` move spatially ([ADR-0091](../adr/0091-vim-keys-move-across-the-whole-page.md)):
+from the boxes of the shown targets of `#main` (links, buttons, summaries, choices,
+focusable areas; no text fields or selects) the nearest beyond the focused one that way
+wins, the distance across weighed more; `gg` and `G` take the first and the last. The
+target is scrolled to the middle and gets the class `keys-flash` for 0.9 s (an outline
+that settles, no motion with reduced motion). The other commands act on the page as a
+person would: the next tab of the main tab list, the n-th view, the palette, the menu,
+the first search field, scrolling. The key help is a dialog with a table of the keys and a
+switch, opened by `?` and from the menu.
 
 Covers:
 
-* [req~ux-15~1](../requirements/07-quality.md#ux-15--vim-keys)
+* [req~ux-15~2](../requirements/07-quality.md#ux-15--vim-keys)
 
 Needs: impl, utest, itest
+
+Tags: should, m69
+
+#### Page tabs
+`dsn~page-tabs~1`
+
+A view may declare tabs (`nav::View::tabs`): a key, a label, and the first section place
+each holds. The shell puts every package's sections of the page into the last tab that
+starts at or before the section's place and shows the tabs with the record's tab
+component (`TabList`, `TabPanel`): arrow keys between the tabs, hidden panels keep their
+input. *Personal* has *Helfende* (helpers and taking people in), *Führungsstruktur* and
+*Geräte* (the admin package's devices, place 30). The vim keys `gt` and `gT` switch them.
+
+Covers:
+
+* [req~ux-16~1](../requirements/07-quality.md#ux-16--pages-in-parts)
+
+Needs: impl, itest
 
 Tags: should, m69
 

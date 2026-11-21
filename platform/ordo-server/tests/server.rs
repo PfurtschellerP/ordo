@@ -508,7 +508,8 @@ async fn sync_over_websocket_survives_a_restart() {
     )
     .unwrap();
     assert_eq!(announced["sync"]["min"], "1.4");
-    assert_eq!(announced["http"]["max"], "1.1");
+    assert_eq!(announced["sync"]["max"], "1.5");
+    assert_eq!(announced["http"]["max"], "1.2");
     assert_eq!(announced["build"]["version"], env!("CARGO_PKG_VERSION"));
     let version_of = |r: &reqwest::Response| {
         r.headers()

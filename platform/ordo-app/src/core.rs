@@ -371,6 +371,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
             ServerMessage::BlobTicket(ticket) => Some(ticket.clone()),
             _ => None,
         };
+        if let ServerMessage::DocumentTicket(answer) = &message {
+            crate::med::document::on_ticket(answer.clone());
+        }
         core.update_value(|c| {
             if let ServerMessage::Avatars(list) = &message {
                 for a in list {
@@ -1667,6 +1670,23 @@ pub fn hand_over(
         announcement,
     )?;
     Ok(handover.handover)
+}
+
+// [impl->dsn~unique-triage-tag~2]
+/// Gives the patient of a later registration of a card its new card's number (ADR-0092).
+pub fn retag(
+    core: Handle,
+    revision: RwSignal<u64>,
+    change: &patients::retag::Retagged,
+) -> Result<(), String> {
+    let payload = change.encode().map_err(|e| e.to_string())?;
+    record(
+        core,
+        revision,
+        patients::kinds::RETAGGED,
+        &payload,
+        text::retagged(&change.tag, &change.new_tag),
+    )
 }
 
 // [impl->dsn~patient-handover~1]

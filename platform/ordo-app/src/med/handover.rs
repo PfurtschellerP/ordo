@@ -105,6 +105,7 @@ pub(crate) fn HandoverPanel(
     });
     let open =
         Memo::new(move |_| patient.with(|p| p.as_ref().is_some_and(|p| p.handover.is_some())));
+    let document_tag = tag.clone();
     view! {
         <section class="record__section handover" aria-labelledby="section-way">
             <h3 id="section-way" tabindex="-1">{text::HANDOVER_WAY}</h3>
@@ -115,6 +116,7 @@ pub(crate) fn HandoverPanel(
             <HandoverForm core revision tag=tag.clone() patient register />
             <QuickHandover core revision tag=tag.clone() />
         </Show>
+        <crate::med::document::HandoverDocument core tag=document_tag />
     }
 }
 
@@ -157,7 +159,11 @@ fn targets(core: Handle, kind: Kind, patient: &Patient, register: &PatientRegist
             .into_iter()
             .filter(|t| t.status != TransportStatus::Cancelled && !t.status.has_left())
             .filter_map(|t| {
-                let unit = t.unit.clone()?;
+                // Not the unit that holds the patient already.
+                let unit = t
+                    .unit
+                    .clone()
+                    .filter(|u| holder.unit() != Some(u.as_str()))?;
                 Some((
                     t.request.request.clone(),
                     crate::med::transports::transport_line(&t),

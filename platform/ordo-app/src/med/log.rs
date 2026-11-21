@@ -92,6 +92,11 @@ const DESCRIBE: &[(&str, Describe)] = &[
         };
         Some(words.into())
     }),
+    // [impl->dsn~unique-triage-tag~2]
+    (med::RETAGGED, |e, _, _| {
+        let p = decode::<med::retag::Retagged>(e)?;
+        Some(text::retagged(&p.tag, &p.new_tag).into())
+    }),
     (med::TAKEN, |e, c, _| {
         let p = decode::<med::Taken>(e)?;
         Some(text::taken(&p.tag, &holder(c, &p.holder)).into())

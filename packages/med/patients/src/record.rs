@@ -766,6 +766,8 @@ impl Records {
     // [impl->dsn~patient-care-record~1]
     /// Computes the records. The result doesn't depend on the order of `events`.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
+        // Card numbers changed after a duplicate (PAT-12) are read as changed.
+        let events = &*crate::retag::read(events);
         let mut changes: Vec<(&AppliedEvent, Change)> = events
             .iter()
             .filter(|e| e.body.module.as_str() == MODULE)

@@ -133,12 +133,27 @@ Tags: should, quality, m23
 Needs: dsn
 
 #### UX-15 — Vim keys
-`req~ux-15~1`
+`req~ux-15~2`
 
 Where a person has turned on vim keys on their device, ORDO shall, while the focus is not
-in a text field, move between items, tabs and views, open the search, the command palette
-and the menu, and scroll with the keys of [ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md),
-and shall show all keys on `?`; no key shall change data.
+in a text field, move it with `h`, `j`, `k` and `l` to the nearest element left, below,
+above or right anywhere on the page, to the first and the last element with `gg` and `G`,
+show briefly where it went, move between tabs and views, open the search, the command
+palette and the menu, and scroll, with the keys of
+[ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md) and
+[ADR-0091](../adr/0091-vim-keys-move-across-the-whole-page.md); it shall show all keys on
+`?`, and no key shall change data.
+
+Tags: should, quality, m69
+
+Needs: dsn
+
+#### UX-16 — Pages in parts
+`req~ux-16~1`
+
+Where a view holds several unrelated parts (e.g. *Personal*: the helpers, the command
+structure, the devices), ORDO shall show each part on its own tab of the view, so that a
+page shows one task and its keyboard order is the order on screen.
 
 Tags: should, quality, m69
 

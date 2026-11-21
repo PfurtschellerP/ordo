@@ -5,7 +5,8 @@ date: 2026-11-21
 
 # Vim keys for the whole app, turned on per device
 
-Extends [ADR-0051](0051-vim-movement-keys.md).
+Extends [ADR-0051](0051-vim-movement-keys.md). Partly superseded by
+[ADR-0091](0091-vim-keys-move-across-the-whole-page.md): the moves are spatial.
 
 ## Context and Problem Statement
 

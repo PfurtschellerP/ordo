@@ -109,6 +109,52 @@ fn header_facts(record: Option<&record::Record>) -> Vec<(String, String)> {
         .collect()
 }
 
+// [impl->dsn~unique-triage-tag~2]
+/// For whoever registered a card later: the new card's number, and "Nummer ändern".
+#[component]
+fn Retag(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: String,
+    event: String,
+    register: Memo<PatientRegister>,
+) -> impl IntoView {
+    let number = RwSignal::new(String::new());
+    let error = RwSignal::new(None::<String>);
+    let id = format!("retag-{event}");
+    let change = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let new_tag = number.get_untracked().trim().to_owned();
+        if new_tag.is_empty() {
+            return;
+        }
+        if register.with_untracked(|r| r.patient_with_card(&new_tag).is_some()) {
+            error.set(Some(text::retag_in_use(&new_tag)));
+            return;
+        }
+        let change = med::retag::Retagged {
+            tag: tag.clone(),
+            registration: event.clone(),
+            new_tag,
+        };
+        match core::retag(core, revision, &change) {
+            Ok(()) => error.set(None),
+            Err(e) => error.set(Some(e)),
+        }
+    };
+    view! {
+        <form class="form--inline retag" on:submit=change>
+            <p class="retag__ask">{text::RETAG_ASK}</p>
+            <div class="field">
+                <label for=id.clone()>{text::RETAG_NUMBER}</label>
+                <input id=id.clone() type="text" inputmode="numeric" autocomplete="off" required class="input--code" bind:value=number />
+            </div>
+            <button type="submit" class="button button--primary">{text::RETAG_SUBMIT}</button>
+            <p role="alert" class="error">{move || error.get()}</p>
+        </form>
+    }
+}
+
 // [impl->dsn~record-overview~2]
 /// The header of the record: tag, triage category, the profile's header fields, where
 /// the patient is and since when, the transport, and whether it is discharged.
@@ -148,15 +194,23 @@ pub(crate) fn RecordHeader(
                         crate::med::transports::transport_line(&t)
                     )
                 });
-            // [impl->dsn~unique-triage-tag~1]
-            let again: Vec<String> = patient
+            // [impl->dsn~unique-triage-tag~2]
+            // [impl->dsn~unique-triage-tag~2]
+            // Each later registration, and whether this person changes its number: who
+            // made it, or the people of its holder (ADR-0092).
+            let me = core.with_value(|c| c.replica.user().clone());
+            let again: Vec<(String, Option<String>)> = patient
                 .registered_again
                 .iter()
                 .map(|r| {
-                    text::tag_registered_again(
-                        &crate::shell::profile::display_name(core, &r.by),
-                        &core::holder_name(core, &r.holder),
-                        &core::clock(r.at.wall_ms),
+                    let mine = r.by == me || crate::med::patients::may_write(core, &r.holder);
+                    (
+                        text::tag_registered_again(
+                            &crate::shell::profile::display_name(core, &r.by),
+                            &core::holder_name(core, &r.holder),
+                            &core::clock(r.at.wall_ms),
+                        ),
+                        mine.then(|| r.event.clone()),
                     )
                 })
                 .collect();
@@ -192,7 +246,10 @@ pub(crate) fn RecordHeader(
             {(!again.is_empty()).then(|| view! {
                 <div class="notice notice--warning record__twice" role="note">
                     <p><strong><crate::shell::ui::Icon name="triangle-alert" />{text::TAG_TWICE}</strong></p>
-                    {again.into_iter().map(|line| view! { <p>{line}</p> }).collect_view()}
+                    {again.into_iter().map(|(line, event)| view! {
+                        <p>{line}</p>
+                        {event.map(|event| view! { <Retag core revision tag=tag.clone() event register /> })}
+                    }).collect_view()}
                     <p class="hint">{text::TAG_TWICE_HINT}</p>
                 </div>
             })}
@@ -209,10 +266,10 @@ pub(crate) fn RecordHeader(
                     <dd>{uhs}{place.map(|p| view! { " · " {p} })}</dd>
                 </div>
                 {triaged.map(|at| view! {
-                    <div><dt>{text::RECORD_TRIAGED}</dt><dd>{core::clock(at)} " " <Ago at /></dd></div>
+                    <div class="record__when"><dt>{text::RECORD_TRIAGED}</dt><dd>{core::clock(at)} " " <Ago at /></dd></div>
                 })}
                 {since.map(|at| view! {
-                    <div><dt>{text::RECORD_SINCE}</dt><dd>{core::clock(at)}</dd></div>
+                    <div class="record__when"><dt>{text::RECORD_SINCE}</dt><dd>{core::clock(at)}</dd></div>
                 })}
                 {transport.map(|t| view! {
                     <div><dt>{text::TRANSPORT_TITLE}</dt><dd>{t}</dd></div>

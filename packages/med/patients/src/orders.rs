@@ -494,6 +494,8 @@ impl OrderBook {
     /// the latest sets the status, updates of unknown orders are ignored. A recorded order
     /// keeps its first confirmation; confirmations of given orders are ignored.
     pub fn from_events(events: &[AppliedEvent]) -> Self {
+        // Card numbers changed after a duplicate (PAT-12) are read as changed.
+        let events = &*crate::retag::read(events);
         let mut given: Vec<(Hlc, UserId, OrderGiven, Option<Spoken>)> = Vec::new();
         let mut updates: Vec<(Hlc, UserId, OrderUpdated)> = Vec::new();
         let mut confirmations: Vec<(Hlc, UserId, OrderConfirmed)> = Vec::new();

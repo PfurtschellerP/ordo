@@ -69,12 +69,34 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "map",
             ),
             nav::view("units", crate::text::TAB_RESOURCES, "units", "truck"),
-            nav::view(
-                "people",
-                crate::text::PEOPLE,
-                "people helpers roles roster devices command structure",
-                "id-card",
-            ),
+            // [impl->dsn~page-tabs~1]
+            // Three parts in tabs (feedback of 2026-11-21): the helpers and taking people
+            // in, the command structure, the devices (admin package, place 30).
+            nav::View {
+                tabs: &[
+                    nav::PageTab {
+                        key: "helpers",
+                        label: crate::text::TAB_HELPERS,
+                        from: 0,
+                    },
+                    nav::PageTab {
+                        key: "structure",
+                        label: crate::text::TAB_STRUCTURE,
+                        from: 20,
+                    },
+                    nav::PageTab {
+                        key: "devices",
+                        label: crate::text::TAB_DEVICES,
+                        from: 30,
+                    },
+                ],
+                ..nav::view(
+                    "people",
+                    crate::text::PEOPLE,
+                    "people helpers roles roster devices command structure",
+                    "id-card",
+                )
+            },
         ],
         hidden: false,
     },

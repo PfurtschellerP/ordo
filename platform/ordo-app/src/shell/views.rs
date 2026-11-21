@@ -463,10 +463,42 @@ pub(crate) fn apply_hand(hand: &str) {
     apply_setting("data-hand", HAND_KEY, hand);
 }
 
-// [impl->dsn~vim-keys~1]
+// [impl->dsn~vim-keys~2]
 /// Turns vim keys on (`"vim"`) or off (`""`) and remembers it on this device (ADR-0090).
 pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
+}
+
+// [impl->dsn~page-tabs~1]
+/// A page in tabs: the tab list, then a panel per tab with its sections.
+fn page_with_tabs(
+    view: &'static str,
+    tabs: &'static [nav::PageTab],
+    page: Vec<crate::shell::registry::Section>,
+) -> impl IntoView {
+    use crate::shell::ui::{TabList, TabPanel};
+    let chosen = RwSignal::new(tabs[0].key);
+    let mut parts: Vec<(&'static str, Vec<AnyView>)> =
+        tabs.iter().map(|t| (t.key, Vec::new())).collect();
+    for (place, section) in page {
+        let key = crate::shell::registry::tab_of(tabs, place);
+        if let Some(part) = parts.iter_mut().find(|(k, _)| Some(*k) == key) {
+            part.1.push(section);
+        }
+    }
+    let list = tabs
+        .iter()
+        .map(|t| (t.key, t.label.to_owned(), None))
+        .collect();
+    let id = format!("page-{view}");
+    view! {
+        <TabList id=id.clone() label=text::PAGE_TABS tabs=list chosen />
+        {parts.into_iter().map(|(key, sections)| view! {
+            <TabPanel id=id.clone() key chosen>
+                <div class="page__tab">{sections}</div>
+            </TabPanel>
+        }).collect_view()}
+    }
 }
 
 /// The content of both menu buttons (header and bottom bar).
@@ -810,10 +842,10 @@ fn Workspace(
                 profile_open.set(false);
                 palette.set(true);
             }
+        } else if crate::shell::keys::handle(&ev, vim, shell) {
+            // Vim keys, where turned on (ADR-0090, ADR-0091): before the list keys.
         } else if crate::shell::ui::move_in_list(&ev) {
             // j/k and the arrow keys in lists (ADR-0051).
-        } else if crate::shell::keys::handle(&ev, vim, shell) {
-            // Vim keys, where turned on (ADR-0090).
         } else if ev.key() == "Escape" {
             // Escape closes an open menu wherever the focus is, and returns it to the
             // menu's button (ADR-0025, ADR-0049).
@@ -1026,7 +1058,13 @@ fn Workspace(
                     if page.is_empty() {
                         return view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any();
                     }
-                    page.collect_view().into_any()
+                    let tabs = nav::workspace(workspace)
+                        .and_then(|w| w.views.iter().find(|v| v.id == view))
+                        .map_or(&[][..], |v| v.tabs);
+                    if tabs.is_empty() {
+                        return page.into_iter().map(|(_, v)| v).collect_view().into_any();
+                    }
+                    page_with_tabs(view, tabs, page).into_any()
                 }}
             </main>
             <crate::shell::ui::UndoBar offer=undo />

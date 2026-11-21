@@ -10,6 +10,7 @@ import path from "node:path";
 import { Browser, expect, Locator, Page, test } from "@playwright/test";
 import { audit, settle } from "./support/audit";
 import {
+  pageTab,
   announced,
   createUhs,
   facts,
@@ -326,7 +327,7 @@ test("ORDO in the browser", async ({ browser }) => {
 
     await register(anna, "DE-0099"); // no triage category chosen
     expect(await patientRows(anna), "registration without a triage category is not possible").toHaveLength(3);
-    // [itest->dsn~unique-triage-tag~1]
+    // [itest->dsn~unique-triage-tag~2]
     // PAT-12: a card already registered, however typed, is not registered again.
     await register(anna, "de 0042", 1, "UHS Eingang");
     await expect(anna.locator("#tag"), "the number is marked").toHaveAttribute("aria-invalid", "true");
@@ -759,20 +760,20 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
     await anna.locator("#tag").fill("");
 
-    // [itest->dsn~vim-keys~1]
+    // [itest->dsn~vim-keys~2]
     // UX-15 (ADR-0090): vim keys for the whole app, turned on in the menu on this device.
     await anna.locator("#profile-button").click();
     await anna.locator("#keymap").selectOption({ label: "Vim-Tasten" });
     await anna.keyboard.press("Escape");
     await anna.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     const cards = anna.locator("#main [data-keys=list] .patient-card");
+    // ADR-0091: h j k l go to the nearest element that way, across the whole page.
+    await cards.first().focus();
     await anna.keyboard.press("j");
-    await expect(cards.first(), "j from outside a list: its first item").toBeFocused();
-    await anna.keyboard.press("G");
-    await expect(cards.last(), "G: the last").toBeFocused();
-    await anna.keyboard.press("g");
-    await anna.keyboard.press("g");
-    await expect(cards.first(), "gg: the first").toBeFocused();
+    await expect(cards.nth(1), "j: the element below").toBeFocused();
+    await expect(cards.nth(1), "lit up for a moment").toHaveClass(/keys-flash/);
+    await anna.keyboard.press("k");
+    await expect(cards.first(), "k: the one above").toBeFocused();
     await anna.keyboard.press("?");
     const help = anna.locator("#keys-dialog");
     await expect(help, "? shows the keys").toBeVisible();
@@ -781,6 +782,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("Escape");
     await expect(help).toBeHidden();
     await expect(cards.first(), "and the focus comes back").toBeFocused();
+    await anna.keyboard.press("G");
+    const lastElement = await anna.evaluate(() => document.activeElement?.outerHTML ?? "");
+    await anna.keyboard.press("g");
+    await anna.keyboard.press("g");
+    const firstElement = await anna.evaluate(() => document.activeElement?.outerHTML ?? "");
+    expect(firstElement, "gg and G: the first and the last element of the page").not.toBe(lastElement);
+    expect(
+      await anna.evaluate(() => [...document.querySelectorAll(".keys-flash")].map((e) => e === document.activeElement)),
+      "it is lit up, and only it",
+    ).toEqual([true]);
     await anna.keyboard.press(":");
     await expect(anna.locator("#palette"), ": opens the palette").toHaveAttribute("open", "");
     await closePalette(anna);
@@ -886,6 +897,18 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(way.nth(1), "the way, with time and person").toContainText("Übergabe an UHS Bühne Nord");
     await expect(way.nth(2)).toContainText("Übernommen: UHS Bühne Nord");
     await expect(anna.locator(".record__read-only"), "taken: the other UHS's staff writes it now").toContainText("UHS Bühne Nord");
+    // [itest->dsn~handover-document~1]
+    // EPCR-20 (ADR-0089): the handover document, made on the server, as PDF/A-3.
+    await recordTab(anna, "Übergabe");
+    const saving = anna.waitForEvent("download");
+    await anna.getByRole("button", { name: "PDF herunterladen: Übergabedokument Patient DE-0045" }).click();
+    const pdf = await saving;
+    expect(pdf.suggestedFilename()).toBe("Uebergabe-DE-0045.pdf");
+    const bytes = fs.readFileSync((await pdf.path())!);
+    expect(bytes.subarray(0, 5).toString(), "a PDF").toBe("%PDF-");
+    expect(bytes.includes("pdfaid:part"), "PDF/A").toBe(true);
+    expect(bytes.includes("fhir-bundle-DE-0045.json"), "with the FHIR bundle attached").toBe(true);
+    await expect(anna.locator("#document-state")).toHaveText("Heruntergeladen.");
 
     // [itest->dsn~uhs-overview~3]
     // UHS-8: the places of every UHS, to see which is full and where else a patient could go.
@@ -997,7 +1020,15 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(bar.getByRole("button", { name: "Übergeben" }), "the handover within thumb reach").toBeVisible();
     await expect(bar.locator("button"), "the forms marked quick, and the handover").toHaveCount(4);
     await expect(anna.locator(".quick-actions--page").getByRole("button", { name: "Übergeben" }), "not twice").toBeHidden();
+    // Feedback of 2026-11-21: the record has the screen; header, tabs and the first tile
+    // fit the first screen, and the quick actions are the only bar.
+    await expect(anna.locator(".navigation .views"), "the quick actions are the bar").toBeHidden();
+    await expect(anna.locator(".connection"), "the connection state stays (UX-12)").toBeVisible();
+    const tabs = (await anna.getByRole("tab", { name: "Übersicht", exact: true }).boundingBox())!;
+    expect(tabs.y + tabs.height, "the tabs on the first screen").toBeLessThan(420);
+    await audit(anna, "Record on a phone");
     await shot(anna, "record-phone", false);
+    await shot(anna, "record-phone-full");
     await expect(anna.locator(".master"), "on phones the record is a page of its own").toBeHidden();
     await anna.goBack();
     await anna.setViewportSize({ width: 1200, height: 1000 });
@@ -1021,6 +1052,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
+    // [itest->dsn~page-tabs~1]
+    await pageTab(ben, "Geräte");
     // The incident command sees the devices of the incident's people, and blocks one of
     // Anna's two tablets, which she no longer uses (ORG-12).
     const inUse = ben.locator("section", { has: ben.locator("#incident-devices-title") });
@@ -1522,6 +1555,7 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
+    await pageTab(ben, "Führungsstruktur");
     await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
     const create = async (kind: string, name: string, parent?: string) => {
       await ben.locator("#position-kind").selectOption({ label: kind });
@@ -1573,6 +1607,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator(".task-card").getByRole("button", { name: /^Erledigt/ }).click();
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Personal");
+    await pageTab(ben, "Führungsstruktur");
     await expect(sanel.locator(":scope > .position-tree > .position--member[data-member='unit']"), "units under a position, chosen in two taps, as the next level").toHaveText("RTW 83/1Einsatzmittel");
   });
 

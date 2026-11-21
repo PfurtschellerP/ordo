@@ -30,6 +30,7 @@ fn svg(name: &str) -> &'static str {
         "cloud-upload",
         "crosshair",
         "ellipsis",
+        "file-down",
         "flag",
         "id-card",
         "info",

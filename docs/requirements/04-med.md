@@ -104,18 +104,21 @@ Tags: should, med, m26
 Needs: dsn
 
 #### PAT-12 — Unique triage tag numbers
-`req~pat-12~1`
+`req~pat-12~2`
 
 When a person registers a triage tag number that is already registered in the incident
 (letters and digits compared; case, spaces and dashes ignored), ORDO shall not register it
 again, and shall say where the patient is and offer their record. When devices registered
-the same number while offline, ORDO shall keep the first registration and show on the
+the same number while offline, ORDO shall keep the first registration, show on the
 patient's card and record that the card was registered more than once, with time, person
-and place of each further registration.
+and place of each further registration, and ask whoever made a later registration for the
+number of a new card; from then on ORDO shall show that registration, and what its device
+documented under the old number since, under the new number.
 
 Rationale: while devices are offline, no system can stop two of them from using the same
 number. Pre-printed cards are unique, and scanning them avoids typing errors; the rest is
-made visible so that people check it.
+made visible, and the person who came last changes the number (product owner,
+2026-11-21, [ADR-0092](../adr/0092-a-card-registered-twice-is-renumbered-by-the-later-registration.md)).
 
 Tags: must, med, m69
 
@@ -508,10 +511,25 @@ When the holder of a patient hands them over to someone outside ORDO, ORDO shall
 who took them, when and the note, and take the patient out of the incident as at a
 discharge.
 
-Rationale: a handover document for the receiver (PDF/A-3 with an embedded HL7 FHIR
-bundle) follows ([ADR-0089](../adr/0089-handover-document-from-typst-templates.md)).
+Rationale: the receiver gets the handover document of EPCR-20.
 
 Tags: must, med, m68
+
+Needs: dsn
+
+#### EPCR-20 — Handover document
+`req~epcr-20~1`
+
+When a person who may read a patient's record asks for the patient's handover document
+while their device is connected, ORDO shall give them a PDF/A-3 file laid out by the
+active profile's template, with the record's data, the triage history, the way, the orders
+and the handover, and with the same data attached as an HL7 FHIR bundle.
+
+Rationale: the hospital, the control centre or another service reads the PDF and can
+import the bundle; the layout belongs to the profile, so each state and organisation can
+adapt it ([ADR-0089](../adr/0089-handover-document-from-typst-templates.md)).
+
+Tags: must, med, m69
 
 Needs: dsn
 

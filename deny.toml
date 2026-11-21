@@ -28,6 +28,19 @@ ignore = [
   # object_store (server only). Revisit when those move to jiff or time.
   { id = "RUSTSEC-2026-0543", reason = "unmaintained, no known vulnerability; only via cedar-policy, openidconnect and object_store" },
   { id = "RUSTSEC-2026-0542", reason = "unmaintained because chrono is, no known vulnerability; only via object_store" },
+  # Typst, for the handover document on the server (ADR-0089), accepted by the product
+  # owner on 2026-11-21 "for now": remove each entry as soon as a Typst release no longer
+  # needs it (Dependabot proposes the releases; docs/dependencies.md). quick-xml 0.38 comes
+  # with citationberg (bibliographies): its two flaws need XML a template loads itself;
+  # ORDO's templates come from reviewed profiles and get only ORDO's own JSON and the
+  # patient's photo. The unmaintained crates have no known vulnerability.
+  { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38 via Typst's citationberg; no XML from users reaches it (ADR-0089)" },
+  { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.38 via Typst's citationberg; no XML from users reaches it (ADR-0089)" },
+  { id = "RUSTSEC-2025-0141", reason = "bincode 1.3.3 unmaintained but complete; via syntect in Typst, server only" },
+  { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained, no known vulnerability; Typst's shaping, server only" },
+  { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, no known vulnerability; Typst's fonts, server only" },
+  { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained, no known vulnerability; Typst's yaml(), unused by ORDO's templates" },
+  { id = "RUSTSEC-2024-0320", reason = "yaml-rust unmaintained, no known vulnerability; via syntect in Typst, server only" },
 ]
 
 [licenses]

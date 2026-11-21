@@ -24,6 +24,20 @@ pub struct View {
     /// incident or by an organisation role (e.g. `manage_accounts`); without it, the view
     /// is not offered.
     pub permission: Option<&'static str>,
+    /// Tabs of a page with several parts (empty: one page); each section goes to the last
+    /// tab whose `from` is not above its place.
+    pub tabs: &'static [PageTab],
+}
+
+// [impl->dsn~page-tabs~1]
+/// A tab of a page: its key, its label, and the first place of the sections it holds.
+pub struct PageTab {
+    /// Stable key, e.g. `helpers`.
+    pub key: &'static str,
+    /// Label.
+    pub label: &'static str,
+    /// The lowest section place it holds.
+    pub from: u8,
 }
 
 /// A workspace: the environment of one role.
@@ -60,6 +74,7 @@ pub(crate) const fn view(
         name,
         icon,
         permission: None,
+        tabs: &[],
     }
 }
 

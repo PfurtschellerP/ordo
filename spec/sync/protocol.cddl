@@ -24,6 +24,8 @@ client-message = { "hello": hello }
                / { "geocode": geocode-request } ; address search, with manage_map or
                                               ; edit_units in the incident (1.2)
                / { "blobTicket": blob-request } ; attachments (ADR-0033)
+               / { "documentTicket": document-request } ; handover document, with read
+                                              ; access to med.clinical (1.5, ADR-0089)
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
                / { "setName": tstr / null }   ; own display name, null clears it (1.2)
@@ -86,6 +88,7 @@ server-message = { "challenge": challenge }
                / { "loginProviders": login-providers } ; answer to the login provider
                                               ; messages (1.2)
                / { "blobTicket": blob-ticket } ; answer to blobTicket
+               / { "documentTicket": document-ticket } ; answer to documentTicket (1.5)
                / "pong"                       ; answer to ping (1.2)
 
 ; First message on every connection; the hello must sign the nonce.
@@ -303,6 +306,22 @@ map-region-cut = {
 ; absent unless the user may read the incident's shared compartment. Valid 12 hours.
 map-ticket = {
   "incident": incident-id,
+  ? "ticket": tstr,
+}
+
+; A patient's handover document (ADR-0089, 1.5).
+document-request = {
+  "incident": incident-id,
+  "tag": tstr,                      ; the patient's triage tag number
+  "utc_offset_minutes": int,        ; the device's offset from UTC, for the times shown
+}
+
+; A ticket for GET /documents/handover with "Authorization: Bearer <ticket>"; absent
+; unless the user may read the incident's med.clinical compartment. Used once, within
+; two minutes.
+document-ticket = {
+  "incident": incident-id,
+  "tag": tstr,
   ? "ticket": tstr,
 }
 

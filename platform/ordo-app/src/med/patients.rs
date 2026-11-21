@@ -427,7 +427,7 @@ fn RegisterForm(
             .and_then(|c| free_places.with(|free| propose_place(free, c)));
         place.set(proposed.unwrap_or_default());
     });
-    // [impl->dsn~unique-triage-tag~1]
+    // [impl->dsn~unique-triage-tag~2]
     // A card already registered (also typed differently) is not registered again: its
     // record opens instead (PAT-12).
     let in_use = Memo::new(move |_| {

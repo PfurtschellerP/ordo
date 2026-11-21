@@ -19,6 +19,7 @@ members = [
   "modules/command",
   "modules/map",
   "packages/med/patients",
+  "packages/med/handover",
   "tests/acceptance",
   "tests/load",
 ]
@@ -26,7 +27,7 @@ members = [
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.92"
 license = "AGPL-3.0-or-later"
 # Where the source code is: the app links to it (LIC-1). A changed ORDO points to its own.
 repository = "https://github.com/PfurtschellerP/ordo"
@@ -47,6 +48,7 @@ ordo-reports = { path = "modules/reports" }
 ordo-command = { path = "modules/command" }
 ordo-map = { path = "modules/map" }
 ordo-med-patients = { path = "packages/med/patients" }
+ordo-med-handover = { path = "packages/med/handover" }
 
 axum = { version = "0.8", features = ["ws"] }
 base64 = "0.23"
@@ -91,6 +93,11 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal
 tokio-tungstenite = "0.30"
 zeroize = { version = "1", features = ["derive"] }
 toml = "1"
+# The handover document on the server (ADR-0089): Typst compiles the profile's template,
+# typst-pdf writes PDF/A-3b with the FHIR bundle attached.
+typst = "0.15"
+typst-layout = "0.15"
+typst-pdf = "0.15"
 # Map regions cut on the server (ADR-0057): read over HTTP or from a file, write PMTiles.
 pmtiles = { version = "0.28", default-features = false, features = ["http-async", "file-async-tokio", "write"] }
 # Attachments (ADR-0033): local directory now; S3-compatible stores with Garage later.
@@ -104,10 +111,10 @@ web-sys = { version = "0.3", features = [
   "AesGcmParams", "AesKeyGenParams", "BinaryType", "Blob", "CanvasRenderingContext2d", "CloseEvent",
   "console", "Crypto", "CryptoKey", "Document", "DomRect",
   "NodeList", "DomTokenList",
-  "File", "FileList", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
+  "File", "FileList", "FocusOptions", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
   "Headers", "HtmlInputElement", "ImageBitmap", "ImageData", "Location", "MessageEvent", "Navigator", "Request",
   "RequestInit", "Response", "ScrollIntoViewOptions",
-  "ScrollLogicalPosition", "Storage", "SubtleCrypto", "UrlSearchParams", "WebSocket", "Window",
+  "ScrollLogicalPosition", "Storage", "SubtleCrypto", "Url", "UrlSearchParams", "HtmlAnchorElement", "WebSocket", "Window",
   "Worker", "WorkerOptions", "WorkerType",
 ] }
 tracing = "0.1"

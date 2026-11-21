@@ -57,11 +57,21 @@ pub fn provide() {
 }
 
 /// The page of `view` in `workspace`: every package's sections, in their places.
-pub fn page(args: &PageArgs, workspace: &str, view: &str) -> Vec<AnyView> {
+pub fn page(args: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
     let mut sections: Vec<Section> = PACKAGES
         .iter()
         .flat_map(|p| (p.sections)(args, workspace, view))
         .collect();
     sections.sort_by_key(|(place, _)| *place);
-    sections.into_iter().map(|(_, v)| v).collect()
+    sections
+}
+
+// [impl->dsn~page-tabs~1]
+/// The tab of `tabs` a section at `place` belongs to: the last one starting at or before.
+pub fn tab_of(tabs: &[crate::shell::nav::PageTab], place: u8) -> Option<&'static str> {
+    tabs.iter()
+        .take_while(|t| t.from <= place)
+        .last()
+        .or(tabs.first())
+        .map(|t| t.key)
 }
