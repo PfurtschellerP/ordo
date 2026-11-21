@@ -132,6 +132,18 @@ Tags: should, quality, m23
 
 Needs: dsn
 
+#### UX-15 — Vim keys
+`req~ux-15~1`
+
+Where a person has turned on vim keys on their device, ORDO shall, while the focus is not
+in a text field, move between items, tabs and views, open the search, the command palette
+and the menu, and scroll with the keys of [ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md),
+and shall show all keys on `?`; no key shall change data.
+
+Tags: should, quality, m69
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline

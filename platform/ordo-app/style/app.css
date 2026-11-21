@@ -719,13 +719,51 @@
   .record-tile__values--numbers div { padding: var(--ordo-space-2); background: var(--ordo-color-surface-sunken); border-radius: var(--ordo-radius-small); }
   .record-tile__values--numbers dd { font-size: var(--ordo-font-size-5); }
   .record-tile__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
-  .way { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
-  .way__step {
-    padding: var(--ordo-space-1) var(--ordo-space-3);
-    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-large);
+  /* The patient's way as a flow chart (dsn patient-flow): boxes in a row where there is room,
+     else one below the other, with drawn arrows between them; the words on the arrows are
+     read, the arrows are not. Now: thick border and "Jetzt"; open or next: dashed. */
+  .flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; row-gap: var(--ordo-space-3); container-type: inline-size; }
+  .flow__step { display: flex; align-items: stretch; min-width: 0; }
+  .flow__edge {
+    display: grid; grid-template-areas: "what" "arrow" "time"; grid-template-rows: 1fr auto 1fr;
+    justify-items: center; row-gap: var(--ordo-space-1); min-width: 6.5rem; padding-inline: var(--ordo-space-2);
+    font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); text-align: center;
   }
-  .way__step + .way__step::before { content: "→ "; color: var(--ordo-color-text-secondary); }
-  .way__step--now { border-width: var(--ordo-size-border-thick); }
+  .flow__edge-what { grid-area: what; align-self: end; }
+  .flow__edge-time { grid-area: time; align-self: start; }
+  .flow__edge::before {
+    content: ""; grid-area: arrow; width: 100%; height: 0.75rem; background: var(--ordo-color-border-strong);
+    clip-path: polygon(0 40%, calc(100% - 0.6rem) 40%, calc(100% - 0.6rem) 0, 100% 50%, calc(100% - 0.6rem) 100%, calc(100% - 0.6rem) 60%, 0 60%);
+  }
+  .flow__box {
+    display: grid; gap: var(--ordo-space-1); align-content: start; min-width: min(11rem, 100%); max-width: 20rem;
+    padding: var(--ordo-space-3); background: var(--ordo-color-surface-raised);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+  }
+  .flow__box--left { background: var(--ordo-color-surface-sunken); }
+  .flow__title { display: inline-flex; align-items: center; gap: var(--ordo-space-2); font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; }
+  .flow__line { font-size: var(--ordo-font-size-1); color: var(--ordo-color-text-secondary); }
+  .flow__now { font-size: var(--ordo-font-size-1); }
+  .flow__step--now .flow__box { border-width: var(--ordo-size-border-thick); border-color: var(--ordo-color-text-link); }
+  .flow__step--open .flow__box, .flow__step--next .flow__box { border-style: dashed; }
+  @container (max-width: 34rem) {
+    .flow { flex-direction: column; flex-wrap: nowrap; row-gap: 0; }
+    .flow__step { flex-direction: column; }
+    .flow__edge {
+      grid-template-areas: "arrow what" "arrow time"; grid-template-columns: 0.75rem auto; grid-template-rows: auto auto;
+      justify-items: start; column-gap: var(--ordo-space-3); min-width: 0; min-height: 3.5rem;
+      padding-block: var(--ordo-space-1); padding-inline: var(--ordo-space-4) 0; text-align: start;
+    }
+    .flow__edge-what { align-self: end; }
+    .flow__edge::before {
+      width: 0.75rem; height: 100%;
+      clip-path: polygon(40% 0, 60% 0, 60% calc(100% - 0.6rem), 100% calc(100% - 0.6rem), 50% 100%, 0 calc(100% - 0.6rem), 40% calc(100% - 0.6rem));
+    }
+    .flow__box { max-width: none; }
+  }
+  @media (forced-colors: active) {
+    .flow__edge::before { background: CanvasText; }
+  }
   .timeline { display: grid; gap: var(--ordo-space-3); }
   .timeline__filters { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .chip[aria-pressed="true"] {
@@ -754,16 +792,6 @@
     width: 6rem; height: 6rem; object-fit: cover; border-radius: var(--ordo-radius-small);
     border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
   }
-  /* The patient's way as steps (ADR-0087): the current one with a thick border, the next one
-     dashed; arrows between them are drawn, not read. */
-  .journey { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-3); }
-  .journey__step {
-    display: grid; gap: var(--ordo-space-1); align-content: start; min-width: min(10rem, 100%);
-    padding: var(--ordo-space-3); background: var(--ordo-color-surface-raised);
-    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
-  }
-  .journey__step--now { border-width: var(--ordo-size-border-thick); border-color: var(--ordo-color-text-link); }
-  .journey__step--next { border-style: dashed; }
   .handover-form { display: grid; gap: var(--ordo-space-4); }
   .handover-choices { display: grid; gap: var(--ordo-space-3); margin: 0; padding: 0; border: 0; min-inline-size: 0;
     grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); }
@@ -801,7 +829,8 @@
     border: var(--ordo-size-border-thick) solid var(--ordo-color-feedback-info-text); border-radius: var(--ordo-radius-medium); }
   .incoming__item .actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .scan-handover { display: grid; gap: var(--ordo-space-1); justify-items: start; }
-  .patient-card__handover { display: inline-flex; align-items: center; gap: var(--ordo-space-1); font-weight: var(--ordo-font-weight-bold); }
+  .patient-card__handover, .patient-card__warning { display: inline-flex; align-items: center; gap: var(--ordo-space-1); font-weight: var(--ordo-font-weight-bold); }
+  .patient-card__warning { color: var(--ordo-color-feedback-warning-text); }
   /* Where the record is narrow (a phone, or the column beside the list), its tabs share
      the width and long labels are shortened, instead of scrolling. */
   .record { container-type: inline-size; }

@@ -131,6 +131,16 @@ pub fn device_revoked(short: &str) -> String {
 
 pub const REGISTER_TITLE: &str = "Patient registrieren";
 pub const REGISTER_TAG: &str = "Nummer der Patientenanhängekarte";
+/// A card number already registered (PAT-12): where the patient is, and since when.
+pub fn tag_in_use(tag: &str, holder: &str, time: &str) -> String {
+    format!("Die Karte {tag} ist schon registriert: {holder}, seit {time}.")
+}
+/// A card number registered again (PAT-12): by whom, where and when.
+pub fn tag_registered_again(person: &str, holder: &str, time: &str) -> String {
+    format!("Noch einmal registriert {time} von {person} ({holder}).")
+}
+pub const TAG_TWICE: &str = "Karte zweimal registriert";
+pub const TAG_TWICE_HINT: &str = "Zwei Geräte haben diese Kartennummer registriert, während sie offline waren, oder eine Nummer wurde falsch eingegeben. Bitte prüfen, ob es derselbe Patient ist. Wenn nicht: dem zweiten Patienten eine neue Karte geben und ihn damit registrieren.";
 pub const REGISTER_CATEGORY: &str = "Sichtungskategorie";
 pub const REGISTER_UHS: &str = "Patient bei";
 pub const REGISTER_SUBMIT: &str = "Registrieren";
@@ -292,6 +302,32 @@ pub const THEMES: [(&str, &str); 4] = [
 pub const PROFILE: &str = "Profil und Gerät";
 pub const HAND: &str = "Bedienung mit";
 pub const HANDS: [(&str, &str); 2] = [("", "rechter Hand"), ("left", "linker Hand")];
+// Vim keys (ADR-0090). Key names stay English (ADR-0036).
+pub const KEYMAP: &str = "Tastatur";
+pub const KEYMAPS: [(&str, &str); 2] = [("", "Standard"), ("vim", "Vim-Tasten")];
+pub const KEYS_TITLE: &str = "Tastenkürzel";
+pub const KEYS_ON: &str = "Vim-Tasten sind auf diesem Gerät an. Sie wirken, solange kein Textfeld den Fokus hat, und ändern nie Daten.";
+pub const KEYS_OFF: &str = "Vim-Tasten sind aus. Einschalten im Menü unter „Tastatur“.";
+pub const KEYS_VIM: &str = "Vim-Tasten";
+pub const KEYS_TURN_ON: &str = "Vim-Tasten einschalten";
+pub const KEYS_TURN_OFF: &str = "Vim-Tasten ausschalten";
+pub const KEYS_ALWAYS: &str = "Immer";
+pub const KEY_KEYS: &str = "Tasten";
+pub const KEY_DOES: &str = "Wirkung";
+pub const KEY_HELP: &str = "Diese Übersicht";
+pub const KEY_PALETTE: &str = "Befehlspalette";
+pub const KEY_SEARCH: &str = "Suchen oder filtern";
+pub const KEY_DOWN_UP: &str = "Nächster / vorheriger Eintrag der Liste";
+pub const KEY_FIRST_LAST: &str = "Erster / letzter Eintrag, sonst Seitenanfang / -ende";
+pub const KEY_TABS: &str = "Nächster / vorheriger Reiter";
+pub const KEY_VIEWS: &str = "Erste bis vierte Ansicht";
+pub const KEY_MENU: &str = "Menü";
+pub const KEY_OPEN: &str = "Eintrag öffnen";
+pub const KEY_INSERT: &str = "Ins erste Eingabefeld";
+pub const KEY_SCROLL: &str = "Halbe Seite nach unten / oben";
+pub const KEY_ESCAPE: &str = "Textfeld verlassen";
+pub const KEY_IN_LIST: &str = "In einer Liste: nächster / vorheriger Eintrag";
+pub const KEY_CLOSE: &str = "Dialog oder Menü schließen";
 pub fn theme_set(label: &str) -> String {
     format!("Darstellung: {label}")
 }
@@ -1317,13 +1353,37 @@ pub fn handover_take(to: &str) -> String {
     format!("Übernehmen für {to}")
 }
 pub const HANDOVER_TAKE: &str = "Übernehmen";
-pub fn handover_take_label(tag: &str) -> String {
-    format!("Übernehmen: Patient {tag}")
+/// The take button's accessible name: its words and the patient.
+pub fn handover_take_label(words: &str, tag: &str) -> String {
+    format!("{words}: Patient {tag}")
 }
 pub const HANDOVER_TAKE_TO: &str = "Übernehmen für";
+pub const TAKE_PLACE_HINT: &str =
+    "Vorschlag: der erste freie Platz der Sichtungskategorie des Patienten.";
 pub const HANDOVER_TAKE_BACK: &str = "Übergabe zurücknehmen";
 pub const HANDOVER_FAILED: &str = "Die Übergabe konnte nicht gespeichert werden.";
 pub const HANDOVER_WAY: &str = "Weg des Patienten";
+// The way as a flow chart (dsn patient-flow).
+pub fn flow_registered(time: &str) -> String {
+    format!("Erfasst {time}")
+}
+pub fn flow_taken(time: &str) -> String {
+    format!("Übernommen {time}")
+}
+pub fn flow_taken_back(time: &str) -> String {
+    format!("Übergabe zurückgenommen {time}")
+}
+/// "Transport: RTW 2 → Klinikum Mitte · Angefordert"
+pub fn flow_transport(line: &str, status: &str) -> String {
+    format!("Transport: {line} · {status}")
+}
+pub const FLOW_HANDOVER: &str = "Übergabe";
+pub const FLOW_HANDOVER_OPEN: &str = "Übergabe offen";
+pub const FLOW_MOVED: &str = "Verlegt";
+pub const FLOW_OUTSIDE: &str = "Außerhalb von ORDO";
+pub const FLOW_QUICK_RECEIVER: &str = "Wer den QR-Code scannt";
+pub const FLOW_NOT_TAKEN: &str = "Noch nicht übernommen";
+pub const FLOW_NEXT_EDGE: &str = "Nächste Übergabe";
 pub const HANDOVER_NEXT: &str = "an wen übergeben";
 pub const HANDOVER_TITLE: &str = "Patient übergeben";
 pub const HANDOVER_TO: &str = "Übergeben an";

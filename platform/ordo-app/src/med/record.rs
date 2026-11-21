@@ -148,6 +148,18 @@ pub(crate) fn RecordHeader(
                         crate::med::transports::transport_line(&t)
                     )
                 });
+            // [impl->dsn~unique-triage-tag~1]
+            let again: Vec<String> = patient
+                .registered_again
+                .iter()
+                .map(|r| {
+                    text::tag_registered_again(
+                        &crate::shell::profile::display_name(core, &r.by),
+                        &core::holder_name(core, &r.holder),
+                        &core::clock(r.at.wall_ms),
+                    )
+                })
+                .collect();
             let triaged = patient.history.last().map(|h| h.at.wall_ms);
             let since = patient.stay.last().map(|s| s.at.wall_ms);
             let discharged = match patient.discharge().map(|d| &d.change) {
@@ -165,17 +177,25 @@ pub(crate) fn RecordHeader(
                 since,
                 transport,
                 discharged,
+                again,
             ))
         })
     };
     let title = text::patient_title(&tag);
     view! {
-        {move || state.get().map(|(category, uhs, place, triaged, since, transport, discharged)| view! {
+        {move || state.get().map(|(category, uhs, place, triaged, since, transport, discharged, again)| view! {
             <div class="record__id">
                 <h2 id="record-title" tabindex="-1" class="record__title">{title.clone()}</h2>
                 <TriageBadge category />
                 {discharged.map(|d| view! { <strong class="record__discharged">{d}</strong> })}
             </div>
+            {(!again.is_empty()).then(|| view! {
+                <div class="notice notice--warning record__twice" role="note">
+                    <p><strong><crate::shell::ui::Icon name="triangle-alert" />{text::TAG_TWICE}</strong></p>
+                    {again.into_iter().map(|line| view! { <p>{line}</p> }).collect_view()}
+                    <p class="hint">{text::TAG_TWICE_HINT}</p>
+                </div>
+            })}
             <dl class="record__facts">
                 {facts
                     .get()
@@ -373,13 +393,7 @@ pub(crate) fn OverviewTiles(
             })
         })
     };
-    let way = {
-        let tag = tag.clone();
-        Memo::new(move |_| {
-            revision.track();
-            way_steps(core, &tag, register)
-        })
-    };
+    let way_tag = tag.clone();
     view! {
         <div class="record-tiles">
             {tiles}
@@ -408,14 +422,7 @@ pub(crate) fn OverviewTiles(
                     <h3 id="tile-way">{text::STAY_TITLE}</h3>
                     <TabLink chosen to=HANDOVER label=text::RECORD_HANDOVER />
                 </div>
-                <ol class="way">
-                    {move || way.get().into_iter().map(|(time, what, now)| view! {
-                        <li class="way__step" class:way__step--now=now>
-                            <span class="hint">{time}</span> " " {what}
-                            {now.then(|| view! { " · " <strong>{text::NOW}</strong> })}
-                        </li>
-                    }).collect_view()}
-                </ol>
+                <crate::med::flow::PatientFlow core revision tag=way_tag register />
             </section>
         </div>
     }
@@ -423,7 +430,7 @@ pub(crate) fn OverviewTiles(
 
 /// The holder the patient was registered with: the one the first change of holder left,
 /// else the current one.
-fn first_holder(patient: &Patient) -> Holder {
+pub(crate) fn first_holder(patient: &Patient) -> Holder {
     patient
         .stay
         .iter()
@@ -454,51 +461,6 @@ pub(crate) fn stay_words(core: Handle, patient: &Patient, i: usize, entry: &Stay
         Stay::Taken { to, .. } => text::handover_taken_by(&name(to)),
         Stay::HandedOutside { receiver, .. } => text::handed_outside_step(receiver),
     }
-}
-
-/// The patient's way: registration, handovers, discharge and transports, oldest first;
-/// the current step marked.
-pub(crate) fn way_steps(
-    core: Handle,
-    tag: &str,
-    register: Memo<PatientRegister>,
-) -> Vec<(String, String, bool)> {
-    let Some(patient) = register.with_untracked(|r| r.patient(tag).cloned()) else {
-        return Vec::new();
-    };
-    let steps: Vec<(u64, String)> = patient
-        .stay
-        .iter()
-        .enumerate()
-        .map(|(i, entry)| (entry.at.wall_ms, stay_words(core, &patient, i, entry)))
-        .collect();
-    let present = patient.is_present();
-    let mut out: Vec<(String, String, bool)> = steps
-        .iter()
-        .enumerate()
-        .map(|(i, (at, what))| {
-            (
-                core::clock(*at),
-                what.clone(),
-                present && i + 1 == steps.len(),
-            )
-        })
-        .collect();
-    for t in crate::med::transports::patient_transports(core, tag)
-        .into_iter()
-        .filter(|t| t.status != TransportStatus::Cancelled)
-    {
-        out.push((
-            core::clock(t.requested_at().wall_ms),
-            format!(
-                "{} · {}",
-                crate::med::transports::transport_line(&t),
-                text::transport_status(t.status)
-            ),
-            false,
-        ));
-    }
-    out
 }
 
 // [impl->dsn~record-overview~2]

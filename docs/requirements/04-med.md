@@ -103,6 +103,24 @@ Tags: should, med, m26
 
 Needs: dsn
 
+#### PAT-12 — Unique triage tag numbers
+`req~pat-12~1`
+
+When a person registers a triage tag number that is already registered in the incident
+(letters and digits compared; case, spaces and dashes ignored), ORDO shall not register it
+again, and shall say where the patient is and offer their record. When devices registered
+the same number while offline, ORDO shall keep the first registration and show on the
+patient's card and record that the card was registered more than once, with time, person
+and place of each further registration.
+
+Rationale: while devices are offline, no system can stop two of them from using the same
+number. Pre-printed cards are unique, and scanning them avoids typing errors; the rest is
+made visible so that people check it.
+
+Tags: must, med, m69
+
+Needs: dsn
+
 ### 4.10 Med package: on-site care units (UHS)
 
 #### UHS-1 — On-site care units
@@ -276,6 +294,17 @@ Rationale: a UHS set up by mistake, or no longer needed, must not stay in the wa
 with patients first hands them over.
 
 Tags: must, med, m67
+
+Needs: dsn
+
+#### UHS-18 — Treatment place when taking a patient
+`req~uhs-18~1`
+
+When a person takes a patient handed over to a UHS that has free treatment places, ORDO
+shall let them choose one of these places, or none, with the taking, and shall propose the
+first free place kept for the patient's documented triage category.
+
+Tags: should, med, m69
 
 Needs: dsn
 

@@ -326,6 +326,13 @@ test("ORDO in the browser", async ({ browser }) => {
 
     await register(anna, "DE-0099"); // no triage category chosen
     expect(await patientRows(anna), "registration without a triage category is not possible").toHaveLength(3);
+    // [itest->dsn~unique-triage-tag~1]
+    // PAT-12: a card already registered, however typed, is not registered again.
+    await register(anna, "de 0042", 1, "UHS Eingang");
+    await expect(anna.locator("#tag"), "the number is marked").toHaveAttribute("aria-invalid", "true");
+    await expect(anna.locator("#tag-in-use"), "and says where the patient is").toContainText(/Die Karte DE-0042 ist schon registriert: UHS Bühne Nord, seit \d\d:\d\d\./);
+    await expect(anna.locator("#tag-in-use").getByRole("link", { name: "Akte öffnen" })).toBeVisible();
+    expect(await patientRows(anna), "nothing registered").toHaveLength(3);
     await anna.locator("#tag").fill("");
   });
 
@@ -751,6 +758,46 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.type("jk");
     await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
     await anna.locator("#tag").fill("");
+
+    // [itest->dsn~vim-keys~1]
+    // UX-15 (ADR-0090): vim keys for the whole app, turned on in the menu on this device.
+    await anna.locator("#profile-button").click();
+    await anna.locator("#keymap").selectOption({ label: "Vim-Tasten" });
+    await anna.keyboard.press("Escape");
+    await anna.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    const cards = anna.locator("#main [data-keys=list] .patient-card");
+    await anna.keyboard.press("j");
+    await expect(cards.first(), "j from outside a list: its first item").toBeFocused();
+    await anna.keyboard.press("G");
+    await expect(cards.last(), "G: the last").toBeFocused();
+    await anna.keyboard.press("g");
+    await anna.keyboard.press("g");
+    await expect(cards.first(), "gg: the first").toBeFocused();
+    await anna.keyboard.press("?");
+    const help = anna.locator("#keys-dialog");
+    await expect(help, "? shows the keys").toBeVisible();
+    await expect(help).toContainText("Vim-Tasten sind auf diesem Gerät an.");
+    await audit(anna, "Key help");
+    await anna.keyboard.press("Escape");
+    await expect(help).toBeHidden();
+    await expect(cards.first(), "and the focus comes back").toBeFocused();
+    await anna.keyboard.press(":");
+    await expect(anna.locator("#palette"), ": opens the palette").toHaveAttribute("open", "");
+    await closePalette(anna);
+    const views = anna.locator(".views .views__item");
+    await anna.keyboard.press("g");
+    await anna.keyboard.press("2");
+    await expect(views.nth(1), "g2: the second view").toHaveAttribute("aria-current", "page");
+    await anna.keyboard.press("g");
+    await anna.keyboard.press("1");
+    await expect(views.nth(0), "g1: the first").toHaveAttribute("aria-current", "page");
+    await openView(anna, "Patienten");
+    await anna.locator("#tag").focus();
+    await anna.keyboard.press("Escape");
+    await expect(anna.locator("#tag"), "Esc leaves a text field").not.toBeFocused();
+    await anna.locator("#profile-button").click();
+    await anna.locator("#keymap").selectOption({ label: "Standard" });
+    await anna.keyboard.press("Escape");
   });
 
   await test.step("input survives being offline and a reload", async () => {
@@ -801,7 +848,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // EPCR-17 (ADR-0087): a move to another UHS is a handover; the receiver takes it.
     await openRecord(anna, "DE-0045", "Übergabe");
     const handover = anna.locator("form.handover-form");
-    await expect(anna.locator(".journey__step--next"), "the way ends with where next").toContainText("an wen übergeben");
+    await expect(anna.locator(".flow__step--next"), "the way ends with where next").toContainText("an wen übergeben");
     await handover.getByLabel(/^UHS oder Behandlungsplatz/).check();
     const north = await anna.locator("#handover-target option", { hasText: "UHS Bühne Nord" }).getAttribute("value");
     await anna.locator("#handover-target").selectOption(north!);
@@ -822,7 +869,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(physician, INCIDENT);
     await openView(physician, "Patienten");
     await openRecord(physician, "DE-0045", "Übersicht");
-    await physician.getByRole("button", { name: "Übernehmen für UHS Bühne Nord" }).click();
+    // [itest->dsn~take-with-place~1]
+    // UHS-18: taking proposes a free place kept for the category; here none is chosen.
+    const takePlace = physician.locator("#handover-take-place");
+    await expect(takePlace, "a free place is proposed").not.toHaveValue("");
+    await takePlace.selectOption({ label: "Kein Platz" });
+    await physician.getByRole("button", { name: "Übernehmen für UHS Bühne Nord: Patient DE-0045" }).click();
     await expect(physician.locator("#handover-open"), "taken: no longer open").toHaveCount(0);
     await expect.poll(() => status(physician), { message: "the taking is sent" }).toContain("Alles gesendet");
     await physician.context().close();
@@ -1995,10 +2047,17 @@ test("ORDO in the browser", async ({ browser }) => {
     const take = receiver.locator("#take-dialog");
     await expect(take.locator("#take-title")).toHaveText("Patient DE-0077 übernehmen");
     await expect(take, "from where").toContainText("Bisher bei SanTrp 1");
-    await take.locator("#take-to").selectOption({ label: "UHS Eingang" });
-    await take.getByRole("button", { name: "Übernehmen", exact: true }).click();
+    await expect(take.locator("#take-to"), "she writes for one UHS only: it is not asked").toHaveCount(0);
+    // [itest->dsn~take-with-place~1]
+    // UHS-18: the place is chosen with the taking.
+    const place = take.locator("#take-place");
+    await expect(place, "a free place is proposed").not.toHaveValue("");
+    const placeLabel = (await place.locator("option:checked").textContent())!.trim();
+    await take.getByRole("button", { name: "Übernehmen für UHS Eingang: Patient DE-0077" }).click();
     await expect(receiver.locator("#record-title"), "the record opens").toHaveText("Patient DE-0077");
-    await expect(receiver.locator(".record__where"), "now at the UHS").toContainText("UHS Eingang");
+    await expect(receiver.locator(".record__where"), "now at the UHS, on the place").toContainText(`UHS Eingang · ${placeLabel}`);
+    // [itest->dsn~patient-flow~1]
+    await expect(receiver.locator("[aria-labelledby=tile-way] .flow__step"), "the way: the crew, then the UHS").toHaveText([/SanTrp 1/, /Schnellübergabe per QR-Code[\s\S]*UHS Eingang[\s\S]*Jetzt/]);
     await expect.poll(() => status(receiver), { message: "the taking is sent" }).toContain("Alles gesendet");
     await receiver.context().close();
     await expect(quick, "taken: the code is gone on the crew's device").toHaveCount(0);

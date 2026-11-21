@@ -10,7 +10,8 @@ use ordo_med_patients::{self as med, HandedOver, Holder, Patient, PatientRegiste
 
 use crate::core::{self, Handle};
 use crate::med::patients::{
-    holder_key, holder_of_key, holder_options, may_write, writable_holders,
+    PlaceSelect, assign_chosen_place, free_places, holder_key, holder_of_key, holder_options,
+    may_write, propose_place, writable_holders,
 };
 use crate::shell::ui::Ago;
 use crate::text;
@@ -94,14 +95,6 @@ pub(crate) fn HandoverPanel(
         let tag = tag.clone();
         Memo::new(move |_| register.with(|r| r.patient(&tag).cloned()))
     };
-    let way = {
-        let tag = tag.clone();
-        Memo::new(move |_| {
-            revision.track();
-            register.track();
-            crate::med::record::way_steps(core, &tag, register)
-        })
-    };
     // Handing over is offered to the holder's people while the patient is here.
     let offered = Memo::new(move |_| {
         revision.track();
@@ -115,19 +108,8 @@ pub(crate) fn HandoverPanel(
     view! {
         <section class="record__section handover" aria-labelledby="section-way">
             <h3 id="section-way" tabindex="-1">{text::HANDOVER_WAY}</h3>
-            <ol class="journey">
-                {move || way.get().into_iter().map(|(time, what, now)| view! {
-                    <li class="journey__step" class:journey__step--now=now>
-                        <strong>{what}</strong>
-                        <span class="hint">{time} {now.then(|| view! { " · " {text::NOW} })}</span>
-                    </li>
-                }).collect_view()}
-                <Show when=move || offered.get() && !open.get()>
-                    <li class="journey__step journey__step--next">
-                        <strong>"?"</strong><span class="hint">{text::HANDOVER_NEXT}</span>
-                    </li>
-                </Show>
-            </ol>
+            <crate::med::flow::PatientFlow core revision tag=tag.clone() register
+                next=Signal::derive(move || offered.get() && !open.get()) />
         </section>
         <Show when=move || offered.get() && !open.get()>
             <HandoverForm core revision tag=tag.clone() patient register />
@@ -432,6 +414,119 @@ fn QuickCode(link: String) -> impl IntoView {
 }
 
 // [impl->dsn~patient-handover~1]
+// [impl->dsn~take-with-place~1]
+/// Taking a patient: for whom, where several holders are offered, the treatment place of
+/// a UHS with free places (the one kept for the patient's category proposed, EPCR-17), and
+/// "Übernehmen". Every place of taking uses it: the record, the quick handover's dialog and
+/// the list of handovers waiting.
+#[component]
+pub(crate) fn TakeControls(
+    core: Handle,
+    revision: RwSignal<u64>,
+    register: Memo<PatientRegister>,
+    /// Prefix of the controls' IDs.
+    #[prop(into)]
+    id: String,
+    tag: String,
+    handover: String,
+    /// Where this person may take the patient; with one, it is not asked.
+    #[prop(into)]
+    holders: Signal<Vec<(Holder, String)>>,
+    /// After the patient was taken.
+    #[prop(optional)]
+    on_taken: Option<Callback<String>>,
+) -> impl IntoView {
+    let chosen = RwSignal::new(String::new());
+    Effect::new(move || {
+        if let Some((h, _)) = holders.with(|m| m.first().cloned())
+            && !holders.with(|m| {
+                m.iter()
+                    .any(|(o, _)| holder_key(o) == chosen.get_untracked())
+            })
+        {
+            chosen.set(holder_key(&h));
+        }
+    });
+    let category = {
+        let tag = tag.clone();
+        Memo::new(move |_| register.with(|r| r.patient(&tag).map(Patient::category)))
+    };
+    let free = Memo::new(move |_| {
+        revision.track();
+        let holder = holder_of_key(&chosen.get());
+        register.with(|r| free_places(core, r, holder.as_ref()))
+    });
+    let place = RwSignal::new(String::new());
+    Effect::new(move || {
+        let proposed = category
+            .get()
+            .and_then(|c| free.with(|f| propose_place(f, c)));
+        place.set(proposed.unwrap_or_default());
+    });
+    let error = RwSignal::new(None::<String>);
+    let take = {
+        let tag = tag.clone();
+        move |_| {
+            let Some(holder) = holder_of_key(&chosen.get_untracked()) else {
+                error.set(Some(text::HANDOVER_TARGET_MISSING.to_owned()));
+                return;
+            };
+            let taken = Taken {
+                tag: tag.clone(),
+                handover: handover.clone(),
+                holder,
+            };
+            if core::take(core, revision, &taken).is_err() {
+                error.set(Some(text::HANDOVER_FAILED.to_owned()));
+                return;
+            }
+            let on = place.get_untracked();
+            if let Err(e) =
+                free.with_untracked(|f| assign_chosen_place(core, revision, &tag, f, &on))
+            {
+                error.set(Some(e));
+                return;
+            }
+            if let Some(f) = on_taken {
+                f.run(tag.clone());
+            }
+        }
+    };
+    let (to_id, place_id, error_id) = (
+        format!("{id}-to"),
+        format!("{id}-place"),
+        format!("{id}-error"),
+    );
+    let words = move || match holders.with(|h| (h.len() == 1).then(|| h[0].1.clone())) {
+        Some(name) => text::handover_take(&name),
+        None => text::HANDOVER_TAKE.to_owned(),
+    };
+    let label = {
+        let tag = tag.clone();
+        move || text::handover_take_label(&words(), &tag)
+    };
+    view! {
+        <div class="take">
+            <Show when=move || holders.with(|h| h.len() > 1)>
+                <div class="field">
+                    <label for=to_id.clone()>{text::HANDOVER_TAKE_TO}</label>
+                    <select id=to_id.clone() prop:value=move || chosen.get() on:change=move |ev| chosen.set(event_target_value(&ev))>
+                        {move || holder_options(holders.get(), chosen)}
+                    </select>
+                </div>
+            </Show>
+            <PlaceSelect id=place_id free=free place hint=text::TAKE_PLACE_HINT />
+            <div class="actions">
+                <button type="button" class="button button--primary" aria-label=label aria-describedby=error_id.clone() on:click=take>
+                    {words}
+                </button>
+            </div>
+            <p id=error_id role="alert" class="error">{move || error.get()}</p>
+        </div>
+    }
+}
+
+// [impl->dsn~patient-handover~1]
 /// The notice of an open handover, at the top of the record: to whom, since when, the
 /// note; for the receiver "Übernehmen", for the holder "Zurücknehmen", and the QR code of a
 /// quick handover.
@@ -455,7 +550,7 @@ pub(crate) fn HandoverNotice(
         })
     };
     let error = RwSignal::new(None::<&'static str>);
-    let take = move |holder: Holder| {
+    let take_back = move |holder: Holder| {
         let Some((p, open, ..)) = state.get_untracked() else {
             return;
         };
@@ -468,8 +563,7 @@ pub(crate) fn HandoverNotice(
             error.set(Some(text::HANDOVER_FAILED));
         }
     };
-    // A quick handover is taken here by choosing one's own holder.
-    let chosen = RwSignal::new(String::new());
+    // A quick handover is taken here for one of one's own holders.
     let mine = Memo::new(move |_| {
         revision.track();
         let holder = state.with(|s| s.as_ref().map(|s| s.2.clone()));
@@ -477,13 +571,6 @@ pub(crate) fn HandoverNotice(
             .into_iter()
             .filter(|(h, _)| Some(h) != holder.as_ref())
             .collect::<Vec<_>>()
-    });
-    Effect::new(move || {
-        if let Some((h, _)) = mine.with(|m| m.first().cloned())
-            && holder_of_key(&chosen.get_untracked()).is_none()
-        {
-            chosen.set(holder_key(&h));
-        }
     });
     view! {
         {move || state.get().map(|(p, open, holder, giver, receiver)| {
@@ -507,33 +594,27 @@ pub(crate) fn HandoverNotice(
                     {open.note.clone().map(|n| view! { <p><strong>{text::HANDOVER_NOTE_SHORT}</strong> " " {n}</p> })}
                     <p class="hint">{if quick { text::HANDOVER_OPEN_QUICK_HINT } else { text::HANDOVER_OPEN_HINT }}</p>
                     {(giver && quick).then(|| view! { <QuickCode link=quick_link(&p.tag, &open.id) /> })}
-                    <div class="actions">
-                        {receiver.clone().map(|r| {
-                            let name = core::holder_name(core, &r);
-                            view! {
-                                <button type="button" class="button button--primary" on:click=move |_| take(r.clone())>
-                                    {text::handover_take(&name)}
-                                </button>
-                            }
-                        })}
-                        {(quick && !mine.with(Vec::is_empty)).then(|| view! {
-                            <label for="handover-take-to" class="visually-hidden">{text::HANDOVER_TAKE_TO}</label>
-                            <select id="handover-take-to" prop:value=move || chosen.get() on:change=move |ev| chosen.set(event_target_value(&ev))>
-                                {holder_options(mine.get(), chosen)}
-                            </select>
-                            <button type="button" class="button button--primary" on:click=move |_| {
-                                if let Some(h) = holder_of_key(&chosen.get_untracked()) { take(h) }
-                            }>{text::HANDOVER_TAKE}</button>
-                        })}
-                        {giver.then(|| {
-                            let back = holder.clone();
-                            view! {
-                                <button type="button" class="button button--quiet" on:click=move |_| take(back.clone())>
+                    {receiver.clone().map(|r| {
+                        let name = core::holder_name(core, &r);
+                        view! {
+                            <TakeControls core revision register id="handover-take" tag=p.tag.clone() handover=open.id.clone()
+                                holders=Signal::derive(move || vec![(r.clone(), name.clone())]) />
+                        }
+                    })}
+                    {(quick && !mine.with(Vec::is_empty)).then(|| view! {
+                        <TakeControls core revision register id="handover-take" tag=p.tag.clone() handover=open.id.clone()
+                            holders=mine />
+                    })}
+                    {giver.then(|| {
+                        let back = holder.clone();
+                        view! {
+                            <div class="actions">
+                                <button type="button" class="button button--quiet" on:click=move |_| take_back(back.clone())>
                                     {text::HANDOVER_TAKE_BACK}
                                 </button>
-                            }
-                        })}
-                    </div>
+                            </div>
+                        }
+                    })}
                     <p role="alert" class="error">{move || error.get()}</p>
                 </section>
             }
@@ -553,18 +634,9 @@ pub(crate) fn TakeDialog(
     /// The triage tag and the handover, while the dialog is open.
     taking: RwSignal<Option<(String, String)>>,
 ) -> impl IntoView {
-    let chosen = RwSignal::new(String::new());
     let mine = Memo::new(move |_| {
         revision.track();
         writable_holders(core)
-    });
-    Effect::new(move || {
-        if taking.get().is_some()
-            && let Some((h, _)) = mine.with(|m| m.first().cloned())
-            && holder_of_key(&chosen.get_untracked()).is_none()
-        {
-            chosen.set(holder_key(&h));
-        }
     });
     // What this device knows: the patient, and whether the handover is open, taken or not
     // here yet.
@@ -573,34 +645,17 @@ pub(crate) fn TakeDialog(
         let p = register.with(|r| r.patient(&tag).cloned());
         Some((tag, handover, p))
     });
-    let error = RwSignal::new(None::<&'static str>);
     let close = Callback::new(move |()| {
         taking.set(None);
         core::clear_url_params();
     });
-    let take = move |_| {
-        let Some((tag, handover, Some(_))) = state.get_untracked() else {
-            return;
-        };
-        let Some(holder) = holder_of_key(&chosen.get_untracked()) else {
-            error.set(Some(text::HANDOVER_TARGET_MISSING));
-            return;
-        };
-        let taken = Taken {
-            tag: tag.clone(),
-            handover,
-            holder,
-        };
-        if core::take(core, revision, &taken).is_ok() {
-            close.run(());
-            let route =
-                crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", &tag);
-            nav.go(route);
-            crate::shell::views::after_render(|| crate::shell::views::focus("record-title"));
-        } else {
-            error.set(Some(text::HANDOVER_FAILED));
-        }
-    };
+    let taken = Callback::new(move |tag: String| {
+        close.run(());
+        let route =
+            crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", &tag);
+        nav.go(route);
+        crate::shell::views::after_render(|| crate::shell::views::focus("record-title"));
+    });
     view! {
         <crate::shell::ui::EditDialog id="take" open=Signal::derive(move || taking.with(Option::is_some))
             on_close=close back=Signal::derive(|| "scan-handover-button".to_owned())
@@ -620,16 +675,8 @@ pub(crate) fn TakeDialog(
                             view! { <p class="notice">{text::TAKE_NOWHERE}</p> }.into_any()
                         } else {
                             view! {
-                                <div class="field">
-                                    <label for="take-to">{text::HANDOVER_TAKE_TO}</label>
-                                    <select id="take-to" prop:value=move || chosen.get() on:change=move |ev| chosen.set(event_target_value(&ev))>
-                                        {move || holder_options(mine.get(), chosen)}
-                                    </select>
-                                </div>
-                                <p role="alert" class="error">{move || error.get()}</p>
-                                <div class="actions">
-                                    <button type="button" class="button button--primary" on:click=take>{text::HANDOVER_TAKE}</button>
-                                </div>
+                                <TakeControls core revision register id="take" tag=p.tag.clone() handover=handover.clone()
+                                    holders=mine on_taken=taken />
                             }.into_any()
                         }}
                     }.into_any()
@@ -717,27 +764,22 @@ pub(crate) fn IncomingHandovers(
                     {move || list.get().into_iter().map(|(p, to)| {
                         let open = p.handover.clone().expect("open");
                         let route = crate::shell::nav::Route::record(crate::med::patients::WORKSPACE, "patients", &p.tag);
-                        let taken = Taken { tag: p.tag.clone(), handover: open.id.clone(), holder: to.clone() };
                         let (tag, from, at) = (p.tag.clone(), core::holder_name(core, &p.holder()), open.at.wall_ms);
-                        let label = text::handover_take_label(&tag);
+                        let to_name = core::holder_name(core, &to);
                         view! {
                             <li class="incoming__item" data-tag=tag.clone()>
                                 <span class="incoming__what">
                                     <strong class="code">{tag.clone()}</strong> " "
                                     <crate::med::triage::TriageBadge category=p.category() />
-                                    " " {text::incoming_line(&from, &core::holder_name(core, &to))} " · " {core::clock(at)} " " <Ago at />
+                                    " " {text::incoming_line(&from, &to_name)} " · " {core::clock(at)} " " <Ago at />
                                 </span>
                                 {open.note.map(|n| view! { <span class="hint">{n}</span> })}
-                                <span class="actions">
-                                    <a class="button button--quiet" href=route.to_path() on:click=move |ev| {
-                                        ev.prevent_default();
-                                        nav.go(route.clone());
-                                    }>{text::RECORD_OPEN}</a>
-                                    <button type="button" class="button button--primary" aria-label=label
-                                        on:click=move |_| { let _ = core::take(core, revision, &taken); }>
-                                        {text::HANDOVER_TAKE}
-                                    </button>
-                                </span>
+                                <a class="button button--quiet incoming__open" href=route.to_path() on:click=move |ev| {
+                                    ev.prevent_default();
+                                    nav.go(route.clone());
+                                }>{text::RECORD_OPEN}</a>
+                                <TakeControls core revision register id=format!("incoming-{tag}") tag=tag.clone() handover=open.id.clone()
+                                    holders=Signal::derive(move || vec![(to.clone(), to_name.clone())]) />
                             </li>
                         }
                     }).collect_view()}

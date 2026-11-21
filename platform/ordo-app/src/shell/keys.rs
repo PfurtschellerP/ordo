@@ -1,0 +1,443 @@
+//! Vim keys for the whole app (ADR-0090, UX-15): turned on per device in the menu; then,
+//! while the focus is not in a text field, single keys move between items, tabs and views,
+//! open the search, the palette and the menu, and scroll. No key changes data. The key help
+//! (`?`, and *Tastenkürzel* in the menu) lists them in both settings.
+
+use leptos::prelude::*;
+use wasm_bindgen::JsCast;
+
+use crate::shell::ui::EditDialog;
+use crate::text;
+
+/// The device setting (`""` = standard, `"vim"`).
+pub(crate) const KEYMAP_KEY: &str = "ordo.keymap";
+
+/// What a key asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Command {
+    Help,
+    Palette,
+    Search,
+    Down,
+    Up,
+    First,
+    Last,
+    NextTab,
+    PreviousTab,
+    /// The n-th view of the workspace, from 1.
+    View(u8),
+    Menu,
+    Open,
+    Insert,
+    ScrollDown,
+    ScrollUp,
+}
+
+/// The keys typed so far: vim's `g` prefix.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct Keys {
+    /// When `g` was pressed (ms), while it waits for the second key.
+    g: Option<f64>,
+}
+
+/// How long `g` waits for its second key.
+const PREFIX_MS: f64 = 1000.0;
+
+impl Keys {
+    // [impl->dsn~vim-keys~1]
+    /// The command of `key` pressed at `now` (ms), if any; `g` waits for the next key.
+    pub(crate) fn press(&mut self, key: &str, now: f64) -> Option<Command> {
+        let prefixed = self.g.take().is_some_and(|at| now - at <= PREFIX_MS);
+        if prefixed {
+            return match key {
+                "g" => Some(Command::First),
+                "t" => Some(Command::NextTab),
+                "T" => Some(Command::PreviousTab),
+                "m" => Some(Command::Menu),
+                "1" | "2" | "3" | "4" => key.parse().ok().map(Command::View),
+                _ => None,
+            };
+        }
+        match key {
+            "g" => {
+                self.g = Some(now);
+                None
+            }
+            "?" => Some(Command::Help),
+            ":" => Some(Command::Palette),
+            "/" => Some(Command::Search),
+            "j" => Some(Command::Down),
+            "k" => Some(Command::Up),
+            "G" => Some(Command::Last),
+            "o" => Some(Command::Open),
+            "i" => Some(Command::Insert),
+            "d" => Some(Command::ScrollDown),
+            "u" => Some(Command::ScrollUp),
+            _ => None,
+        }
+    }
+
+    /// Whether `g` waits for its second key.
+    pub(crate) fn waiting(&self) -> bool {
+        self.g.is_some()
+    }
+}
+
+/// The keys and what they do, for the key help: (keys, meaning).
+pub(crate) const HELP: &[(&str, &str)] = &[
+    ("?", text::KEY_HELP),
+    (":", text::KEY_PALETTE),
+    ("/", text::KEY_SEARCH),
+    ("j / k", text::KEY_DOWN_UP),
+    ("g g / G", text::KEY_FIRST_LAST),
+    ("g t / g T", text::KEY_TABS),
+    ("g 1 … g 4", text::KEY_VIEWS),
+    ("g m", text::KEY_MENU),
+    ("o", text::KEY_OPEN),
+    ("i", text::KEY_INSERT),
+    ("d / u", text::KEY_SCROLL),
+    ("Esc", text::KEY_ESCAPE),
+];
+
+/// The keys that work in both settings (ADR-0030, ADR-0051).
+pub(crate) const ALWAYS: &[(&str, &str)] = &[
+    ("Ctrl+K", text::KEY_PALETTE),
+    ("j / k, ↓ / ↑", text::KEY_IN_LIST),
+    ("Esc", text::KEY_CLOSE),
+];
+
+/// Whether vim keys are on for this device.
+pub(crate) fn on() -> bool {
+    root()
+        .and_then(|r| r.get_attribute("data-keymap"))
+        .as_deref()
+        == Some("vim")
+}
+
+fn document() -> Option<web_sys::Document> {
+    web_sys::window()?.document()
+}
+
+fn root() -> Option<web_sys::Element> {
+    document()?.document_element()
+}
+
+/// Whether the focus is where keys type: a text field, a select or an editable area.
+fn typing(active: Option<&web_sys::Element>) -> bool {
+    let Some(el) = active else { return false };
+    match el.tag_name().as_str() {
+        "TEXTAREA" | "SELECT" => true,
+        "INPUT" => {
+            let kind = el.get_attribute("type").unwrap_or_default();
+            !matches!(
+                kind.as_str(),
+                "checkbox" | "radio" | "button" | "submit" | "reset" | "file" | "range" | "color"
+            )
+        }
+        _ => el
+            .dyn_ref::<web_sys::HtmlElement>()
+            .is_some_and(web_sys::HtmlElement::is_content_editable),
+    }
+}
+
+/// Whether a modal dialog is open (the key help aside).
+fn dialog_open() -> bool {
+    document()
+        .and_then(|d| {
+            d.query_selector("dialog[open]:not(#keys-dialog)")
+                .ok()
+                .flatten()
+        })
+        .is_some()
+}
+
+fn query_all(selector: &str) -> Vec<web_sys::HtmlElement> {
+    let Some(list) = document().and_then(|d| d.query_selector_all(selector).ok()) else {
+        return Vec::new();
+    };
+    (0..list.length())
+        .filter_map(|i| list.item(i)?.dyn_into::<web_sys::HtmlElement>().ok())
+        .filter(|e| e.offset_parent().is_some())
+        .collect()
+}
+
+/// What the list keys focus in an item.
+const ITEM: &str = "a[href], button:not([hidden]):not([disabled]), summary";
+
+/// The items of the page's main list: the list holding the focus, else the first one shown.
+fn list_items() -> Vec<web_sys::HtmlElement> {
+    let active = document().and_then(|d| d.active_element());
+    let list = active
+        .and_then(|a| a.closest("[data-keys=list]").ok().flatten())
+        .and_then(|l| l.dyn_into::<web_sys::HtmlElement>().ok())
+        .or_else(|| {
+            query_all("#main [data-keys=list]")
+                .into_iter()
+                .find(|l| l.child_element_count() > 0)
+        });
+    let Some(list) = list else { return Vec::new() };
+    let items = list.children();
+    (0..items.length())
+        .filter_map(|i| items.item(i)?.query_selector(ITEM).ok().flatten())
+        .filter_map(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+        .collect()
+}
+
+fn scroll(by: f64) {
+    if let Some(w) = web_sys::window() {
+        let height = w
+            .inner_height()
+            .ok()
+            .and_then(|h| h.as_f64())
+            .unwrap_or(0.0);
+        w.scroll_by_with_x_and_y(0.0, by * height / 2.0);
+    }
+}
+
+/// The tab next to the chosen one of the main tab list, by `step`.
+fn tab(step: i32) {
+    let tabs = query_all("#main [role=tablist] [role=tab]");
+    let Some(now) = tabs
+        .iter()
+        .position(|t| t.get_attribute("aria-selected").as_deref() == Some("true"))
+    else {
+        return;
+    };
+    let n = i32::try_from(tabs.len()).unwrap_or(1);
+    let next = usize::try_from((i32::try_from(now).unwrap_or(0) + step).rem_euclid(n)).unwrap_or(0);
+    if let Some(t) = tabs.get(next) {
+        t.click();
+        let _ = t.focus();
+    }
+}
+
+/// What the commands open in the shell.
+#[derive(Clone, Copy)]
+pub(crate) struct Shell {
+    pub palette: RwSignal<bool>,
+    pub menu: RwSignal<bool>,
+    pub help: RwSignal<bool>,
+}
+
+// [impl->dsn~vim-keys~1]
+/// Runs `command` on the page, as a person would.
+fn run(command: Command, shell: Shell) {
+    match command {
+        Command::Help => {
+            remember_focus();
+            shell.help.set(true);
+        }
+        Command::Palette => shell.palette.set(true),
+        Command::Search => match query_all("#main input[type=search], #main [data-keys=search]")
+            .into_iter()
+            .next()
+        {
+            Some(field) => {
+                let _ = field.focus();
+            }
+            None => shell.palette.set(true),
+        },
+        Command::Down | Command::Up => {
+            let items = list_items();
+            let active = document().and_then(|d| d.active_element());
+            let at = items
+                .iter()
+                .position(|i| active.as_ref().is_some_and(|a| a == i.unchecked_ref::<web_sys::Element>()));
+            let target = match (command, at) {
+                (Command::Down, Some(i)) => items.get(i + 1).or(items.get(i)),
+                (Command::Up, Some(i)) => items.get(i.saturating_sub(1)),
+                (Command::Down, None) => items.first(),
+                _ => items.last(),
+            };
+            if let Some(t) = target {
+                let _ = t.focus();
+            }
+        }
+        Command::First | Command::Last => {
+            let items = list_items();
+            let target = if command == Command::First {
+                items.first()
+            } else {
+                items.last()
+            };
+            match target {
+                Some(t) => {
+                    let _ = t.focus();
+                }
+                None => {
+                    if let Some(w) = web_sys::window() {
+                        let y = if command == Command::First { 0.0 } else { f64::MAX / 4.0 };
+                        w.scroll_to_with_x_and_y(0.0, y);
+                    }
+                }
+            }
+        }
+        Command::NextTab => tab(1),
+        Command::PreviousTab => tab(-1),
+        Command::View(n) => {
+            if let Some(v) = query_all(".views .views__item").get(usize::from(n) - 1) {
+                v.click();
+            }
+        }
+        Command::Menu => {
+            shell.palette.set(false);
+            shell.menu.set(true);
+            crate::shell::views::after_render(|| {
+                if let Some(first) = query_all("#launcher-panel .launcher__item").first() {
+                    let _ = first.focus();
+                }
+            });
+        }
+        Command::Open => {
+            if let Some(a) = document()
+                .and_then(|d| d.active_element())
+                .and_then(|a| a.dyn_into::<web_sys::HtmlElement>().ok())
+            {
+                a.click();
+            }
+        }
+        Command::Insert => {
+            if let Some(field) = query_all(
+                "#main input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([disabled]), #main textarea:not([disabled])",
+            )
+            .into_iter()
+            .next()
+            {
+                let _ = field.focus();
+            }
+        }
+        Command::ScrollDown => scroll(1.0),
+        Command::ScrollUp => scroll(-1.0),
+    }
+}
+
+/// Gives the focused element an ID, so the key help returns the focus there.
+fn remember_focus() {
+    if let Some(a) = document().and_then(|d| d.active_element())
+        && a.id().is_empty()
+        && a.tag_name() != "BODY"
+    {
+        a.set_id("keys-return");
+    }
+}
+
+/// The element the key help returns the focus to.
+fn return_id() -> String {
+    document()
+        .and_then(|d| d.active_element())
+        .filter(|a| a.tag_name() != "BODY" && !a.id().is_empty())
+        .map_or_else(|| "main".to_owned(), |a| a.id())
+}
+
+// [impl->dsn~vim-keys~1]
+/// Handles a key of the window's key handler; returns whether it used it.
+pub(crate) fn handle(ev: &web_sys::KeyboardEvent, keys: StoredValue<Keys>, shell: Shell) -> bool {
+    if !on() || ev.ctrl_key() || ev.alt_key() || ev.meta_key() || ev.is_composing() {
+        return false;
+    }
+    let active = document().and_then(|d| d.active_element());
+    if typing(active.as_ref()) {
+        // Esc leaves the field, as in vim; inside a dialog it closes the dialog instead.
+        if ev.key() == "Escape" && !dialog_open() {
+            if let Some(a) = active.and_then(|a| a.dyn_into::<web_sys::HtmlElement>().ok()) {
+                let _ = a.blur();
+            }
+            return true;
+        }
+        return false;
+    }
+    if dialog_open() || shell.palette.get_untracked() {
+        return false;
+    }
+    let now = js_sys::Date::now();
+    let mut state = keys.get_value();
+    let waiting = state.waiting();
+    let command = state.press(&ev.key(), now);
+    keys.set_value(state);
+    match command {
+        Some(c) => {
+            ev.prevent_default();
+            run(c, shell);
+            true
+        }
+        // `g` itself, or the key after it, is used up.
+        None => waiting || state.waiting(),
+    }
+}
+
+/// The key help: the vim keys and the keys that always work.
+#[component]
+pub(crate) fn KeyHelp(
+    open: RwSignal<bool>,
+    /// The device setting, shared with the menu's select.
+    keymap: RwSignal<String>,
+) -> impl IntoView {
+    let back = RwSignal::new("main".to_owned());
+    Effect::new(move || {
+        if open.get() {
+            back.set(return_id());
+        }
+    });
+    let table = |caption: &'static str, rows: &'static [(&'static str, &'static str)]| {
+        view! {
+            <table class="table keys-table">
+                <caption>{caption}</caption>
+                <thead><tr><th scope="col">{text::KEY_KEYS}</th><th scope="col">{text::KEY_DOES}</th></tr></thead>
+                <tbody>
+                    {rows.iter().map(|(keys, does)| view! {
+                        <tr><td><kbd>{*keys}</kbd></td><td>{*does}</td></tr>
+                    }).collect_view()}
+                </tbody>
+            </table>
+        }
+    };
+    view! {
+        <EditDialog id="keys" open=open on_close=Callback::new(move |()| open.set(false))
+            title=Signal::derive(|| text::KEYS_TITLE.to_owned()) back>
+            <p>{move || if keymap.get() == "vim" { text::KEYS_ON } else { text::KEYS_OFF }}</p>
+            <div class="actions">
+                <button id="keys-toggle" type="button" class="button" on:click=move |_| {
+                    let next = if keymap.get_untracked() == "vim" { "" } else { "vim" };
+                    crate::shell::views::apply_keymap(next);
+                    keymap.set(next.to_owned());
+                }>
+                    {move || if keymap.get() == "vim" { text::KEYS_TURN_OFF } else { text::KEYS_TURN_ON }}
+                </button>
+            </div>
+            {table(text::KEYS_VIM, HELP)}
+            {table(text::KEYS_ALWAYS, ALWAYS)}
+        </EditDialog>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Command, Keys};
+
+    // [utest->dsn~vim-keys~1]
+    #[test]
+    fn single_keys_and_the_g_prefix_name_their_commands() {
+        let mut keys = Keys::default();
+        assert_eq!(keys.press("j", 0.0), Some(Command::Down));
+        assert_eq!(keys.press("G", 0.0), Some(Command::Last));
+        assert_eq!(keys.press("g", 0.0), None);
+        assert!(keys.waiting());
+        assert_eq!(keys.press("g", 500.0), Some(Command::First));
+        assert!(!keys.waiting());
+        assert_eq!(keys.press("g", 1000.0), None);
+        assert_eq!(keys.press("t", 1200.0), Some(Command::NextTab));
+        keys.press("g", 0.0);
+        assert_eq!(keys.press("3", 10.0), Some(Command::View(3)));
+        keys.press("g", 0.0);
+        assert_eq!(keys.press("5", 10.0), None, "at most four views");
+        assert_eq!(keys.press("x", 20.0), None, "an unknown key does nothing");
+    }
+
+    // [utest->dsn~vim-keys~1]
+    #[test]
+    fn g_waits_one_second_then_the_key_counts_on_its_own() {
+        let mut keys = Keys::default();
+        keys.press("g", 0.0);
+        assert_eq!(keys.press("j", 1500.0), Some(Command::Down));
+    }
+}

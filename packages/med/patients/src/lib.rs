@@ -856,6 +856,31 @@ pub struct TriageEntry {
     pub by: UserId,
 }
 
+/// A registration of a triage tag that was registered already (PAT-12): two devices
+/// offline, or a number typed wrong.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Registration {
+    /// When.
+    pub at: Hlc,
+    /// Who.
+    pub by: UserId,
+    /// Where it registered the patient.
+    pub holder: Holder,
+}
+
+// [impl->dsn~unique-triage-tag~1]
+/// Whether two triage tag numbers are the same card: letters and digits compared, case,
+/// spaces and dashes ignored ("de 0045" is "DE-0045").
+pub fn same_tag(a: &str, b: &str) -> bool {
+    let key = |t: &str| {
+        t.chars()
+            .filter(char::is_ascii_alphanumeric)
+            .map(|c| c.to_ascii_uppercase())
+            .collect::<String>()
+    };
+    key(a) == key(b)
+}
+
 /// A registered patient.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Patient {
@@ -878,6 +903,8 @@ pub struct Patient {
     pub place: Option<String>,
     /// Admissions, moves and discharges, oldest first; starts with the registration.
     pub stay: Vec<StayEntry>,
+    /// Later registrations of the same tag, oldest first (PAT-12); empty as a rule.
+    pub registered_again: Vec<Registration>,
 }
 
 impl Patient {
@@ -1014,8 +1041,14 @@ impl PatientRegister {
                         by: by.clone(),
                     };
                     match register.patients.get_mut(&r.tag) {
+                        // [impl->dsn~unique-triage-tag~1]
                         Some(patient) => {
                             patient.history.push(entry);
+                            patient.registered_again.push(Registration {
+                                at,
+                                by,
+                                holder: r.holder(),
+                            });
                             register.notices.push(Notice::RegisteredTwice(r.tag));
                         }
                         None => {
@@ -1039,6 +1072,7 @@ impl PatientRegister {
                                         at,
                                         by,
                                     }],
+                                    registered_again: Vec::new(),
                                 },
                             );
                         }
@@ -1165,6 +1199,13 @@ impl PatientRegister {
             }
         }
         register
+    }
+
+    // [impl->dsn~unique-triage-tag~1]
+    /// The patient registered with the card `tag`, compared as [`same_tag`] does.
+    pub fn patient_with_card(&self, tag: &str) -> Option<&Patient> {
+        self.patient(tag)
+            .or_else(|| self.patients.values().find(|p| same_tag(&p.tag, tag)))
     }
 
     /// A patient by triage tag number.
@@ -1523,6 +1564,52 @@ mod tests {
     fn readmitted(n: u64, tag: &str) -> AppliedEvent {
         let r = Readmitted { tag: tag.into() };
         event(n, "clara", READMITTED, r.encode().unwrap())
+    }
+
+    // [utest->dsn~unique-triage-tag~1]
+    #[test]
+    fn a_card_registered_twice_is_kept_once_and_names_the_second_registration() {
+        let mut second = Registered {
+            report: None,
+            unit: Some("RTW 1".into()),
+            task: None,
+            tag: "DE-0045".into(),
+            uhs: String::new(),
+            category: TriageCategory::Minor,
+            algorithm: None,
+        };
+        let events = vec![
+            event(2, "ben", REGISTERED, second.encode().unwrap()),
+            registered(1, "DE-0045", TriageCategory::Immediate),
+        ];
+        let register = PatientRegister::from_events(&events);
+        assert_eq!(register.patients().count(), 1);
+        let patient = register.patient("DE-0045").unwrap();
+        assert_eq!(
+            patient.holder(),
+            Holder::Uhs("uhs-1".into()),
+            "the first counts"
+        );
+        assert_eq!(patient.registered_again.len(), 1);
+        assert_eq!(patient.registered_again[0].by.localpart(), "ben");
+        assert_eq!(
+            patient.registered_again[0].holder,
+            Holder::Unit("RTW 1".into())
+        );
+        assert_eq!(
+            register.notices,
+            [Notice::RegisteredTwice("DE-0045".into())]
+        );
+
+        // The device finds the card however it was typed.
+        assert!(same_tag("de 0045", "DE-0045"));
+        assert!(!same_tag("DE-0046", "DE-0045"));
+        assert_eq!(
+            register.patient_with_card("de0045").map(|p| p.tag.as_str()),
+            Some("DE-0045")
+        );
+        second.tag = "DE-0046".into();
+        assert!(register.patient_with_card(&second.tag).is_none());
     }
 
     #[test]

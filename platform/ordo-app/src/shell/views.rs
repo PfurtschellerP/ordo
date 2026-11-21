@@ -16,6 +16,7 @@ use crate::{shared::incidents, shell::nav, shell::palette, text};
 pub fn App() -> impl IntoView {
     apply_theme(&core::preference(THEME_KEY).unwrap_or_default());
     apply_hand(&core::preference(HAND_KEY).unwrap_or_default());
+    apply_keymap(&core::preference(crate::shell::keys::KEYMAP_KEY).unwrap_or_default());
     let vault = RwSignal::new(None::<Result<(), String>>);
     leptos::task::spawn_local(async move {
         let opened = crate::vault::open().await;
@@ -462,6 +463,12 @@ pub(crate) fn apply_hand(hand: &str) {
     apply_setting("data-hand", HAND_KEY, hand);
 }
 
+// [impl->dsn~vim-keys~1]
+/// Turns vim keys on (`"vim"`) or off (`""`) and remembers it on this device (ADR-0090).
+pub(crate) fn apply_keymap(keymap: &str) {
+    apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
+}
+
 /// The content of both menu buttons (header and bottom bar).
 #[component]
 fn MenuLabel() -> impl IntoView {
@@ -788,6 +795,13 @@ fn Workspace(
     // Ctrl+K / ⌘K opens the command palette from anywhere (UX-10).
     let profile_open = RwSignal::new(false);
     // While the palette is open, Ctrl+K moves its selection up and Esc closes it (ADR-0051).
+    let key_help = RwSignal::new(false);
+    let vim = StoredValue::new(crate::shell::keys::Keys::default());
+    let shell = crate::shell::keys::Shell {
+        palette,
+        menu: open,
+        help: key_help,
+    };
     let keys = window_event_listener(leptos::ev::keydown, move |ev| {
         if (ev.ctrl_key() || ev.meta_key()) && !ev.alt_key() && ev.key().eq_ignore_ascii_case("k") {
             ev.prevent_default();
@@ -798,6 +812,8 @@ fn Workspace(
             }
         } else if crate::shell::ui::move_in_list(&ev) {
             // j/k and the arrow keys in lists (ADR-0051).
+        } else if crate::shell::keys::handle(&ev, vim, shell) {
+            // Vim keys, where turned on (ADR-0090).
         } else if ev.key() == "Escape" {
             // Escape closes an open menu wherever the focus is, and returns it to the
             // menu's button (ADR-0025, ADR-0049).
@@ -815,6 +831,8 @@ fn Workspace(
     );
     let theme = RwSignal::new(core::preference(THEME_KEY).unwrap_or_default());
     let hand = RwSignal::new(core::preference(HAND_KEY).unwrap_or_default());
+    let keymap =
+        RwSignal::new(core::preference(crate::shell::keys::KEYMAP_KEY).unwrap_or_default());
     let close_profile = Callback::new(move |()| profile_open.set(false));
     // The person's roles in this incident, shown in the profile menu.
     let my_roles = {
@@ -896,6 +914,11 @@ fn Workspace(
                     <crate::shell::profile::DisplayName core revision />
                     <SettingSelect id="theme" label=text::APPEARANCE options=&text::THEMES value=theme apply=apply_theme />
                     <SettingSelect id="hand" label=text::HAND options=&text::HANDS value=hand apply=apply_hand />
+                    <SettingSelect id="keymap" label=text::KEYMAP options=&text::KEYMAPS value=keymap apply=apply_keymap />
+                    <button id="keys-button" type="button" class="button button--with-icon" aria-haspopup="dialog"
+                        on:click=move |_| { profile_open.set(false); key_help.set(true); }>
+                        <Icon name="keyboard" />{text::KEYS_TITLE}
+                    </button>
                     <a id="my-devices" class="button" href=nav::Route::view("person.devices", "devices").to_path()
                         on:click=follow(nav, nav::Route::view("person.devices", "devices"))>{text::MY_DEVICES}</a>
                     <button id="change-incident" type="button" class="button"
@@ -1009,6 +1032,7 @@ fn Workspace(
             <crate::shell::ui::UndoBar offer=undo />
         </div>
         <palette::Palette core revision nav open=palette theme />
+        <crate::shell::keys::KeyHelp open=key_help keymap />
         <p class="visually-hidden" role="status" aria-live="polite">
             {move || {
                 revision.track();

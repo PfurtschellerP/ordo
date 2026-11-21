@@ -1372,7 +1372,8 @@ holder and the whole way with time and person, next to admission and discharge (
 *Discharge from the UHS*). Counts and load follow the current holder, so a patient counts
 where they are. Handing over a discharged patient changes nothing: they are readmitted
 first. Moves of earlier events (`patients.moved`, before ADR-0087) are still read. The
-record shows the way as steps on the tab *Übergabe* and on the overview.
+record shows the way as a flow chart on the tab *Übergabe* and on the overview (*Patient
+flow chart* in chapter 5).
 
 Covers:
 
@@ -1628,7 +1629,9 @@ More icons and fewer words, by rules (agreed with the product owner on 2026-11-1
   map-pin = show on the map, info = details, pencil = edit, trash-2 = remove or dissolve,
   x = withdraw or close, plus = add, undo-2 = undo, ellipsis = more actions,
   camera = take a photo, upload = upload, arrow-right-left = hand over (a patient),
-  qr-code = show a code to scan, scan-line = scan a code.
+  qr-code = show a code to scan, scan-line = scan a code, triangle-alert = a warning to
+  check, keyboard = keyboard shortcuts; in the patient's way, tent = a UHS, truck = a unit,
+  log-out = left the incident.
 * **Words where there is room.** A row's icon buttons show their word too where the row is
   wide (container queries); main actions always keep their word.
 * **Removing by icon can be undone.** A short "… entfernt. Rückgängig" follows at the

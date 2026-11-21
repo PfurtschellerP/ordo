@@ -418,37 +418,44 @@ fn RegisterForm(
     let place = RwSignal::new(String::new());
     let free_places = Memo::new(move |_| {
         revision.track();
-        let Some(Holder::Uhs(chosen)) = holder_of_key(&uhs.get()) else {
-            return Vec::new();
-        };
-        let places = core
-            .with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)))
-            .remove(&chosen)
-            .unwrap_or_default();
-        let taken: Vec<String> = register.with(|r| {
-            r.patients()
-                .filter(|p| p.uhs == chosen && p.is_present())
-                .filter_map(|p| p.place.clone())
-                .collect()
-        });
-        places
-            .into_iter()
-            .filter(|p| !taken.contains(&p.id))
-            .collect::<Vec<_>>()
+        let holder = holder_of_key(&uhs.get());
+        register.with(|r| free_places(core, r, holder.as_ref()))
     });
     Effect::new(move || {
-        let proposed = category.get().and_then(|c| {
-            free_places.with(|free| {
-                free.iter()
-                    .find(|p| p.category == Some(c))
-                    .or_else(|| free.iter().find(|p| p.category.is_none()))
-                    .map(|p| p.id.clone())
-            })
-        });
+        let proposed = category
+            .get()
+            .and_then(|c| free_places.with(|free| propose_place(free, c)));
         place.set(proposed.unwrap_or_default());
+    });
+    // [impl->dsn~unique-triage-tag~1]
+    // A card already registered (also typed differently) is not registered again: its
+    // record opens instead (PAT-12).
+    let in_use = Memo::new(move |_| {
+        revision.track();
+        let value = tag.get();
+        let value = value.trim();
+        if value.is_empty() {
+            return None;
+        }
+        register.with(|r| {
+            let p = r.patient_with_card(value)?;
+            let since = p.stay.first().map_or(0, |s| s.at.wall_ms);
+            Some((
+                p.tag.clone(),
+                text::tag_in_use(
+                    &p.tag,
+                    &core::holder_name(core, &p.holder()),
+                    &core::clock(since),
+                ),
+            ))
+        })
     });
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
+        if in_use.get_untracked().is_some() {
+            focus("tag");
+            return;
+        }
         let value = tag.get().trim().to_owned();
         let Some(chosen) = category.get() else { return };
         let Some(holder) = holder_of_key(&uhs.get()) else {
@@ -502,7 +509,23 @@ fn RegisterForm(
                             </div>
                         })}
                         <label for="tag">{text::REGISTER_TAG}</label>
-                        <input id="tag" type="text" inputmode="numeric" autocomplete="off" required bind:value=tag class="input--code" />
+                        <input id="tag" type="text" inputmode="numeric" autocomplete="off" required bind:value=tag class="input--code"
+                            aria-invalid=move || in_use.with(Option::is_some).then_some("true")
+                            aria-describedby="tag-in-use" />
+                        <p id="tag-in-use" class="error" role="status">
+                            {move || in_use.get().map(|(known, words)| {
+                                let route = record_route(&known);
+                                view! {
+                                    <Icon name="triangle-alert" />
+                                    {words} " "
+                                    <a href=route.to_path() on:click=move |ev| {
+                                        ev.prevent_default();
+                                        nav.go(route.clone());
+                                        after_render(|| focus("record-title"));
+                                    }>{text::ACTION_OPEN_RECORD}</a>
+                                }
+                            })}
+                        </p>
                         <fieldset class="choices">
                             <legend>{text::REGISTER_CATEGORY}</legend>
                             {CATEGORIES
@@ -529,25 +552,7 @@ fn RegisterForm(
                             <option value="" selected=move || uhs.get().is_empty()>{text::UHS_CHOOSE}</option>
                             {holder_options(list.get(), uhs)}
                         </select>
-                        <Show when=move || free_places.with(|f| !f.is_empty())>
-                            <label for="register-place">{text::PLACE}</label>
-                            <select id="register-place" aria-describedby="register-place-hint"
-                                on:change=move |ev| place.set(event_target_value(&ev)) prop:value=move || place.get()>
-                                <option value="" selected=move || place.get().is_empty()>{text::NO_PLACE}</option>
-                                {move || {
-                                    let places = free_places.get().into_iter().map(|p| (p.category, p.id, p.label, None)).collect();
-                                    by_category(places).into_iter().map(|(category, places)| view! {
-                                        <optgroup label=category.map_or(text::PLACES_ANY, text::label)>
-                                            {places.into_iter().map(|(id, label, _)| {
-                                                let chosen = id.clone();
-                                                view! { <option value=id selected=move || place.get() == chosen>{label}</option> }
-                                            }).collect_view()}
-                                        </optgroup>
-                                    }).collect_view()
-                                }}
-                            </select>
-                            <p id="register-place-hint" class="hint">{text::REGISTER_PLACE_HINT}</p>
-                        </Show>
+                        <PlaceSelect id="register-place" free=free_places place hint=text::REGISTER_PLACE_HINT />
                         <p role="alert" class="error">{move || error.get()}</p>
                         <button type="submit" class="button button--primary">{text::REGISTER_SUBMIT}</button>
                     </form>
@@ -570,6 +575,91 @@ fn RegisterForm(
                 })
             }}
         </section>
+    }
+}
+
+// [impl->dsn~place-plan~3]
+/// The free treatment places of `holder`, if it is a UHS: its places no present patient
+/// holds.
+pub(crate) fn free_places(
+    core: Handle,
+    register: &PatientRegister,
+    holder: Option<&Holder>,
+) -> Vec<med::Place> {
+    let Some(Holder::Uhs(uhs)) = holder else {
+        return Vec::new();
+    };
+    let places = core
+        .with_value(|c| med::places(&c.events(med::UHS_COMPARTMENT)))
+        .remove(uhs)
+        .unwrap_or_default();
+    let taken: Vec<&String> = register
+        .patients()
+        .filter(|p| &p.uhs == uhs && p.is_present())
+        .filter_map(|p| p.place.as_ref())
+        .collect();
+    places
+        .into_iter()
+        .filter(|p| !taken.contains(&&p.id))
+        .collect()
+}
+
+/// The place proposed for a patient of `category`: the first free one kept for it, else
+/// the first one kept for any category. The person can always choose another or none.
+pub(crate) fn propose_place(free: &[med::Place], category: TriageCategory) -> Option<String> {
+    free.iter()
+        .find(|p| p.category == Some(category))
+        .or_else(|| free.iter().find(|p| p.category.is_none()))
+        .map(|p| p.id.clone())
+}
+
+/// Assigns the place `id` among `free` to the patient `tag`; nothing for none.
+pub(crate) fn assign_chosen_place(
+    core: Handle,
+    revision: RwSignal<u64>,
+    tag: &str,
+    free: &[med::Place],
+    id: &str,
+) -> Result<(), String> {
+    match free.iter().find(|p| p.id == id) {
+        Some(p) => core::assign_place(core, revision, tag, Some(p.id.clone()), Some(&p.label)),
+        None => Ok(()),
+    }
+}
+
+// [impl->dsn~place-plan~3]
+/// A choice among free treatment places, by the category they are kept for, with "Kein
+/// Platz"; hidden while there are none.
+#[component]
+pub(crate) fn PlaceSelect(
+    #[prop(into)] id: String,
+    #[prop(into)] free: Signal<Vec<med::Place>>,
+    place: RwSignal<String>,
+    hint: &'static str,
+) -> impl IntoView {
+    let hint_id = format!("{id}-hint");
+    view! {
+        <Show when=move || free.with(|f| !f.is_empty())>
+            <div class="field">
+                <label for=id.clone()>{text::PLACE}</label>
+                <select id=id.clone() aria-describedby=hint_id.clone()
+                    on:change=move |ev| place.set(event_target_value(&ev)) prop:value=move || place.get()>
+                    <option value="" selected=move || place.get().is_empty()>{text::NO_PLACE}</option>
+                    {move || {
+                        let places = free.get().into_iter().map(|p| (p.category, p.id, p.label, None)).collect();
+                        by_category(places).into_iter().map(|(category, places)| view! {
+                            <optgroup label=category.map_or(text::PLACES_ANY, text::label)>
+                                {places.into_iter().map(|(id, label, _)| {
+                                    let chosen = id.clone();
+                                    view! { <option value=id selected=move || place.get() == chosen>{label}</option> }
+                                }).collect_view()}
+                            </optgroup>
+                        }).collect_view()
+                    }}
+                </select>
+                <p id=hint_id.clone() class="hint">{hint}</p>
+            </div>
+        </Show>
     }
 }
 
@@ -603,6 +693,8 @@ struct Card {
     discharged: Option<Outcome>,
     /// An open handover, in words (ADR-0087).
     handover: Option<String>,
+    /// The card was registered more than once (PAT-12).
+    twice: bool,
 }
 
 /// One patient in the list: a link to the record.
@@ -644,6 +736,9 @@ fn PatientLink(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl I
                 <span class="patient-card__name">{card.name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
                 {card.handover.map(|h| view! {
                     <span class="patient-card__handover"><crate::shell::ui::Icon name="arrow-right-left" />{h}</span>
+                })}
+                {card.twice.then(|| view! {
+                    <span class="patient-card__warning"><Icon name="triangle-alert" />{text::TAG_TWICE}</span>
                 })}
                 <span class="patient-card__meta">
                     {place.map(|p| view! { <span class="patient-card__place">{p}</span> " · " })}
@@ -707,6 +802,7 @@ fn PatientList(
                             Some(to) => text::handover_open_to(&core::holder_name(core, to)),
                             None => text::HANDOVER_OPEN_QUICK.to_owned(),
                         }),
+                        twice: !p.registered_again.is_empty(),
                         triages: p.history.len(),
                         name: person_name(records, &p.tag),
                         pending: pending.contains(&p.tag),

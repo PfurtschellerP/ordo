@@ -5,6 +5,7 @@
 pub(crate) mod address;
 pub(crate) mod attention;
 pub(crate) mod images;
+pub(crate) mod keys;
 pub(crate) mod nav;
 pub(crate) mod palette;
 pub(crate) mod profile;

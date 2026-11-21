@@ -1320,6 +1320,67 @@ Needs: impl, utest, itest
 
 Tags: must, m68
 
+#### Taking a patient onto a place
+`dsn~take-with-place~1`
+
+Every place where a patient is taken (the record's notice, the quick handover's dialog,
+*Übergaben an Sie*) uses one control: for whom, where the person writes for several
+holders; the free places of the chosen UHS by the category they are kept for, with *Kein
+Platz*; and "Übernehmen". The first free place kept for the patient's category, else one
+kept for any, is proposed, as at registration. Taking records `patients.taken`, then
+`patients.placeAssigned` for the place chosen; both are the receiver's, so the guard
+accepts them in this order.
+
+Covers:
+
+* [req~uhs-18~1](../requirements/04-med.md#uhs-18--treatment-place-when-taking-a-patient)
+
+Needs: impl, itest
+
+Tags: should, m69
+
+#### Unique triage tag
+`dsn~unique-triage-tag~1`
+
+The register form looks the number up among all patients of the incident on the device
+(`PatientRegister::patient_with_card`, comparing letters and digits only, without case).
+A number found is not registered: the field is marked invalid and says where the patient is
+and since when, with a link to the record. Registrations that still meet (devices offline)
+keep the first one by clock; each later one stays in the patient's triage history and in
+`Patient::registered_again` with time, person and holder. The card in the list and the
+record's header then say *Karte zweimal registriert*, with an icon and words, and how to
+resolve it.
+
+Covers:
+
+* [req~pat-12~1](../requirements/04-med.md#pat-12--unique-triage-tag-numbers)
+
+Needs: impl, utest, itest
+
+Tags: must, m69
+
+#### Patient flow chart
+`dsn~patient-flow~1`
+
+The patient's way on the record's overview and on the tab *Übergabe* is a flow chart: a
+box per station (the unit's crew, a UHS, the discharge, the receiver outside ORDO), with
+its icon (truck, tent, log-out), what happened there (registered, taken, transports, a
+handover taken back), and an arrow into it that says how the patient got there and when
+(*Übergabe*, *Schnellübergabe per QR-Code*, *Verlegt*, *Entlassen*). The station where the
+patient is now has a thick border and *Jetzt*; an open handover ends in a dashed box *Noch
+nicht übernommen*, and on the tab a dashed "?" box asks where next. The boxes stand in a row
+where the column is wide and one below the other where it is narrow (container query). It
+is an ordered list, so a screen reader reads the way in order; the arrows are drawn and not
+read, their words are.
+
+Covers:
+
+* [req~pat-5~1](../requirements/04-med.md#pat-5--patient-pathway)
+
+Needs: impl, utest, itest
+
+Tags: must, m69
+
 #### Record timeline
 `dsn~record-timeline~1`
 
@@ -1592,6 +1653,28 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: should, m23
+
+#### Vim keys
+`dsn~vim-keys~1`
+
+The menu's setting *Tastatur* stores `vim` on the device and sets `data-keymap` on the
+page ([ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md)). The window key handler
+(`shell/keys.rs`) passes keys to a small state machine that knows the `g` prefix (one
+second) and returns a command; it ignores keys in text fields, selects and editable areas,
+with Ctrl, Alt or Meta, while composing and while a dialog is open. The commands act on
+the page as a person would: they focus the first item of the main list (`data-keys="list"`)
+or its first or last item, click the next tab of the main tab list, click the n-th view of
+the view navigation, open the palette or the menu, focus the first search field of the
+main content, and scroll. The key help is a dialog with a table of the keys, opened by `?`
+and from the menu.
+
+Covers:
+
+* [req~ux-15~1](../requirements/07-quality.md#ux-15--vim-keys)
+
+Needs: impl, utest, itest
+
+Tags: should, m69
 
 #### Command palette
 `dsn~command-palette~1`
