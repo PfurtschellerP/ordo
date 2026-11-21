@@ -8,8 +8,8 @@ use ordo_med_patients::transport::TransportStatus;
 use ordo_med_patients::{Holder, PatientRegister, Stay};
 
 use crate::core::{self, Handle};
+use crate::med::text;
 use crate::shell::ui::Icon;
-use crate::text;
 
 /// What a station is, for its icon.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

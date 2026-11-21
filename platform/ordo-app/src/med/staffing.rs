@@ -8,7 +8,7 @@ use ordo_med_patients::staffing::{self, Closed, Need, Requested, StaffRequests};
 use ordo_med_patients::{self as med, UhsUpdated};
 
 use crate::core::{self, Handle};
-use crate::text;
+use crate::med::text;
 
 /// The incident's staff requests, computed from the shared events.
 pub fn list(core: Handle) -> StaffRequests {

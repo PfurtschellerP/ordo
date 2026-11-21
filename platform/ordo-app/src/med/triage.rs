@@ -6,7 +6,7 @@ use ordo_contracts::TriageCategory::{
     self, Deceased, Expectant, Immediate, Minor, Uninjured, Urgent,
 };
 
-use crate::text;
+use crate::med::text;
 
 /// Triage categories in display order.
 pub(crate) const CATEGORIES: [TriageCategory; 6] =

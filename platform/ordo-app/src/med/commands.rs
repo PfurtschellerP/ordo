@@ -9,12 +9,12 @@ use ordo_med_patients::{self as med, PatientRegister};
 
 use crate::core::{self, Handle};
 use crate::med::patients::{FORMS, record_route};
+use crate::med::text;
 use crate::med::triage::CATEGORIES;
 use crate::med::uhs::uhs_list;
 use crate::shell::nav::{self, Route};
 use crate::shell::palette::{Action, Command, Item, PalettePart, Record, RecordPage, item};
 use crate::shell::views::access;
-use crate::text;
 
 /// The kind of record a patient is in the palette.
 const PATIENT: &str = "patient";

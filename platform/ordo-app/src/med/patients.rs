@@ -21,12 +21,12 @@ use wasm_bindgen::JsCast;
 
 use crate::attachments::Availability;
 use crate::core::{self, Handle};
+use crate::med::text;
 use crate::med::triage::{CATEGORIES, TriageBadge};
 use crate::med::uhs::uhs_list;
 use crate::shell::nav::Route;
 use crate::shell::ui::{Action, Actions, Icon, IncidentPeople, RadioChips, Suggestions};
 use crate::shell::views::{Nav, after_render, focus};
-use crate::text;
 
 pub(crate) const WORKSPACE: &str = "med.uhs";
 /// Patient photos: longest edge and JPEG quality, tried in this order (ADR-0028).

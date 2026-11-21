@@ -11,9 +11,9 @@ use ordo_tasks::Phase;
 use ordo_units::{UnitCatalogue, UnitRegister};
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::nav::Route;
 use crate::shell::ui::Icon;
-use crate::text;
 
 thread_local! {
     /// What the next view brings into view once it has opened (a CSS selector).

@@ -7,7 +7,7 @@ use ordo_med_patients::transport::{TransportBoard, TransportStatus};
 use ordo_units::{Unit, UnitRegister};
 
 use crate::core::{self, Handle};
-use crate::text;
+use crate::shared::text;
 
 /// The units present whose crew names this person (by their account).
 pub(crate) fn my_units(core: Handle) -> Vec<Unit> {

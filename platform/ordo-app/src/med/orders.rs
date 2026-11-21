@@ -17,9 +17,9 @@ use ordo_med_patients::{self as med, PatientRegister};
 
 use crate::core::{self, Handle};
 use crate::med::patients::{FORMS, open_prefilled, record_route};
+use crate::med::text;
 use crate::shell::ui::{Action, Actions, History, IncidentPeople, RadioChips, Suggestions};
 use crate::shell::views::{Nav, after_render, focus};
-use crate::text;
 
 /// Routes of administration from the profile (checked at build time, see `build.rs`).
 pub static CATALOGUE: LazyLock<OrderCatalogue> = LazyLock::new(|| {

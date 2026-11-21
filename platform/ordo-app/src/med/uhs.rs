@@ -8,9 +8,9 @@ use ordo_contracts::TriageCategory::{self, Expectant, Immediate, Minor, Uninjure
 use ordo_med_patients::{self as med, UhsCreated};
 
 use crate::core::{self, Handle};
+use crate::med::text;
 use crate::med::triage::{CATEGORIES, TriageBadge};
 use crate::shell::views::follow_route;
-use crate::text;
 
 /// The on-site care units of the incident (from the shared compartment).
 pub(crate) fn uhs_list(core: Handle) -> Vec<UhsCreated> {

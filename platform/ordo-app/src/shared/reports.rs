@@ -7,7 +7,7 @@ use leptos::prelude::*;
 use ordo_reports::{Recorded, ReportKind, ReportList};
 
 use crate::core::Handle;
-use crate::text;
+use crate::shared::text;
 
 /// The incident's reports of the module `reports` (ADR-0075), computed from the shared
 /// events.

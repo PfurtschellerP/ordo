@@ -11,8 +11,8 @@ use ordo_units::{
 };
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::ui::{Action, Actions, CheckChips, Suggestions};
-use crate::text;
 
 /// Status codes from the profile (`units/status-codes.toml`).
 pub static STATUS: LazyLock<StatusCatalogue> = LazyLock::new(|| {

@@ -5,10 +5,10 @@ use leptos::prelude::*;
 use ordo_units::{self as units, UnitRegister};
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::nav::{self, Route};
 use crate::shell::palette::{Action, Command, Item, PalettePart, Record, RecordPage, item};
 use crate::shell::views::access;
-use crate::text;
 
 /// The kind of record a unit is in the palette.
 const UNIT: &str = "unit";

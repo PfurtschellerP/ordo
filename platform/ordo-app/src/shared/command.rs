@@ -11,8 +11,8 @@ use ordo_command::{
 };
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::ui::{Action, Actions, History, Suggestions};
-use crate::text;
 
 /// Position kinds from the profile (`command/structure.toml`, checked at build time).
 pub static STRUCTURE: LazyLock<StructureCatalogue> = LazyLock::new(|| {

@@ -9,8 +9,8 @@
 use leptos::prelude::*;
 use ordo_med_patients::overview::{Occupancy, PlaceGroup};
 
+use crate::med::text;
 use crate::med::triage::TriageBadge;
-use crate::text;
 
 /// One on-site care unit as the overview shows it.
 #[derive(Clone, Debug, PartialEq)]

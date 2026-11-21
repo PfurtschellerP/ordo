@@ -8,9 +8,9 @@ use ordo_sync::message::{
     ClientMessage, LoginProvider, LoginProviderDraft, LoginProviders, LoginTest, LoginTestState,
 };
 
+use crate::admin::text;
 use crate::core::{self, Handle};
 use crate::shell::views::{after_render, focus};
-use crate::text;
 
 /// The change waiting for its answer, as in the accounts view.
 #[derive(Clone, Copy)]

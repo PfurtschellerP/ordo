@@ -12,9 +12,9 @@ use ordo_med_patients::{self as med, Holder, Patient, PatientRegister, Stay, Sta
 
 use crate::core::{self, Handle};
 use crate::med::patients::FORMS;
+use crate::med::text;
 use crate::med::triage::TriageBadge;
 use crate::shell::ui::Ago;
-use crate::text;
 use ordo_med_patients::record::Records;
 
 /// The tabs of the record page.

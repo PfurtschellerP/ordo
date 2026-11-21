@@ -6,7 +6,7 @@ use leptos::prelude::*;
 use ordo_sync::message::{MapRegion, MapRegionRequest, MapRegionState};
 
 use crate::core::{self, Handle};
-use crate::text;
+use crate::shared::text;
 
 /// Reads a coordinate as typed: a decimal number, with a point or a comma.
 fn degrees(value: &str) -> Option<f64> {

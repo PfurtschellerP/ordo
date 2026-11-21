@@ -10,10 +10,10 @@ use ordo_sync::incidents::IncidentState;
 use crate::core::{self, Handle};
 use crate::med::places::{Level, PlaceRow, TreatmentPlaces};
 use crate::med::triage::CATEGORIES;
+use crate::shared::text;
 use crate::shell::nav::Route;
 use crate::shell::ui::Icon;
 use crate::shell::views::follow_route;
-use crate::text;
 
 /// One open order as the tile shows it.
 #[derive(Clone, Debug, PartialEq)]

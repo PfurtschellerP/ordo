@@ -14,8 +14,8 @@ use ordo_tasks::{
 use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::ui::{Action, Actions, Disclosure, Icon};
-use crate::text;
 
 /// Task templates from the profile (`tasks/templates.toml`, checked at build time).
 pub static TEMPLATES: LazyLock<TemplateCatalogue> = LazyLock::new(|| {

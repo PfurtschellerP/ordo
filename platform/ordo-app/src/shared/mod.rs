@@ -14,6 +14,7 @@ pub(crate) mod reports;
 pub(crate) mod situation;
 pub(crate) mod summary;
 pub(crate) mod tasks;
+pub(crate) mod text;
 pub(crate) mod units;
 
 use crate::shell::nav;
@@ -25,21 +26,21 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     nav::Workspace {
         id: "units.crew",
         // Under Sanität: medical units' crews (product owner, 2026-11-17).
-        package: crate::text::TAB_MED,
-        label: crate::text::WS_CREW,
+        package: crate::shared::text::TAB_MED,
+        label: crate::shared::text::WS_CREW,
         requires: &["incident"],
         permission: Some(crate::core::permission::CREW_WORK),
         or_organisation: &[],
         views: &[
             nav::view(
                 "tasks",
-                crate::text::CREW_TASKS,
+                crate::shared::text::CREW_TASKS,
                 "crew tasks status patient cases",
                 "clipboard-list",
             ),
             nav::view(
                 "transports",
-                crate::text::TRANSPORTS,
+                crate::shared::text::TRANSPORTS,
                 "crew transports",
                 "ambulance",
             ),
@@ -49,7 +50,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 requires: &["med.clinical"],
                 ..nav::view(
                     "patients",
-                    crate::text::CREW_PATIENTS,
+                    crate::shared::text::CREW_PATIENTS,
                     "crew patients register",
                     "users",
                 )
@@ -60,15 +61,15 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // The incident command (ADR-0061): what is set up before and adjusted during it …
     nav::Workspace {
         id: "command.prepare",
-        package: crate::text::TAB_COMMAND,
-        label: crate::text::WS_PREPARE,
+        package: crate::shared::text::TAB_COMMAND,
+        label: crate::shared::text::WS_PREPARE,
         requires: &["incident"],
         permission: Some(crate::core::permission::VIEW_SITUATION),
         or_organisation: &[],
         views: &[
             nav::view(
                 "incident",
-                crate::text::INCIDENT_PAGE,
+                crate::shared::text::INCIDENT_PAGE,
                 "incident description date time start pause resume close",
                 "flag",
             ),
@@ -76,11 +77,16 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // The map prepared on one page: its region and its objects (ADR-0067).
             nav::view(
                 "map",
-                crate::text::MAP_TITLE,
+                crate::shared::text::MAP_TITLE,
                 "situation map region edit draw place units address",
                 "map",
             ),
-            nav::view("units", crate::text::TAB_RESOURCES, "units", "truck"),
+            nav::view(
+                "units",
+                crate::shared::text::TAB_RESOURCES,
+                "units",
+                "truck",
+            ),
             // [impl->dsn~page-tabs~1]
             // Three parts in tabs (feedback of 2026-11-21): the helpers and taking people
             // in, the command structure, the devices (admin package, place 30).
@@ -88,23 +94,23 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 tabs: &[
                     nav::PageTab {
                         key: "helpers",
-                        label: crate::text::TAB_HELPERS,
+                        label: crate::shared::text::TAB_HELPERS,
                         from: 0,
                     },
                     nav::PageTab {
                         key: "structure",
-                        label: crate::text::TAB_STRUCTURE,
+                        label: crate::shared::text::TAB_STRUCTURE,
                         from: 20,
                     },
                     nav::PageTab {
                         key: "devices",
-                        label: crate::text::TAB_DEVICES,
+                        label: crate::shared::text::TAB_DEVICES,
                         from: 30,
                     },
                 ],
                 ..nav::view(
                     "people",
-                    crate::text::PEOPLE,
+                    crate::shared::text::PEOPLE,
                     "people helpers roles roster devices command structure",
                     "id-card",
                 )
@@ -115,8 +121,8 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // … and leading it while it runs (the menu follows the order of the work).
     nav::Workspace {
         id: "command.lead",
-        package: crate::text::TAB_COMMAND,
-        label: crate::text::WS_LEAD,
+        package: crate::shared::text::TAB_COMMAND,
+        label: crate::shared::text::WS_LEAD,
         requires: &["incident"],
         // The incident command's views; UHS crews do not see them.
         permission: Some(crate::core::permission::VIEW_SITUATION),
@@ -124,20 +130,25 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
         views: &[
             nav::view(
                 "overview",
-                crate::text::OVERVIEW,
+                crate::shared::text::OVERVIEW,
                 "overview summary",
                 "layout-grid",
             ),
-            nav::view("map", crate::text::MAP_TITLE, "situation map", "map"),
+            nav::view(
+                "map",
+                crate::shared::text::MAP_TITLE,
+                "situation map",
+                "map",
+            ),
             nav::view(
                 "dispatch",
-                crate::text::DISPATCH,
+                crate::shared::text::DISPATCH,
                 "dispatch tasks orders",
                 "clipboard-list",
             ),
             nav::view(
                 "transports",
-                crate::text::TRANSPORTS,
+                crate::shared::text::TRANSPORTS,
                 "transports",
                 "ambulance",
             ),
@@ -148,14 +159,14 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // Everyone in the incident; each device shows only what its user may read (LOG-6).
     nav::Workspace {
         id: "incident.log",
-        package: crate::text::TAB_COMMAND,
-        label: crate::text::LOG_TITLE,
+        package: crate::shared::text::TAB_COMMAND,
+        label: crate::shared::text::LOG_TITLE,
         requires: &["incident"],
         permission: None,
         or_organisation: &[],
         views: &[nav::view(
             "log",
-            crate::text::LOG_TITLE,
+            crate::shared::text::LOG_TITLE,
             "incident log diary",
             "notebook-text",
         )],

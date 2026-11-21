@@ -5,8 +5,8 @@ use leptos::prelude::*;
 use ordo_sync::incidents::IncidentState;
 
 use crate::core::{self, Handle, Pairing};
+use crate::shared::text;
 use crate::shell::views::{after_render, focus};
-use crate::text;
 
 /// Permission to plan incidents and grant roles in all of them.
 const MANAGE_INCIDENTS: &str = "manage_incidents";

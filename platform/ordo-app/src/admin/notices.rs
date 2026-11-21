@@ -7,7 +7,7 @@
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
-use crate::text;
+use crate::admin::text;
 
 /// The path of the page.
 pub const PATH: &str = "/notices";

@@ -5,9 +5,9 @@
 use leptos::prelude::*;
 use ordo_sync::message::{Account, AccountChange, password_fits};
 
+use crate::admin::text;
 use crate::core::{self, Handle};
 use crate::shell::views::{after_render, focus};
-use crate::text;
 
 /// The change waiting for its answer: one at a time, so each answer belongs to it.
 #[derive(Clone, Copy)]

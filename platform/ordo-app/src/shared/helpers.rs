@@ -10,9 +10,9 @@ use ordo_helpers::{FieldError, Fields, Helper, HelperChange, HelperRegister};
 use ordo_units::UnitCatalogue;
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shared::units::CATALOGUE;
 use crate::shell::ui::{Action, Actions, CheckChips, Suggestions};
-use crate::text;
 
 /// Formats of registration cards from the profile (`helpers/registration-cards.toml`,
 /// checked at build time; ADR-0072).

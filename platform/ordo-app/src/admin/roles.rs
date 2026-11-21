@@ -6,9 +6,9 @@ use leptos::prelude::*;
 use ordo_core::UserId;
 use ordo_sync::message::{ORGANISATION_ROLES, OrganisationRole, OrganisationRoleChange};
 
+use crate::admin::text;
 use crate::core::{self, Handle};
 use crate::shell::ui::Suggestions;
-use crate::text;
 
 // [impl->dsn~organisation-roles~1]
 /// The roles of the organisation, by person, and the form to grant one.

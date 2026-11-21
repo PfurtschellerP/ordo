@@ -16,9 +16,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::nav::Route;
 use crate::shell::ui::Icon;
-use crate::text;
 
 /// Where the glue is served (copied by Trunk, cached by the service worker).
 const GLUE: &str = "/map/ordo-map.js";

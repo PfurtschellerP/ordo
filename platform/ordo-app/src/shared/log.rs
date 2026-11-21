@@ -13,8 +13,8 @@ use ordo_sync::incidents as inc;
 use serde::de::DeserializeOwned;
 
 use crate::core::{self, Handle};
+use crate::shared::text;
 use crate::shell::registry::PACKAGES;
-use crate::text;
 
 /// What other entries of the log say about the things an entry names, by kind and ID:
 /// names of UHS (`uhs`), positions, hospitals and places, task texts, the patient of an

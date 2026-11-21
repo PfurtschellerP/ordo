@@ -11,7 +11,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
 use crate::core::Handle;
-use crate::text;
+use crate::med::text;
 
 /// How far the document is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -18,8 +18,8 @@ use ordo_med_patients::{self as med, PatientRegister};
 use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
+use crate::med::text;
 use crate::shell::ui::{Action, Actions, CheckChips, History, RadioChips};
-use crate::text;
 
 /// What can be requested, from the profile (checked at build time, see `build.rs`).
 pub static CATALOGUE: LazyLock<TransportCatalogue> = LazyLock::new(|| {

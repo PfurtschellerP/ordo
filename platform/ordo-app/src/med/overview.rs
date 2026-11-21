@@ -8,9 +8,9 @@ use ordo_med_patients::{self as med, overview};
 
 use crate::core::Handle;
 use crate::med::places::{Level, PlaceRow, TreatmentPlaces};
+use crate::med::text;
 use crate::med::triage::CATEGORIES;
 use crate::med::uhs::uhs_list;
-use crate::text;
 
 // [impl->dsn~crew-places~1]
 /// *Freie Behandlungsplätze* for crews (UHS-19): every UHS's strips, from the shared

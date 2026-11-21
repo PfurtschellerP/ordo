@@ -5,8 +5,8 @@
 use ordo_med_patients as med;
 use ordo_sync::AppliedEvent;
 
+use crate::med::text;
 use crate::shared::log::{Describe, Line, LogPart, Names, decode};
-use crate::text;
 
 // [impl->dsn~incident-log~1]
 /// The Med package's part of the log.

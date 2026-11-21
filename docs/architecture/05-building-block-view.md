@@ -1577,7 +1577,10 @@ Tags: should, m6
 Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `ordo serve`
 (`ORDO_APP_DIR`). Prototype workspaces: Med (registration, UHS board) and command
 (patient counts), resources, the patient care record (`patients.rs`) and the command
-palette (`palette.rs`). Texts in German (DE profile) in one file, to move to Fluent later.
+palette (`palette.rs`). Texts in German (DE profile): the shell's in `text.rs`, each
+package's and the shared modules' in their own `text.rs`, which re-exports the layer below
+(so a package writes `text::…` for all it may use), to move to Fluent files per package
+later.
 
 #### Local persistence
 `dsn~local-persistence~2`

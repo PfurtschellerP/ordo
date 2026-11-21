@@ -12,9 +12,9 @@ use leptos::prelude::*;
 use ordo_core::DeviceId;
 use ordo_sync::message::DeviceInfo;
 
+use crate::admin::text;
 use crate::core::{self, Handle};
 use crate::shell::views::{after_render, focus};
-use crate::text;
 
 /// Permission to see and revoke all devices of the organisation.
 const MANAGE_DEVICES: &str = "manage_devices";

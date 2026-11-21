@@ -23,7 +23,7 @@ medical, police). Offline-first, need-to-know, accessible, federated. Status: pr
 | `tests/acceptance/` | Cross-crate acceptance tests (simulated network) and Gherkin `features/` |
 | `tests/load/` | Load device of the field-near test: pairs like a tablet, writes a large incident (PERF-3) |
 | `tests/e2e/` | Browser end-to-end scenario and rendered-page audit (Playwright, axe-core; Firefox, Chromium, WebKit) |
-| `platform/ordo-app/` | Web app (Leptos → WebAssembly, Trunk); user-visible texts in `src/text.rs` |
+| `platform/ordo-app/` | Web app (Leptos → WebAssembly, Trunk); user-visible texts in `src/text.rs` (the shell's) and each package's `text.rs` |
 
 Read only the files you need; each document is split into small parts on purpose.
 

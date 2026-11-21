@@ -13,8 +13,8 @@ use crate::med::patients::{
     PlaceSelect, assign_chosen_place, free_places, holder_key, holder_of_key, holder_options,
     may_write, propose_place, writable_holders,
 };
+use crate::med::text;
 use crate::shell::ui::Ago;
-use crate::text;
 
 /// Where the patient is handed over to, as chosen on the tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
