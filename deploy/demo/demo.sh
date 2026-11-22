@@ -63,6 +63,9 @@ stop
 [ -x "$bin" ] || (cd "$repo" && cargo build -p ordo-server)
 [ -f "$dist/index.html" ] || (cd "$repo/platform/ordo-app" && trunk build --release)
 mkdir -p "$data"
+# The demo serves a copy of the built app: a later build into dist (tests) would change
+# index.html under the running server, whose script policy is read at start.
+rm -rf "$data/app" && cp -a "$dist" "$data/app"
 [ -f "$data/master.key" ] || "$bin" generate-key > "$data/master.key"
 printf ordo-test-secret > "$data/oidc-secret"
 : > "$data/seed.toml"
@@ -81,7 +84,7 @@ chmod 755 "$data/dex-api" && chmod 644 "$data/dex-api"/*.pem
 until curl -sf "$issuer/.well-known/openid-configuration" >/dev/null; do sleep 0.5; done
 
 ORDO_ADMINS=dora ORDO_SERVER_NAME=localhost ORDO_LISTEN="$listen" ORDO_DATA_DIR="$data/data" \
-ORDO_MASTER_KEY_FILE="$data/master.key" ORDO_SEED_FILE="$data/seed.toml" ORDO_APP_DIR="$dist" \
+ORDO_MASTER_KEY_FILE="$data/master.key" ORDO_SEED_FILE="$data/seed.toml" ORDO_APP_DIR="$data/app" \
 ORDO_OIDC_ISSUER="$issuer" ORDO_OIDC_CLIENT_ID=ordo \
 ORDO_OIDC_CLIENT_SECRET_FILE="$data/oidc-secret" ORDO_PUBLIC_URL="$public" \
 ORDO_DEX_API=https://127.0.0.1:5557 ORDO_DEX_API_CA_FILE="$data/dex-api/ca.pem" \
