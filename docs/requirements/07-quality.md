@@ -733,7 +733,7 @@ Needs: dsn
 
 Fully operable by keyboard alone and with screen readers (NVDA, JAWS, VoiceOver, TalkBack, Orca): semantic HTML first, WAI-ARIA only where needed, following the WAI-ARIA Authoring Practices
 
-Tags: must, quality
+Tags: must, quality, m64
 
 Needs: dsn
 
