@@ -11,6 +11,7 @@ import { Browser, expect, Locator, Page, test } from "@playwright/test";
 import { audit, settle } from "./support/audit";
 import {
   pageTab,
+  patientsPart,
   announced,
   createUhs,
   facts,
@@ -203,7 +204,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(dora, "Führung & Raum");
     // [itest->dsn~command-and-space~2]
     // Narrower than 84rem the page is in tabs (ADR-0097); the region is the last one.
-    await expect(dora.locator(".command-space .tabs__long"), "structure, map and region").toHaveText(["Führungsstruktur", "Lagekarte", "Kartengrundlage"]);
+    await expect.poll(() => dora.locator("#main .parts").getByRole("tab").allInnerTexts(), { message: "structure, map and region" }).toEqual(["Führungsstruktur", "Lagekarte", "Kartengrundlage"]);
     await pageTab(dora, "Kartengrundlage");
     await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
@@ -324,6 +325,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.getByRole("navigation", { name: "Ansichten" }).getByRole("link", { name: "UHS verwalten" }), "no UHS management in the UHS module").toHaveCount(0);
 
     await openView(anna, "Patienten");
+    await patientsPart(anna, "register");
     // [itest->dsn~triage-reference~1]
     await anna.getByRole("button", { name: "Sichtungshilfe" }).click();
     const aid = anna.locator("#triage-algorithm-help-panel");
@@ -337,6 +339,12 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     await expect(anna.locator("#uhs option"), "UHS-10: she registers only where she is on the staff list").toHaveText(["UHS wählen", "UHS Eingang"]);
     await register(anna, "DE-0044", 1, "UHS Eingang");
+    // [itest->dsn~page-tabs~4]
+    // The list, registering and staff requests are tabs; registering stays on its tab, for
+    // the next patient.
+    await expect.poll(() => anna.locator(".master .parts").getByRole("tab").allInnerTexts(), { message: "separate tasks, the list first; short labels in the narrow list column" }).toEqual(["Patienten", "Registrieren", "Personal"]);
+    await expect(anna.locator("#patients-parts-tab-register")).toHaveAttribute("aria-selected", "true");
+    await patientsPart(anna, "list");
     await expect(anna.locator(".patient-card[data-tag='DE-0044']")).toBeVisible();
     // Nobody is on the staff list of UHS Bühne Nord yet: a physician works at every UHS.
     petra = await newDevice(browser);
@@ -345,6 +353,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(petra, "Patienten");
     for (const [tag, category] of [["DE-0042", 0], ["DE-0043", 1]] as const) {
       await register(petra, tag, category, "UHS Bühne Nord");
+      await patientsPart(petra, "list");
       await expect(petra.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible();
     }
     await expect.poll(() => status(petra), { message: "Petra's registrations are sent" }).toContain("Alles gesendet");
@@ -406,11 +415,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(waiting, "nobody waits").toHaveCount(0);
     await expect(anna.locator(".patient-card[data-tag='DE-0044'] .patient-card__place"), "the card names the place").toHaveText("Platz 2");
     // Registration proposes the first free place of the chosen category.
+    await patientsPart(anna, "register");
     await anna.locator("input[name=category]").nth(2).check();
     await expect(anna.locator("#register-place"), "a free place proposed").toHaveValue("p1");
     await audit(anna, "Place plan");
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     await expect(plan, "places only for one UHS; otherwise the list of all").toHaveCount(0);
+    await patientsPart(anna, "list");
     await expect(anna.locator(".patient-card[data-tag='DE-0044']")).toBeVisible();
 
     // [itest->dsn~patient-care-record~1]
@@ -722,6 +733,7 @@ test("ORDO in the browser", async ({ browser }) => {
 
     // [itest->dsn~command-palette~1]
   await test.step("the command palette works with the keyboard alone", async () => {
+    await patientsPart(anna, "register");
     await anna.locator("#tag").focus();
     await anna.keyboard.press("Control+k");
     await expect(anna.locator("#palette"), "Ctrl+K opens the command palette").toHaveAttribute("open", "");
@@ -778,6 +790,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#palette")).toHaveAttribute("open", "");
     await closePalette(anna);
     // j and k move through a list while it has the focus.
+    await patientsPart(anna, "list");
     const card = (tag: string) => anna.locator(`.patient-card[data-tag='${tag}']`);
     await card("DE-0042").focus();
     await anna.keyboard.press("j");
@@ -788,6 +801,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(card("DE-0044"), "at the end the focus stays").toBeFocused();
     await anna.keyboard.press("k");
     await expect(card("DE-0043"), "k: the previous one").toBeFocused();
+    await patientsPart(anna, "register");
     await anna.locator("#tag").focus();
     await anna.keyboard.type("jk");
     await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
@@ -798,6 +812,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.locator("#profile-button").click();
     await anna.locator("#keymap").selectOption({ label: "Vim-Tasten" });
     await anna.keyboard.press("Escape");
+    await patientsPart(anna, "list");
     await anna.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     const cards = anna.locator("#main [data-keys=list] .patient-card");
     // ADR-0091: h j k l go to the nearest element that way, across the whole page.
@@ -836,6 +851,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("1");
     await expect(views.nth(0), "g1: the first").toHaveAttribute("aria-current", "page");
     await openView(anna, "Patienten");
+    await patientsPart(anna, "register");
     await anna.locator("#tag").focus();
     await anna.keyboard.press("Escape");
     await expect(anna.locator("#tag"), "Esc leaves a text field").not.toBeFocused();
@@ -1113,7 +1129,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
-    // [itest->dsn~page-tabs~3]
+    // [itest->dsn~page-tabs~4]
     await expect(ben.getByRole("tab"), "Helfende and Geräte; the command structure is on Führung & Raum").toHaveText(["Helfende", "Geräte"]);
     await pageTab(ben, "Geräte");
     // The incident command sees the devices of the incident's people, and blocks one of
@@ -1743,7 +1759,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // Wide enough for both (ADR-0097): no tabs, the structure beside the map.
     const narrow = ben.viewportSize()!;
     await ben.setViewportSize({ width: 1800, height: 1000 });
-    await expect(ben.locator(".command-space > .tabs"), "no tabs where both fit").toBeHidden();
+    await expect(ben.locator("#page-map-tab-structure"), "no tabs where both fit").toBeHidden();
     const [structureBox, editorBox] = [await ben.locator("#structure-title").boundingBox(), await ben.locator("#map-editor-title").boundingBox()];
     expect(Math.abs(structureBox!.y - editorBox!.y), "side by side").toBeLessThan(8);
     expect(editorBox!.x, "the map to the right").toBeGreaterThan(structureBox!.x + 300);
@@ -1757,7 +1773,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const labelHeights = await ben.evaluate(() =>
       [...document.querySelectorAll("nav.views .views__label")].filter((l) => (l as HTMLElement).offsetParent).map((l) => Math.round(l.getBoundingClientRect().height)));
     expect(new Set(labelHeights).size, `one line each: ${labelHeights}`).toBe(1);
-    await expect(ben.locator(".command-space .tabs__short").filter({ visible: true }), "short tab labels on a phone").toHaveText(["Struktur", "Karte", "Grundlage"]);
+    await expect(ben.locator("#main .parts .tabs__short").filter({ visible: true }), "short tab labels on a phone").toHaveText(["Struktur", "Karte", "Grundlage"]);
     await shot(ben, "command-space-phone", false);
     await shot(ben, "command-space-phone-full");
     await ben.setViewportSize(wide);
@@ -1924,6 +1940,16 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
     // [itest->dsn~transport-request~1]
     await openView(ben, "Transporte");
+    // [itest->dsn~page-tabs~4]
+    // Used together: columns where the page is at least 60rem wide, tabs where narrower.
+    await expect(ben.locator("#page-transports-tab-requests"), "no tabs where both fit").toBeHidden();
+    const [requestsBox, freeBox] = [await ben.locator("#transports-title").boundingBox(), await ben.locator("#free-units-title").boundingBox()];
+    expect(freeBox!.x, "the free units beside the transports").toBeGreaterThan(requestsBox!.x + 300);
+    const wideView = ben.viewportSize()!;
+    await ben.setViewportSize({ width: 700, height: 1000 });
+    await expect.poll(() => ben.locator("#main .parts").getByRole("tab").allInnerTexts(), { message: "narrower: transports, free units, hospitals in tabs" }).toEqual(["Transporte", "Freie Transportmittel", "Kliniken"]);
+    await expect(ben.locator("#free-units-title"), "one part at a time").toBeHidden();
+    await ben.setViewportSize(wideView);
     const request = ben.locator("[aria-labelledby=transports-title] .transport-card");
     await expect(request, "the command sees the open request").toHaveCount(1);
     // [itest->dsn~planned-transports~1]
@@ -1949,7 +1975,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(board.getByRole("button", { name: "Klinik hinzufügen" }), "no adding in Führung").toHaveCount(0);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
-    // [itest->dsn~page-tabs~3]
+    // [itest->dsn~page-tabs~4]
     await expect(ben.getByRole("tab"), "the units and the hospitals in tabs").toHaveText(["Einsatzmittel", "Kliniken"]);
     await pageTab(ben, "Kliniken");
     const hospitals = ben.locator("[aria-labelledby=hospitals-setup-title]");
@@ -2292,6 +2318,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(medic, INCIDENT);
     await openWorkspace(medic, "UHS");
     await openView(medic, "Patienten");
+    await patientsPart(medic, "staff");
     const offPanel = medic.locator("[aria-labelledby=staff-requests-title]");
     await medic.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     const off = offPanel.getByRole("button", { name: "Arzt/Ärztin anfordern" });
@@ -2308,6 +2335,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(asker, "UHS");
     await openView(asker, "Patienten");
     await asker.locator("#working-uhs").selectOption({ label: "UHS Eingang" });
+    await patientsPart(asker, "staff");
     const panel = asker.locator("[aria-labelledby=staff-requests-title]");
     await panel.getByRole("button", { name: "Notfallsanitäter/in anfordern" }).click();
     await expect(panel.locator(".staff-requests__list li").first(), "the request, open").toContainText(/^Notfallsanitäter\/in · \d\d:\d\d · offen$/);

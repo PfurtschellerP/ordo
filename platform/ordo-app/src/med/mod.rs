@@ -122,12 +122,8 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 view! { <transports::HospitalsSetup core revision /> }.into_any(),
             )]
         }
-        ("command.lead", "transports") => {
-            vec![(
-                10,
-                view! { <transports::TransportsView core revision /> }.into_any(),
-            )]
-        }
+        // [impl->dsn~page-tabs~4]
+        ("command.lead", "transports") => transports::transport_sections(core, revision),
         _ => Vec::new(),
     }
 }

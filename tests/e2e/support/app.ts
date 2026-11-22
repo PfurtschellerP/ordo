@@ -113,7 +113,14 @@ export async function createUhs(page: Page, name: string, capacity: number): Pro
 }
 
 /** Registers a patient; `category` is the index of the triage category, or none; at a UHS with places, on `place` (a label) or on none. */
+/** Shows a part of the patient list column (chapter 8.6.5, "Tabs"): "list", "register" or "staff". */
+export async function patientsPart(page: Page, part: "list" | "register" | "staff"): Promise<void> {
+  const tab = page.locator(`#patients-parts-tab-${part}`);
+  if (await tab.isVisible()) await tab.click();
+}
+
 export async function register(page: Page, tag: string, category?: number, uhs?: string, place?: string): Promise<void> {
+  await patientsPart(page, "register");
   if (uhs) await page.locator("#uhs").selectOption({ label: uhs });
   await page.locator("#tag").fill(tag);
   if (category !== undefined) await page.locator("input[name=category]").nth(category).check();
@@ -123,6 +130,7 @@ export async function register(page: Page, tag: string, category?: number, uhs?:
 }
 
 export async function openRecord(page: Page, tag: string, tab = "Dokumentation"): Promise<void> {
+  await patientsPart(page, "list");
   await page.locator(`.patient-card[data-tag='${tag}']`).click();
   await expect(page.locator("#record-title")).toHaveText(`Patient ${tag}`);
   await recordTab(page, tab);

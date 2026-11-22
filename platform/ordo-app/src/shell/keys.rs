@@ -322,9 +322,33 @@ fn scroll(by: f64) {
     }
 }
 
-/// The tab next to the chosen one of the main tab list, by `step`.
+/// The tab next to the chosen one, by `step`, in the tab list the focus works in: the last
+/// visible one before the focus (e.g. the record's beside the patient list's), else the
+/// first.
 fn tab(step: i32) {
-    let tabs = query_all("#main [role=tablist] [role=tab]");
+    let lists = query_all("#main [role=tablist]");
+    let focused = document().and_then(|d| d.active_element());
+    let before_focus = focused.and_then(|f| {
+        lists
+            .iter()
+            .rfind(|l| {
+                let node: &web_sys::Node = l;
+                node.compare_document_position(&f) & web_sys::Node::DOCUMENT_POSITION_FOLLOWING != 0
+            })
+            .cloned()
+    });
+    let Some(list) = before_focus.or_else(|| lists.into_iter().next()) else {
+        return;
+    };
+    let tabs: Vec<web_sys::HtmlElement> = list
+        .query_selector_all("[role=tab]")
+        .ok()
+        .map(|l| {
+            (0..l.length())
+                .filter_map(|i| l.item(i)?.dyn_into::<web_sys::HtmlElement>().ok())
+                .collect()
+        })
+        .unwrap_or_default();
     let Some(now) = tabs
         .iter()
         .position(|t| t.get_attribute("aria-selected").as_deref() == Some("true"))

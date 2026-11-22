@@ -828,23 +828,26 @@ pub enum MapAsk {
 }
 
 /// The channel of [`MapAsk`]s on *Führung & Raum*, a Leptos context. Each ask has a number
-/// of its own, so asking the same twice still reaches the editor. On narrow screens the
-/// page is in tabs; an ask shows the map's tab first.
+/// of its own, so asking the same twice still reaches the editor. Where the page is in
+/// tabs, an ask shows the map's part first.
 #[derive(Clone, Copy)]
-pub struct MapAsks(RwSignal<Option<(u32, MapAsk)>>, RwSignal<&'static str>);
+pub struct MapAsks(
+    RwSignal<Option<(u32, MapAsk)>>,
+    Option<crate::shell::ui::PageTabs>,
+);
 
 impl MapAsks {
     pub fn ask(self, what: MapAsk) {
-        self.1.set(MAP_TAB);
+        if let Some(tabs) = self.1 {
+            tabs.show(MAP_TAB);
+        }
         self.0
             .update(|last| *last = Some((last.as_ref().map_or(0, |(n, _)| n + 1), what)));
     }
 }
 
-/// The tabs of *Führung & Raum* on narrow screens.
-const STRUCTURE_TAB: &str = "structure";
+/// The map's part of *Führung & Raum* (`nav::View::tabs`).
 const MAP_TAB: &str = "map";
-const REGION_TAB: &str = "region";
 
 /// The IDs of the objects on the incident's map.
 pub fn placed_objects(core: Handle) -> std::collections::BTreeSet<String> {
@@ -856,68 +859,37 @@ pub fn placed_objects(core: Handle) -> std::collections::BTreeSet<String> {
 
 // [impl->dsn~situation-map~5]
 // [impl->dsn~command-and-space~2]
-/// *Vorbereitung – Führung & Raum* (ADR-0095): the command structure and the map editor,
-/// side by side where the page is wide enough, then the incident's map region for those
-/// who may prepare it. Narrower, the three are tabs (feedback of 2026-11-22).
-#[component]
-pub fn MapPreparation(
+/// *Vorbereitung – Führung & Raum* (ADR-0095, ADR-0097): the command structure (place 10)
+/// and the map editor (20), side by side where the page is wide enough, then the
+/// incident's map region (30) for those who may prepare it; the page's tabs come from the
+/// view (`nav::View::tabs`). Opened to place something, it starts on the map.
+pub fn preparation_sections(
     core: Handle,
     revision: RwSignal<u64>,
-    /// Opened to place one object: the place panel's kind and reference.
-    #[prop(default = None)]
     preset: Option<(String, String)>,
-) -> impl IntoView {
-    use crate::shell::ui::TabList;
-    let manage_map = core::permitted(core, revision, core::permission::MANAGE_MAP);
-    // Opened to place something: on the map's tab.
-    let chosen = RwSignal::new(if preset.is_some() {
-        MAP_TAB
-    } else {
-        STRUCTURE_TAB
-    });
-    provide_context(MapAsks(RwSignal::new(None), chosen));
-    // Short labels where the tabs share a phone's width.
-    let mut tabs = vec![
+) -> Vec<crate::shell::registry::Section> {
+    let tabs = use_context::<crate::shell::ui::PageTabs>();
+    if preset.is_some()
+        && let Some(tabs) = tabs
+    {
+        tabs.show(MAP_TAB);
+    }
+    provide_context(MapAsks(RwSignal::new(None), tabs));
+    let manage_map = core::permitted(core, revision, core::permission::MANAGE_MAP).get_untracked();
+    let mut sections = vec![
         (
-            STRUCTURE_TAB,
-            text::STRUCTURE_TITLE.to_owned(),
-            Some(text::STRUCTURE_SHORT.to_owned()),
+            10,
+            view! { <crate::shared::command::LeadershipView core revision /> }.into_any(),
         ),
-        (
-            MAP_TAB,
-            text::MAP_TITLE.to_owned(),
-            Some(text::MAP_SHORT.to_owned()),
-        ),
+        (20, view! { <MapEditor core revision preset /> }.into_any()),
     ];
-    if manage_map.get_untracked() {
-        tabs.push((
-            REGION_TAB,
-            text::MAP_REGION_TITLE.to_owned(),
-            Some(text::MAP_REGION_SHORT.to_owned()),
+    if manage_map {
+        sections.push((
+            30,
+            view! { <crate::shared::map_region::MapRegionView core revision /> }.into_any(),
         ));
     }
-    // A part of the page: a tab's panel on narrow screens, a column on wide ones.
-    let part = move |key: &'static str, children: AnyView| {
-        view! {
-            <div role="tabpanel" id=format!("command-space-panel-{key}") aria-labelledby=format!("command-space-tab-{key}")
-                class=format!("command-space__part command-space__part--{key}")
-                class:command-space__part--chosen=move || chosen.get() == key>
-                {children}
-            </div>
-        }
-    };
-    view! {
-        <div class="command-space">
-            <TabList id="command-space" label=crate::text::page_tabs() tabs chosen />
-            <div class="command-space__grid">
-                {part(STRUCTURE_TAB, view! { <crate::shared::command::LeadershipView core revision /> }.into_any())}
-                {part(MAP_TAB, view! { <MapEditor core revision preset /> }.into_any())}
-                <Show when=move || manage_map.get()>
-                    {part(REGION_TAB, view! { <crate::shared::map_region::MapRegionView core revision /> }.into_any())}
-                </Show>
-            </div>
-        </div>
-    }
+    sections
 }
 
 /// The record that opens *Vorbereitung – Führung & Raum* to place one object:

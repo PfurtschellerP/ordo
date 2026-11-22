@@ -1612,6 +1612,26 @@ them:
   arrow that is not read).
 - **Pages:** a page's parts sit at its top; short pages and tabs do not stretch to fill
   the screen.
+- **Tabs** break up a page in two cases (feedback of 2026-11-22; [Page tabs](05-building-block-view.md#page-tabs)):
+  1. *Separate tasks*, used one at a time: tabs on every screen. *Personal* (Helfende ·
+     Geräte), *Einsatzmittel* (Einsatzmittel · Kliniken), the patient list (Patienten ·
+     Registrieren · Personal), the record.
+  2. *Parts used together*, such as a list and what its items are assigned to: columns
+     side by side where the page is wide enough (60rem; 84rem where a part needs 40rem,
+     like the org chart), tabs where it is narrower. *Führung & Raum* (Struktur · Karte ·
+     Grundlage), *Transporte* (Transporte · Freie Mittel · Kliniken).
+
+  Not for one list or one form, however long (use filters and disclosures), nor for steps
+  of one process, nor for a part shorter than a screen on its own. What needs attention
+  (incoming handovers, the connection, choosing one's UHS) stays above the tabs. Two to
+  five tabs; their labels are nouns of one or two words, with a short label of up to
+  about ten characters where the tabs share a phone's width (*Struktur*, *Karte*). The
+  first tab is the page's main content and the page opens on it, unless a link names
+  another part (placing on the map opens *Karte*); an action that needs another part
+  shows that tab first. A tab without content (a package not in use, no permission) is
+  left out. One row of tabs per part of the screen, never tabs within tabs. Hidden parts
+  stay in the page, so typed input survives switching. One component does all of this
+  (`shell::ui::Parts`).
 - **Spacing:** from the token scale only: `space-2` inside a group, `space-3` between
   fields, `space-4` between groups, `space-5` inside and between cards.
 

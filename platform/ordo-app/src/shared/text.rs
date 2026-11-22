@@ -26,6 +26,8 @@ pub const COMMAND_SPACE_SHORT: &str = "Struktur";
 
 pub const TAB_RESOURCES: &str = "Einsatzmittel";
 pub const TAB_HOSPITALS: &str = "Kliniken";
+pub const TAB_FREE_UNITS: &str = "Freie Transportmittel";
+pub const TAB_FREE_UNITS_SHORT: &str = "Freie Mittel";
 
 pub const UHS_TITLE: &str = "Unfallhilfsstellen";
 pub const UHS_CHOOSE: &str = "UHS wählen";

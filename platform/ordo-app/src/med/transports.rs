@@ -286,11 +286,15 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
 
 // [impl->dsn~transport-request~1]
 // [impl->dsn~transport-board~1]
-/// The incident command's transport board: open requests (assign a unit and a
-/// destination, follow the status), free transport units, and the hospitals with their
-/// capacity and the patients sent to each. It shows no patient data, because it has none.
-#[component]
-pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+/// The incident command's transport board, as the parts of *Führung – Transporte*: open
+/// and planned requests (assign a unit and a destination, follow the status; place 10),
+/// free transport units (20), and the hospitals with their capacity and the patients sent
+/// to each (30), side by side or in tabs (`nav::View::tabs`). It shows no patient data,
+/// because it has none.
+pub fn transport_sections(
+    core: Handle,
+    revision: RwSignal<u64>,
+) -> Vec<crate::shell::registry::Section> {
     let board = Memo::new(move |_| {
         revision.track();
         core.with_value(|c| TransportBoard::from_events(&c.events(med::transport::COMPARTMENT)))
@@ -310,15 +314,21 @@ pub fn TransportsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         Memo::new(move |_| units.with(|u| u.units.keys().cloned().collect::<Vec<_>>()));
     let planned =
         Memo::new(move |_| board.with(|b| b.planned().into_iter().cloned().collect::<Vec<_>>()));
-    view! {
-        <RequestList core revision list=open units=unit_names hospitals
-            id="transports-title" title=text::TRANSPORTS_TITLE empty=text::TRANSPORTS_EMPTY />
-        // [impl->dsn~planned-transports~1]
-        <RequestList core revision list=planned units=unit_names hospitals
-            id="planned-title" title=text::PLANNED_TITLE empty=text::PLANNED_EMPTY />
-        <FreeUnits board units />
-        <HospitalBoard core revision hospitals board />
-    }
+    vec![
+        (
+            10,
+            view! {
+                <RequestList core revision list=open units=unit_names hospitals
+                    id="transports-title" title=text::TRANSPORTS_TITLE empty=text::TRANSPORTS_EMPTY />
+                // [impl->dsn~planned-transports~1]
+                <RequestList core revision list=planned units=unit_names hospitals
+                    id="planned-title" title=text::PLANNED_TITLE empty=text::PLANNED_EMPTY />
+            }
+            .into_any(),
+        ),
+        (20, view! { <FreeUnits board units /> }.into_any()),
+        (30, view! { <HospitalBoard core revision hospitals board /> }.into_any()),
+    ]
 }
 
 /// Open requests on the board: each with its details, the assignment while requested,

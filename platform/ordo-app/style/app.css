@@ -738,7 +738,6 @@
   .tabs__tab[aria-selected="true"] { color: var(--ordo-color-text-primary); border-block-end-color: var(--ordo-color-text-link); }
   .tabs__panel { display: grid; gap: var(--ordo-space-4); min-width: 0; }
   .tabs__panel[hidden] { display: none; }
-  .page__tab { display: grid; gap: var(--ordo-space-5); min-width: 0; }
   .quick-actions { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   @media (max-width: 40rem) {
     .quick-actions { flex-wrap: nowrap; overflow-x: auto; padding-block-end: var(--ordo-space-1); }
@@ -1299,20 +1298,32 @@
   /* The map editor (ADR-0064): the map as large as the page allows, the tools above it.
      The chosen tool is filled (not only another colour) and pressed for screen readers. */
   .map-editor .situation__map { block-size: max(20rem, min(70vh, 48rem)); }
-  /* Führung & Raum (ADR-0095): the command structure and the map editor side by side where
-     both have room (the org chart needs 40rem), the map region below them. Narrower, the
-     three are tabs (feedback of 2026-11-22). */
-  .command-space { container-type: inline-size; display: grid; gap: var(--ordo-space-4); }
-  .command-space__grid { display: grid; gap: var(--ordo-space-5); align-items: start; }
-  .command-space__part { min-width: 0; }
-  .command-space__part .situation { margin-block-end: 0; }
+  /* Parts of a page (shell::ui::Parts, chapter 8.6.5 "Tabs"): always in tabs, or in columns
+     where the page is wide enough (60 or 84rem) and in tabs where it is narrower. Hidden
+     parts stay in the page. */
+  .parts { container-type: inline-size; display: grid; gap: var(--ordo-space-4); align-content: start; min-width: 0; }
+  .parts__grid { display: grid; gap: var(--ordo-space-5); align-items: start; min-width: 0; }
+  .parts__column { display: contents; }
+  .parts__part, .page__tab { display: grid; gap: var(--ordo-space-5); align-content: start; min-width: 0; }
+  .parts__part .situation { margin-block-end: 0; }
+  .parts--always .parts__part:not(.parts__part--chosen) { display: none; }
+  @container (max-width: 59.99rem) {
+    .parts--from-60 .parts__part:not(.parts__part--chosen) { display: none; }
+  }
   @container (max-width: 83.99rem) {
-    .command-space__part:not(.command-space__part--chosen) { display: none; }
+    .parts--from-84 .parts__part:not(.parts__part--chosen) { display: none; }
+  }
+  @container (min-width: 60rem) {
+    .parts--from-60 > .tabs { display: none; }
+    .parts--from-60 > .parts__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .parts--from-60 .parts__column { display: grid; gap: var(--ordo-space-5); align-content: start; min-width: 0; }
+    .parts--from-60 .parts__grid > .parts__part { grid-column: 1 / -1; }
   }
   @container (min-width: 84rem) {
-    .command-space > .tabs { display: none; }
-    .command-space__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .command-space__part--region { grid-column: 1 / -1; }
+    .parts--from-84 > .tabs { display: none; }
+    .parts--from-84 > .parts__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .parts--from-84 .parts__column { display: grid; gap: var(--ordo-space-5); align-content: start; min-width: 0; }
+    .parts--from-84 .parts__grid > .parts__part { grid-column: 1 / -1; }
   }
   .map-tools { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .map-tool {

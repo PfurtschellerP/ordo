@@ -37,17 +37,35 @@ pub struct View {
     /// Tabs of a page with several parts (empty: one page); each section goes to the last
     /// tab whose `from` is not above its place.
     pub tabs: &'static [PageTab],
+    /// Whether the tabs are always tabs, or columns where the page is wide enough
+    /// (chapter 8.6.5, *Tabs*).
+    pub columns: crate::shell::ui::TabsMode,
 }
 
-// [impl->dsn~page-tabs~3]
+// [impl->dsn~page-tabs~4]
 /// A tab of a page: its key, its label, and the first place of the sections it holds.
 pub struct PageTab {
     /// Stable key, e.g. `helpers`.
     pub key: &'static str,
     /// Label.
     pub label: Label,
+    /// A shorter label where the tabs share a phone's width.
+    pub short: Option<Label>,
     /// The lowest section place it holds.
     pub from: u8,
+    /// Where it stands when the tabs are columns.
+    pub column: crate::shell::ui::Column,
+}
+
+/// A tab with no short label, at the start column.
+pub(crate) const fn tab(key: &'static str, label: Label, from: u8) -> PageTab {
+    PageTab {
+        key,
+        label,
+        short: None,
+        from,
+        column: crate::shell::ui::Column::Start,
+    }
 }
 
 /// A workspace: the environment of one role.
@@ -87,6 +105,7 @@ pub(crate) const fn view(
         permission: None,
         requires: &[],
         tabs: &[],
+        columns: crate::shell::ui::TabsMode::Always,
     }
 }
 

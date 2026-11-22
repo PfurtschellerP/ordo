@@ -1828,20 +1828,36 @@ Needs: impl, utest, itest
 Tags: should, m69
 
 #### Page tabs
-`dsn~page-tabs~3`
+`dsn~page-tabs~4`
 
-A view may declare tabs (`nav::View::tabs`): a key, a label, and the first section place
-each holds. The shell puts every package's sections of the page into the last tab that
-starts at or before the section's place and shows the tabs with the record's tab
-component (`TabList`, `TabPanel`): arrow keys between the tabs, hidden panels keep their
-input. *Personal* has *Helfende* (helpers and taking people in) and *Geräte* (the admin
-package's devices, place 30); the command structure is on *Führung & Raum* (ADR-0095).
-*Einsatzmittel* has *Einsatzmittel* (units and UHS) and *Kliniken* (the Med package's
-hospital list, place 40). The vim keys `gt` and `gT` switch them.
+One component, `shell::ui::Parts`, shows a page's parts in tabs (WAI-ARIA tabs,
+`shell::ui::TabList`: arrow keys, Home and End; the vim keys `gt` and `gT` switch the first
+row of tabs on the page). It has two modes, after the rules in chapter 8.6.5 (*Tabs*):
+*always* tabs, or *columns from* 60 or 84rem, where the parts stand side by side (each
+part at the start, at the end, or below both) and become tabs where the container is
+narrower (container query). Hidden parts stay in the page (`display: none`), so their
+input survives. A tab may name a short label for where the tabs share a phone's width.
+
+A view declares its tabs as data (`nav::View::tabs`, `nav::View::columns`): a key, a
+label, a short label, the first section place each holds, and its column. The shell puts
+every package's sections into the last tab that starts at or before their place, leaves
+out tabs without sections, and offers the chosen tab to the sections as a context
+(`shell::ui::PageTabs`), so an action can show another part (*Auf der Karte setzen*) and
+a page opened for one part starts on it. Components may use `Parts` within a page, as the
+patient list does.
+
+| View | Mode | Tabs |
+|---|---|---|
+| *Vorbereitung – Personal* | always | Helfende · Geräte (admin package, place 30) |
+| *Vorbereitung – Einsatzmittel* | always | Einsatzmittel · Kliniken (Med package, place 40) |
+| *Vorbereitung – Führung & Raum* | columns from 84rem | Führungsstruktur (start) · Lagekarte (end) · Kartengrundlage (below) |
+| *Führung – Transporte* | columns from 60rem | Transporte (start) · Freie Transportmittel · Kliniken (end) |
+| *Sanität – Patienten*, *Besatzung – Patienten* (list column) | always | Patienten · Registrieren · Personal anfordern (UHS only) |
+| Patient record | always | its own tabs ([Record overview](#record-overview)) |
 
 Covers:
 
-* [req~ux-16~1](../requirements/07-quality.md#ux-16--pages-in-parts)
+* [req~ux-16~2](../requirements/07-quality.md#ux-16--pages-in-parts)
 
 Needs: impl, itest
 

@@ -25,7 +25,9 @@ use crate::med::text;
 use crate::med::triage::{CATEGORIES, TriageBadge};
 use crate::med::uhs::uhs_list;
 use crate::shell::nav::Route;
-use crate::shell::ui::{Action, Actions, Icon, IncidentPeople, RadioChips, Suggestions};
+use crate::shell::ui::{
+    Action, Actions, Column, Icon, IncidentPeople, Part, Parts, RadioChips, Suggestions, TabsMode,
+};
 use crate::shell::views::{Nav, after_render, focus};
 
 pub(crate) const WORKSPACE: &str = "med.uhs";
@@ -225,21 +227,53 @@ pub fn PatientsView(
                 })
             })
     });
+    // [impl->dsn~page-tabs~4]
+    // The list, registering and staff requests are separate tasks: tabs (feedback of
+    // 2026-11-22), the list first.
+    let part = RwSignal::new(LIST_PART);
+    let mut master_parts = vec![
+        Part {
+            key: LIST_PART,
+            label: text::PATIENTS_TAB.to_owned(),
+            short: None,
+            column: Column::Start,
+            content: view! {
+                <PatientList core revision nav register records selected=record />
+                // [impl->dsn~crew-places~1]
+                {(scope == Scope::Crew).then(|| view! { <crate::med::overview::CrewPlaces core revision /> })}
+            }
+            .into_any(),
+        },
+        Part {
+            key: "register",
+            label: text::REGISTER_TAB.to_owned(),
+            short: None,
+            column: Column::Start,
+            content: view! { <RegisterForm core revision nav register /> }.into_any(),
+        },
+    ];
+    // [impl->dsn~uhs-staff-request~2]
+    if scope == Scope::Uhs {
+        master_parts.push(Part {
+            key: "staff",
+            label: text::STAFF_REQUEST_TAB.to_owned(),
+            short: Some(text::STAFF_REQUEST_SHORT.to_owned()),
+            column: Column::Start,
+            content: view! {
+                <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
+            }
+            .into_any(),
+        });
+    }
     view! {
         <crate::med::handover::TakeDialog core revision nav register taking />
         <div class="master-detail" data-open=move || record.get().is_some().to_string()>
             <div class="master">
+                // What needs attention stays above the tabs (chapter 8.6.5, *Tabs*).
                 {(scope == Scope::Uhs).then(|| view! { <UhsChooser core revision working /> })}
                 <crate::med::handover::IncomingHandovers core revision nav register />
                 <crate::med::handover::ScanHandover taking />
-                // [impl->dsn~uhs-staff-request~2]
-                {(scope == Scope::Uhs).then(|| view! {
-                    <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
-                })}
-                <RegisterForm core revision nav register />
-                <PatientList core revision nav register records selected=record />
-                // [impl->dsn~crew-places~1]
-                {(scope == Scope::Crew).then(|| view! { <crate::med::overview::CrewPlaces core revision /> })}
+                <Parts id="patients-parts" label=crate::text::page_tabs() parts=master_parts chosen=part mode=TabsMode::Always />
             </div>
             <div class="detail">
                 {move || match (record.get(), visible.get()) {
@@ -251,6 +285,9 @@ pub fn PatientsView(
         </div>
     }
 }
+
+/// The patient list's first tab.
+const LIST_PART: &str = "list";
 
 // [impl->dsn~crew-patients~1]
 /// Where the patients page is shown (ADR-0093): in the UHS workspace with the UHS's

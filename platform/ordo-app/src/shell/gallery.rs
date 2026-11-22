@@ -11,7 +11,7 @@ use leptos::prelude::*;
 
 use crate::shell::ui::{
     Actions, Ago, CheckChips, Disclosure, EditButton, EditDialog, History, ICONS, Icon, IconButton,
-    RadioChips, Suggestions, TabList, TabPanel, UndoBar, UndoSlot, offer_undo,
+    RadioChips, Suggestions, UndoBar, UndoSlot, offer_undo,
 };
 use crate::shell::views::{Nav, show_theme, stored_theme};
 use crate::text;
@@ -223,9 +223,9 @@ const SHELL: &[Part] = &[
             Example {
                 id: "tabs",
                 name: "Tabs",
-                code: "shell::ui::TabList, shell::ui::TabPanel",
-                usage: "Parts of one page that are not needed together (record, Personal). Not for steps in order.",
-                access: "WAI-ARIA tabs: arrow keys, Home and End move; the chosen tab is underlined thick and bold. Hidden parts keep their input.",
+                code: "shell::ui::Parts (nav::View::tabs for a page), shell::ui::TabList",
+                usage: "Separate tasks used one at a time: always tabs (Personal, Einsatzmittel, the patient list, the record). Parts used together: side by side from 60 or 84rem, tabs below (Führung & Raum, Transporte). Not for one list or form, steps in order, or a part shorter than a screen; what needs attention stays above the tabs. Two to five nouns, a short label for phones, the main part first; an action that needs another part shows it (chapter 8.6.5).",
+                access: "WAI-ARIA tabs: arrow keys, Home and End move, vim gt/gT; the chosen tab is underlined thick and bold. Hidden parts keep their input; focusing into one shows it.",
                 show: tabs,
             },
         ],
@@ -692,16 +692,28 @@ fn disclosure() -> AnyView {
 }
 
 fn tabs() -> AnyView {
-    let chosen = RwSignal::new("one");
+    use crate::shell::ui::{Column, Part, Parts, TabsMode};
+    let part = |key, label: &str, short: Option<&str>, column, text: &'static str| Part {
+        key,
+        label: label.to_owned(),
+        short: short.map(str::to_owned),
+        column,
+        content: view! { <section class="card"><p>{text}</p></section> }.into_any(),
+    };
+    let tasks = RwSignal::new("helpers");
+    let together = RwSignal::new("requests");
     view! {
-        <TabList id="gallery-tabs" label="Beispiel" chosen tabs=vec![
-            ("one", "Helfende".to_owned(), None),
-            ("two", "Führungsstruktur".to_owned(), None),
-            ("three", "Geräte".to_owned(), None),
+        <p class="hint">"Separate tasks: always tabs."</p>
+        <Parts id="gallery-tabs" label="Beispiel" chosen=tasks mode=TabsMode::Always parts=vec![
+            part("helpers", "Helfende", None, Column::Start, "12 Helfende im Einsatz."),
+            part("devices", "Geräte", None, Column::Start, "4 Geräte gekoppelt."),
         ] />
-        <TabPanel id="gallery-tabs" key="one" chosen><p>"12 Helfende im Einsatz."</p></TabPanel>
-        <TabPanel id="gallery-tabs" key="two" chosen><p>"Einsatzleitung, zwei Abschnitte."</p></TabPanel>
-        <TabPanel id="gallery-tabs" key="three" chosen><p>"4 Geräte gekoppelt."</p></TabPanel>
+        <p class="hint">"Parts used together: columns from 60rem, tabs below."</p>
+        <Parts id="gallery-columns" label="Beispiel" chosen=together mode=TabsMode::ColumnsFrom60 parts=vec![
+            part("requests", "Transporte", None, Column::Start, "RTW für UHS Eingang, 18:26."),
+            part("free", "Freie Transportmittel", Some("Freie Mittel"), Column::End, "RTW 83/1 · einsatzbereit."),
+            part("hospitals", "Kliniken", None, Column::End, "Klinikum Mitte: SK I 2 · SK II 3."),
+        ] />
     }
     .into_any()
 }

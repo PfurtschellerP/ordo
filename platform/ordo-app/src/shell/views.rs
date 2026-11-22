@@ -502,35 +502,44 @@ pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
 }
 
-// [impl->dsn~page-tabs~3]
+// [impl->dsn~page-tabs~4]
 /// A page in tabs: the tab list, then a panel per tab with its sections.
 fn page_with_tabs(
     view: &'static str,
-    tabs: &'static [nav::PageTab],
+    declared: &'static nav::View,
     page: Vec<crate::shell::registry::Section>,
+    chosen: RwSignal<&'static str>,
 ) -> impl IntoView {
-    use crate::shell::ui::{TabList, TabPanel};
-    let chosen = RwSignal::new(tabs[0].key);
-    let mut parts: Vec<(&'static str, Vec<AnyView>)> =
-        tabs.iter().map(|t| (t.key, Vec::new())).collect();
+    use crate::shell::ui::{Part, Parts};
+    let mut sections: Vec<(&'static str, Vec<AnyView>)> =
+        declared.tabs.iter().map(|t| (t.key, Vec::new())).collect();
     for (place, section) in page {
-        let key = crate::shell::registry::tab_of(tabs, place);
-        if let Some(part) = parts.iter_mut().find(|(k, _)| Some(*k) == key) {
+        let key = crate::shell::registry::tab_of(declared.tabs, place);
+        if let Some(part) = sections.iter_mut().find(|(k, _)| Some(*k) == key) {
             part.1.push(section);
         }
     }
-    let list = tabs
+    // A tab without content (a package not in use, no permission) is left out.
+    let parts: Vec<Part> = declared
+        .tabs
         .iter()
-        .map(|t| (t.key, (t.label)().to_owned(), None))
+        .zip(sections)
+        .filter(|(_, (_, content))| !content.is_empty())
+        .map(|(tab, (key, content))| Part {
+            key,
+            label: (tab.label)().to_owned(),
+            short: tab.short.map(|s| s().to_owned()),
+            column: tab.column,
+            content: view! { <div class="page__tab">{content}</div> }.into_any(),
+        })
         .collect();
-    let id = format!("page-{view}");
+    if !parts.iter().any(|p| p.key == chosen.get_untracked())
+        && let Some(first) = parts.first()
+    {
+        chosen.set(first.key);
+    }
     view! {
-        <TabList id=id.clone() label=text::page_tabs() tabs=list chosen />
-        {parts.into_iter().map(|(key, sections)| view! {
-            <TabPanel id=id.clone() key chosen>
-                <div class="page__tab">{sections}</div>
-            </TabPanel>
-        }).collect_view()}
+        <Parts id=format!("page-{view}") label=text::page_tabs() parts chosen mode=declared.columns />
     }
 }
 
@@ -1121,17 +1130,21 @@ fn Workspace(
                         return view! { <p class="notice">{text::no_workspace()}</p> }.into_any();
                     };
                     let args = crate::shell::registry::PageArgs { core, revision, nav, record };
+                    let declared = nav::workspace(workspace)
+                        .and_then(|w| w.views.iter().find(|v| v.id == view));
+                    let tabs = declared.map_or(&[][..], |v| v.tabs);
+                    // [impl->dsn~page-tabs~4]
+                    // The chosen part, for the sections to show another one (a context).
+                    let chosen = RwSignal::new(tabs.first().map_or("", |t| t.key));
+                    provide_context(crate::shell::ui::PageTabs(chosen));
                     let page = crate::shell::registry::page(&args, workspace, view);
                     if page.is_empty() {
                         return view! { <p class="notice">{text::no_workspace()}</p> }.into_any();
                     }
-                    let tabs = nav::workspace(workspace)
-                        .and_then(|w| w.views.iter().find(|v| v.id == view))
-                        .map_or(&[][..], |v| v.tabs);
-                    if tabs.is_empty() {
+                    let Some(declared) = declared.filter(|_| !tabs.is_empty()) else {
                         return page.into_iter().map(|(_, v)| v).collect_view().into_any();
-                    }
-                    page_with_tabs(view, tabs, page).into_any()
+                    };
+                    page_with_tabs(view, declared, page, chosen).into_any()
                 }}
             </main>
             <crate::shell::ui::UndoBar offer=undo />
@@ -1163,10 +1176,14 @@ fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
     };
     let Some(el) = find() else { return };
     // [impl->dsn~record-overview~3]
+    // [impl->dsn~page-tabs~4]
+    // Inside a hidden part (a tab not chosen): that tab shows first.
+    let hidden = el.offset_parent().is_none();
     let tab = el
-        .closest("[role=tabpanel][hidden]")
+        .closest("[role=tabpanel][hidden], .parts__part:not(.parts__part--chosen)")
         .ok()
         .flatten()
+        .filter(|_| hidden)
         .and_then(|panel| panel.get_attribute("aria-labelledby"))
         .and_then(|tab| {
             web_sys::window()

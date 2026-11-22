@@ -601,6 +601,11 @@ pub const RECORD_HANDOVER: &str = "Übergabe";
 pub const RECORD_AT: &str = "Bei";
 pub const RECORD_TRIAGED: &str = "Gesichtet";
 pub const RECORD_SINCE: &str = "Seit";
+// The patient list's tabs (chapter 8.6.5, *Tabs*).
+pub const PATIENTS_TAB: &str = "Patienten";
+pub const REGISTER_TAB: &str = "Registrieren";
+pub const STAFF_REQUEST_TAB: &str = "Personal anfordern";
+pub const STAFF_REQUEST_SHORT: &str = "Personal";
 pub const QUICK_ACTIONS: &str = "Schnell erfassen";
 /// The floating button that opens the quick actions on phones.
 pub const QUICK_CAPTURE: &str = "Erfassen";

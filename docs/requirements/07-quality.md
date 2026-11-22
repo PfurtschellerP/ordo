@@ -149,11 +149,13 @@ Tags: should, quality, m69
 Needs: dsn
 
 #### UX-16 — Pages in parts
-`req~ux-16~1`
+`req~ux-16~2`
 
-Where a view holds several unrelated parts (e.g. *Personal*: the helpers, the command
-structure, the devices), ORDO shall show each part on its own tab of the view, so that a
-page shows one task and its keyboard order is the order on screen.
+Where a view holds parts that are separate tasks (e.g. *Personal*: the helpers, the
+devices), ORDO shall show each part on its own tab of the view. Where a view holds parts
+that are used together (e.g. the command structure and the map), ORDO shall show them
+side by side where the screen is wide enough for both, and on tabs where it is not. A page
+so shows one task at a time on a phone, and its keyboard order is the order on screen.
 
 Tags: should, quality, m69
 

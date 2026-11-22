@@ -73,22 +73,14 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "incident description date time start pause resume close",
                 "flag",
             ),
-            // [impl->dsn~page-tabs~3]
+            // [impl->dsn~page-tabs~4]
             // Two parts in tabs (feedback of 2026-11-21): the helpers and taking people in,
             // the devices (admin package, place 30). The command structure is on
             // Führung & Raum (ADR-0095).
             nav::View {
                 tabs: &[
-                    nav::PageTab {
-                        key: "helpers",
-                        label: || crate::shared::text::TAB_HELPERS,
-                        from: 0,
-                    },
-                    nav::PageTab {
-                        key: "devices",
-                        label: || crate::shared::text::TAB_DEVICES,
-                        from: 30,
-                    },
+                    nav::tab("helpers", || crate::shared::text::TAB_HELPERS, 0),
+                    nav::tab("devices", || crate::shared::text::TAB_DEVICES, 30),
                 ],
                 ..nav::view(
                     "people",
@@ -97,21 +89,13 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                     "id-card",
                 )
             },
-            // [impl->dsn~page-tabs~3]
+            // [impl->dsn~page-tabs~4]
             // Two parts in tabs (feedback of 2026-11-22): the units and UHS, and the hospital
             // list the Med package keeps there (place 40).
             nav::View {
                 tabs: &[
-                    nav::PageTab {
-                        key: "units",
-                        label: || crate::shared::text::TAB_RESOURCES,
-                        from: 0,
-                    },
-                    nav::PageTab {
-                        key: "hospitals",
-                        label: || crate::shared::text::TAB_HOSPITALS,
-                        from: 40,
-                    },
+                    nav::tab("units", || crate::shared::text::TAB_RESOURCES, 0),
+                    nav::tab("hospitals", || crate::shared::text::TAB_HOSPITALS, 40),
                 ],
                 ..nav::view(
                     "units",
@@ -126,8 +110,27 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // page, its region last.
             // "Struktur" in the phone's bar, where the name takes two lines (product owner,
             // 2026-11-22; the name is to be revisited).
+            // [impl->dsn~page-tabs~4]
+            // The structure beside the map where both fit, tabs where narrower (ADR-0097).
             nav::View {
                 short: Some(|| crate::shared::text::COMMAND_SPACE_SHORT),
+                tabs: &[
+                    nav::PageTab {
+                        short: Some(|| crate::shared::text::STRUCTURE_SHORT),
+                        ..nav::tab("structure", || crate::shared::text::STRUCTURE_TITLE, 10)
+                    },
+                    nav::PageTab {
+                        short: Some(|| crate::shared::text::MAP_SHORT),
+                        column: crate::shell::ui::Column::End,
+                        ..nav::tab("map", || crate::shared::text::MAP_TITLE, 20)
+                    },
+                    nav::PageTab {
+                        short: Some(|| crate::shared::text::MAP_REGION_SHORT),
+                        column: crate::shell::ui::Column::Below,
+                        ..nav::tab("region", || crate::shared::text::MAP_REGION_TITLE, 30)
+                    },
+                ],
+                columns: crate::shell::ui::TabsMode::ColumnsFrom84,
                 ..nav::view(
                     "map",
                     || crate::shared::text::COMMAND_SPACE,
@@ -166,12 +169,31 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "dispatch tasks orders",
                 "clipboard-list",
             ),
-            nav::view(
-                "transports",
-                || crate::shared::text::TRANSPORTS,
-                "transports",
-                "ambulance",
-            ),
+            // [impl->dsn~page-tabs~4]
+            // The transports beside the free units and hospitals they are assigned to, where
+            // both fit; tabs where narrower (feedback of 2026-11-22). Filled by the Med
+            // package.
+            nav::View {
+                tabs: &[
+                    nav::tab("requests", || crate::shared::text::TRANSPORTS, 10),
+                    nav::PageTab {
+                        short: Some(|| crate::shared::text::TAB_FREE_UNITS_SHORT),
+                        column: crate::shell::ui::Column::End,
+                        ..nav::tab("free", || crate::shared::text::TAB_FREE_UNITS, 20)
+                    },
+                    nav::PageTab {
+                        column: crate::shell::ui::Column::End,
+                        ..nav::tab("hospitals", || crate::shared::text::TAB_HOSPITALS, 30)
+                    },
+                ],
+                columns: crate::shell::ui::TabsMode::ColumnsFrom60,
+                ..nav::view(
+                    "transports",
+                    || crate::shared::text::TRANSPORTS,
+                    "transports hospitals",
+                    "ambulance",
+                )
+            },
         ],
         hidden: false,
     },
@@ -218,28 +240,44 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
     } = *a;
     let one = |v: AnyView| vec![(20, v)];
     match (workspace, view) {
-        ("units.crew", "transports") => one(view! { <crew::CrewTransports core revision /> }.into_any()),
+        ("units.crew", "transports") => {
+            one(view! { <crew::CrewTransports core revision /> }.into_any())
+        }
         // The crew's patients come from the Med package (ADR-0093).
         ("units.crew", "patients") => Vec::new(),
         ("units.crew", _) => one(view! { <crew::CrewTasks core revision /> }.into_any()),
         // [impl->dsn~workspaces-by-phase~5]
         // [impl->dsn~map-drawing~2]
-        ("command.lead", "map") => vec![(10, view! { <situation::SituationView core revision /> }.into_any())],
+        ("command.lead", "map") => vec![(
+            10,
+            view! { <situation::SituationView core revision /> }.into_any(),
+        )],
         // [impl->dsn~reports~3]
-        ("command.lead", "dispatch") => one(view! { <tasks::OpenTasks core revision /> }.into_any()),
+        ("command.lead", "dispatch") => {
+            one(view! { <tasks::OpenTasks core revision /> }.into_any())
+        }
         ("command.lead", "transports") => Vec::new(),
         ("command.lead", _) => one(view! { <summary::CommandOverview core revision /> }.into_any()),
-        ("command.prepare", "units") => one(view! { <units::ResourcesView core revision /> }.into_any()),
+        ("command.prepare", "units") => {
+            one(view! { <units::ResourcesView core revision /> }.into_any())
+        }
         // Who is there and taking people in first (feedback of 2026-11-14), the devices
         // after them (administration).
-        ("command.prepare", "people") => vec![(10, view! { <helpers::HelpersView core revision /> }.into_any())],
+        ("command.prepare", "people") => vec![(
+            10,
+            view! { <helpers::HelpersView core revision /> }.into_any(),
+        )],
         // [impl->dsn~command-and-space~2]
-        // Führung & Raum (ADR-0095), also for old links to the command structure; opened
-        // to place one object with `place:<kind>:<ID>`.
-        ("command.prepare", "map" | "structure") => one(view! {
-            <situation::MapPreparation core revision preset=record.get_untracked().and_then(|r| situation::preset(&r)) />
-        }.into_any()),
-        ("command.prepare", _) => one(view! { <incidents::IncidentPage core revision /> }.into_any()),
+        // Führung & Raum (ADR-0095, ADR-0097), also for old links to the command structure;
+        // opened to place one object with `place:<kind>:<ID>`, on the map's part.
+        ("command.prepare", "map" | "structure") => situation::preparation_sections(
+            core,
+            revision,
+            record.get_untracked().and_then(|r| situation::preset(&r)),
+        ),
+        ("command.prepare", _) => {
+            one(view! { <incidents::IncidentPage core revision /> }.into_any())
+        }
         ("incident.log", _) => one(view! { <log::LogView core revision /> }.into_any()),
         _ => Vec::new(),
     }

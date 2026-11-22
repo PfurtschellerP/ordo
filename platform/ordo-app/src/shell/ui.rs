@@ -544,6 +544,103 @@ pub fn TabList(
 /// label is long (e.g. "Doku" for "Dokumentation").
 pub type Tab = (&'static str, String, Option<String>);
 
+/// Where a part stands when its tabs become columns ([`Parts`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Column {
+    Start,
+    End,
+    Below,
+}
+
+/// How [`Parts`] shows its parts (chapter 8.6.5, *Tabs*): always in tabs (separate tasks),
+/// or side by side from a width and in tabs below it (parts used together).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TabsMode {
+    Always,
+    /// Columns from 60rem, else tabs.
+    ColumnsFrom60,
+    /// Columns from 84rem (a part needs 40rem, e.g. the org chart), else tabs.
+    ColumnsFrom84,
+}
+
+/// One part of [`Parts`]: its key, label, short label, column and content.
+pub struct Part {
+    pub key: &'static str,
+    pub label: String,
+    pub short: Option<String>,
+    pub column: Column,
+    pub content: AnyView,
+}
+
+/// The chosen part of the page's [`Parts`], for its sections: an action that needs
+/// another part shows it first (e.g. *Auf der Karte setzen*). A Leptos context.
+#[derive(Clone, Copy)]
+pub struct PageTabs(pub RwSignal<&'static str>);
+
+impl PageTabs {
+    /// Shows the part `key`.
+    pub fn show(self, key: &'static str) {
+        self.0.set(key);
+    }
+}
+
+// [impl->dsn~page-tabs~4]
+/// A page's parts in tabs, or side by side where `mode` allows and there is room (chapter
+/// 8.6.5, *Tabs*). Hidden parts stay in the page, so their input survives; the tab list is
+/// [`TabList`] (WAI-ARIA tabs).
+#[component]
+pub fn Parts(
+    #[prop(into)] id: String,
+    /// What the tabs are, for screen readers.
+    #[prop(into)]
+    label: String,
+    parts: Vec<Part>,
+    chosen: RwSignal<&'static str>,
+    mode: TabsMode,
+) -> impl IntoView {
+    let tabs = parts
+        .iter()
+        .map(|p| (p.key, p.label.clone(), p.short.clone()))
+        .collect();
+    let class = match mode {
+        TabsMode::Always => "parts parts--always",
+        TabsMode::ColumnsFrom60 => "parts parts--columns parts--from-60",
+        TabsMode::ColumnsFrom84 => "parts parts--columns parts--from-84",
+    };
+    let panel = {
+        let id = id.clone();
+        move |part: Part| {
+            let key = part.key;
+            view! {
+                <div role="tabpanel" id=format!("{id}-panel-{key}") aria-labelledby=format!("{id}-tab-{key}")
+                    class="parts__part" class:parts__part--chosen=move || chosen.get() == key>
+                    {part.content}
+                </div>
+            }
+        }
+    };
+    let mut columns: [Vec<AnyView>; 3] = Default::default();
+    for part in parts {
+        let at = match part.column {
+            Column::Start => 0,
+            Column::End => 1,
+            Column::Below => 2,
+        };
+        columns[at].push(panel(part).into_any());
+    }
+    let [start, end, below] = columns;
+    view! {
+        <div class=class>
+            <TabList id=id.clone() label tabs chosen />
+            <div class="parts__grid">
+                <div class="parts__column">{start}</div>
+                <div class="parts__column">{end}</div>
+                {below}
+            </div>
+        </div>
+    }
+}
+
 /// One part of a page with [`TabList`]: shown while its tab is chosen. Hidden parts stay
 /// on the page, so unsaved input survives switching (ADR-0029).
 #[component]
