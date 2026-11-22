@@ -524,8 +524,10 @@
     .undo-bar { inset-block-end: calc(6rem + env(safe-area-inset-bottom)); }
     /* Icon above a short label (Material navigation bar, iOS tab bar): five places fit a
        phone; the labels stay, icons alone are not understood reliably. */
+    /* Icons in one row and labels from the same line, also where one label takes two
+       lines (feedback of 2026-11-22: "Führung & Raum" made the bar uneven). */
     .views__item, .launcher__button {
-      flex-direction: column; justify-content: center; gap: var(--ordo-space-1);
+      flex-direction: column; justify-content: flex-start; gap: var(--ordo-space-1);
       padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
     }
     .views__item { flex: 1 1 0; text-align: center; min-width: 0; padding-inline: 0; hyphens: auto; overflow-wrap: break-word; }
@@ -900,7 +902,7 @@
       border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     }
     .quick-actions--bar .quick-actions__button {
-      flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: var(--ordo-space-1);
+      flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: flex-start; gap: var(--ordo-space-1);
       padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
       text-align: center; hyphens: auto; overflow-wrap: break-word;
     }
@@ -917,14 +919,24 @@
     }
     :root:has(#main .record) :is(.app-header .search-button, .app-header__incident) { display: none; }
     :root:has(#main .record) .app-header__title { font-size: var(--ordo-font-size-3); }
-    :root:has(#main .record) .page { padding: var(--ordo-space-3); }
+    /* The menu stays at hand (feedback of 2026-11-22): in the header, where the workspace's
+       name was, since the bottom bar holds the quick actions; the name stays for screen
+       readers, the record says where one is. Its sheet still opens above the bottom bar. */
+    :root:has(#main .record) .launcher__button.launcher__button--header { display: inline-flex; }
+    :root:has(#main .record) .app-header__heading {
+      position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    /* A 16px gutter: "← Alle Patienten" and the record keep off the screen's edge. */
+    :root:has(#main .record) .page { padding: var(--ordo-space-4); }
     .card.record { border: 0; padding: 0; background: none; box-shadow: none; }
     .record__header { gap: var(--ordo-space-1); padding-block-end: 0; }
     .record__facts, .record__where { gap: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-2); }
     .record__where .record__when { display: none; }
     .record .tabs { gap: 0; }
     .record .tabs__tab { flex: 1 1 0; padding-inline: var(--ordo-space-1); }
-    .navigation:has(.navigation__extra:not(:empty)) :is(.views, .launcher) { display: none; }
+    .navigation:has(.navigation__extra:not(:empty)) :is(.views, .launcher__button--bar) { display: none; }
+    .navigation:has(.navigation__extra:not(:empty)) .launcher { display: contents; }
     .quick-actions--bar { border-block-end: 0; margin-block-end: 0; padding-block-end: 0; }
   }
   .record__index nav { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); padding-block-start: var(--ordo-space-2); }

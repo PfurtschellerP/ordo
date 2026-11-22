@@ -579,8 +579,7 @@ fn CrewEditor(
             }
         })
     };
-    let add = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
+    let add_person = move || {
         let typed = person.get_untracked().trim().to_owned();
         if typed.is_empty() {
             return;
@@ -590,6 +589,17 @@ fn CrewEditor(
             None => unregistered.set(true),
         }
     };
+    let add = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        add_person();
+    };
+    // [impl->dsn~edit-dialog~3]
+    // A person typed and not yet added is added when the dialog closes; a question about
+    // them (moved here, not registered) keeps it open.
+    crate::shell::ui::PendingSaves::register(Callback::new(move |()| {
+        add_person();
+        person.with_untracked(|p| p.trim().is_empty())
+    }));
     // Registered with the name alone, then added (HELP-3).
     let register_and_add = Callback::new(move |()| {
         let typed = person.get_untracked().trim().to_owned();
@@ -936,7 +946,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         core.with_value(|c| UnitRegister::from_events(&c.events(ordo_units::COMPARTMENT)))
     });
     let present = Memo::new(move |_| register.with(|r| r.present().cloned().collect::<Vec<_>>()));
-    // [impl->dsn~edit-dialog~2]
+    // [impl->dsn~edit-dialog~3]
     // One crew dialog for the list; the unit in it changes only when that unit changes.
     let draft = CrewDraft {
         person: RwSignal::new(String::new()),

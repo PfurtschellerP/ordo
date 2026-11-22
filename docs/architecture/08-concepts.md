@@ -1712,7 +1712,7 @@ Needs: impl, itest
 Tags: should, m64
 
 #### Edit dialog
-`dsn~edit-dialog~2`
+`dsn~edit-dialog~3`
 
 Editing an item of a card list (a UHS, a unit's crew) opens a modal `dialog` instead of
 unfolding the form inside the card, so the list keeps its layout (feedback of
@@ -1725,7 +1725,12 @@ item's parts (e.g. *Angaben*, *Auf der Lagekarte*, *Personal*) in columns of at 
 20 rem where there is room (up to 72 rem wide), and a footer with *Fertig*. It keeps the
 focus inside and closes on Escape, on either button, or on a press and release on the
 backdrop, but not on a click on its scrollbar or a text selection dragged out of a field.
-Saving says so (*Gespeichert.*). On phones it fills the screen. Actions with consequences
+Saving says so (*Gespeichert.*). Closing it in any of these ways first saves what was
+typed in its parts and not yet saved (feedback of 2026-11-22: *Fertig* had dropped the
+places per category): each part with such input registers its save with the dialog
+(`shell::ui::PendingSaves`). A part whose check fails keeps the dialog open and shows its
+error, scrolled into view; fields that break a check are marked invalid while typing
+(`aria-invalid`, `.field--invalid`). On phones it fills the screen. Actions with consequences
 (closing a UHS) sit at its bottom and ask once more. Where a list is rebuilt while someone
 works in it, the focused element gets the focus back (`shell::views::keep_focus`).
 `shell::ui::EditDialog` is the one implementation.

@@ -298,7 +298,7 @@ pub fn Disclosure(
     }
 }
 
-// [impl->dsn~edit-dialog~2]
+// [impl->dsn~edit-dialog~3]
 /// The button that opens a list's [`EditDialog`] for one item: it names the item, says it
 /// opens a dialog, and gets the focus back when the dialog closes (its ID is the dialog's
 /// `back`).
@@ -321,13 +321,57 @@ pub fn EditButton(
     }
 }
 
-// [impl->dsn~edit-dialog~2]
+// [impl->dsn~edit-dialog~3]
+/// What an [`EditDialog`] saves before it closes: each part with input typed and not yet
+/// saved registers its save, which says whether the dialog may close (its check passed).
+#[derive(Clone, Copy)]
+pub struct PendingSaves {
+    saves: StoredValue<Vec<(u64, Callback<(), bool>)>>,
+    next: StoredValue<u64>,
+}
+
+impl PendingSaves {
+    fn new() -> Self {
+        Self {
+            saves: StoredValue::new(Vec::new()),
+            next: StoredValue::new(0),
+        }
+    }
+
+    /// Registers `save` with the dialog around the calling component, for as long as that
+    /// component lives. Outside an edit dialog it does nothing.
+    pub fn register(save: Callback<(), bool>) {
+        let Some(pending) = use_context::<Self>() else {
+            return;
+        };
+        let key = pending.next.get_value();
+        pending.next.set_value(key + 1);
+        pending.saves.update_value(|s| s.push((key, save)));
+        on_cleanup(move || {
+            pending
+                .saves
+                .try_update_value(|s| s.retain(|(k, _)| *k != key));
+        });
+    }
+
+    /// Runs every save; true when all passed.
+    fn save_all(self) -> bool {
+        let saves = self.saves.get_value();
+        saves
+            .iter()
+            .fold(true, |all, (_, save)| save.run(()) && all)
+    }
+}
+
+// [impl->dsn~edit-dialog~3]
 /// Editing an item of a card list (pattern "edit dialog"): a modal dialog with the item's
 /// form, one per list rather than one per card, so the list can update under it (new
 /// events, other people's changes) without closing or rebuilding it. Header with the title
 /// and a close button stays at the top, a footer with "Fertig" at the bottom; the body
 /// scrolls between them, in columns on wide screens. Escape, either button or a click on
-/// the backdrop closes it, and the focus returns to `back`. On phones it fills the screen.
+/// the backdrop closes it, after saving what was typed and not yet saved
+/// ([`PendingSaves`]); a failed check keeps it open with its error in view. The focus then
+/// returns to `back`. On phones it fills the screen.
 #[component]
 pub fn EditDialog(
     #[prop(into)] id: String,
@@ -377,9 +421,34 @@ pub fn EditDialog(
             && (x < r.left() || x > r.right() || y < r.top() || y > r.bottom())
     };
     let pressed_outside = StoredValue::new(false);
+    let pending = PendingSaves::new();
+    provide_context(pending);
+    // Closing saves first; a part whose check failed keeps the dialog open, its error
+    // brought into view once it is shown.
+    let done = Callback::new(move |()| {
+        if pending.save_all() {
+            on_close.run(());
+            return;
+        }
+        set_timeout(
+            move || {
+                let error = dialog.get_untracked().and_then(|d| {
+                    let d: &web_sys::Element = d.as_ref();
+                    d.query_selector(".error:not(:empty)").ok().flatten()
+                });
+                if let Some(e) = error {
+                    e.scroll_into_view();
+                }
+            },
+            std::time::Duration::ZERO,
+        );
+    });
     view! {
         <dialog node_ref=dialog id=format!("{id}-dialog") class="edit-dialog" aria-labelledby=title_id.clone()
-            on:cancel=move |_: leptos::ev::Event| on_close.run(())
+            on:cancel=move |ev: leptos::ev::Event| {
+                ev.prevent_default();
+                done.run(());
+            }
             on:close=move |_| {
                 if open.get_untracked() {
                     on_close.run(());
@@ -388,7 +457,7 @@ pub fn EditDialog(
             on:pointerdown=move |ev: leptos::ev::PointerEvent| pressed_outside.set_value(outside(&ev))
             on:click=move |ev| {
                 if pressed_outside.get_value() && outside(&ev) {
-                    on_close.run(());
+                    done.run(());
                 }
                 pressed_outside.set_value(false);
             }
@@ -396,11 +465,11 @@ pub fn EditDialog(
             <header class="edit-dialog__header">
                 <h2 id=title_id.clone() class="edit-dialog__title">{move || title.get()}</h2>
                 <IconButton icon="x" word=crate::text::CLOSE quiet=true label=crate::text::CLOSE
-                    on_click=on_close />
+                    on_click=done />
             </header>
             <div class="edit-dialog__body">{children()}</div>
             <footer class="edit-dialog__footer">
-                <button type="button" class="button" on:click=move |_| on_close.run(())>{crate::text::DONE}</button>
+                <button type="button" class="button" on:click=move |_| done.run(())>{crate::text::DONE}</button>
             </footer>
         </dialog>
     }

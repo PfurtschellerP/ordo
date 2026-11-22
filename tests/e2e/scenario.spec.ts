@@ -282,7 +282,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await details.getByLabel("Name der UHS").fill("UHS Eingang");
     await details.getByRole("button", { name: "Speichern" }).click();
     await expect(eingang.locator(".uhs-card__name")).toHaveText("UHS Eingang");
-    // [itest->dsn~edit-dialog~2]
+    // [itest->dsn~edit-dialog~3]
     // Editing happens in a dialog, so the list does not shift; Escape closes it and the
     // focus goes back to its button.
     const editButton = dora.getByRole("button", { name: "Ort und Personal von UHS Eingang" });
@@ -1019,6 +1019,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("Escape");
     expect(await menuAtEnd()).toEqual([true, false]);
     await anna.evaluate(() => window.scrollTo(0, 0));
+    // Feedback of 2026-11-22: a label on two lines ("Behandlungsplätze") keeps the bar even.
+    const iconTops = await anna.evaluate(() =>
+      [...document.querySelectorAll(".navigation :is(.views__item, .launcher__button) > .icon")].map((i) => Math.round(i.getBoundingClientRect().top)));
+    expect(new Set(iconTops).size, `the bar's icons in one row: ${iconTops}`).toBe(1);
     await shot(anna, "med-phone", false);
     await anna.locator("#launcher-bar-button").click();
     const [sheetBottom, barTop, sheetTop] = await anna.evaluate(() => {
@@ -1055,6 +1059,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".connection"), "the connection state stays (UX-12)").toBeVisible();
     const tabs = (await anna.getByRole("tab", { name: "Übersicht", exact: true }).boundingBox())!;
     expect(tabs.y + tabs.height, "the tabs on the first screen").toBeLessThan(420);
+    // Feedback of 2026-11-22: the menu stays at hand, in the header, and the way back keeps
+    // off the screen's edge.
+    const headerMenu = anna.locator("#launcher-button");
+    await expect(headerMenu, "the menu in the header while the bar holds the quick actions").toBeVisible();
+    await headerMenu.click();
+    await expect(anna.locator("#launcher-panel"), "it opens the menu").toBeVisible();
+    await headerMenu.click();
+    await expect(anna.locator("#launcher-panel")).toBeHidden();
+    const backLink = (await anna.getByRole("link", { name: /Alle Patienten/ }).boundingBox())!;
+    expect(backLink.x, "a 16px gutter").toBeGreaterThanOrEqual(16);
     await audit(anna, "Record on a phone");
     await shot(anna, "record-phone", false);
     await shot(anna, "record-phone-full");
@@ -1355,16 +1369,28 @@ test("ORDO in the browser", async ({ browser }) => {
     await uhsDialog.getByLabel("SK II", { exact: true }).fill("1");
     await uhsDialog.getByLabel("SK III", { exact: true }).fill("9");
     await expect(uhsDialog.locator(".hint", { hasText: "Zurzeit" }), "the split, as typed").toContainText("Zurzeit 11 Plätze nach Kategorie: mehr als die Kapazität von 5.");
-    await uhsDialog.getByRole("button", { name: "Speichern" }).click();
+    await expect(uhsDialog.getByLabel("SK III", { exact: true }), "marked while typed").toHaveAttribute("aria-invalid", "true");
+    await expect(uhsDialog.getByLabel("SK IV", { exact: true }), "an empty field is not").not.toHaveAttribute("aria-invalid", "true");
+    // [itest->dsn~edit-dialog~3]
+    // Fertig saves what was typed (feedback of 2026-11-22); a failed check keeps it open.
+    await uhsDialog.getByRole("button", { name: "Fertig" }).click();
     await expect(uhsDialog.getByRole("alert"), "more places than the capacity are refused").toHaveText(/Die Plätze nach Kategorie \(11\) sind mehr als die Kapazität \(5\)/);
+    await expect(uhsDialog, "the dialog stays open").toBeVisible();
     await uhsDialog.getByLabel("SK III", { exact: true }).fill("2");
     await expect(uhsDialog.locator(".hint", { hasText: "Zurzeit" })).toContainText("Zurzeit 4 nach Kategorie, 1 ohne Kategorie.");
-    await uhsDialog.getByRole("button", { name: "Speichern" }).click();
-    await expect(uhsDialog.getByRole("status").filter({ hasText: "Gespeichert" }), "saved").toBeVisible();
-    await expect(uhsDialog.getByRole("alert"), "and the message is gone").toHaveCount(0);
-    await expect(uhsDialog.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity stays as typed").toHaveValue("5");
+    await expect(uhsDialog.getByLabel("SK III", { exact: true })).not.toHaveAttribute("aria-invalid", "true");
     await shot(ben, "edit-dialog");
+    await uhsDialog.getByRole("button", { name: "Fertig" }).click();
+    await expect(uhsDialog, "saved and closed").toBeHidden();
+    await uhsCard.getByRole("button", { name: "Ort und Personal von UHS Eingang" }).click();
+    await expect(uhsDialog.getByLabel("SK I", { exact: true }), "the places per category were saved").toHaveValue("1");
+    await expect(uhsDialog.getByLabel("SK II", { exact: true })).toHaveValue("1");
+    await expect(uhsDialog.getByLabel("SK III", { exact: true })).toHaveValue("2");
+    await expect(uhsDialog.getByLabel("Kapazität (Patienten)", { exact: true }), "the capacity stays as typed").toHaveValue("5");
+    await expect(uhsDialog.getByLabel("Organisation", { exact: true }), "and the rest of the form").toHaveValue("DRK Musterstadt");
+    await expect(uhsDialog.getByRole("alert"), "no message").toHaveCount(0);
     await ben.keyboard.press("Escape");
+    await expect(uhsDialog).toBeHidden();
     await expect(ben.locator(".strength-on-scene__total"), "the UHS with its strength").toHaveText("3 Einsatzmittel · Stärke 0/2/4/6 · ohne Stärkemeldung: 1");
     await expect(ben.locator(".strength-on-scene"), "under its organisation").toContainText("DRK Musterstadt: 2 Einsatzmittel");
     // [itest->dsn~detailed-strength~1]
@@ -1696,6 +1722,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(tool("Auswählen"), "showing chooses it on the map").toHaveAttribute("aria-pressed", "true");
     await expect(ben.locator(".map-panel__chosen")).toContainText("Sanitätseinsatzleitung SanEL");
     await audit(ben, "Führung & Raum");
+    const wide = ben.viewportSize()!;
+    await ben.setViewportSize({ width: 390, height: 844 });
+    await shot(ben, "command-space-phone", false);
+    await shot(ben, "command-space-phone-full");
+    await ben.setViewportSize(wide);
     await ben.getByRole("button", { name: "Auswahl aufheben" }).click();
     await tool("Symbol setzen").click();
     await expect(tool("Symbol setzen"), "the chosen tool is pressed").toHaveAttribute("aria-pressed", "true");
@@ -1893,7 +1924,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
-    // [itest->dsn~edit-dialog~2]
+    // [itest->dsn~edit-dialog~3]
     // The entry is changed in the list's edit dialog, as every item of a card list.
     await hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }).click();
     const hospitalDialog = ben.getByRole("dialog", { name: "Klinikum Mitte bearbeiten" });

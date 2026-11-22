@@ -418,7 +418,7 @@ fn HospitalBoard(
     board: Memo<TransportBoard>,
 ) -> impl IntoView {
     let sent = Memo::new(move |_| board.with(TransportBoard::sent_to_hospitals));
-    // [impl->dsn~edit-dialog~2]
+    // [impl->dsn~edit-dialog~3]
     // One dialog for the list; the hospital it shows changes only when its entry does.
     let editing = RwSignal::new(None::<String>);
     let back = RwSignal::new(String::new());
@@ -635,10 +635,10 @@ fn HospitalForm(
     let departments = RwSignal::new(set(entry.as_ref().map(|e| &e.departments)));
     let capabilities = RwSignal::new(set(entry.as_ref().map(|e| &e.capabilities)));
     let message = RwSignal::new(None::<&'static str>);
-    let submit = {
+    let changed = RwSignal::new(false);
+    let save = {
         let existing = existing.clone();
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
+        Callback::new(move |()| -> bool {
             let entry = HospitalSet {
                 hospital: existing.clone().unwrap_or_default(),
                 name: name.get_untracked().trim().to_owned(),
@@ -649,28 +649,42 @@ fn HospitalForm(
             };
             if entry.check(&HOSPITALS).is_err() {
                 message.set(Some(text::HOSPITAL_NAME_MISSING));
-                return;
+                return false;
             }
-            if core::set_hospital(core, revision, entry).is_ok() {
-                message.set(None);
-                if existing.is_none() {
-                    name.set(String::new());
-                    departments.set(BTreeSet::new());
-                    capabilities.set(BTreeSet::new());
-                }
-                if let Some(done) = done {
-                    done.run(());
-                }
+            if core::set_hospital(core, revision, entry).is_err() {
+                return false;
             }
+            message.set(None);
+            changed.set(false);
+            if existing.is_none() {
+                name.set(String::new());
+                departments.set(BTreeSet::new());
+                capabilities.set(BTreeSet::new());
+            }
+            true
+        })
+    };
+    // [impl->dsn~edit-dialog~3]
+    // In the edit dialog, closing it saves what was changed.
+    crate::shell::ui::PendingSaves::register(Callback::new(move |()| {
+        !changed.get_untracked() || save.run(())
+    }));
+    let submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        if save.run(())
+            && let Some(done) = done
+        {
+            done.run(());
         }
     };
+    let edited_now = move |_| changed.set(true);
     let button = if existing.is_some() {
         text::HOSPITAL_SAVE
     } else {
         text::HOSPITAL_ADD
     };
     view! {
-        <form class="form hospital-form" novalidate on:submit=submit>
+        <form class="form hospital-form" novalidate on:submit=submit on:input=edited_now on:change=edited_now>
             <div class="field">
                 <label for=field.clone()>{text::HOSPITAL_NAME}</label>
                 <input id=field type="text" autocomplete="off" bind:value=name />

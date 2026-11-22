@@ -143,17 +143,21 @@ fn UhsDetailsPanel(
             .sum();
         Some((kept, total))
     });
+    // Changed since opened or last saved: closing the dialog saves it (dsn edit-dialog).
+    let changed_here = RwSignal::new(false);
+    // [impl->dsn~uhs-capacity-by-category~2]
+    // More places by category than the capacity: those fields are invalid while typed.
+    let exceeded = Memo::new(move |_| split.get().is_some_and(|(kept, total)| kept > total));
     let save = {
         let (id, current_name) = (id.clone(), name.clone());
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
+        Callback::new(move |()| -> bool {
             // [impl->dsn~uhs-capacity-by-category~2]
             // The capacity is the whole; places per category, if given, fit in it.
             let capacity = match cap.get_untracked().trim().parse::<u32>() {
                 Ok(n) if n > 0 => n,
                 _ => {
                     error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
-                    return;
+                    return false;
                 }
             };
             let mut by_category = std::collections::BTreeMap::new();
@@ -169,19 +173,19 @@ fn UhsDetailsPanel(
                     }
                     Err(_) => {
                         error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
-                        return;
+                        return false;
                     }
                 }
             }
             let kept = by_category.values().sum::<u32>();
             if kept > capacity {
                 error.set(Some(text::uhs_places_exceed(kept, capacity)));
-                return;
+                return false;
             }
             let chosen = new_name.get_untracked().trim().to_owned();
             if chosen.is_empty() {
                 error.set(Some(text::UHS_NAME_NEEDED.to_owned()));
-                return;
+                return false;
             }
             // [impl->dsn~uhs-as-unit~1]
             // Its strength as a unit, or none, and its special functions.
@@ -189,7 +193,7 @@ fn UhsDetailsPanel(
                 Ok(read) => read,
                 Err(e) => {
                     error.set(Some(e.to_owned()));
-                    return;
+                    return false;
                 }
             };
             let was = (
@@ -224,7 +228,7 @@ fn UhsDetailsPanel(
             };
             if let Err(e) = core::update_uhs(core, revision, &update) {
                 error.set(Some(e));
-                return;
+                return false;
             }
             // [impl->dsn~treatment-places~3]
             // The places follow the capacity: per category and the rest for any, or one per
@@ -240,11 +244,28 @@ fn UhsDetailsPanel(
             match placed {
                 Ok(()) => {
                     error.set(None);
+                    changed_here.set(false);
                     saved.set(true);
+                    true
                 }
-                Err(e) => error.set(Some(e)),
+                Err(e) => {
+                    error.set(Some(e));
+                    false
+                }
             }
-        }
+        })
+    };
+    // [impl->dsn~edit-dialog~3]
+    crate::shell::ui::PendingSaves::register(Callback::new(move |()| {
+        !changed_here.get_untracked() || save.run(())
+    }));
+    let submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        save.run(());
+    };
+    let edited_now = move |_| {
+        saved.set(false);
+        changed_here.set(true);
     };
     let commit = {
         let (id, staff) = (id.clone(), staff.clone());
@@ -267,21 +288,30 @@ fn UhsDetailsPanel(
     let here = med::uhs_post(&id, &name);
     // [impl->dsn~double-booking~1]
     // Someone on a crew or another UHS is moved here, not counted twice (UNIT-8).
-    let add = {
+    // Adds the person typed; false while it waits for the question whether to move them.
+    let add_person = {
         let here = here.clone();
-        move |ev: leptos::ev::SubmitEvent| {
-            ev.prevent_default();
+        Callback::new(move |()| -> bool {
             let who = person.get_untracked().trim().to_owned();
             if who.is_empty() {
-                return;
+                return true;
             }
             let away = staff_member(core, &who).elsewhere(core, &here);
             if away.is_empty() {
                 commit.run(who);
+                true
             } else {
                 elsewhere.set(away);
+                false
             }
-        }
+        })
+    };
+    // [impl->dsn~edit-dialog~3]
+    // A person typed and not yet added is added when the dialog closes.
+    crate::shell::ui::PendingSaves::register(add_person);
+    let add = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        add_person.run(());
     };
     let on_move = Callback::new(move |()| {
         let who = person.get_untracked().trim().to_owned();
@@ -339,7 +369,7 @@ fn UhsDetailsPanel(
         <div class="edit-dialog__columns">
             <section class="edit-dialog__part" aria-labelledby=part("data")>
                 <h3 id=part("data")>{text::UHS_DATA}</h3>
-                    <form class="form" novalidate on:submit=save on:input=move |_| saved.set(false)>
+                    <form class="form" novalidate on:submit=submit on:input=edited_now on:change=edited_now>
                         <div class="field">
                             <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
                             <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
@@ -369,11 +399,14 @@ fn UhsDetailsPanel(
                                 .zip(capacities)
                                 .map(|(category, value)| {
                                     let id = format!("uhs-capacity-{}-{slug}", core::slug(text::label(category)));
+                                    // Only a field with places marks the excess.
+                                    let invalid = move || exceeded.get() && !value.with(|v| v.trim().is_empty() || v.trim() == "0");
                                     view! {
-                                        <div class="field field--small">
+                                        <div class="field field--small" class:field--invalid=invalid>
                                             <label for=id.clone()>{text::label(category)}</label>
                                             <input id=id type="text" inputmode="numeric" autocomplete="off" bind:value=value
-                                                title=text::description(category) />
+                                                title=text::description(category)
+                                                aria-invalid=move || invalid().then_some("true") />
                                         </div>
                                     }
                                 })
@@ -553,7 +586,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
         })
     });
     let editable = core::permitted(core, revision, core::permission::EDIT_UNITS);
-    // [impl->dsn~edit-dialog~2]
+    // [impl->dsn~edit-dialog~3]
     // One dialog for the list: the UHS being edited, as the dialog shows it, changes only
     // when that UHS changes; the list may update under it.
     let draft = UhsDraft::new();
