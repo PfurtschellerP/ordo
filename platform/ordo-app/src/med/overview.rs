@@ -42,7 +42,7 @@ pub fn CrewPlaces(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section aria-labelledby="crew-places-title" class="card crew-places">
-            <h2 id="crew-places-title">{text::CREW_PLACES}</h2>
+            <h2 id="crew-places-title">{text::crew_places()}</h2>
             <TreatmentPlaces rows level=Level::H3 />
         </section>
     }

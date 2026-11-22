@@ -48,7 +48,7 @@ pub fn TreatmentPlaces(
             {move || {
                 let rows = rows.get();
                 if rows.is_empty() {
-                    return view! { <p class="hint">{text::UHS_EMPTY}</p> }.into_any();
+                    return view! { <p class="hint">{text::uhs_empty()}</p> }.into_any();
                 }
                 let all = (rows.len() > 1).then(|| {
                     let mut sum = Occupancy::default();
@@ -64,7 +64,7 @@ pub fn TreatmentPlaces(
                     <ul class="places__list">
                         {rows.into_iter().map(|row| view! { <UnitRow row level /> }).collect_view()}
                     </ul>
-                    <p class="hint places__legend">{text::PLACES_LEGEND}</p>
+                    <p class="hint places__legend">{text::places_legend()}</p>
                 }
                 .into_any()
             }}
@@ -77,7 +77,7 @@ pub fn TreatmentPlaces(
 fn GroupBadge(group: PlaceGroup) -> impl IntoView {
     match group.category {
         Some(category) => view! { <TriageBadge category /> }.into_any(),
-        None => view! { <span class="triage places__any">{text::PLACES_ANY}</span> }.into_any(),
+        None => view! { <span class="triage places__any">{text::places_any()}</span> }.into_any(),
     }
 }
 
@@ -85,10 +85,10 @@ fn GroupBadge(group: PlaceGroup) -> impl IntoView {
 #[component]
 fn FreeOrFull(group: PlaceGroup) -> impl IntoView {
     if group.free() == 0 {
-        view! { <span class="places__full">{text::PLACES_FULL}</span> }.into_any()
+        view! { <span class="places__full">{text::places_full()}</span> }.into_any()
     } else {
         view! {
-            <span class="places__free"><strong>{group.free()}</strong> " " {text::PLACE_FREE}</span>
+            <span class="places__free"><strong>{group.free()}</strong> " " {text::place_free()}</span>
         }
         .into_any()
     }
@@ -96,7 +96,7 @@ fn FreeOrFull(group: PlaceGroup) -> impl IntoView {
 
 /// The name of a group for its text alternative.
 fn group_name(group: &PlaceGroup) -> &'static str {
-    group.category.map_or(text::PLACES_ANY, text::label)
+    group.category.map_or(text::places_any(), text::label)
 }
 
 /// All units added up: the free places in large figures and a bar per category.
@@ -104,11 +104,11 @@ fn group_name(group: &PlaceGroup) -> &'static str {
 fn AllUnits(occupancy: Occupancy, level: Level) -> impl IntoView {
     let title = match level {
         Level::H3 => {
-            view! { <h3 id="places-all-title" class="places__name">{text::PLACES_ALL}</h3> }
+            view! { <h3 id="places-all-title" class="places__name">{text::places_all()}</h3> }
                 .into_any()
         }
         Level::H4 => {
-            view! { <h4 id="places-all-title" class="places__name">{text::PLACES_ALL}</h4> }
+            view! { <h4 id="places-all-title" class="places__name">{text::places_all()}</h4> }
                 .into_any()
         }
     };
@@ -176,7 +176,7 @@ fn UnitRow(row: PlaceRow, level: Level) -> impl IntoView {
             </div>
         }
         .into_any(),
-        None => view! { <p class="hint places__strips">{text::PLACES_NONE}</p> }.into_any(),
+        None => view! { <p class="hint places__strips">{text::places_none()}</p> }.into_any(),
     };
     view! {
         <li class="places__unit" data-uhs=row.id>

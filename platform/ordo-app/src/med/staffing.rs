@@ -58,7 +58,7 @@ fn close(core: Handle, revision: RwSignal<u64>, request: &str, person: Option<St
             revision,
             staffing::kinds::CLOSED,
             &payload,
-            text::STAFF_REQUEST_CLOSED.to_owned(),
+            text::staff_request_closed().to_owned(),
         );
     }
 }
@@ -81,11 +81,11 @@ pub fn StaffRequestPanel(
             .take(3)
             .map(|r| {
                 let state = match &r.closed {
-                    None => text::STAFF_REQUEST_OPEN.to_owned(),
+                    None => text::staff_request_open().to_owned(),
                     Some((_, _, Some(p))) => {
-                        text::staff_request_met(&crate::shell::profile::display_text(core, p))
+                        text::staff_request_met(crate::shell::profile::display_text(core, p))
                     }
-                    Some((_, _, None)) => text::STAFF_REQUEST_WITHDRAWN.to_owned(),
+                    Some((_, _, None)) => text::staff_request_withdrawn().to_owned(),
                 };
                 (
                     text::staff_need(r.requested.need),
@@ -105,16 +105,16 @@ pub fn StaffRequestPanel(
     let hint = move || {
         let chosen = uhs.get();
         if chosen.is_empty() {
-            text::STAFF_REQUEST_CHOOSE_UHS.to_owned()
+            text::staff_request_choose_uhs().to_owned()
         } else if allowed.get() {
-            text::staff_request_for(&core::uhs_name(core, &chosen))
+            text::staff_request_for(core::uhs_name(core, &chosen))
         } else {
-            text::staff_request_not_staff(&core::uhs_name(core, &chosen))
+            text::staff_request_not_staff(core::uhs_name(core, &chosen))
         }
     };
     view! {
             <section class="card staff-requests" aria-labelledby="staff-requests-title">
-                <h2 id="staff-requests-title">{text::STAFF_REQUESTS_TITLE}</h2>
+                <h2 id="staff-requests-title">{text::staff_requests_title()}</h2>
                 <p class="hint" id="staff-requests-hint">{hint}</p>
                 <div class="row">
                     {[Need::Physician, Need::Paramedic].into_iter().map(|need| view! {
@@ -153,7 +153,7 @@ pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
     view! {
         <Show when=move || open.with(|o| !o.is_empty())>
             <section class="card staff-board" aria-labelledby="staff-board-title">
-                <h2 id="staff-board-title">{text::STAFF_BOARD_TITLE}</h2>
+                <h2 id="staff-board-title">{text::staff_board_title()}</h2>
                 <ul class="report-list">
                     {move || open.get().into_iter().map(|r| {
                         let id = r.requested.request.clone();
@@ -198,13 +198,13 @@ pub fn StaffRequestsBoard(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
                                 <p><strong>{label.clone()}</strong> " · " {core::clock(r.at.wall_ms)}</p>
                                 <form class="form--inline" novalidate on:submit=send>
                                     <div class="field">
-                                        <label for=field.clone()>{text::STAFF_SEND}</label>
+                                        <label for=field.clone()>{text::staff_send()}</label>
                                         <input id=field.clone() type="text" autocomplete="off" list=format!("{field}-people") bind:value=person />
                                         <crate::shell::ui::Suggestions id=format!("{field}-people") values=people core />
                                     </div>
-                                    <button type="submit" class="button button--small">{text::STAFF_ASSIGN}</button>
+                                    <button type="submit" class="button button--small">{text::staff_assign()}</button>
                                     // [impl->dsn~icon-rules~1]
-                                    <crate::shell::ui::IconButton icon="x" word=text::STAFF_WITHDRAW quiet=true
+                                    <crate::shell::ui::IconButton icon="x" word=text::staff_withdraw() quiet=true
                                         label=text::staff_withdraw_label(&label)
                                         on_click=Callback::new(move |()| close(core, revision, &drop_id, None)) />
                                 </form>

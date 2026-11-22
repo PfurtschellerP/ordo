@@ -156,7 +156,7 @@ fn UhsDetailsPanel(
             let capacity = match cap.get_untracked().trim().parse::<u32>() {
                 Ok(n) if n > 0 => n,
                 _ => {
-                    error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
+                    error.set(Some(text::uhs_capacity_number().to_owned()));
                     return false;
                 }
             };
@@ -172,7 +172,7 @@ fn UhsDetailsPanel(
                         by_category.insert(category, n);
                     }
                     Err(_) => {
-                        error.set(Some(text::UHS_CAPACITY_NUMBER.to_owned()));
+                        error.set(Some(text::uhs_capacity_number().to_owned()));
                         return false;
                     }
                 }
@@ -184,7 +184,7 @@ fn UhsDetailsPanel(
             }
             let chosen = new_name.get_untracked().trim().to_owned();
             if chosen.is_empty() {
-                error.set(Some(text::UHS_NAME_NEEDED.to_owned()));
+                error.set(Some(text::uhs_name_needed().to_owned()));
                 return false;
             }
             // [impl->dsn~uhs-as-unit~1]
@@ -368,14 +368,14 @@ fn UhsDetailsPanel(
     view! {
         <div class="edit-dialog__columns">
             <section class="edit-dialog__part" aria-labelledby=part("data")>
-                <h3 id=part("data")>{text::UHS_DATA}</h3>
+                <h3 id=part("data")>{text::uhs_data()}</h3>
                     <form class="form" novalidate on:submit=submit on:input=edited_now on:change=edited_now>
                         <div class="field">
-                            <label for=format!("uhs-name-{slug}")>{text::UHS_NAME}</label>
+                            <label for=format!("uhs-name-{slug}")>{text::uhs_name()}</label>
                             <input id=format!("uhs-name-{slug}") type="text" autocomplete="off" bind:value=new_name />
                         </div>
                         <div class="field field--small">
-                            <label for=format!("uhs-capacity-{slug}")>{text::UHS_CAPACITY}</label>
+                            <label for=format!("uhs-capacity-{slug}")>{text::uhs_capacity()}</label>
                             <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
                         </div>
                         <div class="field">
@@ -389,11 +389,11 @@ fn UhsDetailsPanel(
                                 {crate::shared::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
                             </select>
                         </div>
-                        <crate::shared::units::StrengthFields draft=strength prefix=format!("uhs-{slug}") title=text::UHS_STRENGTH
+                        <crate::shared::units::StrengthFields draft=strength prefix=format!("uhs-{slug}") title=text::uhs_strength()
                             detailed=Signal::derive(move || { revision.track(); crate::shared::units::detailed(core) }) />
-                        <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::UHS_STRENGTH_HINT}</p>
+                        <p id=format!("uhs-strength-hint-{slug}") class="hint">{text::uhs_strength_hint()}</p>
                         <fieldset class="choices strength-input" aria-describedby=format!("uhs-capacities-hint-{slug}")>
-                            <legend>{text::UHS_CAPACITIES_LEGEND}</legend>
+                            <legend>{text::uhs_capacities_legend()}</legend>
                             {CAPACITY_CATEGORIES
                                 .into_iter()
                                 .zip(capacities)
@@ -413,24 +413,24 @@ fn UhsDetailsPanel(
                                 .collect_view()}
                         </fieldset>
                         <p id=format!("uhs-capacities-hint-{slug}") class="hint">
-                            {text::UHS_CAPACITIES_HINT} " "
+                            {text::uhs_capacities_hint()} " "
                             {move || split.get().map(|(kept, total)| text::uhs_places_split(kept, total))}
                         </p>
                         <div class="actions">
-                            <button type="submit" class="button">{text::UHS_SAVE}</button>
-                            <p role="status" class="hint">{move || saved.get().then_some(text::SAVED)}</p>
+                            <button type="submit" class="button">{text::uhs_save()}</button>
+                            <p role="status" class="hint">{move || saved.get().then_some(text::saved())}</p>
                         </div>
                     </form>
                 <p role="alert" class="error">{move || error.get()}</p>
             </section>
             <section class="edit-dialog__part" aria-labelledby=part("place")>
-                <h3 id=part("place")>{text::UHS_ON_MAP}</h3>
+                <h3 id=part("place")>{text::uhs_on_map()}</h3>
                 <UhsOnMap core revision id=id.clone() name=name.clone() written=details.location.clone() />
             </section>
             <section class="edit-dialog__part" aria-labelledby=part("staff")>
-                <h3 id=part("staff")>{text::UHS_STAFF}</h3>
+                <h3 id=part("staff")>{text::uhs_staff()}</h3>
                 {if staff.is_empty() {
-                    view! { <p class="hint">{text::UHS_STAFF_NONE}</p> }.into_any()
+                    view! { <p class="hint">{text::uhs_staff_none()}</p> }.into_any()
                 } else {
                     view! { <ul class="crew-list">{members}</ul> }.into_any()
                 }}
@@ -441,7 +441,7 @@ fn UhsDetailsPanel(
                             list=format!("uhs-staff-{slug}-people") bind:value=person />
                         <crate::shell::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people core />
                     </div>
-                    <button type="submit" class="button button--small">{text::UHS_STAFF_ADD}</button>
+                    <button type="submit" class="button button--small">{text::uhs_staff_add()}</button>
                 </form>
                 <crate::shared::units::AssignedElsewhere person elsewhere here=here.label.clone() on_move />
             </section>
@@ -479,21 +479,21 @@ fn CloseUhs(
     };
     view! {
         <div class="danger-zone">
-            <h3>{text::UHS_CLOSE_TITLE}</h3>
+            <h3>{text::uhs_close_title()}</h3>
             <p id=hint.clone() class="hint">{move || match patients.get() {
-                0 => text::UHS_CLOSE_HINT.to_owned(),
+                0 => text::uhs_close_hint().to_owned(),
                 n => text::uhs_close_blocked(n),
             }}</p>
             <Show when=move || !asking.get()>
                 <button type="button" class="button button--small button--danger" disabled={move || patients.get() > 0}
                     aria-describedby=hint.clone() on:click=move |_| asking.set(true)>
-                    {text::UHS_CLOSE}
+                    {text::uhs_close()}
                 </button>
             </Show>
             <Show when=move || asking.get()>
                 <p role="alert">{text::uhs_close_question(&name)}</p>
                 <div class="actions">
-                    <button type="button" class="button button--small button--danger" on:click=confirm.clone()>{text::UHS_CLOSE_CONFIRM}</button>
+                    <button type="button" class="button button--small button--danger" on:click=confirm.clone()>{text::uhs_close_confirm()}</button>
                     <button type="button" class="button button--small button--quiet" on:click=move |_| asking.set(false)>{text::cancel()}</button>
                 </div>
             </Show>
@@ -535,21 +535,21 @@ fn UhsOnMap(
     let name = StoredValue::new(name);
     let visible = move || {
         if at.get().is_some() {
-            text::UHS_MOVE_ON_MAP
+            text::uhs_move_on_map()
         } else {
-            text::UHS_PLACE_ON_MAP
+            text::uhs_place_on_map()
         }
     };
     view! {
         <p class="uhs-on-map">
-            {text::UHS_ON_MAP} ": "
+            {text::uhs_on_map()} ": "
             <span class="uhs-on-map__at">{move || at.get().map_or_else(
-                || text::UHS_NOT_ON_MAP.to_owned(),
+                || text::uhs_not_on_map().to_owned(),
                 |[lon, lat]| format!("{lat:.5}, {lon:.5}"),
             )}</span>
         </p>
         {written.filter(|w| !w.is_empty()).map(|w| view! {
-            <p class="hint">{text::UHS_LOCATION} ": " {w}</p>
+            <p class="hint">{text::uhs_location()} ": " {w}</p>
         })}
         <Show when=move || may_place.get()>
             <a class="button button--small" href=place.to_path() on:click=follow_route(place.clone())
@@ -611,12 +611,12 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
     let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="uhs-resources-title" class="card">
-            <h2 id="uhs-resources-title">{text::UHS_RESOURCES_TITLE}</h2>
+            <h2 id="uhs-resources-title">{text::uhs_resources_title()}</h2>
             {move || {
                 let rows = rows.get();
                 crate::shell::views::keep_focus();
                 if rows.is_empty() {
-                    return view! { <p>{text::UHS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::uhs_empty()}</p> }.into_any();
                 }
                 let editable = editable.get();
                 view! {
@@ -633,7 +633,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                                         {editable.then({
                                             let id = id.clone();
                                             move || view! {
-                                            <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::UHS_DETAILS
+                                            <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::uhs_details()
                                                 label=text::uhs_details_label(&name)
                                                 on_click=Callback::new(move |()| {
                                                     draft.fill(&name, capacity, &details);
@@ -688,21 +688,21 @@ fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     Err(e) => error.set(Some(e)),
                 }
             }
-            _ => error.set(Some(format!("{}: > 0", text::UHS_CAPACITY))),
+            _ => error.set(Some(format!("{}: > 0", text::uhs_capacity()))),
         }
     };
     view! {
-        <h3>{text::UHS_NEW}</h3>
+        <h3>{text::uhs_new()}</h3>
         <form on:submit=submit class="form form--inline new-uhs">
             <div class="field">
-                <label for="uhs-name">{text::UHS_NAME}</label>
+                <label for="uhs-name">{text::uhs_name()}</label>
                 <input id="uhs-name" type="text" required bind:value=name />
             </div>
             <div class="field field--small">
-                <label for="uhs-capacity">{text::UHS_CAPACITY}</label>
+                <label for="uhs-capacity">{text::uhs_capacity()}</label>
                 <input id="uhs-capacity" type="text" inputmode="numeric" pattern="[0-9]+" required bind:value=capacity />
             </div>
-            <button type="submit" class="button">{text::UHS_SUBMIT}</button>
+            <button type="submit" class="button">{text::uhs_submit()}</button>
         </form>
         <p role="alert" class="error">{move || error.get()}</p>
     }
@@ -736,8 +736,8 @@ pub fn CountCard(
                     .collect_view()}
             </ul>
             <p>
-                {text::COL_TOTAL} ": " <strong>{total}</strong> " · " {text::COL_LOAD} ": " {text::load(total, capacity)}
-                " · " {text::COL_DISCHARGED} ": " {c.discharged}
+                {text::col_total()} ": " <strong>{total}</strong> " · " {text::col_load()} ": " {text::load(total, capacity)}
+                " · " {text::col_discharged()} ": " {c.discharged}
             </p>
             {children.map(|c| c())}
         </li>
@@ -765,11 +765,11 @@ pub(crate) fn UhsCounts(core: Handle, revision: RwSignal<u64>) -> impl IntoView 
     });
     view! {
         <section aria-labelledby="counts-title" class="card">
-            <h2 id="counts-title">{text::COUNTS_TITLE}</h2>
+            <h2 id="counts-title">{text::counts_title()}</h2>
             {move || {
                 let rows = rows.get();
                 if rows.is_empty() {
-                    return view! { <p>{text::COUNTS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::counts_empty()}</p> }.into_any();
                 }
                 // Narrow screens: one block per UHS instead of a wide table (reflow).
                 let list = rows
@@ -781,11 +781,11 @@ pub(crate) fn UhsCounts(core: Handle, revision: RwSignal<u64>) -> impl IntoView 
                     <table class="table table--counts only-wide">
                         <thead>
                             <tr>
-                                <th scope="col">{text::COL_UHS}</th>
+                                <th scope="col">{text::col_uhs()}</th>
                                 {CATEGORIES.into_iter().map(|c| view! { <th scope="col" class="number"><TriageBadge category=c /></th> }).collect_view()}
-                                <th scope="col" class="number">{text::COL_TOTAL}</th>
-                                <th scope="col" class="number">{text::COL_LOAD}</th>
-                                <th scope="col" class="number">{text::COL_DISCHARGED}</th>
+                                <th scope="col" class="number">{text::col_total()}</th>
+                                <th scope="col" class="number">{text::col_load()}</th>
+                                <th scope="col" class="number">{text::col_discharged()}</th>
                             </tr>
                         </thead>
                         <tbody>

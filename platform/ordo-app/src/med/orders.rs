@@ -120,12 +120,12 @@ fn OrderItem(
                     let at = core::clock(c.at.wall_ms);
                     view! {
                         <p class="order-card__confirmed">
-                            {crate::shell::profile::naming(move || text::order_confirmed(&at, &crate::shell::profile::display_name(core, &c.by)))}
+                            {crate::shell::profile::naming(move || text::order_confirmed(&at, crate::shell::profile::display_name(core, &c.by)))}
                         </p>
                     }
                     .into_any()
                 }
-                None => view! { <p class="order-card__unconfirmed"><strong>{text::ORDER_UNCONFIRMED}</strong></p> }.into_any(),
+                None => view! { <p class="order-card__unconfirmed"><strong>{text::order_unconfirmed()}</strong></p> }.into_any(),
             }}
         }
     });
@@ -144,7 +144,7 @@ fn OrderItem(
         let me_value = me.clone();
         view! {
             <div class="field order-card__performer">
-                <label for=field.clone()>{text::ORDER_PERFORMED_BY}</label>
+                <label for=field.clone()>{text::order_performed_by_label()}</label>
                 <input id=field type="text" autocomplete="off" list=list.clone()
                     prop:value=move || performers.0.with_value(|p| p.get(&key).cloned()).unwrap_or_else(|| me_value.clone())
                     on:input=move |ev| {
@@ -166,7 +166,7 @@ fn OrderItem(
                 <div class="row">
                     <button type="button" class="button button--small button--primary" aria-label=label
                         on:click=move |_| { let _ = core::confirm_order(core, revision, &id); }>
-                        {text::ORDER_CONFIRM}
+                        {text::order_confirm()}
                     </button>
                 </div>
             })
@@ -193,7 +193,7 @@ fn OrderItem(
                         open_prefilled(drafts, &given.tag, form, values, Some(at.clone()), Some(given.order.clone()));
                     }
                 }>
-                    {text::DOCUMENT_ORDER}
+                    {text::document_order()}
                 </button>
             </div>
         }
@@ -221,7 +221,7 @@ fn OrderItem(
             <p class="order-card__status">{text::order_status(order.status)} " · " {by}</p>
             {spoken}
             {done.as_ref().and_then(|s| s.performed_by.clone()).map(|p| view! {
-                <p class="order-card__performed">{crate::shell::profile::naming(move || text::order_performed_by(&crate::shell::profile::display_text(core, &p)))}</p>
+                <p class="order-card__performed">{crate::shell::profile::naming(move || text::order_performed_by(crate::shell::profile::display_text(core, &p)))}</p>
             })}
             <History entries=crate::shell::profile::naming({
                 let history = order.history.clone();
@@ -231,7 +231,7 @@ fn OrderItem(
                     let what = match &s.performed_by {
                         Some(p) => text::order_status_performed(
                             text::order_status(s.status),
-                            &crate::shell::profile::display_text(core, p),
+                            crate::shell::profile::display_text(core, p),
                         ),
                         None => text::order_status(s.status).to_owned(),
                     };
@@ -346,13 +346,13 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                     read_back: read_back.get_untracked(),
                 };
                 if recorded.check(&CATALOGUE).is_err() {
-                    message.set(Some(text::ORDER_INCOMPLETE));
+                    message.set(Some(text::order_incomplete()));
                     return;
                 }
                 core::record_order(core, revision, recorded)
             } else {
                 if order.check(&CATALOGUE).is_err() {
-                    message.set(Some(text::ORDER_INCOMPLETE));
+                    message.set(Some(text::order_incomplete()));
                     return;
                 }
                 core::give_order(core, revision, order)
@@ -368,11 +368,11 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
     };
     view! {
         <section class="record__section" aria-labelledby="section-orders">
-            <h3 id="section-orders" tabindex="-1">{text::ORDERS}</h3>
+            <h3 id="section-orders" tabindex="-1">{text::orders()}</h3>
             {move || {
                 let orders = list.get();
                 if orders.is_empty() {
-                    return view! { <p class="hint">{text::ORDERS_NONE}</p> }.into_any();
+                    return view! { <p class="hint">{text::orders_none()}</p> }.into_any();
                 }
                 view! {
                     <ul class="order-list" data-keys="list">
@@ -384,57 +384,57 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                 }
                 .into_any()
             }}
-            <crate::med::patients::SectionInputs id="section-orders" open_text=text::ORDERS_OPEN>
+            <crate::med::patients::SectionInputs id="section-orders" open_text=text::orders_open()>
             <form class="form order-form" novalidate on:submit=submit.clone()>
                 <Show when=move || can_give.get()>
-                    <RadioChips legend=text::ORDER_WHO name="order-origin" value=origin options=vec![
-                        ("mine".to_owned(), text::ORDER_MINE.to_owned()),
-                        ("spoken".to_owned(), text::ORDER_SPOKEN.to_owned()),
+                    <RadioChips legend=text::order_who() name="order-origin" value=origin options=vec![
+                        ("mine".to_owned(), text::order_mine().to_owned()),
+                        ("spoken".to_owned(), text::order_spoken_label().to_owned()),
                     ] />
                 </Show>
                 <Show when=spoken>
                     <div class="field">
-                        <label for="order-given-by">{text::ORDER_ORDERED_BY}</label>
+                        <label for="order-given-by">{text::order_ordered_by()}</label>
                         <input id="order-given-by" type="text" autocomplete="off" list="order-given-by-people" bind:value=giver />
                         <Suggestions id="order-given-by-people" values=people core />
                     </div>
-                    <RadioChips legend=text::ORDER_CHANNEL name="order-channel" value=channel options=Channel::ALL
+                    <RadioChips legend=text::order_channel_label() name="order-channel" value=channel options=Channel::ALL
                         .into_iter()
                         .map(|c| (channel_id(c), text::order_channel(c).to_owned()))
                         .collect() />
                     <div class="field">
                         <label class="choice">
                             <input id="order-read-back" type="checkbox" bind:checked=read_back />
-                            {text::ORDER_READ_BACK}
+                            {text::order_read_back()}
                         </label>
                     </div>
                 </Show>
-                <RadioChips legend=text::ORDER_KIND name="order-kind" value=kind options=vec![
-                    ("medication".to_owned(), text::ORDER_MEDICATION.to_owned()),
-                    ("measure".to_owned(), text::ORDER_MEASURE.to_owned()),
+                <RadioChips legend=text::order_kind() name="order-kind" value=kind options=vec![
+                    ("medication".to_owned(), text::order_medication().to_owned()),
+                    ("measure".to_owned(), text::order_measure().to_owned()),
                 ] />
                 <Show
                     when=medication
                     fallback=move || view! {
                         <div class="field">
-                            <label for="order-measure">{text::ORDER_MEASURE_TEXT}</label>
+                            <label for="order-measure">{text::order_measure_text()}</label>
                             <input id="order-measure" type="text" autocomplete="off" bind:value=measure />
                         </div>
                     }
                 >
                     <div class="field">
-                        <label for="order-substance">{text::ORDER_SUBSTANCE}</label>
+                        <label for="order-substance">{text::order_substance()}</label>
                         <input id="order-substance" type="text" autocomplete="off" bind:value=substance />
                     </div>
                     <div class="field">
-                        <label for="order-dose">{text::ORDER_DOSE}</label>
+                        <label for="order-dose">{text::order_dose()}</label>
                         <input id="order-dose" type="text" autocomplete="off" bind:value=dose />
                     </div>
                     <div class="field">
-                        <label for="order-route">{text::ORDER_ROUTE}</label>
+                        <label for="order-route">{text::order_route()}</label>
                         <select id="order-route" on:change=move |ev| route.set(event_target_value(&ev))
                             prop:value=move || route.get()>
-                            <option value="">{text::ORDER_ROUTE_CHOOSE}</option>
+                            <option value="">{text::order_route_choose()}</option>
                             {CATALOGUE
                                 .routes
                                 .iter()
@@ -450,17 +450,17 @@ pub fn OrdersSection(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                     </div>
                 </Show>
                 <div class="field">
-                    <label for="order-note">{text::ORDER_NOTE}</label>
+                    <label for="order-note">{text::order_note()}</label>
                     <input id="order-note" type="text" autocomplete="off" bind:value=note />
                 </div>
-                <p class="hint">{text::ORDER_RECORDS_ONLY}</p>
+                <p class="hint">{text::order_records_only()}</p>
                 <Show when=spoken>
-                    <p class="hint">{text::ORDER_SPOKEN_HINT}</p>
+                    <p class="hint">{text::order_spoken_hint()}</p>
                 </Show>
                 <p class="error" role="alert">{move || message.get()}</p>
                 <div class="row">
                     <button type="submit" class="button button--primary">
-                        {move || if spoken() { text::ORDER_RECORD } else { text::ORDER_GIVE }}
+                        {move || if spoken() { text::order_record() } else { text::order_give() }}
                     </button>
                 </div>
             </form>
@@ -499,11 +499,11 @@ pub fn OrdersView(core: Handle, revision: RwSignal<u64>, nav: Nav) -> impl IntoV
     });
     view! {
         <section aria-labelledby="orders-title" class="card">
-            <h2 id="orders-title">{text::ORDERS_TITLE}</h2>
+            <h2 id="orders-title">{text::orders_title()}</h2>
             {move || {
                 let list = open.get();
                 if list.is_empty() {
-                    return view! { <p>{text::ORDERS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::orders_empty()}</p> }.into_any();
                 }
                 view! {
                     <ul class="order-list" data-keys="list">

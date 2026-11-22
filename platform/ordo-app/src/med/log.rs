@@ -112,8 +112,8 @@ const DESCRIBE: &[(&str, Describe)] = &[
         Some({
             let p = decode::<med::staffing::Closed>(e)?;
             match p.person {
-                Some(person) => text::staff_request_met(&name(&person)).into(),
-                None => text::STAFF_REQUEST_WITHDRAWN.to_owned().into(),
+                Some(person) => text::staff_request_met(name(&person)).into(),
+                None => text::staff_request_withdrawn().to_owned().into(),
             }
         })
     }),
@@ -186,7 +186,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
     (med::transport::REQUESTED, |e, c, _| {
         Some({
             let p = decode::<med::transport::TransportRequested>(e)?;
-            text::log_transport_requested(&transport(c, &p.request)).into()
+            text::log_transport_requested(transport(c, &p.request)).into()
         })
     }),
     (med::transport::UPDATED, |e, c, _| {

@@ -34,14 +34,14 @@ fn workspace_access(core: Handle, id: &str) -> Result<(), &'static str> {
 fn actions(core: Handle) -> Vec<Item> {
     [
         (
-            text::ACTION_REGISTER,
+            text::action_register(),
             "register patient",
             Route::view("med.uhs", "patients"),
             "tag",
             workspace_access(core, "med.uhs"),
         ),
         (
-            text::ACTION_CREATE_UHS,
+            text::action_create_uhs(),
             "create uhs",
             // Set up by the incident command (ADR-0086).
             Route::view("command.prepare", "units"),
@@ -77,7 +77,7 @@ fn records(core: Handle) -> Vec<Item> {
             Item {
                 detail: format!("{} · {uhs}", text::label(p.category())),
                 ..item(
-                    text::GROUP_PATIENTS,
+                    text::group_patients(),
                     p.tag.clone(),
                     Action::Open(Record {
                         kind: PATIENT,
@@ -121,11 +121,11 @@ fn record(core: Handle, record: &Record) -> RecordPage {
             .map(|p| (p.category(), p.uhs.clone()))
     });
     let current = patient.as_ref().map(|(c, _)| *c);
-    let group = text::GROUP_PATIENTS;
+    let group = text::group_patients();
     let mut list = vec![
         item(
             group,
-            text::ACTION_OPEN_RECORD.to_owned(),
+            text::action_open_record().to_owned(),
             Action::Go(route.clone()),
         )
         .named("open record"),
@@ -138,7 +138,7 @@ fn record(core: Handle, record: &Record) -> RecordPage {
         list.push(
             item(
                 group,
-                text::ACTION_TAKE_PHOTO.to_owned(),
+                text::action_take_photo().to_owned(),
                 Action::GoFocus(route.clone(), "photo-camera".to_owned()),
             )
             .named("photo"),

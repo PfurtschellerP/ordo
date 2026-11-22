@@ -73,9 +73,9 @@ fn request_line(r: &TransportRequested) -> String {
 
 fn summary(core: Handle, t: &Transport) -> String {
     text::transport_summary(
-        &label(&CATALOGUE.types, &t.request.transport_type),
-        &core::uhs_name(core, &t.request.uhs),
-        &core::clock(t.requested_at().wall_ms),
+        label(&CATALOGUE.types, &t.request.transport_type),
+        core::uhs_name(core, &t.request.uhs),
+        core::clock(t.requested_at().wall_ms),
     )
 }
 
@@ -103,7 +103,7 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         .map(|t| {
             (
                 text::transport_waiting(
-                    &summary(core, t),
+                    summary(core, t),
                     label(&CATALOGUE.priorities, &t.request.priority).as_str(),
                 ),
                 route.clone(),
@@ -142,17 +142,17 @@ pub fn TransportsTile(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let route = crate::shell::nav::Route::view("command.lead", "transports");
     view! {
         <section class="tile tile--transports" aria-labelledby="tile-transports">
-            <crate::shared::summary::TileHead id="tile-transports" icon="ambulance" title=text::TRANSPORTS_TITLE_SHORT
-                route=route link=text::OPEN_TRANSPORTS />
+            <crate::shared::summary::TileHead id="tile-transports" icon="ambulance" title=text::transports_title_short()
+                route=route link=text::open_transports() />
             <p class="tile__figure">
                 <span id="overview-transports-waiting" class="tile__number">{move || state.with(|(w, _)| w.len())}</span>
-                " " {text::TRANSPORTS_WAITING}
+                " " {text::transports_waiting()}
                 {move || state.with(|(_, open)| (*open > 0).then(|| view! { <span class="tag">{text::transports_under_way(*open)}</span> }))}
             </p>
             {move || {
                 let waiting = state.with(|(w, _)| w.clone());
                 if waiting.is_empty() {
-                    return view! { <p class="hint">{text::NO_TRANSPORTS_WAITING}</p> }.into_any();
+                    return view! { <p class="hint">{text::no_transports_waiting()}</p> }.into_any();
                 }
                 view! {
                     <ul class="tile__list">
@@ -183,11 +183,11 @@ pub(crate) fn TransportDetails(
         <p class="transport-card__status">
             <strong>{state}</strong>
             {t.unit.clone().map(|u| view! {
-                " · " {text::transport_unit(&u, t.destination.as_deref().unwrap_or(text::DESTINATION_OPEN))}
+                " · " {text::transport_unit(&u, t.destination.as_deref().unwrap_or(text::destination_open()))}
             })}
         </p>
         {t.request.planned.map(|ms| view! {
-            <p class="transport-card__planned"><strong>{text::planned_for(&core::date_time(ms))}</strong></p>
+            <p class="transport-card__planned"><strong>{text::planned_for(core::date_time(ms))}</strong></p>
         })}
         <p>{uhs.map(|u| format!("{u} · "))}{request_line(&t.request)}</p>
         <History entries=crate::shell::profile::naming({
@@ -221,7 +221,7 @@ pub fn transport_line(t: &Transport) -> String {
             "{kind} · {}",
             text::transport_unit(
                 unit,
-                t.destination.as_deref().unwrap_or(text::DESTINATION_OPEN)
+                t.destination.as_deref().unwrap_or(text::destination_open())
             )
         ),
         None => kind,
@@ -394,13 +394,13 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
                         ..request
                     },
                     None => {
-                        message.set(Some(text::TRANSPORT_PLANNED_INVALID));
+                        message.set(Some(text::transport_planned_invalid()));
                         return;
                     }
                 }
             };
             if request.check(&CATALOGUE).is_err() {
-                message.set(Some(text::TRANSPORT_CHOOSE));
+                message.set(Some(text::transport_choose()));
                 return;
             }
             if core::request_transport(core, revision, &tag, request).is_ok() {
@@ -414,11 +414,11 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
     };
     view! {
         <section class="record__section" aria-labelledby="section-transport">
-            <h3 id="section-transport" tabindex="-1">{text::TRANSPORT_TITLE}</h3>
+            <h3 id="section-transport" tabindex="-1">{text::transport_title()}</h3>
             {move || {
                 let (_, transports) = state.get();
                 if transports.is_empty() {
-                    return view! { <p class="hint">{text::TRANSPORT_NONE}</p> }.into_any();
+                    return view! { <p class="hint">{text::transport_none()}</p> }.into_any();
                 }
                 view! {
                     <ul class="transport-list" data-keys="list">
@@ -441,16 +441,16 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
             }}
             <Show when=move || state.with(|(uhs, t)| uhs.is_some() && !t.iter().any(|t| t.status.is_open()))>
                 <form class="form transport-request" novalidate on:submit=submit.clone()>
-                    <RadioChips legend=text::TRANSPORT_TYPE name="transport-type" options=choices(&CATALOGUE.types) value=transport_type />
-                    <RadioChips legend=text::TRANSPORT_PRIORITY_OF_REQUEST name="transport-priority" options=choices(&CATALOGUE.priorities) value=priority />
-                    <CheckChips legend=text::TRANSPORT_NEEDS options=choices(&CATALOGUE.needs) value=needs />
+                    <RadioChips legend=text::transport_type() name="transport-type" options=choices(&CATALOGUE.types) value=transport_type />
+                    <RadioChips legend=text::transport_priority_of_request() name="transport-priority" options=choices(&CATALOGUE.priorities) value=priority />
+                    <CheckChips legend=text::transport_needs() options=choices(&CATALOGUE.needs) value=needs />
                     <div class="field">
-                        <label for="transport-planned">{text::TRANSPORT_PLANNED}</label>
+                        <label for="transport-planned">{text::transport_planned()}</label>
                         <input id="transport-planned" type="datetime-local" bind:value=planned />
                     </div>
                     <p class="error" role="alert">{move || message.get()}</p>
                     <div class="row">
-                        <button type="submit" class="button button--primary">{text::TRANSPORT_REQUEST}</button>
+                        <button type="submit" class="button button--primary">{text::transport_request()}</button>
                     </div>
                 </form>
             </Show>
@@ -493,10 +493,10 @@ pub fn transport_sections(
             10,
             view! {
                 <RequestList core revision list=open units=unit_names hospitals
-                    id="transports-title" title=text::TRANSPORTS_TITLE empty=text::transports_empty() />
+                    id="transports-title" title=text::transports_title() empty=text::transports_empty() />
                 // [impl->dsn~planned-transports~1]
                 <RequestList core revision list=planned units=unit_names hospitals
-                    id="planned-title" title=text::PLANNED_TITLE empty=text::PLANNED_EMPTY />
+                    id="planned-title" title=text::planned_title() empty=text::planned_empty() />
             }
             .into_any(),
         ),
@@ -574,11 +574,11 @@ fn FreeUnits(board: Memo<TransportBoard>, units: Memo<UnitRegister>) -> impl Int
     });
     view! {
         <section aria-labelledby="free-units-title" class="card">
-            <h2 id="free-units-title">{text::FREE_UNITS_TITLE}</h2>
+            <h2 id="free-units-title">{text::free_units_title()}</h2>
             {move || {
                 let list = free.get();
                 if list.is_empty() {
-                    return view! { <p>{text::FREE_UNITS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::free_units_empty()}</p> }.into_any();
                 }
                 view! {
                     <ul class="free-units">
@@ -609,11 +609,11 @@ fn HospitalBoard(
     let sent = Memo::new(move |_| board.with(TransportBoard::sent_to_hospitals));
     view! {
         <section aria-labelledby="hospitals-title" class="card">
-            <h2 id="hospitals-title">{text::HOSPITALS_TITLE}</h2>
+            <h2 id="hospitals-title">{text::hospitals_title()}</h2>
             {move || {
                 let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
                 if list.is_empty() {
-                    return view! { <p>{text::HOSPITALS_EMPTY} " " {text::HOSPITALS_WHERE}</p> }.into_any();
+                    return view! { <p>{text::hospitals_empty()} " " {text::hospitals_where()}</p> }.into_any();
                 }
                 let sent = sent.get();
                 view! {
@@ -658,11 +658,11 @@ pub fn HospitalsSetup(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="hospitals-setup-title" class="card">
-            <h2 id="hospitals-setup-title">{text::HOSPITALS_TITLE}</h2>
+            <h2 id="hospitals-setup-title">{text::hospitals_title()}</h2>
             {move || {
                 let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
                 if list.is_empty() {
-                    return view! { <p>{text::HOSPITALS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::hospitals_empty()}</p> }.into_any();
                 }
                 view! {
                     <ul class="hospital-list" data-keys="list">
@@ -683,7 +683,7 @@ pub fn HospitalsSetup(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     </div>
                 })}
             </crate::shell::ui::EditDialog>
-            <h3>{text::HOSPITAL_ADD}</h3>
+            <h3>{text::hospital_add()}</h3>
             <HospitalForm core revision />
         </section>
     }
@@ -721,7 +721,7 @@ fn HospitalEntryCard(
         <li class="hospital-card" data-hospital=id>
             <div class="card-head">
                 <h3>{name.clone()}</h3>
-                <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::HOSPITAL_EDIT
+                <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::hospital_edit()
                     label=text::hospital_edit_label(&name)
                     on_click=Callback::new(move |()| {
                         back.set(button.clone());
@@ -751,7 +751,7 @@ fn capacity_line(core: Handle, hospital: &Hospital) -> String {
                 &crate::shell::profile::display_name(core, &r.by),
             )
         }
-        None => text::CAPACITY_NONE.to_owned(),
+        None => text::capacity_none().to_owned(),
     }
 }
 
@@ -815,7 +815,7 @@ fn CapacityForm(core: Handle, revision: RwSignal<u64>, hospital: Hospital) -> im
                         patients,
                     }),
                     Err(_) => {
-                        message.set(Some(text::CAPACITY_NUMBERS));
+                        message.set(Some(text::capacity_numbers()));
                         return;
                     }
                 }
@@ -832,7 +832,7 @@ fn CapacityForm(core: Handle, revision: RwSignal<u64>, hospital: Hospital) -> im
     view! {
         <form class="form capacity-form" novalidate on:submit=submit>
             <fieldset class="choices">
-                <legend>{text::CAPACITY_LEGEND}</legend>
+                <legend>{text::capacity_legend()}</legend>
                 {fields
                     .into_iter()
                     .map(|(category, value)| {
@@ -849,7 +849,7 @@ fn CapacityForm(core: Handle, revision: RwSignal<u64>, hospital: Hospital) -> im
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
                 <button type="submit" class="button button--small" aria-label=text::capacity_save_label(&name)>
-                    {text::CAPACITY_SAVE}
+                    {text::capacity_save()}
                 </button>
             </div>
         </form>
@@ -887,7 +887,7 @@ fn HospitalForm(
                     .with_untracked(|s| in_profile_order(&HOSPITALS.capabilities, s)),
             };
             if entry.check(&HOSPITALS).is_err() {
-                message.set(Some(text::HOSPITAL_NAME_MISSING));
+                message.set(Some(text::hospital_name_missing()));
                 return false;
             }
             if core::set_hospital(core, revision, entry).is_err() {
@@ -918,18 +918,18 @@ fn HospitalForm(
     };
     let edited_now = move |_| changed.set(true);
     let button = if existing.is_some() {
-        text::HOSPITAL_SAVE
+        text::hospital_save()
     } else {
-        text::HOSPITAL_ADD
+        text::hospital_add()
     };
     view! {
         <form class="form hospital-form" novalidate on:submit=submit on:input=edited_now on:change=edited_now>
             <div class="field">
-                <label for=field.clone()>{text::HOSPITAL_NAME}</label>
+                <label for=field.clone()>{text::hospital_name()}</label>
                 <input id=field type="text" autocomplete="off" bind:value=name />
             </div>
-            <CheckChips legend=text::HOSPITAL_DEPARTMENTS options=choices(&HOSPITALS.departments) value=departments />
-            <CheckChips legend=text::HOSPITAL_CAPABILITIES options=choices(&HOSPITALS.capabilities) value=capabilities />
+            <CheckChips legend=text::hospital_departments() options=choices(&HOSPITALS.departments) value=departments />
+            <CheckChips legend=text::hospital_capabilities() options=choices(&HOSPITALS.capabilities) value=capabilities />
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
                 <button type="submit" class="button">{button}</button>
@@ -981,7 +981,7 @@ fn AssignForm(
         let has_destination = !shown.is_empty() && (hospital.is_some() || free_text);
         let update = if destination_only {
             if !has_destination {
-                message.set(Some(text::TRANSPORT_DESTINATION_MISSING));
+                message.set(Some(text::transport_destination_missing()));
                 return;
             }
             TransportUpdated {
@@ -994,7 +994,7 @@ fn AssignForm(
             }
         } else {
             if u.is_empty() {
-                message.set(Some(text::TRANSPORT_ASSIGN_MISSING));
+                message.set(Some(text::transport_assign_missing()));
                 return;
             }
             TransportUpdated {
@@ -1029,13 +1029,13 @@ fn AssignForm(
                 }
                 let list = units.get();
                 if list.is_empty() {
-                    return view! { <p class="hint">{text::TRANSPORT_NO_UNITS}</p> }.into_any();
+                    return view! { <p class="hint">{text::transport_no_units()}</p> }.into_any();
                 }
                 view! {
                     <div class="field">
-                        <label for=unit_id.clone()>{text::TRANSPORT_UNIT}</label>
+                        <label for=unit_id.clone()>{text::transport_unit_label()}</label>
                         <select id=unit_id.clone() on:change=move |ev| unit.set(event_target_value(&ev))>
-                            <option value="" selected=move || unit.get().is_empty()>{text::TRANSPORT_CHOOSE_UNIT}</option>
+                            <option value="" selected=move || unit.get().is_empty()>{text::transport_choose_unit()}</option>
                             {list
                                 .into_iter()
                                 .map(|u| view! { <option value=u.clone() selected=move || unit.get() == u>{u.clone()}</option> })
@@ -1050,14 +1050,14 @@ fn AssignForm(
                     h.by_name().iter().map(|h| (h.entry.hospital.clone(), h.entry.name.clone())).collect()
                 });
                 if list.is_empty() {
-                    return other_field(text::TRANSPORT_DESTINATION).into_any();
+                    return other_field(text::transport_destination()).into_any();
                 }
                 let other_field = other_field.clone();
                 view! {
                     <div class="field">
-                        <label for=destination_id.clone()>{text::DESTINATION}</label>
+                        <label for=destination_id.clone()>{text::destination()}</label>
                         <select id=destination_id.clone() on:change=move |ev| destination.set(event_target_value(&ev))>
-                            <option value="" selected=move || destination.get().is_empty()>{text::DESTINATION_CHOOSE}</option>
+                            <option value="" selected=move || destination.get().is_empty()>{text::destination_choose()}</option>
                             {list
                                 .into_iter()
                                 .map(|(id, name)| {
@@ -1065,11 +1065,11 @@ fn AssignForm(
                                     view! { <option value=id selected=move || destination.get() == chosen>{name}</option> }
                                 })
                                 .collect_view()}
-                            <option value=OTHER selected=move || destination.get() == OTHER>{text::DESTINATION_OTHER_OPTION}</option>
+                            <option value=OTHER selected=move || destination.get() == OTHER>{text::destination_other_option()}</option>
                         </select>
                     </div>
                     <Show when=move || destination.get() == OTHER>
-                        {other_field(text::DESTINATION_OTHER)}
+                        {other_field(text::destination_other())}
                     </Show>
                 }
                 .into_any()
@@ -1077,7 +1077,7 @@ fn AssignForm(
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
                 {move || {
-                    let word = if destination_only { text::DESTINATION_SET } else { text::TRANSPORT_ASSIGN };
+                    let word = if destination_only { text::destination_set_label() } else { text::transport_assign() };
                     view! {
                         <button type="submit" class="button button--primary"
                             aria-label=text::transport_step_label(word, &name)>

@@ -32,7 +32,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[nav::Workspace {
         nav::view("patients", || "Patienten", "patients", "users"),
         nav::view(
             "orders",
-            || crate::med::text::ORDERS,
+            crate::med::text::orders,
             "orders",
             "clipboard-list",
         ),

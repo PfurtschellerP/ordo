@@ -26,14 +26,14 @@ pub(crate) const HANDOVER: &str = "handover";
 /// The record's tabs, in order, with a short label for phones where needed.
 pub(crate) fn tabs() -> Vec<crate::shell::ui::Tab> {
     vec![
-        (OVERVIEW, text::RECORD_OVERVIEW.to_owned(), None),
-        (TIMELINE, text::RECORD_TIMELINE.to_owned(), None),
+        (OVERVIEW, text::record_overview().to_owned(), None),
+        (TIMELINE, text::record_timeline().to_owned(), None),
         (
             DOCUMENTATION,
-            text::RECORD_DOCUMENTATION.to_owned(),
-            Some(text::RECORD_DOCUMENTATION_SHORT.to_owned()),
+            text::record_documentation().to_owned(),
+            Some(text::record_documentation_short().to_owned()),
         ),
-        (HANDOVER, text::RECORD_HANDOVER.to_owned(), None),
+        (HANDOVER, text::record_handover().to_owned(), None),
     ]
 }
 
@@ -144,12 +144,12 @@ fn Retag(
     };
     view! {
         <form class="form--inline retag" on:submit=change>
-            <p class="retag__ask">{text::RETAG_ASK}</p>
+            <p class="retag__ask">{text::retag_ask()}</p>
             <div class="field">
-                <label for=id.clone()>{text::RETAG_NUMBER}</label>
+                <label for=id.clone()>{text::retag_number()}</label>
                 <input id=id.clone() type="text" inputmode="numeric" autocomplete="off" required class="input--code" bind:value=number />
             </div>
-            <button type="submit" class="button button--primary">{text::RETAG_SUBMIT}</button>
+            <button type="submit" class="button button--primary">{text::retag_submit()}</button>
             <p role="alert" class="error">{move || error.get()}</p>
         </form>
     }
@@ -206,9 +206,9 @@ pub(crate) fn RecordHeader(
                     let mine = r.by == me || crate::med::patients::may_write(core, &r.holder);
                     (
                         text::tag_registered_again(
-                            &crate::shell::profile::display_name(core, &r.by),
-                            &core::holder_name(core, &r.holder),
-                            &core::clock(r.at.wall_ms),
+                            crate::shell::profile::display_name(core, &r.by),
+                            core::holder_name(core, &r.holder),
+                            core::clock(r.at.wall_ms),
                         ),
                         mine.then(|| r.event.clone()),
                     )
@@ -245,12 +245,12 @@ pub(crate) fn RecordHeader(
             </div>
             {(!again.is_empty()).then(|| view! {
                 <div class="notice notice--warning record__twice" role="note">
-                    <p><strong><crate::shell::ui::Icon name="triangle-alert" />{text::TAG_TWICE}</strong></p>
+                    <p><strong><crate::shell::ui::Icon name="triangle-alert" />{text::tag_twice()}</strong></p>
                     {again.into_iter().map(|(line, event)| view! {
                         <p>{line}</p>
                         {event.map(|event| view! { <Retag core revision tag=tag.clone() event register /> })}
                     }).collect_view()}
-                    <p class="hint">{text::TAG_TWICE_HINT}</p>
+                    <p class="hint">{text::tag_twice_hint()}</p>
                 </div>
             })}
             <dl class="record__facts">
@@ -262,17 +262,17 @@ pub(crate) fn RecordHeader(
             </dl>
             <dl class="record__where">
                 <div>
-                    <dt>{text::RECORD_AT}</dt>
+                    <dt>{text::record_at()}</dt>
                     <dd>{uhs}{place.map(|p| view! { " · " {p} })}</dd>
                 </div>
                 {triaged.map(|at| view! {
-                    <div class="record__when"><dt>{text::RECORD_TRIAGED}</dt><dd>{core::clock(at)} " " <Ago at /></dd></div>
+                    <div class="record__when"><dt>{text::record_triaged()}</dt><dd>{core::clock(at)} " " <Ago at /></dd></div>
                 })}
                 {since.map(|at| view! {
-                    <div class="record__when"><dt>{text::RECORD_SINCE}</dt><dd>{core::clock(at)}</dd></div>
+                    <div class="record__when"><dt>{text::record_since()}</dt><dd>{core::clock(at)}</dd></div>
                 })}
                 {transport.map(|t| view! {
-                    <div><dt>{text::TRANSPORT_TITLE}</dt><dd>{t}</dd></div>
+                    <div><dt>{text::transport_title()}</dt><dd>{t}</dd></div>
                 })}
             </dl>
         })}
@@ -309,16 +309,16 @@ pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
             {(!bar).then(|| view! {
                 <button type="button" class="button button--small button--with-icon quick-actions__button"
                     on:click=move |_| crate::shell::views::open_inputs("section-triage")>
-                    <crate::shell::ui::Icon name="pencil" />{text::TRIAGE_OPEN}
+                    <crate::shell::ui::Icon name="pencil" />{text::triage_open()}
                 </button>
                 <button type="button" class="button button--small button--with-icon quick-actions__button"
                     on:click=move |_| crate::shell::views::focus("section-photo")>
-                    <crate::shell::ui::Icon name="camera" />{text::PHOTO_TITLE}
+                    <crate::shell::ui::Icon name="camera" />{text::photo_title()}
                 </button>
             })}
             <button type="button" class="button button--small button--with-icon quick-actions__button quick-actions__button--bar quick-actions__handover"
                 on:click=handover>
-                <crate::shell::ui::Icon name="arrow-right-left" /><span>{text::HANDOVER_BUTTON}</span>
+                <crate::shell::ui::Icon name="arrow-right-left" /><span>{text::handover_button_label()}</span>
             </button>
         }
     };
@@ -333,7 +333,7 @@ pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
         crate::shell::views::focus("quick-sheet-button");
     };
     view! {
-        <nav class="quick-actions quick-actions--page" aria-label=text::QUICK_ACTIONS>
+        <nav class="quick-actions quick-actions--page" aria-label=text::quick_actions()>
             {actions(false)}
         </nav>
         // [impl->dsn~record-overview~3]
@@ -345,7 +345,7 @@ pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
                 close();
             }
         }>
-            <nav id="quick-sheet-panel" class="quick-actions quick-actions--sheet" aria-label=text::QUICK_ACTIONS
+            <nav id="quick-sheet-panel" class="quick-actions quick-actions--sheet" aria-label=text::quick_actions()
                 hidden=move || !open.get()
                 // Choosing an action closes the sheet; the action moves the focus itself.
                 on:click=move |ev: leptos::ev::MouseEvent| {
@@ -362,7 +362,7 @@ pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
             </nav>
             <crate::shell::ui::DisclosureButton id="quick-sheet-button" controls="quick-sheet-panel" open
                 class="button quick-sheet__button">
-                <crate::shell::ui::Icon name="plus" /><span>{text::QUICK_CAPTURE}</span>
+                <crate::shell::ui::Icon name="plus" /><span>{text::quick_capture()}</span>
             </crate::shell::ui::DisclosureButton>
         </div>
     }
@@ -460,7 +460,7 @@ pub(crate) fn OverviewTiles(
                     .filter(|o| o.status.is_open())
                     .map(|o| {
                         let status = if o.unconfirmed() {
-                            text::ORDER_UNCONFIRMED.to_owned()
+                            text::order_unconfirmed().to_owned()
                         } else {
                             text::order_status(o.status).to_owned()
                         };
@@ -476,13 +476,13 @@ pub(crate) fn OverviewTiles(
             {tiles}
             <section class="record-tile" aria-labelledby="tile-orders">
                 <div class="record-tile__head">
-                    <h3 id="tile-orders">{text::ORDERS_OPEN_TITLE}</h3>
-                    <TabLink chosen to=DOCUMENTATION label=text::ALL accessible=text::ORDERS_ALL />
+                    <h3 id="tile-orders">{text::orders_open_title()}</h3>
+                    <TabLink chosen to=DOCUMENTATION label=text::all() accessible=text::orders_all() />
                 </div>
                 {move || {
                     let list = orders.get();
                     if list.is_empty() {
-                        return view! { <p class="hint">{text::ORDERS_NONE_OPEN}</p> }.into_any();
+                        return view! { <p class="hint">{text::orders_none_open()}</p> }.into_any();
                     }
                     view! {
                         <ul class="record-tile__list">
@@ -496,8 +496,8 @@ pub(crate) fn OverviewTiles(
             </section>
             <section class="record-tile record-tile--wide" aria-labelledby="tile-way">
                 <div class="record-tile__head">
-                    <h3 id="tile-way">{text::STAY_TITLE}</h3>
-                    <TabLink chosen to=HANDOVER label=text::RECORD_HANDOVER />
+                    <h3 id="tile-way">{text::stay_title()}</h3>
+                    <TabLink chosen to=HANDOVER label=text::record_handover() />
                 </div>
                 <crate::med::flow::PatientFlow core revision tag=way_tag register />
             </section>
@@ -526,16 +526,16 @@ pub(crate) fn first_holder(patient: &Patient) -> Holder {
 pub(crate) fn stay_words(core: Handle, patient: &Patient, i: usize, entry: &StayEntry) -> String {
     let name = |h: &Holder| core::holder_name(core, h);
     match &entry.change {
-        Stay::Admitted if i == 0 => text::way_registered(&name(&first_holder(patient))),
-        Stay::Admitted => text::READMITTED_STEP.to_owned(),
+        Stay::Admitted if i == 0 => text::way_registered(name(&first_holder(patient))),
+        Stay::Admitted => text::readmitted_step().to_owned(),
         Stay::Moved { from, to } => {
-            text::moved(&core::uhs_name(core, from), &core::uhs_name(core, to))
+            text::moved(core::uhs_name(core, from), core::uhs_name(core, to))
         }
         Stay::Discharged { outcome, .. } => text::discharged_as(*outcome),
-        Stay::HandedOver { to: Some(to), .. } => text::handover_to(&name(to)),
-        Stay::HandedOver { to: None, .. } => text::HANDOVER_QUICK_STEP.to_owned(),
-        Stay::Taken { from, to } if from == to => text::handover_taken_back(&name(to)),
-        Stay::Taken { to, .. } => text::handover_taken_by(&name(to)),
+        Stay::HandedOver { to: Some(to), .. } => text::handover_to(name(to)),
+        Stay::HandedOver { to: None, .. } => text::handover_quick_step().to_owned(),
+        Stay::Taken { from, to } if from == to => text::handover_taken_back(name(to)),
+        Stay::Taken { to, .. } => text::handover_taken_by(name(to)),
         Stay::HandedOutside { receiver, .. } => text::handed_outside_step(receiver),
     }
 }
@@ -620,7 +620,7 @@ fn FormTile(
                 <h3 id=heading>
                     {form.label.clone()}
                     {move || latest.get().map(|(at, ..)| view! {
-                        <span class="record-tile__when">" · " {text::LATEST} " " {core::clock(at)} " " <Ago at /></span>
+                        <span class="record-tile__when">" · " {text::latest()} " " {core::clock(at)} " " <Ago at /></span>
                     })}
                 </h3>
                 {(form.kind == FormKind::Series).then(|| {
@@ -638,7 +638,7 @@ fn FormTile(
                 <img class="record-tile__photo" src=src alt=alt.clone() />
             })}
             {move || match latest.get() {
-                None => view! { <p class="hint">{text::NOTHING_DOCUMENTED}</p> }.into_any(),
+                None => view! { <p class="hint">{text::nothing_documented()}</p> }.into_any(),
                 Some((_, facts, _)) => view! {
                     <dl class="record-tile__values" class:record-tile__values--numbers=numbers>
                         {facts.into_iter().map(|(label, value)| view! { <div><dt>{label}</dt><dd>{value}</dd></div> }).collect_view()}
@@ -723,7 +723,7 @@ pub(crate) fn timeline(
                             .flatten()
                         {
                             let shown = if s.value.is_empty() {
-                                text::CLEARED.to_owned()
+                                text::cleared().to_owned()
                             } else {
                                 f.display(&s.value)
                             };
@@ -752,8 +752,8 @@ pub(crate) fn timeline(
             lines.push(Line {
                 at: p.at.wall_ms,
                 kind: PHOTOS.to_owned(),
-                label: text::PHOTO_TITLE.to_owned(),
-                text: text::PHOTO_ADDED.to_owned(),
+                label: text::photo_title().to_owned(),
+                text: text::photo_added_word().to_owned(),
                 by: name(&p.by),
                 corrected: false,
                 corrects: None,
@@ -776,7 +776,7 @@ pub(crate) fn timeline(
             lines.push(Line {
                 at: h.at.wall_ms,
                 kind: TRIAGE.to_owned(),
-                label: text::TRIAGE_TITLE.to_owned(),
+                label: text::triage_title().to_owned(),
                 text: what,
                 by: name(&h.by),
                 corrected: false,
@@ -789,7 +789,7 @@ pub(crate) fn timeline(
             lines.push(Line {
                 at: s.at.wall_ms,
                 kind: WAY.to_owned(),
-                label: text::STAY_TITLE.to_owned(),
+                label: text::stay_title().to_owned(),
                 text: what,
                 by: name(&s.by),
                 corrected: false,
@@ -810,7 +810,7 @@ pub(crate) fn timeline(
                 lines.push(Line {
                     at: step.at.wall_ms,
                     kind: ORDERS.to_owned(),
-                    label: text::ORDER.to_owned(),
+                    label: text::order().to_owned(),
                     text,
                     by: crate::shell::profile::display_name(core, &step.by),
                     corrected: false,
@@ -826,7 +826,7 @@ pub(crate) fn timeline(
             lines.push(Line {
                 at: step.at.wall_ms,
                 kind: TRANSPORT.to_owned(),
-                label: text::TRANSPORT_TITLE.to_owned(),
+                label: text::transport_title().to_owned(),
                 text: format!("{what} · {}", crate::med::transports::step_label(step)),
                 by: name(&step.by),
                 corrected: false,
@@ -888,8 +888,8 @@ pub(crate) fn Timeline(
     };
     view! {
         <div class="timeline">
-            <div class="timeline__filters" role="group" aria-label=text::TIMELINE_FILTER>
-                {chip(String::new(), text::ALL_KINDS.to_owned())}
+            <div class="timeline__filters" role="group" aria-label=text::timeline_filter()>
+                {chip(String::new(), text::all_kinds().to_owned())}
                 {move || kinds.get().into_iter().map(|(k, l)| chip(k, l)).collect_view()}
             </div>
             {move || {
@@ -898,7 +898,7 @@ pub(crate) fn Timeline(
                     lines.iter().filter(|l| f.is_empty() || l.kind == f).cloned().collect()
                 });
                 if shown.is_empty() {
-                    return view! { <p class="hint">{text::NOTHING_DOCUMENTED}</p> }.into_any();
+                    return view! { <p class="hint">{text::nothing_documented()}</p> }.into_any();
                 }
                 view! {
                     <ol class="timeline__list">
@@ -908,8 +908,8 @@ pub(crate) fn Timeline(
                                 <span class="timeline__kind">{l.label}</span>
                                 <span class="timeline__text">
                                     {l.text}
-                                    {l.corrected.then(|| view! { " · " <em>{text::CORRECTED}</em> })}
-                                    {l.corrects.map(|at| view! { " · " <span class="hint">{text::corrects_entry(&core::clock(at))}</span> })}
+                                    {l.corrected.then(|| view! { " · " <em>{text::corrected()}</em> })}
+                                    {l.corrects.map(|at| view! { " · " <span class="hint">{text::corrects_entry(core::clock(at))}</span> })}
                                 </span>
                                 <span class="timeline__by hint">{l.by}</span>
                             </li>

@@ -39,19 +39,19 @@ impl Kind {
 
     fn title(self) -> &'static str {
         match self {
-            Self::Uhs => text::HANDOVER_TO_UHS,
-            Self::Unit => text::HANDOVER_TO_UNIT,
-            Self::Transport => text::HANDOVER_TO_TRANSPORT,
-            Self::Outside => text::HANDOVER_TO_OUTSIDE,
+            Self::Uhs => text::handover_to_uhs(),
+            Self::Unit => text::handover_to_unit(),
+            Self::Transport => text::handover_to_transport(),
+            Self::Outside => text::handover_to_outside(),
         }
     }
 
     fn description(self) -> &'static str {
         match self {
-            Self::Uhs => text::HANDOVER_TO_UHS_HINT,
-            Self::Unit => text::HANDOVER_TO_UNIT_HINT,
-            Self::Transport => text::HANDOVER_TO_TRANSPORT_HINT,
-            Self::Outside => text::HANDOVER_TO_OUTSIDE_HINT,
+            Self::Uhs => text::handover_to_uhs_hint(),
+            Self::Unit => text::handover_to_unit_hint(),
+            Self::Transport => text::handover_to_transport_hint(),
+            Self::Outside => text::handover_to_outside_hint(),
         }
     }
 }
@@ -108,7 +108,7 @@ pub(crate) fn HandoverPanel(
     let document_tag = tag.clone();
     view! {
         <section class="record__section handover" aria-labelledby="section-way">
-            <h3 id="section-way" tabindex="-1">{text::HANDOVER_WAY}</h3>
+            <h3 id="section-way" tabindex="-1">{text::handover_way()}</h3>
             <crate::med::flow::PatientFlow core revision tag=tag.clone() register
                 next=Signal::derive(move || offered.get() && !open.get()) />
         </section>
@@ -232,7 +232,7 @@ fn HandoverForm(
                 Kind::Outside => {
                     let r = receiver.get_untracked().trim().to_owned();
                     if r.is_empty() {
-                        error.set(Some(text::HANDOVER_RECEIVER_MISSING));
+                        error.set(Some(text::handover_receiver_missing()));
                         return;
                     }
                     (None, Some(r), None)
@@ -241,13 +241,13 @@ fn HandoverForm(
                     let Some((_, _, Some(unit))) =
                         options.with_untracked(|o| o.iter().find(|(v, ..)| *v == value).cloned())
                     else {
-                        error.set(Some(text::HANDOVER_TARGET_MISSING));
+                        error.set(Some(text::handover_target_missing()));
                         return;
                     };
                     (Some(Holder::Unit(unit)), None, Some(value))
                 }
                 Kind::Uhs | Kind::Unit if value.is_empty() => {
-                    error.set(Some(text::HANDOVER_TARGET_MISSING));
+                    error.set(Some(text::handover_target_missing()));
                     return;
                 }
                 Kind::Uhs => (Some(Holder::Uhs(value)), None, None),
@@ -270,7 +270,7 @@ fn HandoverForm(
                         crate::shell::views::focus("handover-open")
                     });
                 }
-                Err(_) => error.set(Some(text::HANDOVER_FAILED)),
+                Err(_) => error.set(Some(text::handover_failed())),
             }
         }
     };
@@ -282,9 +282,9 @@ fn HandoverForm(
     };
     view! {
         <form class="record__section handover-form" novalidate on:submit=submit aria-labelledby="section-handover">
-            <h3 id="section-handover" tabindex="-1">{text::HANDOVER_TITLE}</h3>
+            <h3 id="section-handover" tabindex="-1">{text::handover_title()}</h3>
             <fieldset class="handover-choices">
-                <legend>{text::HANDOVER_TO}</legend>
+                <legend>{text::handover_to_label()}</legend>
                 {Kind::ALL.into_iter().map(|k| view! {
                     <label class="handover-choice" class:handover-choice--on=move || kind.get() == k>
                         <input type="radio" name="handover-kind" value=k.id()
@@ -298,10 +298,10 @@ fn HandoverForm(
                 {move || match kind.get() {
                     Kind::Outside => view! {
                         <div class="field">
-                            <label for="handover-receiver">{text::HANDOVER_RECEIVER}</label>
+                            <label for="handover-receiver">{text::handover_receiver()}</label>
                             <input id="handover-receiver" type="text" autocomplete="off" bind:value=receiver
                                 aria-describedby="handover-receiver-hint" />
-                            <p id="handover-receiver-hint" class="hint">{text::HANDOVER_RECEIVER_HINT}</p>
+                            <p id="handover-receiver-hint" class="hint">{text::handover_receiver_hint()}</p>
                         </div>
                     }.into_any(),
                     k => view! {
@@ -326,27 +326,27 @@ fn HandoverForm(
                     }.into_any(),
                 }}
                 <div class="field">
-                    <label for="handover-note">{text::HANDOVER_NOTE}</label>
-                    <textarea id="handover-note" rows="2" bind:value=note placeholder=text::HANDOVER_NOTE_EXAMPLE></textarea>
+                    <label for="handover-note">{text::handover_note()}</label>
+                    <textarea id="handover-note" rows="2" bind:value=note placeholder=text::handover_note_example()></textarea>
                 </div>
             </div>
             <div class="handover-form__info">
                 <section aria-labelledby="handover-gets">
-                    <h4 id="handover-gets">{move || text::handover_gets(&to.get().unwrap_or_else(|| text::HANDOVER_RECEIVER_ANY.to_owned()))}</h4>
+                    <h4 id="handover-gets">{move || text::handover_gets(to.get().unwrap_or_else(|| text::handover_receiver_any().to_owned()))}</h4>
                     <ul>
                         {move || if kind.get() == Kind::Outside {
-                            view! { <li>{text::HANDOVER_GETS_OUTSIDE}</li> }.into_any()
+                            view! { <li>{text::handover_gets_outside()}</li> }.into_any()
                         } else {
                             view! {
-                                <li>{text::HANDOVER_GETS_RECORD}</li>
-                                <li>{text::HANDOVER_GETS_NOTE}</li>
+                                <li>{text::handover_gets_record()}</li>
+                                <li>{text::handover_gets_note()}</li>
                             }.into_any()
                         }}
                     </ul>
                 </section>
                 <section aria-labelledby="handover-after">
-                    <h4 id="handover-after">{text::HANDOVER_AFTER}</h4>
-                    <p>{move || if kind.get() == Kind::Outside { text::HANDOVER_AFTER_OUTSIDE } else { text::HANDOVER_AFTER_INSIDE }}</p>
+                    <h4 id="handover-after">{text::handover_after()}</h4>
+                    <p>{move || if kind.get() == Kind::Outside { text::handover_after_outside() } else { text::handover_after_inside() }}</p>
                 </section>
             </div>
             <p role="alert" class="error">{move || error.get()}</p>
@@ -356,7 +356,7 @@ fn HandoverForm(
                     <crate::shell::ui::Icon name="arrow-right-left" />
                     {move || match to.get() {
                         Some(to) => text::handover_button(&to),
-                        None => text::HANDOVER_BUTTON.to_owned(),
+                        None => text::handover_button_label().to_owned(),
                     }}
                 </button>
             </div>
@@ -383,16 +383,16 @@ fn QuickHandover(core: Handle, revision: RwSignal<u64>, tag: String) -> impl Int
             Ok(_) => {
                 crate::shell::views::after_render(|| crate::shell::views::focus("handover-open"))
             }
-            Err(_) => error.set(Some(text::HANDOVER_FAILED)),
+            Err(_) => error.set(Some(text::handover_failed())),
         }
     };
     view! {
         <section class="record__section handover-quick" aria-labelledby="section-quick">
-            <h3 id="section-quick">{text::QUICK_HANDOVER}</h3>
-            <p class="hint" id="quick-hint">{text::QUICK_HANDOVER_HINT}</p>
+            <h3 id="section-quick">{text::quick_handover()}</h3>
+            <p class="hint" id="quick-hint">{text::quick_handover_hint()}</p>
             <div class="actions">
                 <button type="button" class="button button--with-icon" aria-describedby="quick-hint" on:click=start>
-                    <crate::shell::ui::Icon name="qr-code" />{text::QUICK_HANDOVER_START}
+                    <crate::shell::ui::Icon name="qr-code" />{text::quick_handover_start()}
                 </button>
             </div>
             <p role="alert" class="error">{move || error.get()}</p>
@@ -412,8 +412,8 @@ fn QuickCode(link: String) -> impl IntoView {
     });
     view! {
         <div class="handover-code">
-            {image.map(|src| view! { <img class="handover-code__image" src=src alt=text::QUICK_CODE_ALT width="224" height="224" /> })}
-            <p class="hint">{text::QUICK_CODE_HINT}</p>
+            {image.map(|src| view! { <img class="handover-code__image" src=src alt=text::quick_code_alt() width="224" height="224" /> })}
+            <p class="hint">{text::quick_code_hint()}</p>
             <p class="hint">{text::guest_link()} " " <a class="handover-code__link" href=link.clone()>{link.clone()}</a></p>
         </div>
     }
@@ -474,7 +474,7 @@ pub(crate) fn TakeControls(
         let tag = tag.clone();
         move |_| {
             let Some(holder) = holder_of_key(&chosen.get_untracked()) else {
-                error.set(Some(text::HANDOVER_TARGET_MISSING.to_owned()));
+                error.set(Some(text::handover_target_missing().to_owned()));
                 return;
             };
             let taken = Taken {
@@ -483,7 +483,7 @@ pub(crate) fn TakeControls(
                 holder,
             };
             if core::take(core, revision, &taken).is_err() {
-                error.set(Some(text::HANDOVER_FAILED.to_owned()));
+                error.set(Some(text::handover_failed().to_owned()));
                 return;
             }
             let on = place.get_untracked();
@@ -505,23 +505,23 @@ pub(crate) fn TakeControls(
     );
     let words = move || match holders.with(|h| (h.len() == 1).then(|| h[0].1.clone())) {
         Some(name) => text::handover_take(&name),
-        None => text::HANDOVER_TAKE.to_owned(),
+        None => text::handover_take_word().to_owned(),
     };
     let label = {
         let tag = tag.clone();
-        move || text::handover_take_label(&words(), &tag)
+        move || text::handover_take_label(words(), &tag)
     };
     view! {
         <div class="take">
             <Show when=move || holders.with(|h| h.len() > 1)>
                 <div class="field">
-                    <label for=to_id.clone()>{text::HANDOVER_TAKE_TO}</label>
+                    <label for=to_id.clone()>{text::handover_take_to()}</label>
                     <select id=to_id.clone() prop:value=move || chosen.get() on:change=move |ev| chosen.set(event_target_value(&ev))>
                         {move || holder_options(holders.get(), chosen)}
                     </select>
                 </div>
             </Show>
-            <PlaceSelect id=place_id free=free place hint=text::TAKE_PLACE_HINT />
+            <PlaceSelect id=place_id free=free place hint=text::take_place_hint() />
             <div class="actions">
                 <button type="button" class="button button--primary" aria-label=label aria-describedby=error_id.clone() on:click=take>
                     {words}
@@ -566,7 +566,7 @@ pub(crate) fn HandoverNotice(
             holder,
         };
         if core::take(core, revision, &taken).is_err() {
-            error.set(Some(text::HANDOVER_FAILED));
+            error.set(Some(text::handover_failed()));
         }
     };
     // A quick handover is taken here for one of one's own holders.
@@ -590,15 +590,15 @@ pub(crate) fn HandoverNotice(
                         <crate::shell::ui::Icon name="arrow-right-left" />
                         {match &to {
                             Some(to) => text::handover_open_to(to),
-                            None => text::HANDOVER_OPEN_QUICK.to_owned(),
+                            None => text::handover_open_quick().to_owned(),
                         }}
                     </h3>
                     <p>
-                        {text::handover_open_since(&core::holder_name(core, &holder), &core::clock(since), &by)}
+                        {text::handover_open_since(core::holder_name(core, &holder), core::clock(since), &by)}
                         " " <Ago at=since />
                     </p>
-                    {open.note.clone().map(|n| view! { <p><strong>{text::HANDOVER_NOTE_SHORT}</strong> " " {n}</p> })}
-                    <p class="hint">{if quick { text::HANDOVER_OPEN_QUICK_HINT } else { text::HANDOVER_OPEN_HINT }}</p>
+                    {open.note.clone().map(|n| view! { <p><strong>{text::handover_note_short()}</strong> " " {n}</p> })}
+                    <p class="hint">{if quick { text::handover_open_quick_hint() } else { text::handover_open_hint() }}</p>
                     {(giver && quick).then(|| view! { <QuickCode link=quick_link(&p.tag, &open.id) /> })}
                     {receiver.clone().map(|r| {
                         let name = core::holder_name(core, &r);
@@ -616,7 +616,7 @@ pub(crate) fn HandoverNotice(
                         view! {
                             <div class="actions">
                                 <button type="button" class="button button--quiet" on:click=move |_| take_back(back.clone())>
-                                    {text::HANDOVER_TAKE_BACK}
+                                    {text::handover_take_back()}
                                 </button>
                             </div>
                         }
@@ -666,18 +666,18 @@ pub(crate) fn TakeDialog(
             on_close=close back=Signal::derive(|| "scan-handover-button".to_owned())
             title=Signal::derive(move || taking.with(|t| t.as_ref().map(|(tag, _)| text::take_title(tag)).unwrap_or_default()))>
             {move || state.get().map(|(_, handover, patient)| match patient {
-                None => view! { <p class="notice">{text::TAKE_NOT_HERE}</p> }.into_any(),
-                Some(p) if !p.is_present() => view! { <p class="notice">{text::TAKE_GONE}</p> }.into_any(),
+                None => view! { <p class="notice">{text::take_not_here()}</p> }.into_any(),
+                Some(p) if !p.is_present() => view! { <p class="notice">{text::take_gone()}</p> }.into_any(),
                 Some(p) if p.handover.as_ref().is_none_or(|h| h.id != handover) && p.handover_taken(&handover) => {
-                    view! { <p class="notice">{text::TAKE_TAKEN}</p> }.into_any()
+                    view! { <p class="notice">{text::take_taken()}</p> }.into_any()
                 }
                 Some(p) => {
                     let known = p.handover.as_ref().is_some_and(|h| h.id == handover);
                     view! {
-                        <p>{text::take_from(&core::holder_name(core, &p.holder()))}</p>
-                        {(!known).then(|| view! { <p class="hint">{text::TAKE_NOT_ARRIVED}</p> })}
+                        <p>{text::take_from(core::holder_name(core, &p.holder()))}</p>
+                        {(!known).then(|| view! { <p class="hint">{text::take_not_arrived()}</p> })}
                         {if mine.with(Vec::is_empty) {
-                            view! { <p class="notice">{text::TAKE_NOWHERE}</p> }.into_any()
+                            view! { <p class="notice">{text::take_nowhere()}</p> }.into_any()
                         } else {
                             view! {
                                 <TakeControls core revision register id="take" tag=p.tag.clone() handover=handover.clone()
@@ -709,7 +709,7 @@ pub(crate) fn ScanHandover(taking: RwSignal<Option<(String, String)>>) -> impl I
             match crate::shell::images::read_qr(&file).await {
                 Ok(texts) => match texts.iter().find_map(|t| parse_link(t)) {
                     Some(found) => taking.set(Some(found)),
-                    None => error.set(Some(text::SCAN_NO_HANDOVER)),
+                    None => error.set(Some(text::scan_no_handover())),
                 },
                 Err(message) => error.set(Some(message)),
             }
@@ -727,9 +727,9 @@ pub(crate) fn ScanHandover(taking: RwSignal<Option<(String, String)>>) -> impl I
                         crate::shell::views::click("scan-handover");
                     }
                 }>
-                <crate::shell::ui::Icon name="scan-line" />{text::SCAN_HANDOVER}
+                <crate::shell::ui::Icon name="scan-line" />{text::scan_handover()}
             </label>
-            <p id="scan-handover-hint" class="hint">{move || if busy.get() { text::SCAN_READING } else { text::SCAN_HANDOVER_HINT }}</p>
+            <p id="scan-handover-hint" class="hint">{move || if busy.get() { text::scan_reading() } else { text::scan_handover_hint() }}</p>
             <p role="alert" class="error">{move || error.get()}</p>
         </div>
     }
@@ -764,7 +764,7 @@ pub(crate) fn IncomingHandovers(
     view! {
         <Show when=move || list.with(|l| !l.is_empty())>
             <section class="card incoming" aria-labelledby="incoming-title">
-                <h2 id="incoming-title">{text::INCOMING_TITLE}</h2>
+                <h2 id="incoming-title">{text::incoming_title()}</h2>
                 <ul class="incoming__list">
                     {move || list.get().into_iter().map(|(p, to)| {
                         let open = p.handover.clone().expect("open");
@@ -782,7 +782,7 @@ pub(crate) fn IncomingHandovers(
                                 <a class="button button--quiet incoming__open" href=route.to_path() on:click=move |ev| {
                                     ev.prevent_default();
                                     nav.go(route.clone());
-                                }>{text::RECORD_OPEN}</a>
+                                }>{text::record_open()}</a>
                                 <TakeControls core revision register id=format!("incoming-{tag}") tag=tag.clone() handover=open.id.clone()
                                     holders=Signal::derive(move || vec![(to.clone(), to_name.clone())]) />
                             </li>
@@ -801,7 +801,7 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         .into_iter()
         .map(|(p, to)| {
             (
-                text::handover_bell(&p.tag, &core::holder_name(core, &to)),
+                text::handover_bell(&p.tag, core::holder_name(core, &to)),
                 crate::shell::nav::Route::patient(&p.tag),
             )
         })

@@ -405,6 +405,10 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        disclosures; the record's section index is folded and its values are compact in
        narrow columns; the overview's map tile has room around its map. Next: more of
        each package's building blocks in the gallery (unit, task and map object cards).
+    9. *Texts in Fluent* (m73). Done 2026-11-22: every text of the app is a Fluent file
+       per part (shell, shared modules, Med, Admin), read with Project Fluent's crates and
+       checked at build time ([ADR-0096](adr/0096-ui-texts-in-fluent-files.md)); the
+       language follows the browser. Next: English (I18N-1).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

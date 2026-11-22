@@ -121,19 +121,19 @@ pub fn LoginProvidersView(core: Handle, revision: RwSignal<u64>) -> impl IntoVie
     let deleting = RwSignal::new(None::<String>);
     view! {
         <section aria-labelledby="providers-title" class="card">
-            <h2 id="providers-title" tabindex="-1">{text::PROVIDERS_TITLE}</h2>
-            <p>{text::PROVIDERS_INTRO}</p>
+            <h2 id="providers-title" tabindex="-1">{text::providers_title()}</h2>
+            <p>{text::providers_intro()}</p>
             <p role="status" class="notice" hidden=move || failed.get() || outcome.get().is_none()>
                 {move || outcome.get().filter(|_| !failed.get())}
             </p>
             <p role="alert" class="error">{move || outcome.get().filter(|_| failed.get())}</p>
             {move || {
                 if !ready.get() {
-                    return view! { <p class="notice">{text::ACCOUNTS_OFFLINE}</p> }.into_any();
+                    return view! { <p class="notice">{text::accounts_offline()}</p> }.into_any();
                 }
                 match providers.get() {
-                    None => view! { <p>{text::PROVIDERS_LOADING}</p> }.into_any(),
-                    Some(p) if !p.managed => view! { <p class="notice">{text::PROVIDERS_NOT_MANAGED}</p> }.into_any(),
+                    None => view! { <p>{text::providers_loading()}</p> }.into_any(),
+                    Some(p) if !p.managed => view! { <p class="notice">{text::providers_not_managed()}</p> }.into_any(),
                     Some(p) => view! {
                         <ul class="roster provider-list" data-keys="list">
                             {p.list
@@ -175,7 +175,7 @@ fn ProviderItem(
     };
     let detail = match (&provider.issuer, provider.kind.as_str()) {
         (Some(issuer), _) => issuer.clone(),
-        (None, "local") => text::PROVIDER_LOCAL.to_owned(),
+        (None, "local") => text::provider_local().to_owned(),
         (None, kind) => text::provider_kind(kind),
     };
     let delete = {
@@ -185,7 +185,7 @@ fn ProviderItem(
             pending.send(
                 core,
                 ClientMessage::DeleteLoginProvider(id.clone()),
-                Some(text::PROVIDER_REMOVED),
+                Some(text::provider_removed()),
                 || (),
             );
             after_render(|| focus("providers-title"));
@@ -213,7 +213,7 @@ fn ProviderItem(
                                 after_render(|| focus("provider-name"));
                             }
                         }>
-                        <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::PROVIDER_CHANGE}</span>
+                        <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::provider_change()}</span>
                     </button>
                     <button id=delete_id.clone() type="button" class="button button--small icon-button" aria-label=delete_label.clone() data-tip=delete_label disabled=move || pending.busy()
                         on:click={
@@ -224,7 +224,7 @@ fn ProviderItem(
                                 after_render(move || focus(&confirm_id));
                             }
                         }>
-                        <crate::shell::ui::Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::PROVIDER_DELETE}</span>
+                        <crate::shell::ui::Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::provider_delete()}</span>
                     </button>
                 </div>
             })}
@@ -233,7 +233,7 @@ fn ProviderItem(
                     <p id=question_id.clone() class="notice notice--warning">{question.clone()}</p>
                     <div class="device-card__buttons">
                         <button id=confirm_id.clone() type="button" class="button button--danger" disabled=move || pending.busy() on:click=delete.clone()>
-                            {text::PROVIDER_DELETE_CONFIRM}
+                            {text::provider_delete_confirm()}
                         </button>
                         <button type="button" class="button" on:click={
                             let delete_id = delete_id.clone();
@@ -293,7 +293,7 @@ fn ProviderForm(
         let id = editing.get_untracked().map(|p| p.id);
         if n.is_empty() || !i.starts_with("http") || c.is_empty() || (s.is_empty() && id.is_none())
         {
-            error.set(Some(text::PROVIDER_INVALID));
+            error.set(Some(text::provider_invalid()));
             return;
         }
         error.set(None);
@@ -317,44 +317,44 @@ fn ProviderForm(
     view! {
         <form class="form" novalidate on:submit=submit aria-labelledby="provider-form-title">
             <h3 id="provider-form-title">
-                {move || editing.get().map_or_else(|| text::PROVIDER_NEW.to_owned(), |p| text::provider_change_title(&p.name))}
+                {move || editing.get().map_or_else(|| text::provider_new().to_owned(), |p| text::provider_change_title(&p.name))}
             </h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="provider-name">{text::PROVIDER_NAME}</label>
+                    <label for="provider-name">{text::provider_name()}</label>
                     <input id="provider-name" type="text" autocomplete="off" aria-describedby="provider-name-hint" bind:value=name />
-                    <p id="provider-name-hint" class="hint">{text::PROVIDER_NAME_HINT}</p>
+                    <p id="provider-name-hint" class="hint">{text::provider_name_hint()}</p>
                 </div>
                 <div class="field">
-                    <label for="provider-issuer">{text::PROVIDER_ISSUER}</label>
+                    <label for="provider-issuer">{text::provider_issuer()}</label>
                     <input id="provider-issuer" type="url" inputmode="url" autocomplete="off" aria-describedby="provider-issuer-hint" bind:value=issuer />
-                    <p id="provider-issuer-hint" class="hint">{text::PROVIDER_ISSUER_HINT}</p>
+                    <p id="provider-issuer-hint" class="hint">{text::provider_issuer_hint()}</p>
                 </div>
                 <div class="field">
-                    <label for="provider-client">{text::PROVIDER_CLIENT_ID}</label>
+                    <label for="provider-client">{text::provider_client_id()}</label>
                     <input id="provider-client" type="text" autocomplete="off" bind:value=client_id />
                 </div>
                 <div class="field">
-                    <label for="provider-secret">{text::PROVIDER_SECRET}</label>
+                    <label for="provider-secret">{text::provider_secret()}</label>
                     <input id="provider-secret" type="password" autocomplete="off" aria-describedby="provider-secret-hint" bind:value=secret />
                     <p id="provider-secret-hint" class="hint">
-                        {move || if changing() { text::PROVIDER_SECRET_KEEP } else { text::PROVIDER_SECRET_HINT }}
+                        {move || if changing() { text::provider_secret_keep() } else { text::provider_secret_hint() }}
                     </p>
                 </div>
             </div>
             <div class="field">
                 <label class="choice">
                     <input id="provider-skip-email" type="checkbox" bind:checked=skip />
-                    {text::PROVIDER_SKIP_EMAIL}
+                    {text::provider_skip_email()}
                 </label>
             </div>
             <p class="hint">
-                {text::PROVIDER_REDIRECT} " "
+                {text::provider_redirect()} " "
                 <code id="provider-redirect">{move || providers.get().and_then(|p| p.redirect_uri)}</code>
             </p>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::PROVIDER_TEST}</button>
+                <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::provider_test()}</button>
                 <Show when=changing>
                     <button type="button" class="button" on:click=move |_| editing.set(None)>{text::cancel()}</button>
                 </Show>
@@ -376,8 +376,8 @@ fn TestPanel(core: Handle, test: LoginTest, pending: Pending) -> impl IntoView {
     let body = match state {
         LoginTestState::Waiting => view! {
             <p>{text::provider_test_waiting(&name)}</p>
-            <p><a id="provider-test-link" class="button" href=url target="_blank" rel="noopener">{text::PROVIDER_TEST_OPEN}</a></p>
-            <p class="hint">{text::PROVIDER_TEST_HINT}</p>
+            <p><a id="provider-test-link" class="button" href=url target="_blank" rel="noopener">{text::provider_test_open()}</a></p>
+            <p class="hint">{text::provider_test_hint()}</p>
         }
         .into_any(),
         LoginTestState::Passed { user, name: person, email } => {
@@ -385,7 +385,7 @@ fn TestPanel(core: Handle, test: LoginTest, pending: Pending) -> impl IntoView {
                 pending.send(
                     core,
                     ClientMessage::SaveLoginProvider(token.clone()),
-                    Some(text::PROVIDER_SAVED),
+                    Some(text::provider_saved()),
                     || after_render(|| focus("providers-title")),
                 );
             };
@@ -399,7 +399,7 @@ fn TestPanel(core: Handle, test: LoginTest, pending: Pending) -> impl IntoView {
                 </div>
                 <div class="row">
                     <button type="button" class="button button--primary" disabled=move || !confirmed.get() || pending.busy() on:click=save>
-                        {text::PROVIDER_SAVE}
+                        {text::provider_save()}
                     </button>
                 </div>
             }
@@ -412,7 +412,7 @@ fn TestPanel(core: Handle, test: LoginTest, pending: Pending) -> impl IntoView {
     };
     view! {
         <section class="provider-test" aria-labelledby="provider-test-title">
-            <h3 id="provider-test-title" tabindex="-1">{text::PROVIDER_TEST_TITLE}</h3>
+            <h3 id="provider-test-title" tabindex="-1">{text::provider_test_title()}</h3>
             {body}
         </section>
     }

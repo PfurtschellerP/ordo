@@ -111,23 +111,23 @@ pub(crate) fn HandoverDocument(core: Handle, tag: String) -> impl IntoView {
     let label = text::document_label(&tag);
     view! {
         <section class="record__section document" aria-labelledby="section-document">
-            <h3 id="section-document">{text::DOCUMENT_TITLE}</h3>
-            <p class="hint" id="document-hint">{text::DOCUMENT_HINT}</p>
+            <h3 id="section-document">{text::document_title()}</h3>
+            <p class="hint" id="document-hint">{text::document_hint()}</p>
             <div class="actions">
                 <button id="document-button" type="button" class="button button--with-icon" aria-describedby="document-hint document-state"
                     aria-label=label disabled=move || state.get() == State::Asking
                     on:click=move |_| ask(core, &tag, state)>
-                    <crate::shell::ui::Icon name="file-down" />{text::DOCUMENT_BUTTON}
+                    <crate::shell::ui::Icon name="file-down" />{text::document_button()}
                 </button>
             </div>
             <p id="document-state" role="status" class:error=move || matches!(state.get(), State::Offline | State::Refused | State::Failed)>
                 {move || match state.get() {
                     State::Idle => "",
-                    State::Asking => text::DOCUMENT_ASKING,
-                    State::Saved => text::DOCUMENT_SAVED,
-                    State::Offline => text::DOCUMENT_OFFLINE,
-                    State::Refused => text::DOCUMENT_REFUSED,
-                    State::Failed => text::DOCUMENT_FAILED,
+                    State::Asking => text::document_asking(),
+                    State::Saved => text::document_saved(),
+                    State::Offline => text::document_offline(),
+                    State::Refused => text::document_refused(),
+                    State::Failed => text::document_failed(),
                 }}
             </p>
         </section>

@@ -16,8 +16,8 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // an incident; each view needs its own permission.
     nav::Workspace {
         id: "admin.access",
-        package: || crate::admin::text::TAB_ADMIN,
-        label: || crate::admin::text::WS_ACCESS,
+        package: || crate::admin::text::tab_admin(),
+        label: || crate::admin::text::ws_access(),
         requires: &[],
         permission: None,
         or_organisation: &["manage_accounts", "manage_roles", "manage_devices"],
@@ -27,7 +27,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 permission: Some("manage_accounts"),
                 ..nav::view(
                     "accounts",
-                    || crate::admin::text::ACCOUNTS,
+                    crate::admin::text::accounts,
                     "accounts login passwords users",
                     "users",
                 )
@@ -37,7 +37,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 permission: Some("manage_roles"),
                 ..nav::view(
                     "permissions",
-                    || crate::admin::text::ORG_ROLES,
+                    crate::admin::text::org_roles,
                     "permissions roles administrators planners organisation",
                     "key-round",
                 )
@@ -46,7 +46,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 permission: Some("manage_devices"),
                 ..nav::view(
                     "devices",
-                    || crate::admin::text::DEVICES,
+                    crate::admin::text::devices,
                     "devices",
                     "tablet-smartphone",
                 )
@@ -56,7 +56,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 permission: Some("manage_accounts"),
                 ..nav::view(
                     "login",
-                    || crate::admin::text::LOGIN_PROVIDERS,
+                    crate::admin::text::login_providers,
                     "login providers single sign-on oidc entra keycloak",
                     "log-in",
                 )
@@ -68,14 +68,14 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // Version, licences and source code, for everyone (LIC-1): no permission needed.
     nav::Workspace {
         id: "admin.info",
-        package: || crate::admin::text::TAB_ADMIN,
-        label: || crate::admin::text::WS_INFO,
+        package: || crate::admin::text::tab_admin(),
+        label: || crate::admin::text::ws_info(),
         requires: &[],
         permission: None,
         or_organisation: &[],
         views: &[nav::view(
             "info",
-            || crate::admin::text::WS_INFO,
+            crate::admin::text::ws_info,
             "info about version licences licenses source code notices",
             "info",
         )],
@@ -84,7 +84,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // The person's own devices, for everyone (SEC-4): opened from the person's menu.
     nav::Workspace {
         id: "person.devices",
-        package: || crate::admin::text::TAB_PERSON,
+        package: || crate::admin::text::tab_person(),
         label: crate::admin::text::my_devices,
         requires: &[],
         permission: None,

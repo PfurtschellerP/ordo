@@ -29,9 +29,9 @@ pub struct Part {
     /// Name and version.
     pub name: &'static str,
     /// What it does in ORDO.
-    pub used_for: &'static str,
+    pub used_for: crate::shell::nav::Label,
     /// Copyright holders as the part names them, with "©".
-    pub copyright: &'static str,
+    pub copyright: crate::shell::nav::Label,
     /// SPDX licence expression.
     pub licence: &'static str,
     /// The licence text: a file the app serves, or the licence's own page.
@@ -44,78 +44,78 @@ pub struct Part {
 pub const PARTS: &[Part] = &[
     Part {
         name: "MapLibre GL JS 6.17.0",
-        used_for: text::NOTICES_USED_MAP,
-        copyright: "© MapLibre contributors; Mapbox; Evan Wallace; Mike Bostock",
+        used_for: text::notices_used_map,
+        copyright: || "© MapLibre contributors; Mapbox; Evan Wallace; Mike Bostock",
         licence: "BSD-3-Clause",
         text: "/map/vendor/maplibre-gl.LICENSE.txt",
     },
     Part {
         name: "PMTiles 4.5.0",
-        used_for: text::NOTICES_USED_MAP,
-        copyright: "© Protomaps LLC",
+        used_for: text::notices_used_map,
+        copyright: || "© Protomaps LLC",
         licence: "BSD-3-Clause",
         text: "/map/vendor/pmtiles.LICENSE.txt",
     },
     Part {
         name: "Protomaps basemaps 5.7.2",
-        used_for: text::NOTICES_USED_MAP,
-        copyright: "© Protomaps LLC, Kelso Cartography",
+        used_for: text::notices_used_map,
+        copyright: || "© Protomaps LLC, Kelso Cartography",
         licence: "BSD-3-Clause AND CC0-1.0",
         text: "/map/vendor/basemaps.LICENSE.md",
     },
     Part {
         name: "Terra Draw 1.39.0, MapLibre adapter 1.5.0",
-        used_for: text::NOTICES_USED_MAP,
-        copyright: "© James Milner",
+        used_for: text::notices_used_map,
+        copyright: || "© James Milner",
         licence: "MIT",
         text: "/map/vendor/terra-draw.LICENSE.txt",
     },
     Part {
         name: "Atkinson Hyperlegible Next 5.3.0",
-        used_for: text::NOTICES_USED_FONT,
-        copyright: "© The Atkinson Hyperlegible Next Project Authors",
+        used_for: text::notices_used_font,
+        copyright: || "© The Atkinson Hyperlegible Next Project Authors",
         licence: "OFL-1.1",
         text: "/fonts/OFL-atkinson-hyperlegible-next.txt",
     },
     Part {
         name: "Atkinson Hyperlegible Mono 5.3.0",
-        used_for: text::NOTICES_USED_FONT,
-        copyright: "© The Atkinson Hyperlegible Mono Project Authors",
+        used_for: text::notices_used_font,
+        copyright: || "© The Atkinson Hyperlegible Mono Project Authors",
         licence: "OFL-1.1",
         text: "/fonts/OFL-atkinson-hyperlegible-mono.txt",
     },
     Part {
         name: "Noto Sans",
-        used_for: text::NOTICES_USED_MAP_FONT,
-        copyright: "© The Noto Project Authors",
+        used_for: text::notices_used_map_font,
+        copyright: || "© The Noto Project Authors",
         licence: "OFL-1.1",
         text: "/map/glyphs/OFL.txt",
     },
     Part {
         name: "Lucide 1.70.0",
-        used_for: text::NOTICES_USED_ICONS,
-        copyright: "© Lucide Contributors; Cole Bemis (Feather)",
+        used_for: text::notices_used_icons,
+        copyright: || "© Lucide Contributors; Cole Bemis (Feather)",
         licence: "ISC AND MIT",
         text: "/LICENSES/ISC.txt",
     },
     Part {
         name: "@taktische-zeichen/core 0.11.0",
-        used_for: text::NOTICES_USED_SYMBOLS,
-        copyright: "© Philipp Jardas",
+        used_for: text::notices_used_symbols,
+        copyright: || "© Philipp Jardas",
         licence: "MIT",
         text: "/LICENSES/MIT.txt",
     },
     Part {
         name: "SQLite 3.53.4",
-        used_for: text::NOTICES_USED_STORAGE,
-        copyright: text::NOTICES_PUBLIC_DOMAIN,
+        used_for: text::notices_used_storage,
+        copyright: text::notices_public_domain,
         licence: "blessing",
         text: "https://sqlite.org/copyright.html",
     },
     Part {
         name: "OpenStreetMap",
-        used_for: text::NOTICES_USED_MAP_DATA,
-        copyright: "© OpenStreetMap contributors",
+        used_for: text::notices_used_map_data,
+        copyright: || "© OpenStreetMap contributors",
         licence: "ODbL-1.0",
         text: "https://www.openstreetmap.org/copyright",
     },
@@ -126,7 +126,7 @@ pub const PARTS: &[Part] = &[
 pub fn NoticesLink() -> impl IntoView {
     view! {
         <p class="notices-link">
-            <a href=PATH>{text::NOTICES_TITLE}</a>
+            <a href=PATH>{text::notices_title()}</a>
         </p>
     }
 }
@@ -157,7 +157,7 @@ async fn crates() -> Option<String> {
 pub fn NoticesPage(back: String) -> impl IntoView {
     view! {
         <main id="main" class="page page--narrow notices" tabindex="-1">
-            <h1>{text::NOTICES_TITLE}</h1>
+            <h1>{text::notices_title()}</h1>
             <p><a href=back>{text::notices_back()}</a></p>
             <Notices />
         </main>
@@ -175,29 +175,29 @@ pub fn InfoView() -> impl IntoView {
     });
     let app = text::info_build(env!("CARGO_PKG_VERSION"), commit());
     let app_protocols = text::info_protocols(
-        &range(&serde_json::to_value(ordo_sync::version::SYNC).unwrap_or_default()),
-        &range(&serde_json::to_value(ordo_sync::version::HTTP).unwrap_or_default()),
+        range(&serde_json::to_value(ordo_sync::version::SYNC).unwrap_or_default()),
+        range(&serde_json::to_value(ordo_sync::version::HTTP).unwrap_or_default()),
     );
     view! {
         <div class="info notices">
             <section class="card" aria-labelledby="info-version">
-                <h2 id="info-version">{text::INFO_VERSION}</h2>
+                <h2 id="info-version">{text::info_version()}</h2>
                 <dl class="facts">
-                    <dt>{text::INFO_APP}</dt>
+                    <dt>{text::info_app()}</dt>
                     <dd id="info-app">{app} <br /> {app_protocols}</dd>
-                    <dt>{text::INFO_SERVER}</dt>
+                    <dt>{text::info_server()}</dt>
                     <dd id="info-server">
-                        <Suspense fallback=|| text::INFO_LOADING>
+                        <Suspense fallback=|| text::info_loading()>
                             {move || server.get().map(|answer| match answer {
                                 Some(v) => {
                                     let build = text::info_build(
                                         v["build"]["version"].as_str().unwrap_or("?"),
                                         v["build"]["commit"].as_str().filter(|c| !c.is_empty()),
                                     );
-                                    let protocols = text::info_protocols(&range(&v["sync"]), &range(&v["http"]));
+                                    let protocols = text::info_protocols(range(&v["sync"]), range(&v["http"]));
                                     view! { {build} <br /> {protocols} }.into_any()
                                 }
-                                None => text::INFO_SERVER_OFFLINE.into_any(),
+                                None => text::info_server_offline().into_any(),
                             })}
                         </Suspense>
                     </dd>
@@ -234,20 +234,20 @@ fn Notices() -> impl IntoView {
     view! {
         <section class="card" aria-labelledby="notices-ordo">
             <h2 id="notices-ordo">{text::app_name()}</h2>
-            <p>{text::NOTICES_ORDO_LICENCE} " "
-                <a href="/LICENSES/AGPL-3.0-or-later.txt">{text::NOTICES_LICENCE_TEXT}</a>
+            <p>{text::notices_ordo_licence()} " "
+                <a href="/LICENSES/AGPL-3.0-or-later.txt">{text::notices_licence_text()}</a>
             </p>
-            <p>{text::NOTICES_SOURCE} " " <a class="notices__source" href=source.clone()>{source.clone()}</a></p>
+            <p>{text::notices_source()} " " <a class="notices__source" href=source.clone()>{source.clone()}</a></p>
         </section>
         <section class="card" aria-labelledby="notices-parts">
-            <h2 id="notices-parts">{text::NOTICES_PARTS}</h2>
+            <h2 id="notices-parts">{text::notices_parts()}</h2>
             <ul class="notices__parts">
                 {PARTS
                     .iter()
                     .map(|p| view! {
                         <li class="notices__part">
-                            <strong>{p.name}</strong> " – " {p.used_for}
-                            <br />{p.copyright} " · "
+                            <strong>{p.name}</strong> " – " {(p.used_for)()}
+                            <br />{(p.copyright)()} " · "
                             <a href=p.text>{p.licence}</a>
                         </li>
                     })
@@ -255,16 +255,16 @@ fn Notices() -> impl IntoView {
             </ul>
         </section>
         <section class="card" aria-labelledby="notices-crates">
-            <h2 id="notices-crates">{text::NOTICES_CRATES}</h2>
-            <Suspense fallback=|| view! { <p>{text::NOTICES_LOADING}</p> }>
+            <h2 id="notices-crates">{text::notices_crates()}</h2>
+            <Suspense fallback=|| view! { <p>{text::notices_loading()}</p> }>
                 {move || {
                     fragment.get().map(|body| match body {
                         Some(html) => view! {
-                            <p class="hint">{text::NOTICES_CRATES_HINT}</p>
+                            <p class="hint">{text::notices_crates_hint()}</p>
                             <div class="notices__crates" inner_html=html></div>
                         }
                         .into_any(),
-                        None => view! { <p>{text::NOTICES_CRATES_MISSING}</p> }.into_any(),
+                        None => view! { <p>{text::notices_crates_missing()}</p> }.into_any(),
                     })
                 }}
             </Suspense>
@@ -281,7 +281,7 @@ mod tests {
     fn every_part_has_its_licence_text() {
         let app = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         for part in PARTS {
-            assert!(!part.copyright.is_empty(), "{}", part.name);
+            assert!(!(part.copyright)().is_empty(), "{}", part.name);
             if part.text.starts_with("https://") {
                 continue;
             }

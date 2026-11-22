@@ -36,15 +36,15 @@ pub fn RolesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let me = core.with_value(|c| c.replica.user().clone());
     view! {
         <section aria-labelledby="org-roles-title" class="card">
-            <h2 id="org-roles-title" tabindex="-1">{text::ORG_ROLES_TITLE}</h2>
-            <p>{text::ORG_ROLES_INTRO}</p>
+            <h2 id="org-roles-title" tabindex="-1">{text::org_roles_title()}</h2>
+            <p>{text::org_roles_intro()}</p>
             {move || {
                 if !ready.get() {
-                    return view! { <p class="notice">{text::ORG_ROLES_OFFLINE}</p> }.into_any();
+                    return view! { <p class="notice">{text::org_roles_offline()}</p> }.into_any();
                 }
                 match roles.get() {
-                    None => view! { <p>{text::ORG_ROLES_LOADING}</p> }.into_any(),
-                    Some(list) if list.is_empty() => view! { <p>{text::ORG_ROLES_EMPTY}</p> }.into_any(),
+                    None => view! { <p>{text::org_roles_loading()}</p> }.into_any(),
+                    Some(list) if list.is_empty() => view! { <p>{text::org_roles_empty()}</p> }.into_any(),
                     Some(list) => view! { <RoleList core list me=me.clone() /> }.into_any(),
                 }
             }}
@@ -86,15 +86,15 @@ fn RoleList(core: Handle, list: Vec<OrganisationRole>, me: UserId) -> impl IntoV
                                         let lapsed = r.valid_until.is_some_and(|u| u <= now);
                                         let mut facts = Vec::new();
                                         if r.fixed {
-                                            facts.push(text::ORG_ROLE_FIXED.to_owned());
+                                            facts.push(text::org_role_fixed().to_owned());
                                         } else if own_admin {
-                                            facts.push(text::ORG_ROLE_OWN_ADMIN.to_owned());
+                                            facts.push(text::org_role_own_admin().to_owned());
                                         }
                                         if let Some(until) = r.valid_until {
-                                            facts.push(text::org_role_until(&core::date(until.saturating_sub(1))));
+                                            facts.push(text::org_role_until(core::date(until.saturating_sub(1))));
                                         }
                                         if lapsed {
-                                            facts.push(text::ORG_ROLE_LAPSED.to_owned());
+                                            facts.push(text::org_role_lapsed().to_owned());
                                         }
                                         let label = text::org_role_withdraw_label(&r.role, &person);
                                         let change = OrganisationRoleChange {
@@ -115,7 +115,7 @@ fn RoleList(core: Handle, list: Vec<OrganisationRole>, me: UserId) -> impl IntoV
                                                     let back = OrganisationRoleChange { grant: true, valid_until: r.valid_until, ..change.clone() };
                                                     let message = text::removed(text::org_role(&r.role));
                                                     view! {
-                                                        <crate::shell::ui::IconButton icon="x" word=text::ORG_ROLE_WITHDRAW label quiet=true
+                                                        <crate::shell::ui::IconButton icon="x" word=text::org_role_withdraw() label quiet=true
                                                             on_click=Callback::new(move |()| {
                                                                 core::set_organisation_role(core, change.clone());
                                                                 let back = back.clone();
@@ -150,7 +150,7 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let Ok(user) = person.get_untracked().trim().parse::<UserId>() else {
-            error.set(Some(text::ORG_ROLE_INVALID));
+            error.set(Some(text::org_role_invalid()));
             crate::shell::views::focus("org-role-person");
             return;
         };
@@ -161,7 +161,7 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             match core::end_of_day_ms(&date) {
                 Some(ms) if ms > core::now_ms() => Some(ms),
                 _ => {
-                    error.set(Some(text::ORG_ROLE_PAST));
+                    error.set(Some(text::org_role_past()));
                     crate::shell::views::focus("org-role-until");
                     return;
                 }
@@ -182,15 +182,15 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     view! {
         <form class="form" novalidate on:submit=submit aria-labelledby="org-role-grant-title">
-            <h3 id="org-role-grant-title">{text::ORG_ROLE_GRANT_TITLE}</h3>
+            <h3 id="org-role-grant-title">{text::org_role_grant_title()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="org-role-person">{text::ORG_ROLE_PERSON}</label>
+                    <label for="org-role-person">{text::org_role_person()}</label>
                     <input id="org-role-person" type="text" autocomplete="off" list="org-role-people" bind:value=person />
                     <Suggestions id="org-role-people".to_owned() values=people core />
                 </div>
                 <div class="field">
-                    <label for="org-role-role">{text::ORG_ROLE_ROLE}</label>
+                    <label for="org-role-role">{text::org_role_role()}</label>
                     <select id="org-role-role" bind:value=role>
                         {ORGANISATION_ROLES
                             .into_iter()
@@ -199,14 +199,14 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     </select>
                 </div>
                 <div class="field">
-                    <label for="org-role-until">{text::ORG_ROLE_UNTIL}</label>
+                    <label for="org-role-until">{text::org_role_until_label()}</label>
                     <input id="org-role-until" type="date" aria-describedby="org-role-until-hint" bind:value=until />
                 </div>
             </div>
-            <p id="org-role-until-hint" class="hint">{text::ORG_ROLE_UNTIL_HINT}</p>
+            <p id="org-role-until-hint" class="hint">{text::org_role_until_hint()}</p>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" class="button button--primary">{text::ORG_ROLE_GRANT}</button>
+                <button type="submit" class="button button--primary">{text::org_role_grant()}</button>
             </div>
         </form>
     }

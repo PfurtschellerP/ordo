@@ -61,15 +61,15 @@ pub fn DevicesView(
     let confirming = RwSignal::new(None::<DeviceId>);
     view! {
         <section aria-labelledby="devices-title" class="card">
-            <h2 id="devices-title" tabindex="-1">{if mine_only { text::my_devices() } else { text::DEVICES }}</h2>
-            <p>{move || if all.get() { text::DEVICES_INTRO_ALL } else { text::DEVICES_INTRO_OWN }}</p>
+            <h2 id="devices-title" tabindex="-1">{if mine_only { text::my_devices() } else { text::devices() }}</h2>
+            <p>{move || if all.get() { text::devices_intro_all() } else { text::devices_intro_own() }}</p>
             {move || {
                 if !ready.get() {
-                    return view! { <p class="notice">{text::DEVICES_OFFLINE}</p> }.into_any();
+                    return view! { <p class="notice">{text::devices_offline()}</p> }.into_any();
                 }
                 match devices.get() {
-                    None => view! { <p>{text::DEVICES_LOADING}</p> }.into_any(),
-                    Some(list) if list.is_empty() => view! { <p>{text::DEVICES_EMPTY}</p> }.into_any(),
+                    None => view! { <p>{text::devices_loading()}</p> }.into_any(),
+                    Some(list) if list.is_empty() => view! { <p>{text::devices_empty()}</p> }.into_any(),
                     Some(list) => {
                         let show_person = all.get();
                         view! {
@@ -142,16 +142,16 @@ pub fn IncidentDevicesView(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
         allowed.get().then(|| {
             view! {
                 <section aria-labelledby="incident-devices-title" class="card">
-                    <h2 id="incident-devices-title" tabindex="-1">{text::INCIDENT_DEVICES}</h2>
-                    <p>{text::INCIDENT_DEVICES_INTRO}</p>
+                    <h2 id="incident-devices-title" tabindex="-1">{text::incident_devices()}</h2>
+                    <p>{text::incident_devices_intro()}</p>
                     {move || {
                         if !ready.get() {
-                            return view! { <p class="notice">{text::DEVICES_OFFLINE}</p> }.into_any();
+                            return view! { <p class="notice">{text::devices_offline()}</p> }.into_any();
                         }
                         match devices.get() {
-                            None => view! { <p>{text::DEVICES_LOADING}</p> }.into_any(),
+                            None => view! { <p>{text::devices_loading()}</p> }.into_any(),
                             Some(list) if list.is_empty() => {
-                                view! { <p>{text::INCIDENT_DEVICES_EMPTY}</p> }.into_any()
+                                view! { <p>{text::incident_devices_empty()}</p> }.into_any()
                             }
                             Some(list) => view! {
                                 <ul class="device-list" data-keys="list">
@@ -190,23 +190,23 @@ fn DeviceCard(
     let confirm_id = format!("revoke-confirm-{ulid}");
     let question_id = format!("revoke-question-{ulid}");
     let asking = move || confirming.get() == Some(device);
-    let when = |ms: Option<u64>| ms.map_or_else(|| text::UNKNOWN.to_owned(), core::date_time);
+    let when = |ms: Option<u64>| ms.map_or_else(|| text::unknown().to_owned(), core::date_time);
     let mut facts: Vec<(&str, Signal<String>)> = Vec::new();
     if show_person {
         let user = info.user.clone();
         facts.push((
-            text::DEVICE_PERSON,
+            text::device_person(),
             crate::shell::profile::naming(move || crate::shell::profile::display_name(core, &user)),
         ));
     }
-    facts.push((text::DEVICE_PAIRED, when(info.paired).into()));
-    facts.push((text::DEVICE_VALID_UNTIL, when(info.valid_until).into()));
+    facts.push((text::device_paired(), when(info.paired).into()));
+    facts.push((text::device_valid_until(), when(info.valid_until).into()));
     facts.push((
-        text::DEVICE_CONNECTION,
+        text::device_connection(),
         if info.connected {
-            text::DEVICE_CONNECTED
+            text::device_connected()
         } else {
-            text::DEVICE_NOT_CONNECTED
+            text::device_not_connected()
         }
         .to_owned()
         .into(),
@@ -250,7 +250,7 @@ fn DeviceCard(
         <li class="device-card" data-device=ulid>
             <h3>
                 {info.name.clone().map_or_else(|| text::device_name(&short), |name| text::named_device(&name, &short))}
-                {own.then(|| format!(" ({})", text::THIS_DEVICE))}
+                {own.then(|| format!(" ({})", text::this_device()))}
             </h3>
             <dl class="facts">
                 {facts
@@ -269,7 +269,7 @@ fn DeviceCard(
                             aria-label=label.clone()
                             on:click=ask.clone()
                         >
-                            {text::REVOKE}
+                            {text::revoke()}
                         </button>
                     }
                 }
@@ -278,7 +278,7 @@ fn DeviceCard(
                     <p id=question_id.clone() class="notice notice--warning">{question.clone()}</p>
                     <div class="device-card__buttons">
                         <button id=confirm_id.clone() type="button" class="button button--danger" on:click=revoke>
-                            {text::REVOKE_CONFIRM}
+                            {text::revoke_confirm()}
                         </button>
                         <button type="button" class="button" on:click=cancel.clone()>{text::cancel()}</button>
                     </div>

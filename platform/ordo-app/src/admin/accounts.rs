@@ -78,7 +78,9 @@ pub fn AccountsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             pending.since.set(None);
             let error = accounts.get_untracked().and_then(|a| a.error);
             failed.set(error.is_some());
-            outcome.set(Some(error.map_or(text::ACCOUNT_DONE, text::account_error)));
+            outcome.set(Some(
+                error.map_or(text::account_done(), text::account_error),
+            ));
             if error.is_none()
                 && let Some(done) = pending.on_done.try_update_value(Option::take).flatten()
             {
@@ -90,20 +92,20 @@ pub fn AccountsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let deleting = RwSignal::new(None::<String>);
     view! {
         <section aria-labelledby="accounts-title" class="card">
-            <h2 id="accounts-title" tabindex="-1">{text::ACCOUNTS_TITLE}</h2>
-            <p>{text::ACCOUNTS_INTRO}</p>
+            <h2 id="accounts-title" tabindex="-1">{text::accounts_title()}</h2>
+            <p>{text::accounts_intro()}</p>
             <p role="status" class="notice" hidden=move || failed.get() || outcome.get().is_none()>
                 {move || outcome.get().filter(|_| !failed.get())}
             </p>
             <p role="alert" class="error">{move || outcome.get().filter(|_| failed.get())}</p>
             {move || {
                 if !ready.get() {
-                    return view! { <p class="notice">{text::ACCOUNTS_OFFLINE}</p> }.into_any();
+                    return view! { <p class="notice">{text::accounts_offline()}</p> }.into_any();
                 }
                 match accounts.get() {
-                    None => view! { <p>{text::ACCOUNTS_LOADING}</p> }.into_any(),
-                    Some(a) if !a.managed => view! { <p class="notice">{text::ACCOUNTS_NOT_MANAGED}</p> }.into_any(),
-                    Some(a) if a.list.is_empty() => view! { <p>{text::ACCOUNTS_EMPTY}</p> }.into_any(),
+                    None => view! { <p>{text::accounts_loading()}</p> }.into_any(),
+                    Some(a) if !a.managed => view! { <p class="notice">{text::accounts_not_managed()}</p> }.into_any(),
+                    Some(a) if a.list.is_empty() => view! { <p>{text::accounts_empty()}</p> }.into_any(),
                     Some(a) => view! {
                         <ul class="roster account-list" data-keys="list">
                             {a.list
@@ -208,7 +210,7 @@ fn AccountItem(
                             after_render(move || focus(&password_id));
                         }
                     }>
-                    {text::ACCOUNT_SET_PASSWORD}
+                    {text::account_set_password()}
                 </button>
                 <button id=delete_id.clone() type="button" class="button button--small" aria-label=delete_label disabled=move || pending.busy()
                     on:click={
@@ -219,20 +221,20 @@ fn AccountItem(
                             after_render(move || focus(&confirm_id));
                         }
                     }>
-                    {text::ACCOUNT_DELETE}
+                    {text::account_delete()}
                 </button>
             </div>
             <Show when=is_resetting.clone()>
                 <form class="form account-password" novalidate on:submit=save.clone()>
                     <div class="field">
-                        <label for=password_id.clone()>{text::ACCOUNT_NEW_PASSWORD}</label>
+                        <label for=password_id.clone()>{text::account_new_password()}</label>
                         <input id=password_id.clone() type="password" autocomplete="new-password"
                             aria-describedby=format!("{password_id}-hint") bind:value=password />
-                        <p id=format!("{password_id}-hint") class="hint">{text::ACCOUNT_PASSWORD_HINT}</p>
-                        <p role="alert" class="error">{move || short.get().then_some(text::ACCOUNT_PASSWORD_LENGTH)}</p>
+                        <p id=format!("{password_id}-hint") class="hint">{text::account_password_hint()}</p>
+                        <p role="alert" class="error">{move || short.get().then_some(text::account_password_length())}</p>
                     </div>
                     <div class="row">
-                        <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::ACCOUNT_SAVE_PASSWORD}</button>
+                        <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::account_save_password()}</button>
                         <button type="button" class="button" on:click={
                             let reset_id = reset_id.clone();
                             move |_| {
@@ -249,7 +251,7 @@ fn AccountItem(
                     <p id=question_id.clone() class="notice notice--warning">{question.clone()}</p>
                     <div class="device-card__buttons">
                         <button id=confirm_id.clone() type="button" class="button button--danger" disabled=move || pending.busy() on:click=delete.clone()>
-                            {text::ACCOUNT_DELETE_CONFIRM}
+                            {text::account_delete_confirm()}
                         </button>
                         <button type="button" class="button" on:click={
                             let delete_id = delete_id.clone();
@@ -281,7 +283,7 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
             password.get_untracked(),
         );
         if !e.contains('@') || n.trim().is_empty() {
-            error.set(Some(text::ACCOUNT_INVALID));
+            error.set(Some(text::account_invalid()));
             focus(if e.contains('@') {
                 "account-name"
             } else {
@@ -290,7 +292,7 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
             return;
         }
         if !password_fits(&p) {
-            error.set(Some(text::ACCOUNT_PASSWORD_LENGTH));
+            error.set(Some(text::account_password_length()));
             focus("account-password");
             return;
         }
@@ -311,26 +313,26 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
     };
     view! {
         <form class="form" novalidate on:submit=submit aria-labelledby="account-create-title">
-            <h3 id="account-create-title">{text::ACCOUNT_CREATE_TITLE}</h3>
+            <h3 id="account-create-title">{text::account_create_title()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="account-email">{text::ACCOUNT_EMAIL}</label>
+                    <label for="account-email">{text::account_email()}</label>
                     <input id="account-email" type="email" autocomplete="off" bind:value=email />
                 </div>
                 <div class="field">
-                    <label for="account-name">{text::ACCOUNT_NAME}</label>
+                    <label for="account-name">{text::account_name()}</label>
                     <input id="account-name" type="text" autocomplete="off" bind:value=name />
                 </div>
                 <div class="field">
-                    <label for="account-password">{text::ACCOUNT_PASSWORD}</label>
+                    <label for="account-password">{text::account_password()}</label>
                     <input id="account-password" type="password" autocomplete="new-password"
                         aria-describedby="account-password-hint" bind:value=password />
                 </div>
             </div>
-            <p id="account-password-hint" class="hint">{text::ACCOUNT_PASSWORD_HINT}</p>
+            <p id="account-password-hint" class="hint">{text::account_password_hint()}</p>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::ACCOUNT_CREATE}</button>
+                <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::account_create()}</button>
             </div>
         </form>
     }

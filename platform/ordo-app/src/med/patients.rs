@@ -234,7 +234,7 @@ pub fn PatientsView(
     let mut master_parts = vec![
         Part {
             key: LIST_PART,
-            label: text::PATIENTS_TAB.to_owned(),
+            label: text::patients_tab().to_owned(),
             short: None,
             column: Column::Start,
             content: view! {
@@ -246,7 +246,7 @@ pub fn PatientsView(
         },
         Part {
             key: "register",
-            label: text::REGISTER_TAB.to_owned(),
+            label: text::register_tab().to_owned(),
             short: None,
             column: Column::Start,
             content: view! { <RegisterForm core revision nav register /> }.into_any(),
@@ -256,8 +256,8 @@ pub fn PatientsView(
     if scope == Scope::Uhs {
         master_parts.push(Part {
             key: "staff",
-            label: text::STAFF_REQUEST_TAB.to_owned(),
-            short: Some(text::STAFF_REQUEST_SHORT.to_owned()),
+            label: text::staff_request_tab().to_owned(),
+            short: Some(text::staff_request_short().to_owned()),
             column: Column::Start,
             content: view! {
                 <crate::med::staffing::StaffRequestPanel core revision uhs=Signal::from(working.0) />
@@ -278,8 +278,8 @@ pub fn PatientsView(
             <div class="detail">
                 {move || match (record.get(), visible.get()) {
                     (Some(tag), true) => view! { <PatientRecord core revision nav tag register records /> }.into_any(),
-                    (Some(_), false) => view! { <section class="card"><p class="notice">{text::CREW_NOT_HELD}</p></section> }.into_any(),
-                    (None, _) => view! { <section class="card"><p>{text::CHOOSE_PATIENT}</p></section> }.into_any(),
+                    (Some(_), false) => view! { <section class="card"><p class="notice">{text::crew_not_held()}</p></section> }.into_any(),
+                    (None, _) => view! { <section class="card"><p>{text::choose_patient()}</p></section> }.into_any(),
                 }}
             </div>
         </div>
@@ -413,13 +413,13 @@ fn UhsChooser(core: Handle, revision: RwSignal<u64>, working: WorkingUhs) -> imp
     });
     view! {
         <div class="uhs-chooser">
-            <label for="working-uhs"><crate::shell::ui::Icon name="tent" /> {text::WORKING_UHS}</label>
+            <label for="working-uhs"><crate::shell::ui::Icon name="tent" /> {text::working_uhs()}</label>
             <select id="working-uhs" on:change=move |ev| {
                 let value = event_target_value(&ev);
                 core::set_preference(WORKING_UHS_KEY, Some(&value));
                 working.0.set(value);
             }>
-                <option value="" selected=move || working.0.get().is_empty()>{text::ALL_UHS}</option>
+                <option value="" selected=move || working.0.get().is_empty()>{text::all_uhs()}</option>
                 {move || list.get().into_iter().map(|u| {
                     let id = u.id.clone();
                     let chosen = u.id.clone();
@@ -444,10 +444,10 @@ pub(crate) fn holder_options(
     };
     view! {
         {(!uhs.is_empty()).then(|| view! {
-            <optgroup label=text::HOLDERS_UHS>{uhs.into_iter().map(option).collect_view()}</optgroup>
+            <optgroup label=text::holders_uhs()>{uhs.into_iter().map(option).collect_view()}</optgroup>
         })}
         {(!units.is_empty()).then(|| view! {
-            <optgroup label=text::HOLDERS_UNITS>{units.into_iter().map(option).collect_view()}</optgroup>
+            <optgroup label=text::holders_units()>{units.into_iter().map(option).collect_view()}</optgroup>
         })}
     }
 }
@@ -539,8 +539,8 @@ fn RegisterForm(
                 p.tag.clone(),
                 text::tag_in_use(
                     &p.tag,
-                    &core::holder_name(core, &p.holder()),
-                    &core::clock(since),
+                    core::holder_name(core, &p.holder()),
+                    core::clock(since),
                 ),
             ))
         })
@@ -587,10 +587,10 @@ fn RegisterForm(
     };
     view! {
         <section aria-labelledby="register-title" class="card">
-            <h2 id="register-title">{text::REGISTER_TITLE}</h2>
+            <h2 id="register-title">{text::register_title()}</h2>
             {move || {
                 if list.with(Vec::is_empty) {
-                    return view! { <p class="notice">{text::NO_UHS}</p> }.into_any();
+                    return view! { <p class="notice">{text::no_uhs()}</p> }.into_any();
                 }
                 view! {
                     <form on:submit=submit class="form">
@@ -599,11 +599,11 @@ fn RegisterForm(
                                 <p>{text::register_from_case(&c.place, &c.unit)}</p>
                                 <button type="button" class="button button--small button--quiet"
                                     on:click=move |_| if let Some(case) = case { case.set(None) }>
-                                    {text::CASE_CANCEL}
+                                    {text::case_cancel()}
                                 </button>
                             </div>
                         })}
-                        <label for="tag">{text::REGISTER_TAG}</label>
+                        <label for="tag">{text::register_tag()}</label>
                         <input id="tag" type="text" inputmode="numeric" autocomplete="off" required bind:value=tag class="input--code"
                             aria-invalid=move || in_use.with(Option::is_some).then_some("true")
                             aria-describedby="tag-in-use" />
@@ -617,12 +617,12 @@ fn RegisterForm(
                                         ev.prevent_default();
                                         nav.go(route.clone());
                                         after_render(|| focus("record-title"));
-                                    }>{text::ACTION_OPEN_RECORD}</a>
+                                    }>{text::action_open_record()}</a>
                                 }
                             })}
                         </p>
                         <fieldset class="choices">
-                            <legend>{text::REGISTER_CATEGORY}</legend>
+                            <legend>{text::register_category()}</legend>
                             {CATEGORIES
                                 .into_iter()
                                 .map(|c| {
@@ -642,14 +642,14 @@ fn RegisterForm(
                                 .collect_view()}
                         </fieldset>
                         <TriageAid id="triage-algorithm" />
-                        <label for="uhs">{text::REGISTER_UHS}</label>
+                        <label for="uhs">{text::register_uhs()}</label>
                         <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
                             <option value="" selected=move || uhs.get().is_empty()>{text::uhs_choose()}</option>
                             {holder_options(list.get(), uhs)}
                         </select>
-                        <PlaceSelect id="register-place" free=free_places place hint=text::REGISTER_PLACE_HINT />
+                        <PlaceSelect id="register-place" free=free_places place hint=text::register_place_hint() />
                         <p role="alert" class="error">{move || error.get()}</p>
-                        <button type="submit" class="button button--primary">{text::REGISTER_SUBMIT}</button>
+                        <button type="submit" class="button button--primary">{text::register_submit()}</button>
                     </form>
                 }
                 .into_any()
@@ -659,12 +659,12 @@ fn RegisterForm(
                     let route = record_route(&tag);
                     view! {
                         <p class="notice">
-                            {text::patient_title(&tag)} " " {text::REGISTERED} " "
+                            {text::patient_title(&tag)} " " {text::registered_word()} " "
                             <a href=route.to_path() on:click=move |ev| {
                                 ev.prevent_default();
                                 nav.go(route.clone());
                                 after_render(|| focus("record-title"));
-                            }>{text::ACTION_OPEN_RECORD}</a>
+                            }>{text::action_open_record()}</a>
                         </p>
                     }
                 })
@@ -736,14 +736,14 @@ pub(crate) fn PlaceSelect(
     view! {
         <Show when=move || free.with(|f| !f.is_empty())>
             <div class="field">
-                <label for=id.clone()>{text::PLACE}</label>
+                <label for=id.clone()>{text::place()}</label>
                 <select id=id.clone() aria-describedby=hint_id.clone()
                     on:change=move |ev| place.set(event_target_value(&ev)) prop:value=move || place.get()>
-                    <option value="" selected=move || place.get().is_empty()>{text::NO_PLACE}</option>
+                    <option value="" selected=move || place.get().is_empty()>{text::no_place()}</option>
                     {move || {
                         let places = free.get().into_iter().map(|p| (p.category, p.id, p.label, None)).collect();
                         by_category(places).into_iter().map(|(category, places)| view! {
-                            <optgroup label=category.map_or(text::PLACES_ANY, text::label)>
+                            <optgroup label=category.map_or(text::places_any(), text::label)>
                                 {places.into_iter().map(|(id, label, _)| {
                                     let chosen = id.clone();
                                     view! { <option value=id selected=move || place.get() == chosen>{label}</option> }
@@ -880,17 +880,17 @@ fn PatientLink(card: Card, nav: Nav, selected: Signal<Option<String>>) -> impl I
                     <TriageBadge category=card.category />
                     {card.priority.map(|label| view! { <PriorityBadge label /> })}
                 </span>
-                <span class="patient-card__name">{card.name.unwrap_or_else(|| text::UNKNOWN_PERSON.to_owned())}</span>
+                <span class="patient-card__name">{card.name.unwrap_or_else(|| text::unknown_person().to_owned())}</span>
                 {card.handover.map(|h| view! {
                     <span class="patient-card__handover"><crate::shell::ui::Icon name="arrow-right-left" />{h}</span>
                 })}
                 {card.twice.then(|| view! {
-                    <span class="patient-card__warning"><Icon name="triangle-alert" />{text::TAG_TWICE}</span>
+                    <span class="patient-card__warning"><Icon name="triangle-alert" />{text::tag_twice()}</span>
                 })}
                 <span class="patient-card__meta">
                     {place.map(|p| view! { <span class="patient-card__place">{p}</span> " · " })}
                     {card.uhs} " · " {text::triage_count(card.triages)} " · "
-                    <span class="patient-card__state">{if card.pending { text::NOT_SENT } else { text::SENT }}</span>
+                    <span class="patient-card__state">{if card.pending { text::not_sent() } else { text::sent_label() }}</span>
                 </span>
             </a>
     }
@@ -951,8 +951,8 @@ fn PatientList(
                             None => names.get(&p.uhs).cloned().unwrap_or_else(|| p.uhs.clone()),
                         },
                         handover: p.handover.as_ref().map(|h| match &h.to {
-                            Some(to) => text::handover_open_to(&core::holder_name(core, to)),
-                            None => text::HANDOVER_OPEN_QUICK.to_owned(),
+                            Some(to) => text::handover_open_to(core::holder_name(core, to)),
+                            None => text::handover_open_quick().to_owned(),
                         }),
                         twice: !p.registered_again.is_empty(),
                         triages: p.history.len(),
@@ -1041,10 +1041,10 @@ fn PatientList(
     };
     view! {
         <section aria-labelledby="board-title" class="card">
-            <h2 id="board-title">{text::PATIENTS_TITLE}</h2>
+            <h2 id="board-title">{text::patients_title()}</h2>
             {move || {
                 if cards.with(Vec::is_empty) {
-                    return view! { <p>{text::BOARD_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::board_empty()}</p> }.into_any();
                 }
                 if let Some((zones, waiting, writable)) = board.get() {
                     return view! { <PlacesBoard core revision nav selected zones waiting writable filling /> }.into_any();
@@ -1137,7 +1137,7 @@ fn PlacesBoard(
                                                         on:click=move |_| filling.update(|f| {
                                                             *f = if f.as_deref() == Some(toggle_id.as_str()) { None } else { Some(toggle_id.clone()) };
                                                         })>
-                                                        <crate::shell::ui::Icon name="plus" />{text::PLACE_FILL}
+                                                        <crate::shell::ui::Icon name="plus" />{text::place_fill_label()}
                                                     </button>
                                                     <ul id=list_id.clone() class="place-tile__choices" aria-label=text::place_fill(&label)
                                                         hidden=move || !open_too()>
@@ -1162,7 +1162,7 @@ fn PlacesBoard(
                                             view! {
                                                 <li class="place-tile place-tile--free" data-place=place.id.clone()>
                                                     <span class="place-tile__label">{place.label.clone()}</span>
-                                                    <span class="place-tile__patient">{text::PLACE_FREE}</span>
+                                                    <span class="place-tile__patient">{text::place_free()}</span>
                                                     {fill}
                                                 </li>
                                             }
@@ -1179,7 +1179,7 @@ fn PlacesBoard(
             {(waiting_count > 0).then(|| view! {
                 <div class="place-plan__zone place-plan__waiting">
                     <h3 class="place-plan__zone-title">
-                        <span>{text::PLACE_NONE_TITLE}</span>
+                        <span>{text::place_none_title()}</span>
                         <span class="place-plan__free">{text::patient_count(waiting_count)}</span>
                     </h3>
                     <ul class="patient-list" data-keys="list">
@@ -1232,14 +1232,14 @@ fn PatientRecord(
             nav.go(back.clone());
             after_render(|| focus("board-title"));
         }>
-            <span aria-hidden="true">"←"</span>{text::ALL_PATIENTS}
+            <span aria-hidden="true">"←"</span>{text::all_patients()}
         </a>
     };
     if !exists() {
         return view! {
             <section class="card record">
                 {back_link}
-                <p class="notice">{text::NOT_FOUND}</p>
+                <p class="notice">{text::not_found()}</p>
             </section>
         }
         .into_any();
@@ -1255,9 +1255,9 @@ fn PatientRecord(
         })
     };
     let sections: Vec<(String, String)> = [
-        ("section-photo".to_owned(), text::PHOTO_TITLE.to_owned()),
-        ("section-triage".to_owned(), text::TRIAGE_TITLE.to_owned()),
-        ("section-orders".to_owned(), text::ORDERS.to_owned()),
+        ("section-photo".to_owned(), text::photo_title().to_owned()),
+        ("section-triage".to_owned(), text::triage_title().to_owned()),
+        ("section-orders".to_owned(), text::orders().to_owned()),
     ]
     .into_iter()
     .chain(
@@ -1292,7 +1292,7 @@ fn PatientRecord(
                     <p class="notice record__read-only" role="note">{text::record_read_only(&uhs)}</p>
                 })}
                 <crate::med::handover::HandoverNotice core revision tag=t_notice register />
-                <TabList id="record" label=text::RECORD_TABS tabs=crate::med::record::tabs() chosen />
+                <TabList id="record" label=text::record_tabs() tabs=crate::med::record::tabs() chosen />
             </header>
             <Show when=writable>
                 <crate::med::record::QuickActions chosen />
@@ -1307,8 +1307,8 @@ fn PatientRecord(
                 // The way to each section, folded: the quick actions and the overview's tiles
                 // lead to the sections too, so this is not seen first (calmer record).
                 <details class="record__index">
-                    <summary>{text::SECTIONS}</summary>
-                    <nav aria-label=text::SECTIONS>
+                    <summary>{text::sections()}</summary>
+                    <nav aria-label=text::sections()>
                         {sections
                             .into_iter()
                             .map(|(id, label)| {
@@ -1397,7 +1397,7 @@ fn StaySection(
         move |ev: leptos::ev::SubmitEvent| {
             ev.prevent_default();
             let Some(chosen) = Outcome::from_id(&outcome.get_untracked()) else {
-                message.set(Some(text::DISCHARGE_CHOOSE));
+                message.set(Some(text::discharge_choose()));
                 return;
             };
             let discharge = Discharged {
@@ -1418,7 +1418,7 @@ fn StaySection(
         move || {
             let tag = tag.clone();
             vec![Action {
-                text: text::READMIT,
+                text: text::readmit(),
                 label: text::readmit_label(&tag),
                 quiet: false,
                 run: Callback::new(move |()| {
@@ -1435,7 +1435,7 @@ fn StaySection(
     let (submit, options) = (StoredValue::new(submit), StoredValue::new(options));
     view! {
         <section class="record__section" aria-labelledby="section-stay">
-            <h3 id="section-stay" tabindex="-1">{text::DISCHARGE_TITLE}</h3>
+            <h3 id="section-stay" tabindex="-1">{text::discharge_title()}</h3>
             <ol class="history">
                 {move || {
                     // Also when names arrive (ORG-7).
@@ -1446,8 +1446,8 @@ fn StaySection(
                             .map(|(p, i, e)| {
                                 let what = crate::med::record::stay_words(core, p, i, e);
                                 let when = text::by_at(
-                                    &crate::shell::profile::display_name(core, &e.by),
-                                    &core::clock(e.at.wall_ms),
+                                    crate::shell::profile::display_name(core, &e.by),
+                                    core::clock(e.at.wall_ms),
                                 );
                                 view! { <li>{what} " · " {when}</li> }
                             })
@@ -1459,15 +1459,15 @@ fn StaySection(
                 when=move || present.get()
                 fallback=move || view! { <Actions actions=readmit() /> }
             >
-                <SectionInputs id="section-stay" open_text=text::STAY_OPEN>
+                <SectionInputs id="section-stay" open_text=text::stay_open()>
                 <form class="form stay-form" novalidate on:submit=submit.get_value()>
-                    <RadioChips legend=text::DISCHARGE_OUTCOME name="discharge-outcome" options=options.get_value() value=outcome />
+                    <RadioChips legend=text::discharge_outcome() name="discharge-outcome" options=options.get_value() value=outcome />
                     {move || {
                         (outcome.get() == Outcome::Transported.id())
                             .then(|| transport.get())
                             .flatten()
                             .map(|t| view! {
-                                <p class="hint">{text::discharge_transport(&crate::med::transports::transport_line(&t))}</p>
+                                <p class="hint">{text::discharge_transport(crate::med::transports::transport_line(&t))}</p>
                             })
                     }}
                     <p class="error" role="alert">{move || message.get()}</p>
@@ -1495,13 +1495,13 @@ fn TriageAid(id: &'static str) -> impl IntoView {
     view! {
         <div class="triage-aid">
             <div class="field">
-                <label for=id>{text::TRIAGE_WITH}</label>
+                <label for=id>{text::triage_with_label()}</label>
                 <select id=id prop:value=move || chosen.get() on:change=move |ev| {
                     let value = event_target_value(&ev);
                     core::set_triage_algorithm(&value);
                     chosen.set(value);
                 }>
-                    <option value="">{text::TRIAGE_WITH_NONE}</option>
+                    <option value="">{text::triage_with_none()}</option>
                     {TRIAGE
                         .algorithms
                         .iter()
@@ -1515,7 +1515,7 @@ fn TriageAid(id: &'static str) -> impl IntoView {
                 class="triage-aid__help"
                 button_class="button button--small button--quiet"
                 panel_class="triage-aid__panel"
-                button=Box::new(|| view! { {text::TRIAGE_AID} }.into_any())
+                button=Box::new(|| view! { {text::triage_aid()} }.into_any())
             >
                 <ul class="triage-aid__list">
                     {TRIAGE
@@ -1526,12 +1526,12 @@ fn TriageAid(id: &'static str) -> impl IntoView {
                                 <strong>{a.name.clone()}</strong>
                                 {a.description.clone().map(|d| format!(" – {d}"))}
                                 <br />{text::triage_stage(a.stage)} " · " {a.publisher.clone()} " · " {a.edition.clone()}
-                                <br /><a href=a.url.clone() target="_blank" rel="noopener noreferrer">{text::TRIAGE_SOURCE}</a>
+                                <br /><a href=a.url.clone() target="_blank" rel="noopener noreferrer">{text::triage_source()}</a>
                             </li>
                         })
                         .collect_view()}
                 </ul>
-                <p class="hint">{text::TRIAGE_AID_NOTE}</p>
+                <p class="hint">{text::triage_aid_note()}</p>
             </crate::shell::ui::Disclosure>
         </div>
     }
@@ -1653,8 +1653,8 @@ fn PhotoSection(
             records.with(|r| {
                 r.get(&tag).and_then(|r| r.photo()).map(|p| {
                     text::photo_taken(
-                        &core::clock(p.at.wall_ms),
-                        &crate::shell::profile::display_name(core, &p.by),
+                        core::clock(p.at.wall_ms),
+                        crate::shell::profile::display_name(core, &p.by),
                     )
                 })
             })
@@ -1663,7 +1663,7 @@ fn PhotoSection(
     let remove_tag = tag.clone();
     view! {
         <section class="record__section" aria-labelledby="section-photo">
-            <h3 id="section-photo" tabindex="-1">{text::PHOTO_TITLE}</h3>
+            <h3 id="section-photo" tabindex="-1">{text::photo_title()}</h3>
             {move || match source.get() {
                 Some((_, kind, src)) => view! {
                     <img class="photo" src=src alt=alt.clone()
@@ -1671,21 +1671,21 @@ fn PhotoSection(
                     <p class="photo__caption">{caption.clone()}</p>
                     {match kind {
                         PhotoKind::Full => None,
-                        PhotoKind::Loading => Some(view! { <p class="hint">{text::PHOTO_PREVIEW_LOADING}</p> }),
-                        PhotoKind::Unavailable => Some(view! { <p class="hint">{text::PHOTO_PREVIEW_UNAVAILABLE}</p> }),
+                        PhotoKind::Loading => Some(view! { <p class="hint">{text::photo_preview_loading()}</p> }),
+                        PhotoKind::Unavailable => Some(view! { <p class="hint">{text::photo_preview_unavailable()}</p> }),
                     }}
                 }
                 .into_any(),
-                None => view! { <p>{text::PHOTO_NONE}</p> }.into_any(),
+                None => view! { <p>{text::photo_none()}</p> }.into_any(),
             }}
-            <p class="hint" id="photo-purpose">{text::PHOTO_PURPOSE}</p>
+            <p class="hint" id="photo-purpose">{text::photo_purpose()}</p>
             <div class="row">
                 <input id="photo-camera" class="file-input visually-hidden" type="file" accept="image/*" capture="environment"
                     aria-describedby="photo-purpose" on:change=on_file.clone() />
-                <label for="photo-camera" class="button button--with-icon"><Icon name="camera" />{text::PHOTO_TAKE}</label>
+                <label for="photo-camera" class="button button--with-icon"><Icon name="camera" />{text::photo_take()}</label>
                 <input id="photo-upload" class="file-input visually-hidden" type="file" accept="image/*"
                     aria-describedby="photo-purpose" on:change=on_file />
-                <label for="photo-upload" class="button button--with-icon"><Icon name="upload" />{text::PHOTO_UPLOAD}</label>
+                <label for="photo-upload" class="button button--with-icon"><Icon name="upload" />{text::photo_upload()}</label>
                 // [impl->dsn~patient-photo~3]
                 // [impl->dsn~icon-rules~1]
                 // A trash icon; removed at once, with undo instead of a question.
@@ -1703,12 +1703,12 @@ fn PhotoSection(
                                     });
                                 }
                             }>
-                            <Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::PHOTO_REMOVE_SHORT}</span>
+                            <Icon name="trash-2" /><span class="icon-button__word" aria-hidden="true">{text::photo_remove_short()}</span>
                         </button>
                     }
                 })}
             </div>
-            <p role="status" class="hint">{move || busy.get().then_some(text::PHOTO_BUSY)}</p>
+            <p role="status" class="hint">{move || busy.get().then_some(text::photo_busy())}</p>
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
     }
@@ -1753,15 +1753,15 @@ fn TriageSection(
     };
     view! {
         <section class="record__section" aria-labelledby="section-triage">
-            <h3 id="section-triage" tabindex="-1">{text::TRIAGE_TITLE}</h3>
+            <h3 id="section-triage" tabindex="-1">{text::triage_title()}</h3>
             {
                 let current = current.clone();
                 move || current().map(|category| view! { <p><TriageBadge category /></p> })
             }
-            <SectionInputs id="section-triage" open_text=text::TRIAGE_OPEN>
+            <SectionInputs id="section-triage" open_text=text::triage_open()>
             <TriageAid id="retriage-algorithm" />
             <fieldset class="choices">
-                <legend>{text::RETRIAGE_TO}</legend>
+                <legend>{text::retriage_to()}</legend>
                 {CATEGORIES
                     .into_iter()
                     .map(|c| {
@@ -1785,7 +1785,7 @@ fn TriageSection(
             </fieldset>
             <TransportPriority core revision tag=tag.clone() />
             </SectionInputs>
-            <h4>{text::TRIAGE_HISTORY}</h4>
+            <h4>{text::triage_history()}</h4>
             <ol class="history">
                 {move || {
                     state()
@@ -1865,15 +1865,15 @@ fn PlaceChoice(core: Handle, revision: RwSignal<u64>, tag: String) -> impl IntoV
         };
         view! {
             <div class="field place-choice">
-                <label for="place">{text::PLACE}</label>
+                <label for="place">{text::place()}</label>
                 <select id="place" on:change=change>
-                    <option value="" selected=current.is_none()>{text::NO_PLACE}</option>
+                    <option value="" selected=current.is_none()>{text::no_place()}</option>
                     // The triage category first, its places under it (feedback of
                     // 2026-11-19); places kept for no category last.
                     {by_category(options)
                         .into_iter()
                         .map(|(category, places)| {
-                            let group = category.map_or(text::PLACES_ANY, text::label);
+                            let group = category.map_or(text::places_any(), text::label);
                             let current = current.clone();
                             view! {
                                 <optgroup label=group>
@@ -1960,7 +1960,7 @@ fn TransportPriority(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
         let tag = tag.clone();
         view! {
             <fieldset class="choices transport-priority">
-                <legend>{text::TRANSPORT_PRIORITY}</legend>
+                <legend>{text::transport_priority()}</legend>
                 {current.clone().map(|level| view! { <p><PriorityBadge label=priority_label(&level) /></p> })}
                 {TRANSPORT_PRIORITY
                     .levels
@@ -1983,7 +1983,7 @@ fn TransportPriority(core: Handle, revision: RwSignal<u64>, tag: String) -> impl
                         <button type="button" class="button button--small"
                             aria-label=text::remove_priority_label(&tag)
                             on:click=move |_| set(tag.clone(), None)>
-                            {text::REMOVE_PRIORITY}
+                            {text::remove_priority()}
                         </button>
                     }
                 })}
@@ -2030,7 +2030,7 @@ fn FormSection(
                             })
                             .collect();
                         if facts.is_empty() {
-                            return view! { <p class="hint">{text::NOTHING_DOCUMENTED}</p> }.into_any();
+                            return view! { <p class="hint">{text::nothing_documented()}</p> }.into_any();
                         }
                         view! { <Facts facts /> }.into_any()
                     }
@@ -2039,7 +2039,7 @@ fn FormSection(
                             .map(|r| r.entries.get(&form.id).cloned().unwrap_or_default())
                             .unwrap_or_default();
                         if entries.is_empty() {
-                            return view! { <p class="hint">{text::NOTHING_DOCUMENTED}</p> }.into_any();
+                            return view! { <p class="hint">{text::nothing_documented()}</p> }.into_any();
                         }
                         let corrected = entries.iter().filter(|e| e.replaced_by.is_some()).count();
                         view! {
@@ -2076,7 +2076,7 @@ fn FormSection(
     };
     let (open_icon, open_text) = match form.kind {
         FormKind::Snapshot => ("pencil", text::edit()),
-        FormKind::Series => ("plus", text::NEW_ENTRY),
+        FormKind::Series => ("plus", text::new_entry()),
     };
     let opener_id = opener.clone();
     view! {
@@ -2221,14 +2221,13 @@ fn EntryView(
             let value = entry.values.get(&f.id).filter(|v| !v.is_empty());
             if crate::med::orders::is_ordered_by(&form.id, &f.id) {
                 let shown = match (&from_order, value) {
-                    (Some((giver, at)), _) => text::ordered_by_order(
-                        &crate::shell::profile::display_text(core, giver),
-                        at,
-                    ),
+                    (Some((giver, at)), _) => {
+                        text::ordered_by_order(crate::shell::profile::display_text(core, giver), at)
+                    }
                     (None, Some(v)) => format!(
                         "{} – {}",
                         crate::shell::profile::display_text(core, &f.display(v)),
-                        text::ORDERED_BY_NO_ORDER
+                        text::ordered_by_no_order()
                     ),
                     (None, None) => return None,
                 };
@@ -2251,12 +2250,12 @@ fn EntryView(
                     let by = entry.by.clone();
                     move || crate::shell::profile::display_name(core, &by)
                 })}
-                {corrected.then(|| view! { " · " <em>{text::CORRECTED}</em> })}
+                {corrected.then(|| view! { " · " <em>{text::corrected()}</em> })}
             </p>
             <Facts facts />
             {(!corrected).then(|| view! {
-                <crate::shell::ui::IconButton icon="pencil" word=text::CORRECT
-                    label=format!("{}: {} {}", text::CORRECT, form.label, time)
+                <crate::shell::ui::IconButton icon="pencil" word=text::correct()
+                    label=format!("{}: {} {}", text::correct(), form.label, time)
                     on_click=Callback::new(move |()| editing.set(Some(Mode::Correct(id.clone())))) />
             })}
         </li>
@@ -2398,7 +2397,7 @@ fn EntryEditor(
                             .map(|(id, e)| (id.clone(), text::value_error(e)))
                             .collect(),
                     );
-                    message.set(Some(text::CHECK_INPUT));
+                    message.set(Some(text::check_input()));
                     if let Some((id, _)) = problems.first() {
                         focus(&format!("f-{}-{id}", form.id));
                     }
@@ -2406,8 +2405,8 @@ fn EntryEditor(
                 Ok(clean) if clean.is_empty() => {
                     errors.set(BTreeMap::new());
                     message.set(Some(match mode {
-                        Mode::Edit => text::NO_CHANGES,
-                        _ => text::EMPTY_ENTRY,
+                        Mode::Edit => text::no_changes(),
+                        _ => text::empty_entry(),
                     }));
                 }
                 Ok(clean) => {
@@ -2428,7 +2427,7 @@ fn EntryEditor(
                         text::entry_saved(&form.label, &tag),
                     ) {
                         Ok(()) => close(),
-                        Err(_) => message.set(Some(text::CHECK_INPUT)),
+                        Err(_) => message.set(Some(text::check_input())),
                     }
                 }
             }
@@ -2497,7 +2496,7 @@ fn FieldInput(
             let now = (field.field_type == FieldType::Time).then(|| {
                 view! {
                     <button type="button" class="button button--small" on:click=move |_| value.set(Value::One(core::now_clock()))>
-                        {text::NOW}
+                        {text::now()}
                     </button>
                 }
             });
@@ -2532,7 +2531,7 @@ fn FieldInput(
                     aria-describedby=format!("{note_id} {described}")
                     prop:value=text_value
                 />
-                <p id=note_id class="hint">{text::ORDERED_BY_FROM_ORDER}</p>
+                <p id=note_id class="hint">{text::ordered_by_from_order()}</p>
             }
             .into_any()
         }
@@ -2573,7 +2572,7 @@ fn FieldInput(
         }
         .into_any(),
         FieldType::Choice => {
-            let options = std::iter::once((String::new(), text::NO_ANSWER.to_owned())).chain(
+            let options = std::iter::once((String::new(), text::no_answer().to_owned())).chain(
                 field
                     .options
                     .iter()
@@ -2634,7 +2633,7 @@ fn FieldInput(
                 };
                 view! {
                     <div class="field choices__other">
-                        <label for=other_id.clone()>{text::OTHER_ANSWER}</label>
+                        <label for=other_id.clone()>{text::other_answer()}</label>
                         <input id=other_id type="text" autocomplete="off" maxlength=ordo_med_patients::record::MAX_OTHER_CHARS.to_string() prop:value=current on:input=set />
                     </div>
                 }

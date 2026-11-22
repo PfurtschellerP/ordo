@@ -146,13 +146,17 @@ fn file_name(path: &Path) -> String {
         .to_owned()
 }
 
-/// The variables in the order the comment names them (`Variables: $a, $b`), which must be
+/// The variables in the order the comment names them (`Variables: $a, $b`, anywhere in a
+/// comment line), which must be
 /// exactly those used; else in the order they first appear.
 fn ordered(comment: Option<&ast::Comment<&str>>, found: &[String]) -> Result<Vec<String>, String> {
     let named = comment.and_then(|c| {
         c.content
             .iter()
-            .find_map(|line| line.trim().strip_prefix("Variables:"))
+            .find_map(|line| {
+                line.find("Variables:")
+                    .map(|at| &line[at + "Variables:".len()..])
+            })
             .map(|list| {
                 list.split(',')
                     .map(|v| v.trim().trim_start_matches('$').to_owned())

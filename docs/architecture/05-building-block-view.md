@@ -1610,10 +1610,9 @@ Tags: should, m6
 Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `ordo serve`
 (`ORDO_APP_DIR`). Prototype workspaces: Med (registration, UHS board) and command
 (patient counts), resources, the patient care record (`patients.rs`) and the command
-palette (`palette.rs`). Texts in German (DE profile): the shell's in `text.rs`, each
-package's and the shared modules' in their own `text.rs`, which re-exports the layer below
-(so a package writes `text::…` for all it may use). They move to Fluent files part by part
-(*UI texts*).
+palette (`palette.rs`). Texts are Fluent files per part (*UI texts*); each part's
+`text.rs` holds the functions the build writes for its messages and re-exports the layer
+below (so a package writes `text::…` for all it may use).
 
 #### UI texts
 `dsn~ui-texts~1`

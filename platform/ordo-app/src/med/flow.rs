@@ -119,7 +119,7 @@ pub(crate) fn stations(
             Stay::Admitted => {
                 out.push(station(
                     &holder,
-                    edge(text::READMITTED_STEP.to_owned(), *at),
+                    edge(text::readmitted_step().to_owned(), *at),
                     Vec::new(),
                 ));
             }
@@ -127,7 +127,7 @@ pub(crate) fn stations(
                 holder = Holder::Uhs(to.clone());
                 out.push(station(
                     &holder,
-                    edge(text::FLOW_MOVED.to_owned(), *at),
+                    edge(text::flow_moved().to_owned(), *at),
                     Vec::new(),
                 ));
             }
@@ -145,9 +145,9 @@ pub(crate) fn stations(
                 };
                 holder = to.clone();
                 let what = if quick {
-                    text::HANDOVER_QUICK_STEP
+                    text::handover_quick_step()
                 } else {
-                    text::FLOW_HANDOVER
+                    text::flow_handover()
                 };
                 out.push(station(
                     &holder,
@@ -170,8 +170,8 @@ pub(crate) fn stations(
                 out.push(Station {
                     kind: Kind::Left,
                     title: receiver.clone(),
-                    lines: vec![text::FLOW_OUTSIDE.to_owned()],
-                    edge: edge(text::FLOW_HANDOVER.to_owned(), *at),
+                    lines: vec![text::flow_outside().to_owned()],
+                    edge: edge(text::flow_handover().to_owned(), *at),
                     state: State::Past,
                 });
             }
@@ -187,11 +187,11 @@ pub(crate) fn stations(
         out.push(Station {
             kind: to.as_ref().map_or(Kind::Uhs, Kind::of),
             title: to.as_ref().map_or_else(
-                || text::FLOW_QUICK_RECEIVER.to_owned(),
+                || text::flow_quick_receiver().to_owned(),
                 |h| (names.holder)(h),
             ),
-            lines: vec![text::FLOW_NOT_TAKEN.to_owned()],
-            edge: edge(text::FLOW_HANDOVER_OPEN.to_owned(), since),
+            lines: vec![text::flow_not_taken().to_owned()],
+            edge: edge(text::flow_handover_open().to_owned(), since),
             state: State::Open,
         });
     }
@@ -219,8 +219,8 @@ pub(crate) fn patient_stations(
             (
                 t.requested_at().wall_ms,
                 text::flow_transport(
-                    &crate::med::transports::transport_line(&t),
-                    &crate::med::transports::state_label(&t),
+                    crate::med::transports::transport_line(&t),
+                    crate::med::transports::state_label(&t),
                 ),
             )
         })
@@ -283,15 +283,15 @@ pub(crate) fn FlowChart(
                         <span class="flow__box" class:flow__box--left=s.kind == Kind::Left>
                             <span class="flow__title"><Icon name=s.kind.icon() />{s.title}</span>
                             {s.lines.into_iter().map(|l| view! { <span class="flow__line">{l}</span> }).collect_view()}
-                            {(s.state == State::Now).then(|| view! { <strong class="flow__now">{text::NOW}</strong> })}
+                            {(s.state == State::Now).then(|| view! { <strong class="flow__now">{text::now()}</strong> })}
                         </span>
                     </li>
                 }
             }).collect_view()}
             <Show when=move || next.get()>
                 <li class="flow__step flow__step--next">
-                    <span class="flow__edge"><span class="flow__edge-what">{text::FLOW_NEXT_EDGE}</span></span>
-                    <span class="flow__box"><span class="flow__title">"?"</span><span class="flow__line">{text::HANDOVER_NEXT}</span></span>
+                    <span class="flow__edge"><span class="flow__edge-what">{text::flow_next_edge()}</span></span>
+                    <span class="flow__box"><span class="flow__title">"?"</span><span class="flow__line">{text::handover_next()}</span></span>
                 </li>
             </Show>
         </ol>
@@ -353,14 +353,17 @@ mod tests {
         let transports = [(13, "RTW 2 → Klinikum".to_owned())];
         let s = stations(&stay, &crew, &transports, &names);
         let titles: Vec<&str> = s.iter().map(|s| s.title.as_str()).collect();
-        assert_eq!(titles, ["SanTrp 1", "UHS nord", text::FLOW_QUICK_RECEIVER]);
+        assert_eq!(
+            titles,
+            ["SanTrp 1", "UHS nord", text::flow_quick_receiver()]
+        );
         assert_eq!(s[0].lines, [text::flow_registered("10:00")]);
         assert_eq!(s[0].state, State::Past);
         // The arrow carries the handover's time, the box the taking.
         assert_eq!(
             s[1].edge,
             Some(Edge {
-                what: text::FLOW_HANDOVER.to_owned(),
+                what: text::flow_handover().to_owned(),
                 time: "11:00".into()
             })
         );
