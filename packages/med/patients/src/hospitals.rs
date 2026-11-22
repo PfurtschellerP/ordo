@@ -160,7 +160,7 @@ pub struct HospitalList {
 }
 
 impl HospitalList {
-    // [impl->dsn~hospital-list~1]
+    // [impl->dsn~hospital-list~2]
     /// Computes the list. The result doesn't depend on the order of `events`: the latest
     /// entry and the latest capacity of each hospital count (by clock); capacities for
     /// hospitals never added are ignored.
@@ -276,7 +276,7 @@ mod tests {
         event(n, CAPACITY_SET, c.encode().unwrap())
     }
 
-    // [utest->dsn~hospital-list~1]
+    // [utest->dsn~hospital-list~2]
     #[test]
     fn the_latest_entry_and_capacity_count_in_any_order() {
         let events = vec![
@@ -303,7 +303,7 @@ mod tests {
         assert_eq!(names, ["Klinikum Mitte (Haus A)", "Kreisklinik"]);
     }
 
-    // [utest->dsn~hospital-list~1]
+    // [utest->dsn~hospital-list~2]
     #[test]
     fn entries_need_a_name_and_known_departments() {
         let c = catalogue();

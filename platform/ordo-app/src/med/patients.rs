@@ -1230,7 +1230,7 @@ fn PatientRecord(
             .map(|f| (format!("section-{}", f.id), f.label.clone())),
     )
     .collect();
-    // [impl->dsn~record-overview~2]
+    // [impl->dsn~record-overview~3]
     // The page opens on the overview (EPCR-14); the tabs keep their input when switched.
     let chosen = RwSignal::new(crate::med::record::OVERVIEW);
     let filter = RwSignal::new(String::new());

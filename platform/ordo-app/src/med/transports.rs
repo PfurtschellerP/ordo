@@ -408,8 +408,9 @@ fn FreeUnits(board: Memo<TransportBoard>, units: Memo<UnitRegister>) -> impl Int
     }
 }
 
-// [impl->dsn~hospital-list~1]
-/// The hospitals of the incident with capacity and patients sent; adding and changing them.
+// [impl->dsn~hospital-list~2]
+/// The hospitals while the incident runs: their capacity, entered here, and the patients
+/// sent. The list itself is kept in *Vorbereitung – Einsatzmittel* ([`HospitalsSetup`]).
 #[component]
 fn HospitalBoard(
     core: Handle,
@@ -418,6 +419,41 @@ fn HospitalBoard(
     board: Memo<TransportBoard>,
 ) -> impl IntoView {
     let sent = Memo::new(move |_| board.with(TransportBoard::sent_to_hospitals));
+    view! {
+        <section aria-labelledby="hospitals-title" class="card">
+            <h2 id="hospitals-title">{text::HOSPITALS_TITLE}</h2>
+            {move || {
+                let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
+                if list.is_empty() {
+                    return view! { <p>{text::HOSPITALS_EMPTY} " " {text::HOSPITALS_WHERE}</p> }.into_any();
+                }
+                let sent = sent.get();
+                view! {
+                    <ul class="hospital-list" data-keys="list">
+                        {list
+                            .into_iter()
+                            .map(|hospital| {
+                                let n = sent.get(&hospital.entry.hospital).copied().unwrap_or(0);
+                                view! { <HospitalCard core revision hospital sent=n /> }
+                            })
+                            .collect_view()}
+                    </ul>
+                }
+                .into_any()
+            }}
+        </section>
+    }
+}
+
+// [impl->dsn~hospital-list~2]
+/// *Vorbereitung – Einsatzmittel*, tab *Kliniken*: the incident's hospitals, added here and
+/// changed in the list's edit dialog, as the units are.
+#[component]
+pub fn HospitalsSetup(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let hospitals = Memo::new(move |_| {
+        revision.track();
+        core.with_value(|c| HospitalList::from_events(&c.events(med::hospitals::COMPARTMENT)))
+    });
     // [impl->dsn~edit-dialog~3]
     // One dialog for the list; the hospital it shows changes only when its entry does.
     let editing = RwSignal::new(None::<String>);
@@ -433,22 +469,18 @@ fn HospitalBoard(
     });
     let close = Callback::new(move |()| editing.set(None));
     view! {
-        <section aria-labelledby="hospitals-title" class="card">
-            <h2 id="hospitals-title">{text::HOSPITALS_TITLE}</h2>
+        <section aria-labelledby="hospitals-setup-title" class="card">
+            <h2 id="hospitals-setup-title">{text::HOSPITALS_TITLE}</h2>
             {move || {
                 let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
                 if list.is_empty() {
                     return view! { <p>{text::HOSPITALS_EMPTY}</p> }.into_any();
                 }
-                let sent = sent.get();
                 view! {
                     <ul class="hospital-list" data-keys="list">
                         {list
                             .into_iter()
-                            .map(|hospital| {
-                                let n = sent.get(&hospital.entry.hospital).copied().unwrap_or(0);
-                                view! { <HospitalCard core revision hospital sent=n editing back /> }
-                            })
+                            .map(|hospital| view! { <HospitalEntryCard hospital editing back /> })
                             .collect_view()}
                     </ul>
                 }
@@ -466,6 +498,50 @@ fn HospitalBoard(
             <h3>{text::HOSPITAL_ADD}</h3>
             <HospitalForm core revision />
         </section>
+    }
+}
+
+/// What a hospital offers, in words.
+fn offers(entry: &HospitalSet) -> Vec<String> {
+    entry
+        .departments
+        .iter()
+        .map(|d| label(&HOSPITALS.departments, d))
+        .chain(
+            entry
+                .capabilities
+                .iter()
+                .map(|c| label(&HOSPITALS.capabilities, c)),
+        )
+        .collect()
+}
+
+/// One hospital's entry, with its button to the list's edit dialog.
+#[component]
+fn HospitalEntryCard(
+    hospital: Hospital,
+    /// The list's dialog: which hospital it edits, and the button to return to.
+    editing: RwSignal<Option<String>>,
+    back: RwSignal<String>,
+) -> impl IntoView {
+    let entry = hospital.entry;
+    let offers = offers(&entry);
+    let (id, name) = (entry.hospital.clone(), entry.name.clone());
+    let button = format!("hospital-edit-{}-button", core::slug(&id));
+    let chosen = id.clone();
+    view! {
+        <li class="hospital-card" data-hospital=id>
+            <div class="card-head">
+                <h3>{name.clone()}</h3>
+                <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::HOSPITAL_EDIT
+                    label=text::hospital_edit_label(&name)
+                    on_click=Callback::new(move |()| {
+                        back.set(button.clone());
+                        editing.set(Some(chosen.clone()));
+                    }) />
+            </div>
+            {(!offers.is_empty()).then(|| view! { <p>{offers.join(" · ")}</p> })}
+        </li>
     }
 }
 
@@ -491,45 +567,20 @@ fn capacity_line(core: Handle, hospital: &Hospital) -> String {
     }
 }
 
-/// One hospital: what it offers, its capacity and the patients sent; entering capacity,
-/// and its button to the list's edit dialog.
+/// One hospital while the incident runs: what it offers, its capacity and the patients
+/// sent; entering its capacity.
 #[component]
 fn HospitalCard(
     core: Handle,
     revision: RwSignal<u64>,
     hospital: Hospital,
     sent: usize,
-    /// The list's dialog: which hospital it edits, and the button to return to.
-    editing: RwSignal<Option<String>>,
-    back: RwSignal<String>,
 ) -> impl IntoView {
-    let entry = hospital.entry.clone();
-    let offers: Vec<String> = entry
-        .departments
-        .iter()
-        .map(|d| label(&HOSPITALS.departments, d))
-        .chain(
-            entry
-                .capabilities
-                .iter()
-                .map(|c| label(&HOSPITALS.capabilities, c)),
-        )
-        .collect();
-    let name = entry.name.clone();
-    let (id, title) = (entry.hospital.clone(), entry.name.clone());
-    let button = format!("hospital-edit-{}-button", core::slug(&id));
-    let chosen = id.clone();
+    let offers = offers(&hospital.entry);
+    let (id, title) = (hospital.entry.hospital.clone(), hospital.entry.name.clone());
     view! {
         <li class="hospital-card" data-hospital=id>
-            <div class="card-head">
-                <h3>{title}</h3>
-                <crate::shell::ui::EditButton id=button.clone() icon="pencil" word=text::HOSPITAL_EDIT
-                    label=text::hospital_edit_label(&name)
-                    on_click=Callback::new(move |()| {
-                        back.set(button.clone());
-                        editing.set(Some(chosen.clone()));
-                    }) />
-            </div>
+            <h3>{title}</h3>
             {(!offers.is_empty()).then(|| view! { <p>{offers.join(" · ")}</p> })}
             <p class="hospital-card__capacity">{crate::shell::profile::naming({
                 let hospital = hospital.clone();
@@ -726,7 +777,7 @@ fn AssignForm(
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let chosen = destination.get_untracked();
-        // [impl->dsn~hospital-list~1]
+        // [impl->dsn~hospital-list~2]
         let (shown, hospital) = hospitals.with_untracked(|h| match h.hospitals.get(&chosen) {
             Some(h) => (h.entry.name.clone(), Some(chosen.clone())),
             None => (other.get_untracked().trim().to_owned(), None),

@@ -39,7 +39,7 @@ pub struct View {
     pub tabs: &'static [PageTab],
 }
 
-// [impl->dsn~page-tabs~2]
+// [impl->dsn~page-tabs~3]
 /// A tab of a page: its key, its label, and the first place of the sections it holds.
 pub struct PageTab {
     /// Stable key, e.g. `helpers`.

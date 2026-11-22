@@ -80,7 +80,7 @@ fn entry_facts(
     facts
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The values of the fields the profile puts in the header (e.g. name, allergies).
 fn header_facts(record: Option<&record::Record>) -> Vec<(String, String)> {
     let Some(record) = record else {
@@ -155,7 +155,7 @@ fn Retag(
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The header of the record: tag, triage category, the profile's header fields, where
 /// the patient is and since when, the transport, and whether it is discharged.
 #[component]
@@ -279,11 +279,12 @@ pub(crate) fn RecordHeader(
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The quick actions: one per form the profile marks `quick`, then triage, photo and the
 /// handover. Each opens its input in *Dokumentation*, or the tab *Übergabe* (the tab shows
-/// first). In the page on wide screens; on phones the forms and the handover sit in the
-/// bottom bar, within thumb reach, and triage and photo stay in the page.
+/// first). In the page on wide screens; on phones a floating button *Erfassen* above the
+/// bottom bar opens the forms and the handover in a sheet, within thumb reach, and triage
+/// and photo stay in the page.
 #[component]
 pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
     let actions = move |bar: bool| {
@@ -321,36 +322,55 @@ pub(crate) fn QuickActions(chosen: RwSignal<&'static str>) -> impl IntoView {
             </button>
         }
     };
-    // The bottom bar exists once the shell is in the page.
-    let slot = RwSignal::new(None::<web_sys::Element>);
-    request_animation_frame(move || {
-        slot.set(
-            web_sys::window()
-                .and_then(|w| w.document())
-                .and_then(|d| d.get_element_by_id("bottom-bar")),
-        );
-        measure_bottom_bar();
-    });
-    // Its height depends on the words and the text size: measured again on resizing.
+    // The floating button sits above the bottom bar, whose height depends on the words and
+    // the text size: measured once it is there, and again on resizing.
+    request_animation_frame(measure_bottom_bar);
     let resized = window_event_listener(leptos::ev::resize, move |_| measure_bottom_bar());
     on_cleanup(move || resized.remove());
+    let open = RwSignal::new(false);
+    let close = move || {
+        open.set(false);
+        crate::shell::views::focus("quick-sheet-button");
+    };
     view! {
         <nav class="quick-actions quick-actions--page" aria-label=text::QUICK_ACTIONS>
             {actions(false)}
         </nav>
-        {move || slot.get().map(|mount| view! {
-            <leptos::portal::Portal mount>
-                <nav class="quick-actions quick-actions--bar" aria-label=text::QUICK_ACTIONS>
-                    {actions(true)}
-                </nav>
-            </leptos::portal::Portal>
-        })}
+        // [impl->dsn~record-overview~3]
+        // On phones: the bottom bar stays as on every page; the forms and the handover open
+        // from one floating button (feedback of 2026-11-22).
+        <div class="quick-sheet" on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+            if ev.key() == "Escape" && open.get_untracked() {
+                ev.prevent_default();
+                close();
+            }
+        }>
+            <nav id="quick-sheet-panel" class="quick-actions quick-actions--sheet" aria-label=text::QUICK_ACTIONS
+                hidden=move || !open.get()
+                // Choosing an action closes the sheet; the action moves the focus itself.
+                on:click=move |ev: leptos::ev::MouseEvent| {
+                    use wasm_bindgen::JsCast;
+                    let on_button = ev
+                        .target()
+                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                        .is_some_and(|t| t.closest("button").ok().flatten().is_some());
+                    if on_button {
+                        open.set(false);
+                    }
+                }>
+                {actions(true)}
+            </nav>
+            <crate::shell::ui::DisclosureButton id="quick-sheet-button" controls="quick-sheet-panel" open
+                class="button quick-sheet__button">
+                <crate::shell::ui::Icon name="plus" /><span>{text::QUICK_CAPTURE}</span>
+            </crate::shell::ui::DisclosureButton>
+        </div>
     }
 }
 
-/// Puts the height of the phone's bottom bar (views and the page's own actions) into
-/// `--bottom-bar-height` on the root, so the page keeps exactly that much space free below
-/// and as scroll padding (WCAG 2.4.11). Set through the style object, which the content
+/// Puts the height of the phone's bottom bar into `--bottom-bar-height` on the root, so the
+/// floating button sits right above it and the page keeps that much space free below and
+/// as scroll padding (WCAG 2.4.11). Set through the style object, which the content
 /// security policy allows.
 fn measure_bottom_bar() {
     use wasm_bindgen::JsCast;
@@ -400,7 +420,7 @@ fn TabLink(
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The overview: a tile per form the profile marks `tile`, the open orders and the
 /// patient's way.
 #[component]
@@ -520,7 +540,7 @@ pub(crate) fn stay_words(core: Handle, patient: &Patient, i: usize, entry: &Stay
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The tile of one form: its latest entry (series) or its current values (snapshot), with
 /// the time and how long ago.
 #[component]
@@ -534,7 +554,7 @@ fn FormTile(
     photo: bool,
 ) -> impl IntoView {
     let heading = format!("tile-{}", form.id);
-    // [impl->dsn~record-overview~2]
+    // [impl->dsn~record-overview~3]
     // The photo's preview, inside its event: shown at once, offline too.
     let image = {
         let tag = tag.clone();

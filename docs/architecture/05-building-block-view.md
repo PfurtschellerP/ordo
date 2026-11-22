@@ -1236,7 +1236,7 @@ Needs: impl, utest, itest
 Tags: must, m6
 
 #### Record overview
-`dsn~record-overview~2`
+`dsn~record-overview~3`
 
 The record page ([concept](https://claude.ai/artifact/DuACJqM6EXsZKuXRh81xd6), agreed with
 the product owner on 2026-11-20, [ADR-0088](../adr/0088-record-overview-from-the-profile.md))
@@ -1250,10 +1250,12 @@ page would hide focused controls (WCAG 2.4.11); the tabs keep each part short in
   open handover ([Patient handover](#patient-handover)).
 * **Quick actions:** one button per form the profile marks `quick`, plus *Sichtung*,
   *Foto* and *Übergeben*; each opens that input in *Dokumentation*, or the tab *Übergabe*.
-  On phones the forms and *Übergeben* sit in the shell's bottom bar (`#bottom-bar`, filled
-  through a portal), icon above word, within thumb reach; that bar and the app's views are
-  one fixed block, and the page keeps as much space free below it and as scroll padding,
-  so it never covers the end of the page or a focused control.
+  On phones the app's bottom bar stays as on every page (views and *Menü*; feedback of
+  2026-11-22). A floating button *Erfassen* above it, on the thumb's side (left for
+  left-handed use), opens a sheet with the forms and *Übergeben*; choosing one, Escape or
+  the button again closes it, and the focus returns to the button. The page keeps as much
+  space free below the bar and the button, and as scroll padding, so they never cover the
+  end of the page or a focused control.
 * **Übersicht** (opens first): one tile per form the profile marks `tile` with its latest
   entry (series) or its current values (snapshot), short labels from the SDC `shortText`
   extension, the time with how long ago it was ("14:31 (vor 59 Min.)", updated every
@@ -1822,14 +1824,16 @@ Needs: impl, utest, itest
 Tags: should, m69
 
 #### Page tabs
-`dsn~page-tabs~2`
+`dsn~page-tabs~3`
 
 A view may declare tabs (`nav::View::tabs`): a key, a label, and the first section place
 each holds. The shell puts every package's sections of the page into the last tab that
 starts at or before the section's place and shows the tabs with the record's tab
 component (`TabList`, `TabPanel`): arrow keys between the tabs, hidden panels keep their
 input. *Personal* has *Helfende* (helpers and taking people in) and *Geräte* (the admin
-package's devices, place 30); the command structure is on *Führung & Raum* (ADR-0095). The vim keys `gt` and `gT` switch them.
+package's devices, place 30); the command structure is on *Führung & Raum* (ADR-0095).
+*Einsatzmittel* has *Einsatzmittel* (units and UHS) and *Kliniken* (the Med package's
+hospital list, place 40). The vim keys `gt` and `gT` switch them.
 
 Covers:
 

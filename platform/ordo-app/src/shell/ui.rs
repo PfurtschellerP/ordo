@@ -475,7 +475,7 @@ pub fn EditDialog(
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// The tabs of a page (WAI-ARIA tabs pattern): one tab per part, the chosen one pressed;
 /// arrow keys, Home and End move between them. The parts are [`TabPanel`]s with the same
 /// `id` and keys.
@@ -561,7 +561,7 @@ pub fn TabPanel(
     }
 }
 
-// [impl->dsn~record-overview~2]
+// [impl->dsn~record-overview~3]
 /// How long ago `at` was, e.g. "(vor 59 Min.)", counted on every 30 seconds, so a value's
 /// age is seen at a glance. Not announced as it changes.
 #[component]

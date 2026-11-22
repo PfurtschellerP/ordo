@@ -114,6 +114,14 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 view! { <staffing::StaffRequestsBoard core revision /> }.into_any(),
             )]
         }
+        // [impl->dsn~hospital-list~2]
+        // The hospital list is kept with the units, in its own tab (place 40).
+        ("command.prepare", "units") => {
+            vec![(
+                40,
+                view! { <transports::HospitalsSetup core revision /> }.into_any(),
+            )]
+        }
         ("command.lead", "transports") => {
             vec![(
                 10,

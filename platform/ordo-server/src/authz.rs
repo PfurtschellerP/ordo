@@ -635,7 +635,7 @@ mod tests {
             "units.added",
             &commander
         ));
-        // [utest->dsn~hospital-list~1]
+        // [utest->dsn~hospital-list~2]
         assert!(
             !p.can_write(
                 &erik,

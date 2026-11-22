@@ -465,6 +465,9 @@ pub const FREE_UNITS_TITLE: &str = "Freie Transportmittel";
 pub const FREE_UNITS_EMPTY: &str = "Keine freien Transportmittel.";
 pub const HOSPITALS_TITLE: &str = "Kliniken";
 pub const HOSPITALS_EMPTY: &str = "Noch keine Kliniken erfasst.";
+/// Where the list is kept, on the transport board while it is empty.
+pub const HOSPITALS_WHERE: &str =
+    "Kliniken werden unter Vorbereitung – Einsatzmittel, Reiter „Kliniken“, erfasst.";
 pub const HOSPITAL_NAME: &str = "Name der Klinik";
 pub const HOSPITAL_DEPARTMENTS: &str = "Fachabteilungen";
 pub const HOSPITAL_CAPABILITIES: &str = "Versorgungsangebote";
@@ -599,6 +602,8 @@ pub const RECORD_AT: &str = "Bei";
 pub const RECORD_TRIAGED: &str = "Gesichtet";
 pub const RECORD_SINCE: &str = "Seit";
 pub const QUICK_ACTIONS: &str = "Schnell erfassen";
+/// The floating button that opens the quick actions on phones.
+pub const QUICK_CAPTURE: &str = "Erfassen";
 pub const ALL: &str = "Alle";
 pub const ALL_KINDS: &str = "Alles";
 pub const LATEST: &str = "zuletzt";

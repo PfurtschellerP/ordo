@@ -502,7 +502,7 @@ pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
 }
 
-// [impl->dsn~page-tabs~2]
+// [impl->dsn~page-tabs~3]
 /// A page in tabs: the tab list, then a panel per tab with its sections.
 fn page_with_tabs(
     view: &'static str,
@@ -1027,10 +1027,9 @@ fn Workspace(
         <div class="layout">
             <div class="navigation">
               <div class="navigation__inner">
-                // [impl->dsn~record-overview~2]
+                // [impl->dsn~record-overview~3]
                 // On phones a page may put its own actions here, above the views, within
                 // thumb reach (the patient record's quick actions); empty elsewhere.
-                <div id="bottom-bar" class="navigation__extra"></div>
                 <div class="launcher">
                     <DisclosureButton id="launcher-bar-button" controls="launcher-panel" open
                         class="launcher__button launcher__button--bar" on_open=Some(close_profile)>
@@ -1163,7 +1162,7 @@ fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
         }
     };
     let Some(el) = find() else { return };
-    // [impl->dsn~record-overview~2]
+    // [impl->dsn~record-overview~3]
     let tab = el
         .closest("[role=tabpanel][hidden]")
         .ok()

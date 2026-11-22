@@ -461,7 +461,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#f-history-allergies"), "unsaved input is still there").toHaveValue("Penicillin");
     await saveForm(anna, "history");
 
-    // [itest->dsn~record-overview~2]
+    // [itest->dsn~record-overview~3]
     // EPCR-14: the record opens on its overview; the header keeps the essentials in view.
     await openView(anna, "Behandlungsplätze");
     await openView(anna, "Patienten");
@@ -1051,38 +1051,41 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(boxesBox!.y - (badgeBox!.y + badgeBox!.height), "a gap between the category and its boxes").toBeGreaterThanOrEqual(6);
     await shot(anna, "places-phone", false);
     await openView(anna, "Patienten");
-    // [itest->dsn~record-overview~2]
-    // The record on phones (concept 2026-11-19): short tab labels, and the quick actions in
-    // the bottom bar within thumb reach, one block with the views.
+    // [itest->dsn~record-overview~3]
+    // The record on phones (concept 2026-11-19, feedback of 2026-11-22): short tab labels;
+    // the bottom bar stays as on every page, and the quick actions open from a floating
+    // button within thumb reach.
     await openRecord(anna, "DE-0044", "Übersicht");
     await expect(anna.getByRole("tab", { name: "Doku", exact: true }), "a short label for Dokumentation").toBeVisible();
-    const bar = anna.locator("#bottom-bar .quick-actions--bar");
-    await expect(bar.getByRole("button", { name: "Übergeben" }), "the handover within thumb reach").toBeVisible();
-    await expect(bar.locator("button"), "the forms marked quick, and the handover").toHaveCount(4);
-    await expect(anna.locator(".quick-actions--page").getByRole("button", { name: "Übergeben" }), "not twice").toBeHidden();
-    // Feedback of 2026-11-21: the record has the screen; header, tabs and the first tile
-    // fit the first screen, and the quick actions are the only bar.
-    await expect(anna.locator(".navigation .views"), "the quick actions are the bar").toBeHidden();
+    await expect(anna.locator(".navigation .views"), "the views stay in the bar").toBeVisible();
+    await expect(anna.locator("#launcher-bar-button"), "and the menu").toBeVisible();
     await expect(anna.locator(".connection"), "the connection state stays (UX-12)").toBeVisible();
     const tabs = (await anna.getByRole("tab", { name: "Übersicht", exact: true }).boundingBox())!;
     expect(tabs.y + tabs.height, "the tabs on the first screen").toBeLessThan(420);
-    // Feedback of 2026-11-22: the menu stays at its end of the bar, in one row with the
-    // quick actions, and the way back keeps off the screen's edge.
-    const barMenu = anna.locator("#launcher-bar-button");
-    await expect(barMenu, "the menu beside the quick actions").toBeVisible();
-    await expect(anna.locator("#launcher-button"), "not in the header").toBeHidden();
-    const [menuBox, handoverBox] = [await barMenu.boundingBox(), await bar.getByRole("button", { name: "Übergeben" }).boundingBox()];
-    expect(Math.abs(menuBox!.y - handoverBox!.y), "in one row").toBeLessThan(4);
-    expect(menuBox!.x, "at the end").toBeGreaterThan(handoverBox!.x);
-    await barMenu.click();
-    await expect(anna.locator("#launcher-panel"), "it opens the menu").toBeVisible();
-    await barMenu.click();
-    await expect(anna.locator("#launcher-panel")).toBeHidden();
+    const capture = anna.locator("#quick-sheet-button");
+    const sheet = anna.locator("#quick-sheet-panel");
+    await expect(capture, "one floating button").toHaveText("Erfassen");
+    const [captureBox, barBox] = [await capture.boundingBox(), await anna.locator(".navigation").boundingBox()];
+    expect(captureBox!.y + captureBox!.height, "above the bar").toBeLessThanOrEqual(barBox!.y);
+    expect(captureBox!.x + captureBox!.width, "on the thumb's side").toBeGreaterThan(300);
+    await expect(sheet).toBeHidden();
+    await capture.click();
+    await expect(sheet.getByRole("button", { name: "Übergeben" }), "the handover within thumb reach").toBeVisible();
+    await expect(sheet.locator("button"), "the forms marked quick, and the handover").toHaveCount(4);
+    await expect(anna.locator(".quick-actions--page").getByRole("button", { name: "Übergeben" }), "not twice").toBeHidden();
+    await anna.keyboard.press("Escape");
+    await expect(sheet, "Escape closes it").toBeHidden();
+    await expect(capture, "and the focus returns").toBeFocused();
     const backLink = (await anna.getByRole("link", { name: /Alle Patienten/ }).boundingBox())!;
     expect(backLink.x, "a 16px gutter").toBeGreaterThanOrEqual(16);
     await audit(anna, "Record on a phone");
     await shot(anna, "record-phone", false);
     await shot(anna, "record-phone-full");
+    await capture.click();
+    await shot(anna, "record-phone-sheet", false);
+    await sheet.getByRole("button", { name: "Übergeben" }).click();
+    await expect(sheet, "choosing an action closes the sheet").toBeHidden();
+    await expect(anna.getByRole("tab", { name: "Übergabe", exact: true }), "and opens its part").toHaveAttribute("aria-selected", "true");
     await expect(anna.locator(".master"), "on phones the record is a page of its own").toBeHidden();
     await anna.goBack();
     await anna.setViewportSize({ width: 1200, height: 1000 });
@@ -1106,7 +1109,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
-    // [itest->dsn~page-tabs~2]
+    // [itest->dsn~page-tabs~3]
     await expect(ben.getByRole("tab"), "Helfende and Geräte; the command structure is on Führung & Raum").toHaveText(["Helfende", "Geräte"]);
     await pageTab(ben, "Geräte");
     // The incident command sees the devices of the incident's people, and blocks one of
@@ -1925,32 +1928,48 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Transporte");
     await expect(free.locator("li"), "a transport unit in an available status is free").toHaveText("RTW 83/1 · RTW · 2 – Einsatzbereit auf Wache");
 
-    // [itest->dsn~hospital-list~1]
-    const hospitals = ben.locator("[aria-labelledby=hospitals-title]");
+    // [itest->dsn~hospital-list~2]
+    // The list is kept in Vorbereitung, with the units (feedback of 2026-11-22); the board
+    // in Führung says so while it is empty, and offers no adding or editing.
+    const board = ben.locator("[aria-labelledby=hospitals-title]");
+    await expect(board).toContainText("Noch keine Kliniken erfasst. Kliniken werden unter Vorbereitung – Einsatzmittel, Reiter „Kliniken“, erfasst.");
+    await expect(board.getByRole("button", { name: "Klinik hinzufügen" }), "no adding in Führung").toHaveCount(0);
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
+    // [itest->dsn~page-tabs~3]
+    await expect(ben.getByRole("tab"), "the units and the hospitals in tabs").toHaveText(["Einsatzmittel", "Kliniken"]);
+    await pageTab(ben, "Kliniken");
+    const hospitals = ben.locator("[aria-labelledby=hospitals-setup-title]");
     await expect(hospitals).toContainText("Noch keine Kliniken erfasst.");
-    await ben.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    await hospitals.getByRole("button", { name: "Klinik hinzufügen" }).click();
     await expect(hospitals.locator("[role=alert]").last(), "a hospital needs a name").toHaveText("Bitte den Namen der Klinik angeben.");
     await ben.locator("#hospital-name-new").fill("Klinikum Mitte");
     await hospitals.getByLabel("Unfallchirurgie").check();
     await hospitals.getByLabel(/^Schockraum/).check();
-    await ben.getByRole("button", { name: "Klinik hinzufügen" }).click();
-    const hospital = ben.locator(".hospital-card");
+    await hospitals.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    const entry = hospitals.locator(".hospital-card");
+    await expect(entry.locator("h3")).toHaveText("Klinikum Mitte");
+    await expect(entry).toContainText("Unfallchirurgie · Schockraum");
+    // [itest->dsn~edit-dialog~3]
+    // The entry is changed in the list's edit dialog, as every item of a card list.
+    await entry.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }).click();
+    const hospitalDialog = ben.getByRole("dialog", { name: "Klinikum Mitte bearbeiten" });
+    await hospitalDialog.getByLabel("Stroke Unit").check();
+    await hospitalDialog.getByRole("button", { name: "Klinik speichern" }).click();
+    await expect(ben.getByRole("dialog"), "saving closes the dialog").toHaveCount(0);
+    await expect(entry.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }), "the focus returns").toBeFocused();
+    await expect(entry, "the entry is changed").toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
+    await openWorkspace(ben, "Führung");
+    await openView(ben, "Transporte");
+    const hospital = board.locator(".hospital-card");
     await expect(hospital.locator("h3")).toHaveText("Klinikum Mitte");
-    await expect(hospital).toContainText("Unfallchirurgie · Schockraum");
+    await expect(hospital).toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
+    await expect(hospital.getByRole("button", { name: /^Bearbeiten/ }), "no editing in Führung").toHaveCount(0);
     await expect(hospital.locator(".hospital-card__capacity")).toHaveText("Aufnahme: nicht gemeldet");
     await hospital.getByLabel("SK I", { exact: true }).fill("2");
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
-    // [itest->dsn~edit-dialog~3]
-    // The entry is changed in the list's edit dialog, as every item of a card list.
-    await hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }).click();
-    const hospitalDialog = ben.getByRole("dialog", { name: "Klinikum Mitte bearbeiten" });
-    await hospitalDialog.getByLabel("Stroke Unit").check();
-    await hospitalDialog.getByRole("button", { name: "Klinik speichern" }).click();
-    await expect(ben.getByRole("dialog"), "saving closes the dialog").toHaveCount(0);
-    await expect(hospital.getByRole("button", { name: "Bearbeiten: Klinikum Mitte" }), "the focus returns").toBeFocused();
-    await expect(hospital, "the entry is changed").toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
     await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 0");
 
     await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");

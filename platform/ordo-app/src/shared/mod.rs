@@ -73,7 +73,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "incident description date time start pause resume close",
                 "flag",
             ),
-            // [impl->dsn~page-tabs~2]
+            // [impl->dsn~page-tabs~3]
             // Two parts in tabs (feedback of 2026-11-21): the helpers and taking people in,
             // the devices (admin package, place 30). The command structure is on
             // Führung & Raum (ADR-0095).
@@ -97,12 +97,29 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                     "id-card",
                 )
             },
-            nav::view(
-                "units",
-                || crate::shared::text::TAB_RESOURCES,
-                "units",
-                "truck",
-            ),
+            // [impl->dsn~page-tabs~3]
+            // Two parts in tabs (feedback of 2026-11-22): the units and UHS, and the hospital
+            // list the Med package keeps there (place 40).
+            nav::View {
+                tabs: &[
+                    nav::PageTab {
+                        key: "units",
+                        label: || crate::shared::text::TAB_RESOURCES,
+                        from: 0,
+                    },
+                    nav::PageTab {
+                        key: "hospitals",
+                        label: || crate::shared::text::TAB_HOSPITALS,
+                        from: 40,
+                    },
+                ],
+                ..nav::view(
+                    "units",
+                    || crate::shared::text::TAB_RESOURCES,
+                    "units hospitals",
+                    "truck",
+                )
+            },
             // [impl->dsn~workspaces-by-phase~5]
             // [impl->dsn~command-and-space~1]
             // Führung & Raum (ADR-0095): the command structure and the map prepared on one

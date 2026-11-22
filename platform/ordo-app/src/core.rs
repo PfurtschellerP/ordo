@@ -1401,7 +1401,7 @@ pub fn update_transport(
     )
 }
 
-// [impl->dsn~hospital-list~1]
+// [impl->dsn~hospital-list~2]
 /// Adds a hospital to the list (an empty ID makes a new one) or replaces its entry.
 pub fn set_hospital(
     core: Handle,

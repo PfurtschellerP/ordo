@@ -1056,7 +1056,7 @@ Needs: impl, utest, itest
 Tags: should, m19
 
 #### Hospital list
-`dsn~hospital-list~1`
+`dsn~hospital-list~2`
 
 Module `med.hospitals`, in the shared `incident` compartment: hospitals carry no patient
 data, and the incident command keeps them. `hospitals.set` adds a hospital (a new ID, a
@@ -1070,7 +1070,11 @@ and when. Capacity is entered by hand from what the hospital reports; an interfa
 capacity system (e.g. IVENA eHealth) can write the same event later
 ([ADR-0050](../adr/0050-hospital-capacity-sources.md)). The fields follow
 HL7 FHIR `Location` and `HealthcareService`, so a list can later be imported from them.
-Medical staff read the list, but only the command writes it (Cedar).
+Medical staff read the list, but only the command writes it (Cedar). The command keeps
+the list in *Vorbereitung – Einsatzmittel*, tab *Kliniken*: adding a hospital, and
+changing its entry in the list's edit dialog, like the units (feedback of 2026-11-22).
+*Führung – Transporte* shows the hospitals with their capacity, entered there while the
+incident runs, and the patients sent; it says where the list is kept while it is empty.
 
 When the command assigns a transport, the destination is a hospital of the list or, for
 anything else, free text. `transport.updated` (schema version 2) carries the hospital's
