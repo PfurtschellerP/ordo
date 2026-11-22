@@ -3,6 +3,7 @@
 mod admin;
 mod attachments;
 mod core;
+mod i18n;
 mod med;
 mod shared;
 mod shell;
@@ -12,7 +13,27 @@ mod vault;
 
 fn main() {
     log_panics();
+    choose_language();
     leptos::mount::mount_to_body(shell::views::App);
+}
+
+// [impl->dsn~ui-texts~1]
+/// The texts' language: the first of the browser's languages ORDO has texts for, else
+/// German (ADR-0096); the page's `lang` follows, for screen readers and hyphenation.
+fn choose_language() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let preferred: Vec<String> = window
+        .navigator()
+        .languages()
+        .iter()
+        .filter_map(|l| l.as_string())
+        .collect();
+    let chosen = i18n::choose(&preferred);
+    if let Some(root) = window.document().and_then(|d| d.document_element()) {
+        let _ = root.set_attribute("lang", chosen);
+    }
 }
 
 /// Writes a panic to the browser console with the JavaScript stack, where it can be found

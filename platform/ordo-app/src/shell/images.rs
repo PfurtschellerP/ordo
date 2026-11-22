@@ -15,17 +15,17 @@ pub async fn downscale(
     steps: &[(f64, f64)],
     max_bytes: usize,
 ) -> Result<Vec<u8>, &'static str> {
-    let window = web_sys::window().ok_or(text::PHOTO_FAILED)?;
+    let window = web_sys::window().ok_or(text::photo_failed())?;
     let promise = window
         .create_image_bitmap_with_blob(file)
-        .map_err(|_| text::PHOTO_FAILED)?;
+        .map_err(|_| text::photo_failed())?;
     let bitmap: web_sys::ImageBitmap = wasm_bindgen_futures::JsFuture::from(promise)
         .await
-        .map_err(|_| text::PHOTO_FAILED)?
+        .map_err(|_| text::photo_failed())?
         .dyn_into()
-        .map_err(|_| text::PHOTO_FAILED)?;
+        .map_err(|_| text::photo_failed())?;
     let (width, height) = (f64::from(bitmap.width()), f64::from(bitmap.height()));
-    let document = window.document().ok_or(text::PHOTO_FAILED)?;
+    let document = window.document().ok_or(text::photo_failed())?;
     let result = (|| {
         for &(edge, quality) in steps {
             let scale = (edge / width.max(height)).min(1.0);
@@ -50,10 +50,10 @@ pub async fn downscale(
                 return Some(Ok(bytes));
             }
         }
-        Some(Err(text::PHOTO_TOO_LARGE))
+        Some(Err(text::photo_too_large()))
     })();
     bitmap.close();
-    result.unwrap_or(Err(text::PHOTO_FAILED))
+    result.unwrap_or(Err(text::photo_failed()))
 }
 
 /// A `data:` URL for a JPEG, PNG or WebP image.
@@ -77,15 +77,15 @@ pub fn data_url(bytes: &[u8]) -> String {
 /// responsive. On the device; the photo is neither kept nor sent.
 pub async fn read_qr(file: &web_sys::File) -> Result<Vec<String>, &'static str> {
     use crate::shell::qr::{self, Grey};
-    let window = web_sys::window().ok_or(text::PHOTO_FAILED)?;
+    let window = web_sys::window().ok_or(text::photo_failed())?;
     let promise = window
         .create_image_bitmap_with_blob(file)
-        .map_err(|_| text::PHOTO_FAILED)?;
+        .map_err(|_| text::photo_failed())?;
     let bitmap: web_sys::ImageBitmap = wasm_bindgen_futures::JsFuture::from(promise)
         .await
-        .map_err(|_| text::PHOTO_FAILED)?
+        .map_err(|_| text::photo_failed())?
         .dyn_into()
-        .map_err(|_| text::PHOTO_FAILED)?;
+        .map_err(|_| text::photo_failed())?;
     let (width, height) = (bitmap.width() as usize, bitmap.height() as usize);
     let k = qr::block(width, height);
     let (w, h) = (width / k, height / k);
@@ -118,7 +118,7 @@ pub async fn read_qr(file: &web_sys::File) -> Result<Vec<String>, &'static str> 
     bitmap.close();
     let pixels = pixels
         .filter(|p| w > 0 && p.len() == w * h)
-        .ok_or(text::PHOTO_FAILED)?;
+        .ok_or(text::photo_failed())?;
     let grey = Grey {
         pixels,
         width: w,

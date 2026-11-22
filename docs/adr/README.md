@@ -100,5 +100,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0093](0093-patients-apart-from-the-uhs.md) | Patients apart from the UHS: the record opens where the person works | accepted | 2026-11-21 |
 | [0094](0094-component-gallery-in-the-app.md) | The component gallery is a page of the app | accepted | 2026-11-21 |
 | [0095](0095-command-and-space-on-one-page.md) | Führung & Raum: the command structure and the situation map on one page | accepted | 2026-11-22 |
+| [0096](0096-ui-texts-in-fluent-files.md) | The app's texts are Fluent files per package, read with Project Fluent's own crates | accepted | 2026-11-22 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

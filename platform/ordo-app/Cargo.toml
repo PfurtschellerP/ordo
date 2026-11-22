@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 base64.workspace = true
+fluent-bundle.workspace = true
 idb.workspace = true
 js-sys.workspace = true
 leptos.workspace = true
@@ -34,8 +35,13 @@ wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys.workspace = true
 qrcode.workspace = true
+unic-langid.workspace = true
+
+[dev-dependencies]
+fluent-syntax.workspace = true
 
 [build-dependencies]
+fluent-syntax.workspace = true
 ordo-command.workspace = true
 ordo-helpers.workspace = true
 ordo-map.workspace = true

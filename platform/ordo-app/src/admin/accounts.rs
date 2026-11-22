@@ -240,7 +240,7 @@ fn AccountItem(
                                 let reset_id = reset_id.clone();
                                 after_render(move || focus(&reset_id));
                             }
-                        }>{text::CANCEL}</button>
+                        }>{text::cancel()}</button>
                     </div>
                 </form>
             </Show>
@@ -258,7 +258,7 @@ fn AccountItem(
                                 let delete_id = delete_id.clone();
                                 after_render(move || focus(&delete_id));
                             }
-                        }>{text::CANCEL}</button>
+                        }>{text::cancel()}</button>
                     </div>
                 </div>
             </Show>

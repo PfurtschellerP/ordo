@@ -45,17 +45,19 @@ pub fn App() -> impl IntoView {
         vault.set(Some(opened.and_then(|()| core::check_pairing())));
     });
     move || match vault.get() {
-        None => view! { <main id="main" class="page page--narrow"><p>{text::STARTING}</p></main> }
-            .into_any(),
+        None => {
+            view! { <main id="main" class="page page--narrow"><p>{text::starting()}</p></main> }
+                .into_any()
+        }
         Some(Err(error)) => view! {
             <main id="main" class="page page--narrow">
-                <h1>{text::APP_NAME}</h1>
+                <h1>{text::app_name()}</h1>
                 <p role="alert" class="error">{error}</p>
                 <button type="button" class="button" on:click=|_| {
                     if let Some(w) = web_sys::window() {
                         let _ = w.location().reload();
                     }
-                }>{text::RETRY}</button>
+                }>{text::retry()}</button>
             </main>
         }
         .into_any(),
@@ -134,7 +136,7 @@ fn Screens(
 fn GuestPairing(pairing: RwSignal<Option<Pairing>>, code: String) -> impl IntoView {
     let error = RwSignal::new(None::<&'static str>);
     leptos::task::spawn_local(async move {
-        let failed = move || error.set(Some(text::GUEST_CODE_INVALID));
+        let failed = move || error.set(Some(text::guest_code_invalid()));
         let Some(device) = core::PendingDevice::create("") else {
             return failed();
         };
@@ -164,9 +166,9 @@ fn GuestPairing(pairing: RwSignal<Option<Pairing>>, code: String) -> impl IntoVi
     });
     view! {
         <main id="main" class="page page--narrow">
-            <h1>{text::APP_NAME} " – " {text::GUEST_PAIR_TITLE}</h1>
+            <h1>{text::app_name()} " – " {text::guest_pair_title()}</h1>
             {move || match error.get() {
-                None => view! { <p role="status">{text::GUEST_PAIRING}</p> }.into_any(),
+                None => view! { <p role="status">{text::guest_pairing()}</p> }.into_any(),
                 Some(e) => view! { <p role="alert" class="error">{e}</p> }.into_any(),
             }}
         </main>
@@ -194,7 +196,7 @@ fn PairingForm(
             .unwrap_or_default(),
     );
     let login_enabled = RwSignal::new(None::<bool>);
-    let error = RwSignal::new(login_error.map(|e| format!("{}: {e}", text::LOGIN_FAILED)));
+    let error = RwSignal::new(login_error.map(|e| format!("{}: {e}", text::login_failed())));
     // (pairing ID, user code, address to open)
     let qr = RwSignal::new(None::<(String, String, String)>);
     leptos::task::spawn_local(async move {
@@ -298,36 +300,36 @@ fn PairingForm(
     view! {
         <main id="main" class="page page--narrow">
             <h1>
-                {text::APP_NAME} " – "
-                {if is_relogin { text::RELOGIN_TITLE } else { text::PAIR_TITLE }}
+                {text::app_name()} " – "
+                {if is_relogin { text::relogin_title() } else { text::pair_title() }}
             </h1>
-            <p>{if is_relogin { text::RELOGIN_INTRO } else { text::PAIR_INTRO }}</p>
+            <p>{if is_relogin { text::relogin_intro() } else { text::pair_intro() }}</p>
             <p role="alert" class="error">{move || error.get()}</p>
             {move || match login_enabled.get() {
                 None => ().into_any(),
-                Some(false) => view! { <p class="notice">{text::PAIR_NO_LOGIN}</p> }.into_any(),
+                Some(false) => view! { <p class="notice">{text::pair_no_login()}</p> }.into_any(),
                 Some(true) => view! {
                     {(!is_relogin).then(|| view! {
                         <div class="field">
-                            <label for="device-name">{text::DEVICE_NAME_LABEL}</label>
+                            <label for="device-name">{text::device_name_label()}</label>
                             <input id="device-name" type="text" autocomplete="off" maxlength="60" bind:value=device_name />
-                            <p class="hint">{text::DEVICE_NAME_HINT}</p>
+                            <p class="hint">{text::device_name_hint()}</p>
                         </div>
                     })}
                     <div class="row">
-                        <button id="login" type="button" class="button button--primary" on:click=login>{text::PAIR_LOGIN}</button>
-                        <button id="pair-qr" type="button" class="button" on:click=start_qr>{text::PAIR_QR}</button>
+                        <button id="login" type="button" class="button button--primary" on:click=login>{text::pair_login()}</button>
+                        <button id="pair-qr" type="button" class="button" on:click=start_qr>{text::pair_qr()}</button>
                     </div>
-                    <p class="hint">{text::PAIR_QR_HINT}</p>
+                    <p class="hint">{text::pair_qr_hint()}</p>
                 }.into_any(),
             }}
             {move || qr.get().map(|(id, code, uri)| view! {
                 <section class="card pairing-qr" aria-labelledby="pair-qr-title">
-                    <h2 id="pair-qr-title">{text::PAIR_QR}</h2>
-                    <img class="pairing-qr__code" src=format!("/auth/device/{id}/qr.svg") alt=text::PAIR_QR_ALT width="256" height="256" />
+                    <h2 id="pair-qr-title">{text::pair_qr()}</h2>
+                    <img class="pairing-qr__code" src=format!("/auth/device/{id}/qr.svg") alt=text::pair_qr_alt() width="256" height="256" />
                     <p class="pairing-qr__user-code code">{text::pair_code(&code)}</p>
-                    <p>{text::PAIR_QR_LINK} " " <a id="pair-qr-link" href=uri.clone()>{uri.clone()}</a></p>
-                    <p role="status">{text::PAIR_WAITING}</p>
+                    <p>{text::pair_qr_link()} " " <a id="pair-qr-link" href=uri.clone()>{uri.clone()}</a></p>
+                    <p role="status">{text::pair_waiting()}</p>
                 </section>
             })}
             {if is_relogin {
@@ -335,13 +337,13 @@ fn PairingForm(
                     <button type="button" class="button" on:click=move |_| {
                         core::forget_device();
                         pairing.set(None);
-                    }>{text::UNPAIR}</button>
+                    }>{text::unpair()}</button>
                 }
                 .into_any()
             } else {
                 view! {
                     <details class="manual-pairing">
-                        <summary>{text::PAIR_MANUAL}</summary>
+                        <summary>{text::pair_manual()}</summary>
                         <ManualPairing pairing incident />
                     </details>
                 }
@@ -377,18 +379,18 @@ fn ManualPairing(pairing: RwSignal<Option<Pairing>>, incident: RwSignal<String>)
         }
     };
     view! {
-        <p>{text::PAIR_MANUAL_INTRO}</p>
+        <p>{text::pair_manual_intro()}</p>
         <form on:submit=submit class="form">
-            <label for="user">{text::PAIR_USER}</label>
+            <label for="user">{text::pair_user()}</label>
             <input id="user" type="text" autocomplete="username" required bind:value=user />
-            <label for="device">{text::PAIR_DEVICE}</label>
+            <label for="device">{text::pair_device()}</label>
             <input id="device" type="text" autocomplete="off" spellcheck="false" required bind:value=device />
-            <label for="key">{text::PAIR_KEY}</label>
+            <label for="key">{text::pair_key()}</label>
             <input id="key" type="password" autocomplete="off" spellcheck="false" required bind:value=key />
-            <label for="incident">{text::PAIR_INCIDENT}</label>
+            <label for="incident">{text::pair_incident()}</label>
             <input id="incident" type="text" spellcheck="false" bind:value=incident />
             <p role="alert" class="error">{move || error.get()}</p>
-            <button type="submit" class="button">{text::PAIR_SUBMIT}</button>
+            <button type="submit" class="button">{text::pair_submit()}</button>
         </form>
     }
 }
@@ -397,7 +399,7 @@ fn ManualPairing(pairing: RwSignal<Option<Pairing>>, incident: RwSignal<String>)
 pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'static str> {
     core.with_value(|c| {
         if !c.replica.is_ready() {
-            return Err(text::REASON_NOT_CONNECTED);
+            return Err(text::reason_not_connected());
         }
         let readable = workspace.requires.iter().all(|comp| {
             c.incident
@@ -419,7 +421,7 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
         if readable && permitted {
             Ok(())
         } else {
-            Err(text::REASON_NO_ACCESS)
+            Err(text::reason_no_access())
         }
     })
 }
@@ -519,11 +521,11 @@ fn page_with_tabs(
     }
     let list = tabs
         .iter()
-        .map(|t| (t.key, t.label.to_owned(), None))
+        .map(|t| (t.key, (t.label)().to_owned(), None))
         .collect();
     let id = format!("page-{view}");
     view! {
-        <TabList id=id.clone() label=text::PAGE_TABS tabs=list chosen />
+        <TabList id=id.clone() label=text::page_tabs() tabs=list chosen />
         {parts.into_iter().map(|(key, sections)| view! {
             <TabPanel id=id.clone() key chosen>
                 <div class="page__tab">{sections}</div>
@@ -537,8 +539,8 @@ fn page_with_tabs(
 fn MenuLabel() -> impl IntoView {
     view! {
         <Icon name="layout-grid" />
-        <span class="launcher__text">{text::MENU}</span>
-        <span class="visually-hidden">" – " {text::LAUNCHER}</span>
+        <span class="launcher__text">{text::menu()}</span>
+        <span class="visually-hidden">" – " {text::launcher()}</span>
     }
 }
 
@@ -701,8 +703,8 @@ fn Device(
                 fallback=move || if guest {
                     view! {
                         <main id="main" class="page page--narrow">
-                            <h1>{text::APP_NAME} " – " {text::GUEST_ENDED_TITLE}</h1>
-                            <p>{text::GUEST_ENDED}</p>
+                            <h1>{text::app_name()} " – " {text::guest_ended_title()}</h1>
+                            <p>{text::guest_ended()}</p>
                         </main>
                     }.into_any()
                 } else {
@@ -728,10 +730,10 @@ fn Revoked(on_pair_again: impl Fn() + 'static) -> impl IntoView {
     view! {
         <main id="main" class="page page--narrow" tabindex="-1">
             <section class="card" aria-labelledby="revoked-title">
-                <h1 id="revoked-title" tabindex="-1">{text::REVOKED_TITLE}</h1>
-                <p role="alert" class="notice notice--warning">{text::REVOKED_TEXT}</p>
+                <h1 id="revoked-title" tabindex="-1">{text::revoked_title()}</h1>
+                <p role="alert" class="notice notice--warning">{text::revoked_text()}</p>
                 <button type="button" class="button button--primary" on:click=move |_| on_pair_again()>
-                    {text::PAIR_AGAIN}
+                    {text::pair_again()}
                 </button>
             </section>
         </main>
@@ -876,8 +878,8 @@ fn Workspace(
         on_unpair.with_value(|f| f());
     };
     let title = move || match current.get().and_then(nav::workspace) {
-        Some(w) => format!("{} – {}", w.package, w.label),
-        None => text::APP_NAME.to_owned(),
+        Some(w) => format!("{} – {}", (w.package)(), (w.label)()),
+        None => text::app_name().to_owned(),
     };
     let mac = web_sys::window()
         .and_then(|w| w.navigator().platform().ok())
@@ -937,7 +939,7 @@ fn Workspace(
             core.with_value(|c| c.incident_info().and_then(|i| i.roster.get(&me).cloned()))
                 .filter(|roles| !roles.is_empty())
                 .map_or_else(
-                    || text::NO_ROLE.to_owned(),
+                    || text::no_role().to_owned(),
                     |roles| {
                         roles
                             .iter()
@@ -953,7 +955,7 @@ fn Workspace(
         <a class="skip-link" href="#main" on:click=move |ev| {
             ev.prevent_default();
             focus("main");
-        }>{text::SKIP_LINK}</a>
+        }>{text::skip_link()}</a>
         <header class="app-header">
             <div class="app-header__start">
                 <DisclosureButton id="launcher-button" controls="launcher-panel" open
@@ -963,7 +965,7 @@ fn Workspace(
                 <div class="app-header__heading">
                     <h1 class="app-header__title">{title}</h1>
                     <p class="app-header__incident">
-                        <span>{text::INCIDENT} ": "</span>
+                        <span>{text::incident()} ": "</span>
                         <span id="incident-name" title=incident.clone()>{incident_name}</span>
                     </p>
                 </div>
@@ -976,7 +978,7 @@ fn Workspace(
                 on:click=move |_| palette.set(true)
             >
                 <Icon name="search" />
-                <span>{text::SEARCH}</span>
+                <span>{text::search()}</span>
                 <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
             </button>
             <div class="app-header__end">
@@ -989,36 +991,36 @@ fn Workspace(
                         let me = me.clone();
                         move || view! {
                             <crate::shell::profile::Avatar core revision user=me.clone() />
-                            <span class="visually-hidden">{text::SIGNED_IN_AS} " "</span>
+                            <span class="visually-hidden">{text::signed_in_as()} " "</span>
                             <span class="profile-menu__name">{move || {
                                 revision.track();
                                 crate::shell::profile::display_name(core, &me)
                             }}</span>
                         }.into_any()
                     })>
-                    <h2 class="launcher__title">{text::PROFILE}</h2>
-                    <p class="launcher__user">{text::SIGNED_IN_AS} " " <strong>{{
+                    <h2 class="launcher__title">{text::profile()}</h2>
+                    <p class="launcher__user">{text::signed_in_as()} " " <strong>{{
                         let user = user.clone();
                         move || {
                             revision.track();
                             user.parse::<ordo_core::UserId>().map_or_else(|_| user.clone(), |id| crate::shell::profile::display_name(core, &id))
                         }
                     }}</strong> " (" {user.clone()} ")"</p>
-                    <p id="my-roles">{text::MY_ROLES} ": " {my_roles}</p>
+                    <p id="my-roles">{text::my_roles()} ": " {my_roles}</p>
                     <crate::shell::profile::ProfilePicture core revision />
                     <crate::shell::profile::DisplayName core revision />
-                    <SettingSelect id="theme" label=text::APPEARANCE options=&text::THEMES value=theme apply=apply_theme />
-                    <SettingSelect id="hand" label=text::HAND options=&text::HANDS value=hand apply=apply_hand />
-                    <SettingSelect id="keymap" label=text::KEYMAP options=&text::KEYMAPS value=keymap apply=apply_keymap />
+                    <SettingSelect id="theme" label=text::appearance() options=&*text::THEMES value=theme apply=apply_theme />
+                    <SettingSelect id="hand" label=text::hand() options=&*text::HANDS value=hand apply=apply_hand />
+                    <SettingSelect id="keymap" label=text::keymap() options=&*text::KEYMAPS value=keymap apply=apply_keymap />
                     <button id="keys-button" type="button" class="button button--with-icon" aria-haspopup="dialog"
                         on:click=move |_| { profile_open.set(false); key_help.set(true); }>
-                        <Icon name="keyboard" />{text::KEYS_TITLE}
+                        <Icon name="keyboard" />{text::keys_title()}
                     </button>
                     <a id="my-devices" class="button" href=nav::Route::view("person.devices", "devices").to_path()
-                        on:click=follow(nav, nav::Route::view("person.devices", "devices"))>{text::MY_DEVICES}</a>
+                        on:click=follow(nav, nav::Route::view("person.devices", "devices"))>{text::my_devices()}</a>
                     <button id="change-incident" type="button" class="button"
-                        on:click=move |_| on_change_incident.with_value(|f| f())>{text::CHANGE_INCIDENT}</button>
-                    <button type="button" class="button" on:click=unpair>{text::UNPAIR}</button>
+                        on:click=move |_| on_change_incident.with_value(|f| f())>{text::change_incident()}</button>
+                    <button type="button" class="button" on:click=unpair>{text::unpair()}</button>
                 </Disclosure>
             </div>
         </header>
@@ -1035,7 +1037,7 @@ fn Workspace(
                         <MenuLabel />
                     </DisclosureButton>
                     <div id="launcher-panel" class="launcher__panel" hidden=move || !open.get()>
-                        <h2 class="launcher__title">{text::LAUNCHER}</h2>
+                        <h2 class="launcher__title">{text::launcher()}</h2>
                         {nav::packages()
                             .into_iter()
                             .map(|(package, workspaces)| {
@@ -1079,7 +1081,7 @@ fn Workspace(
                             .collect_view()}
                     </div>
                 </div>
-                <nav class="views" aria-label=text::VIEWS>
+                <nav class="views" aria-label=text::views()>
                     {move || {
                         // Views follow permissions, which change with the roles.
                         revision.track();
@@ -1114,12 +1116,12 @@ fn Workspace(
                 // Every package's sections of the page, in their places.
                 {move || {
                     let (Some(workspace), Some(view)) = (current.get(), current_view.get()) else {
-                        return view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any();
+                        return view! { <p class="notice">{text::no_workspace()}</p> }.into_any();
                     };
                     let args = crate::shell::registry::PageArgs { core, revision, nav, record };
                     let page = crate::shell::registry::page(&args, workspace, view);
                     if page.is_empty() {
-                        return view! { <p class="notice">{text::NO_WORKSPACE}</p> }.into_any();
+                        return view! { <p class="notice">{text::no_workspace()}</p> }.into_any();
                     }
                     let tabs = nav::workspace(workspace)
                         .and_then(|w| w.views.iter().find(|v| v.id == view))
@@ -1268,9 +1270,9 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         })
     });
     let words = move || match state.get().0 {
-        Connection::Online => text::ONLINE,
-        Connection::Connecting => text::CONNECTING,
-        Connection::Offline => text::OFFLINE,
+        Connection::Online => text::online(),
+        Connection::Connecting => text::connecting(),
+        Connection::Offline => text::offline(),
     };
     // One design on every screen (ADR-0049): an icon whose shape tells the state and whose
     // colour repeats it (never colour alone), the number of unsent inputs, and the words
@@ -1282,7 +1284,7 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         (Connection::Offline, ..) => ("offline", "cloud-off"),
     };
     let label =
-        Signal::derive(move || text::connection_label(words(), &text::pending(state.get().1)));
+        Signal::derive(move || text::connection_label(words(), text::pending(state.get().1)));
     let open = RwSignal::new(false);
     view! {
         <Disclosure id="connection" open
@@ -1301,6 +1303,6 @@ fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             </p>
         </Disclosure>
         {move || state.get().2.map(|e| view! { <p role="alert" class="error connection__error">{e}</p> })}
-        {move || state.get().3.then(|| view! { <p role="alert" class="error connection__error">{text::STORAGE_FAILED}</p> })}
+        {move || state.get().3.then(|| view! { <p role="alert" class="error connection__error">{text::storage_failed()}</p> })}
     }
 }

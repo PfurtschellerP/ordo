@@ -23,7 +23,7 @@ analysis*; repeated in the architecture sweep before each release. Last done 202
 | Part | Crates (with versions) | Of them duplicates |
 |---|---|---|
 | Server (`ordo-server`) | 399 | 31 names in two versions |
-| Web app (`ordo-app`, WebAssembly) | 229 | 10 names, 6 of them only at build time |
+| Web app (`ordo-app`, WebAssembly) | 236 | 10 names, 6 of them only at build time |
 | Storage worker (`ordo-store`) | 32 | 8 not in the app |
 
 Most crates come with a few large building blocks: Leptos (app), axum, sqlx, Cedar, tonic
@@ -126,6 +126,7 @@ replace it.
 | idb | IndexedDB for the storage key (ADR-0041) | 2025-12 | personal (devashishdxt) | web-sys directly, about 80 lines; watch |
 | rqrr | Reading Meldekarten (ADR-0072, ADR-0073) | 2026-09 | personal (WanzenBug) | rxing once it drops `encoding` |
 | rusqlite, sqlite-wasm-rs, sqlite-wasm-vfs | SQLite in the browser's private file system (ADR-0034) | 2026-09 – 2026-11 | rusqlite; personal (Spxg) | – |
+| fluent-bundle, unic-langid (fluent-syntax also at build time) | The app's texts as Fluent files (ADR-0096); with them fluent-langneg, intl-memoizer, intl_pluralrules, self_cell, type-map | 2025-05 (commits 2026-09) | Project Fluent (Mozilla) | – (the format's reference implementation); `leptos_i18n` with JSON if Fluent ended |
 
 ## Vendored JavaScript and typefaces
 

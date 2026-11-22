@@ -166,7 +166,7 @@ pub fn rank(query: &str, items: Vec<Item>) -> Vec<Item> {
 
 /// The icon of a result's kind: a view to open, or a command to run.
 fn group_icon(group: &str) -> &'static str {
-    if group == text::GROUP_VIEWS {
+    if group == text::group_views() {
         "app-window"
     } else {
         "zap"
@@ -209,19 +209,19 @@ fn items(core: Handle, page: &Page) -> Vec<Item> {
                 {
                     let go = Action::Go(Route::view(w.id, v.id));
                     list.push(Item {
-                        detail: format!("{} – {}", w.package, w.label),
+                        detail: format!("{} – {}", (w.package)(), (w.label)()),
                         disabled: reason,
                         suggested: true,
-                        ..item(text::GROUP_VIEWS, v.label.to_owned(), go).named(v.name)
+                        ..item(text::group_views(), (v.label)().to_owned(), go).named(v.name)
                     });
                 }
             }
             list.extend(PACKAGES.iter().flat_map(|p| (p.palette.actions)(core)));
-            for (id, label) in text::THEMES {
+            for (id, label) in *text::THEMES {
                 let name = format!("theme {}", if id.is_empty() { "auto" } else { id });
                 list.push(
                     item(
-                        text::GROUP_ACTIONS,
+                        text::group_actions(),
                         text::theme_set(label),
                         Action::Theme(id),
                     )
@@ -412,7 +412,7 @@ pub fn Palette(
         >
             <div class="palette__content">
                 <h2 id="palette-title" class="palette__title">
-                    {text::PALETTE_TITLE}
+                    {text::palette_title()}
                     {move || breadcrumb().map(|b| view! { <span class="palette__crumb">" › " {b}</span> })}
                 </h2>
                 <input
@@ -422,14 +422,14 @@ pub fn Palette(
                     role="combobox"
                     autocomplete="off"
                     spellcheck="false"
-                    aria-label=text::PALETTE_TITLE
+                    aria-label=text::palette_title()
                     aria-expanded="true"
                     aria-controls="palette-list"
                     aria-autocomplete="list"
                     aria-activedescendant=move || {
                         (results.with(Vec::len) > 0).then(|| format!("palette-option-{}", active.get()))
                     }
-                    placeholder=text::PALETTE_PLACEHOLDER
+                    placeholder=text::palette_placeholder()
                     prop:value=move || query.get()
                     on:input=move |ev| {
                         query.set(event_target_value(&ev));
@@ -437,7 +437,7 @@ pub fn Palette(
                     }
                     on:keydown=keydown
                 />
-                <ul id="palette-list" class="palette__list" role="listbox" aria-label=text::PALETTE_RESULTS>
+                <ul id="palette-list" class="palette__list" role="listbox" aria-label=text::palette_results()>
                     {move || {
                         results
                             .get()
@@ -476,10 +476,10 @@ pub fn Palette(
                 </ul>
                 <p class="palette__count" role="status">{move || text::palette_count(results.with(Vec::len))}</p>
                 <p class="palette__keys" aria-hidden="true">
-                    <kbd>"↑"</kbd><kbd>"↓"</kbd> " " {text::PALETTE_KEYS} " · "
-                    <kbd>"Enter"</kbd> " " {text::PALETTE_RUN} " · "
-                    <kbd>"Backspace"</kbd> " " {text::PALETTE_BACK} " · "
-                    <kbd>"Esc"</kbd> " " {text::PALETTE_CLOSE}
+                    <kbd>"↑"</kbd><kbd>"↓"</kbd> " " {text::palette_keys()} " · "
+                    <kbd>"Enter"</kbd> " " {text::palette_run()} " · "
+                    <kbd>"Backspace"</kbd> " " {text::palette_back()} " · "
+                    <kbd>"Esc"</kbd> " " {text::palette_close()}
                 </p>
             </div>
         </dialog>
@@ -494,7 +494,7 @@ mod tests {
         Item {
             detail: detail.to_owned(),
             suggested: label.starts_with('V'),
-            ..item(text::GROUP_ACTIONS, label.to_owned(), Action::Theme("")).named(name)
+            ..item(text::group_actions(), label.to_owned(), Action::Theme("")).named(name)
         }
     }
 

@@ -158,7 +158,7 @@ pub fn NoticesPage(back: String) -> impl IntoView {
     view! {
         <main id="main" class="page page--narrow notices" tabindex="-1">
             <h1>{text::NOTICES_TITLE}</h1>
-            <p><a href=back>{text::NOTICES_BACK}</a></p>
+            <p><a href=back>{text::notices_back()}</a></p>
             <Notices />
         </main>
     }
@@ -233,7 +233,7 @@ fn Notices() -> impl IntoView {
     let source = source_url();
     view! {
         <section class="card" aria-labelledby="notices-ordo">
-            <h2 id="notices-ordo">{text::APP_NAME}</h2>
+            <h2 id="notices-ordo">{text::app_name()}</h2>
             <p>{text::NOTICES_ORDO_LICENCE} " "
                 <a href="/LICENSES/AGPL-3.0-or-later.txt">{text::NOTICES_LICENCE_TEXT}</a>
             </p>

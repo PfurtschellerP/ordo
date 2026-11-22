@@ -150,7 +150,7 @@ pub fn ObjectCard(
             <div class="object-card__head">
                 <h3 id=title>{label}</h3>
                 <button type="button" class="button button--small button--icon object-card__close"
-                    aria-label=move || text::close_label(&label()) title=text::SECTION_CLOSE
+                    aria-label=move || text::close_label(label()) title=text::section_close()
                     on:click=move |_| on_close.run(())>
                     <Icon name="x" />
                 </button>

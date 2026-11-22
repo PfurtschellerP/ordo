@@ -140,7 +140,7 @@ pub fn new_entry_label(form: &str) -> String {
     format!("{NEW_ENTRY}: {form}")
 }
 pub fn edit_label(form: &str) -> String {
-    format!("{form} {}", EDIT.to_lowercase())
+    format!("{form} {}", edit().to_lowercase())
 }
 pub fn value_error(error: &ordo_med_patients::record::ValueError) -> String {
     use ordo_med_patients::record::ValueError as E;

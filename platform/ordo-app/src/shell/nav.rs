@@ -10,12 +10,16 @@
 
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
+/// A text shown in the navigation: a message of the app's texts (ADR-0096), read when
+/// shown, so workspaces and views can stay `const` data.
+pub type Label = fn() -> &'static str;
+
 /// A view within a workspace.
 pub struct View {
     /// Stable ID, e.g. `patients`.
     pub id: &'static str,
     /// Label.
-    pub label: &'static str,
+    pub label: Label,
     /// English name, found by the command palette in every language (ADR-0036).
     pub name: &'static str,
     /// Icon (Lucide name), shown with the label in the rail and the bottom bar.
@@ -38,7 +42,7 @@ pub struct PageTab {
     /// Stable key, e.g. `helpers`.
     pub key: &'static str,
     /// Label.
-    pub label: &'static str,
+    pub label: Label,
     /// The lowest section place it holds.
     pub from: u8,
 }
@@ -48,9 +52,9 @@ pub struct Workspace {
     /// Stable ID, e.g. `med.uhs`.
     pub id: &'static str,
     /// Service package, shown as group in the launcher.
-    pub package: &'static str,
+    pub package: Label,
     /// Label within the package.
-    pub label: &'static str,
+    pub label: Label,
     /// Compartments the user must be able to read.
     pub requires: &'static [&'static str],
     /// A permission the user's roles must give in this incident (e.g. `view_situation`),
@@ -67,7 +71,7 @@ pub struct Workspace {
 
 pub(crate) const fn view(
     id: &'static str,
-    label: &'static str,
+    label: Label,
     name: &'static str,
     icon: &'static str,
 ) -> View {
@@ -99,9 +103,9 @@ pub fn workspaces() -> impl Iterator<Item = &'static Workspace> {
 pub fn packages() -> Vec<(&'static str, Vec<&'static Workspace>)> {
     let mut packages: Vec<(&'static str, Vec<&'static Workspace>)> = Vec::new();
     for w in workspaces().filter(|w| !w.hidden) {
-        match packages.iter_mut().find(|(p, _)| *p == w.package) {
+        match packages.iter_mut().find(|(p, _)| *p == (w.package)()) {
             Some((_, list)) => list.push(w),
-            None => packages.push((w.package, vec![w])),
+            None => packages.push(((w.package)(), vec![w])),
         }
     }
     packages

@@ -178,7 +178,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
     (inc::DETAILS_CHANGED, |e, _, _| {
         Some({
             decode::<inc::Details>(e)?;
-            text::INCIDENT_DETAILS_SAVED.to_owned().into()
+            text::incident_details_saved().to_owned().into()
         })
     }),
     (inc::PAUSE_CHANGED, |e, _, _| {

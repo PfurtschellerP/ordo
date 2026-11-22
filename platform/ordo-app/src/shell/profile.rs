@@ -121,10 +121,10 @@ pub fn ProfilePicture(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     view! {
         <div class="profile-picture">
             <Avatar core revision user />
-            <label class="button button--small" for="avatar-upload">{text::AVATAR_CHANGE}</label>
+            <label class="button button--small" for="avatar-upload">{text::avatar_change()}</label>
             <input id="avatar-upload" class="visually-hidden" type="file" accept="image/*" capture="user" on:change=choose />
             <button type="button" class="button button--small" on:click=move |_| core::set_avatar(core, None)>
-                {text::AVATAR_REMOVE}
+                {text::avatar_remove()}
             </button>
             <p role="alert" class="error">{move || error.get()}</p>
         </div>
@@ -182,16 +182,16 @@ pub fn DisplayName(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     view! {
         <form class="form display-name" novalidate on:submit=save>
-            <label for="display-name">{text::DISPLAY_NAME}</label>
+            <label for="display-name">{text::display_name()}</label>
             <input id="display-name" type="text" autocomplete="name" maxlength="80" prop:value=move || value.get()
                 on:input=move |ev| {
                     typed.set(true);
                     value.set(event_target_value(&ev));
                 } />
-            <p class="hint">{text::DISPLAY_NAME_HINT}</p>
+            <p class="hint">{text::display_name_hint()}</p>
             <div class="row">
-                <button type="submit" class="button button--small">{text::DISPLAY_NAME_SAVE}</button>
-                <button type="button" class="button button--small button--quiet" on:click=clear>{text::DISPLAY_NAME_RESET}</button>
+                <button type="submit" class="button button--small">{text::display_name_save()}</button>
+                <button type="button" class="button button--small button--quiet" on:click=clear>{text::display_name_reset()}</button>
             </div>
         </form>
     }

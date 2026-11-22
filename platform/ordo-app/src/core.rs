@@ -174,10 +174,10 @@ impl Core {
         };
         // Stored data that cannot be used stops here, before anything is saved: the
         // device never starts empty over it.
-        let saved = load_replica().map_err(|e| text::stored_state_unusable(&e.to_string()))?;
+        let saved = load_replica().map_err(|e| text::stored_state_unusable(e.to_string()))?;
         let mut replica = match saved {
             Some(state) => Replica::restore(user.clone(), device, signer(), entropy, state)
-                .map_err(|e| text::stored_state_unusable(&e.to_string()))?,
+                .map_err(|e| text::stored_state_unusable(e.to_string()))?,
             None => Replica::new(user, device, signer(), entropy),
         };
         if let Some(incident) = &incident {
@@ -423,7 +423,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     && list.iter().all(|d| d.device != device)
                 {
                     c.revoking = None;
-                    c.announcement = text::device_revoked(&short_device(&device));
+                    c.announcement = text::device_revoked(short_device(&device));
                 }
                 c.devices = Some(list.clone());
             }
@@ -432,7 +432,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                     && list.devices.iter().all(|d| d.device != device)
                 {
                     c.revoking = None;
-                    c.announcement = text::device_revoked(&short_device(&device));
+                    c.announcement = text::device_revoked(short_device(&device));
                 }
                 c.incident_devices = Some(list.clone());
             }
@@ -497,7 +497,7 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 }
                 // [impl->dsn~protocol-versions~1]
                 Err(ordo_sync::SyncError::Refused(Rejection::UnsupportedVersion)) => {
-                    c.error = Some(text::VERSION_UNSUPPORTED.to_owned());
+                    c.error = Some(text::version_unsupported().to_owned());
                 }
                 Err(error) => c.error = Some(error.to_string()),
             }
@@ -709,7 +709,7 @@ pub fn register(
         revision,
         ordo_tasks::kinds::PATIENT_REGISTERED,
         &taken,
-        text::TASK_PATIENT_TAKEN.to_owned(),
+        text::task_patient_taken().to_owned(),
     )
 }
 
@@ -759,7 +759,7 @@ pub fn close_report(core: Handle, revision: RwSignal<u64>, report: &str) -> Resu
         revision,
         ordo_reports::kinds::CLOSED,
         &payload,
-        text::REPORT_CLOSED.to_owned(),
+        text::report_closed().to_owned(),
     )
 }
 
@@ -1011,7 +1011,7 @@ pub fn command_event(
         revision,
         kind,
         payload,
-        text::STRUCTURE_SAVED.to_owned(),
+        text::structure_saved().to_owned(),
     )
 }
 
@@ -1050,7 +1050,13 @@ pub fn map_event(
     kind: EventKind,
     payload: &[u8],
 ) -> Result<(), String> {
-    record(core, revision, kind, payload, text::MAP_SAVED.to_owned())
+    record(
+        core,
+        revision,
+        kind,
+        payload,
+        text::map_saved_label().to_owned(),
+    )
 }
 
 // [impl->dsn~tasks~7]
@@ -1073,7 +1079,7 @@ pub fn give_task(
     let announcement = match (&task.unit, &task.place) {
         (Some(unit), _) => text::task_given(unit),
         (None, Some(place)) if task.kind.is_some() => text::task_recorded(place),
-        _ => text::TASK_GIVEN.to_owned(),
+        _ => text::task_given_label().to_owned(),
     };
     record(
         core,
@@ -1110,7 +1116,7 @@ pub fn update_task(
 ) -> Result<(), String> {
     let payload = update.encode().map_err(|e| e.to_string())?;
     let announcement = update.status.map_or_else(
-        || text::FOLLOW_UP_LATER_DONE.to_owned(),
+        || text::follow_up_later_done().to_owned(),
         text::task_status_set,
     );
     record(
@@ -1498,7 +1504,7 @@ pub fn confirm_order(core: Handle, revision: RwSignal<u64>, order: &str) -> Resu
         revision,
         orders::kinds::CONFIRMED,
         &payload,
-        text::ORDER_CONFIRMED_SAID.to_owned(),
+        text::order_confirmed_said().to_owned(),
     )
 }
 
@@ -1635,7 +1641,7 @@ pub fn restore_photo(
 pub fn uhs_name(core: Handle, id: &str) -> String {
     // The counts of the patients with units' crews (ADR-0087).
     if id.is_empty() {
-        return text::WITH_UNITS.to_owned();
+        return text::with_units_label().to_owned();
     }
     core.with_value(|c| {
         let events = c.events(patients::UHS_COMPARTMENT);
@@ -1666,7 +1672,7 @@ pub fn hand_over(
         .to_string();
     let announcement = match (&handover.to, &handover.outside) {
         (_, Some(receiver)) => text::handed_outside(&handover.tag, receiver),
-        (Some(to), None) => text::handed_over(&handover.tag, &holder_name(core, to)),
+        (Some(to), None) => text::handed_over(&handover.tag, holder_name(core, to)),
         (None, None) => text::handed_over_quick(&handover.tag),
     };
     let payload = handover.encode().map_err(|e| e.to_string())?;
@@ -1706,7 +1712,7 @@ pub fn take(core: Handle, revision: RwSignal<u64>, taken: &patients::Taken) -> R
         revision,
         patients::kinds::TAKEN,
         &payload,
-        text::taken(&taken.tag, &holder_name(core, &taken.holder)),
+        text::taken(&taken.tag, holder_name(core, &taken.holder)),
     )
 }
 
@@ -1880,7 +1886,7 @@ pub fn set_incident_details(
     details: &incidents::Details,
 ) -> Result<(), String> {
     if !details.check() {
-        return Err(text::INCIDENT_TIMES_INVALID.to_owned());
+        return Err(text::incident_times_invalid().to_owned());
     }
     let payload = details.encode().map_err(|e| e.to_string())?;
     record(
@@ -1888,7 +1894,7 @@ pub fn set_incident_details(
         revision,
         incidents::kinds::DETAILS_CHANGED,
         &payload,
-        text::INCIDENT_DETAILS_SAVED.to_owned(),
+        text::incident_details_saved().to_owned(),
     )
 }
 
@@ -2081,7 +2087,7 @@ pub async fn fetch_json(
     let response: web_sys::Response =
         wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request))
             .await
-            .map_err(|_| text::NETWORK_ERROR.to_owned())?
+            .map_err(|_| text::network_error().to_owned())?
             .dyn_into()
             .map_err(|_| "response")?;
     let text = wasm_bindgen_futures::JsFuture::from(response.text().map_err(|_| "body")?)
@@ -2202,7 +2208,7 @@ fn decode_pairing(json: &[u8]) -> Option<Pairing> {
 pub fn check_pairing() -> Result<(), String> {
     match load(PAIRING_KEY).and_then(|json| pairing_format(&json)) {
         Some(format) if format > PAIRING_FORMAT => Err(text::stored_state_unusable(
-            &ordo_sync::StoredStateError::Newer(format).to_string(),
+            ordo_sync::StoredStateError::Newer(format).to_string(),
         )),
         _ => Ok(()),
     }

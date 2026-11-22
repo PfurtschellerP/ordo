@@ -28,7 +28,7 @@ pub(crate) const PALETTE: PalettePart = PalettePart {
 };
 
 fn workspace_access(core: Handle, id: &str) -> Result<(), &'static str> {
-    nav::workspace(id).map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w))
+    nav::workspace(id).map_or(Err(text::reason_no_access()), |w| access(core, w))
 }
 
 fn actions(core: Handle) -> Vec<Item> {
@@ -54,7 +54,7 @@ fn actions(core: Handle) -> Vec<Item> {
         disabled: allowed.err(),
         suggested: true,
         ..item(
-            text::GROUP_ACTIONS,
+            text::group_actions(),
             label.to_owned(),
             Action::GoFocus(route, target.to_owned()),
         )

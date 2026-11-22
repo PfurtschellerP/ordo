@@ -161,7 +161,7 @@ pub(crate) fn stations(
                     kind: Kind::Left,
                     title: text::outcome(*outcome).to_owned(),
                     lines: Vec::new(),
-                    edge: edge(text::DISCHARGE.to_owned(), *at),
+                    edge: edge(text::discharge().to_owned(), *at),
                     state: State::Past,
                 });
             }

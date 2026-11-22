@@ -88,26 +88,26 @@ impl Keys {
 }
 
 /// The keys and what they do, for the key help: (keys, meaning).
-pub(crate) const HELP: &[(&str, &str)] = &[
-    ("?", text::KEY_HELP),
-    (":", text::KEY_PALETTE),
-    ("/", text::KEY_SEARCH),
-    ("h j k l", text::KEY_MOVE),
-    ("g g / G", text::KEY_FIRST_LAST),
-    ("g t / g T", text::KEY_TABS),
-    ("g 1 … g 4", text::KEY_VIEWS),
-    ("g m", text::KEY_MENU),
-    ("o", text::KEY_OPEN),
-    ("i", text::KEY_INSERT),
-    ("d / u", text::KEY_SCROLL),
-    ("Esc", text::KEY_ESCAPE),
+pub(crate) const HELP: &[(&str, crate::shell::nav::Label)] = &[
+    ("?", text::key_help),
+    (":", text::key_palette),
+    ("/", text::key_search),
+    ("h j k l", text::key_move),
+    ("g g / G", text::key_first_last),
+    ("g t / g T", text::key_tabs),
+    ("g 1 … g 4", text::key_views),
+    ("g m", text::key_menu),
+    ("o", text::key_open),
+    ("i", text::key_insert),
+    ("d / u", text::key_scroll),
+    ("Esc", text::key_escape),
 ];
 
 /// The keys that work in both settings (ADR-0030, ADR-0051).
-pub(crate) const ALWAYS: &[(&str, &str)] = &[
-    ("Ctrl+K", text::KEY_PALETTE),
-    ("j / k, ↓ / ↑", text::KEY_IN_LIST),
-    ("Esc", text::KEY_CLOSE),
+pub(crate) const ALWAYS: &[(&str, crate::shell::nav::Label)] = &[
+    ("Ctrl+K", text::key_palette),
+    ("j / k, ↓ / ↑", text::key_in_list),
+    ("Esc", text::key_close),
 ];
 
 /// Whether vim keys are on for this device.
@@ -483,14 +483,15 @@ pub(crate) fn KeyHelp(
             back.set(return_id());
         }
     });
-    let table = |caption: &'static str, rows: &'static [(&'static str, &'static str)]| {
+    let table = |caption: &'static str,
+                 rows: &'static [(&'static str, crate::shell::nav::Label)]| {
         view! {
             <table class="table keys-table">
                 <caption>{caption}</caption>
-                <thead><tr><th scope="col">{text::KEY_KEYS}</th><th scope="col">{text::KEY_DOES}</th></tr></thead>
+                <thead><tr><th scope="col">{text::key_keys()}</th><th scope="col">{text::key_does()}</th></tr></thead>
                 <tbody>
                     {rows.iter().map(|(keys, does)| view! {
-                        <tr><td><kbd>{*keys}</kbd></td><td>{*does}</td></tr>
+                        <tr><td><kbd>{*keys}</kbd></td><td>{does()}</td></tr>
                     }).collect_view()}
                 </tbody>
             </table>
@@ -498,19 +499,19 @@ pub(crate) fn KeyHelp(
     };
     view! {
         <EditDialog id="keys" open=open on_close=Callback::new(move |()| open.set(false))
-            title=Signal::derive(|| text::KEYS_TITLE.to_owned()) back>
-            <p>{move || if keymap.get() == "vim" { text::KEYS_ON } else { text::KEYS_OFF }}</p>
+            title=Signal::derive(|| text::keys_title().to_owned()) back>
+            <p>{move || if keymap.get() == "vim" { text::keys_on() } else { text::keys_off() }}</p>
             <div class="actions">
                 <button id="keys-toggle" type="button" class="button" on:click=move |_| {
                     let next = if keymap.get_untracked() == "vim" { "" } else { "vim" };
                     crate::shell::views::apply_keymap(next);
                     keymap.set(next.to_owned());
                 }>
-                    {move || if keymap.get() == "vim" { text::KEYS_TURN_OFF } else { text::KEYS_TURN_ON }}
+                    {move || if keymap.get() == "vim" { text::keys_turn_off() } else { text::keys_turn_on() }}
                 </button>
             </div>
-            {table(text::KEYS_VIM, HELP)}
-            {table(text::KEYS_ALWAYS, ALWAYS)}
+            {table(text::keys_vim(), HELP)}
+            {table(text::keys_always(), ALWAYS)}
         </EditDialog>
     }
 }

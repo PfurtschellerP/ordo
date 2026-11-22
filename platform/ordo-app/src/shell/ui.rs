@@ -181,7 +181,7 @@ pub fn UndoBar(offer: UndoSlot) -> impl IntoView {
                         <span>{undo.message.clone()}</span>
                         <button type="button" class="button button--small" id="undo"
                             on:click=move |_| { run(); offer.0.set(None); }>
-                            <Icon name="undo-2" />{crate::text::UNDO}
+                            <Icon name="undo-2" />{crate::text::undo()}
                         </button>
                         <button type="button" class="button button--small button--icon"
                             aria-label=crate::text::close_label(&undo.message)
@@ -464,12 +464,12 @@ pub fn EditDialog(
         >
             <header class="edit-dialog__header">
                 <h2 id=title_id.clone() class="edit-dialog__title">{move || title.get()}</h2>
-                <IconButton icon="x" word=crate::text::CLOSE quiet=true label=crate::text::CLOSE
+                <IconButton icon="x" word=crate::text::close() quiet=true label=crate::text::close()
                     on_click=done />
             </header>
             <div class="edit-dialog__body">{children()}</div>
             <footer class="edit-dialog__footer">
-                <button type="button" class="button" on:click=move |_| done.run(())>{crate::text::DONE}</button>
+                <button type="button" class="button" on:click=move |_| done.run(())>{crate::text::done()}</button>
             </footer>
         </dialog>
     }
@@ -586,7 +586,7 @@ pub type HistoryEntry = (String, String, String);
 pub fn History(#[prop(into)] entries: Signal<Vec<HistoryEntry>>) -> impl IntoView {
     view! {
         <details class="history-list">
-            <summary>{crate::text::TRANSPORT_HISTORY}</summary>
+            <summary>{crate::text::transport_history()}</summary>
             <ol>
                 {move || {
                     entries

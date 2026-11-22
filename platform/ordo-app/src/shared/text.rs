@@ -765,7 +765,7 @@ pub fn with_units(total: u32, counts: &[(&str, u32)]) -> String {
         .filter(|(_, n)| *n > 0)
         .map(|(label, n)| format!("{label} {n}"))
         .collect();
-    format!("{WITH_UNITS}: {total} ({})", parts.join(" · "))
+    format!("{}: {total} ({})", with_units_label(), parts.join(" · "))
 }
 
 pub fn log_unknown(module: &str, event_type: &str) -> String {
@@ -1005,7 +1005,7 @@ pub fn duty_end_label(name: &str) -> String {
 }
 /// Starts with the button's visible text, so its name matches what is seen.
 pub fn helper_edit_label(name: &str) -> String {
-    format!("{EDIT}: {name}")
+    format!("{}: {name}", edit())
 }
 pub fn helper_edit_title(name: &str) -> String {
     format!("{name} bearbeiten")

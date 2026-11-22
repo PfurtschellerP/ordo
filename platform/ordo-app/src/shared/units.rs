@@ -453,7 +453,7 @@ pub(crate) fn AssignedElsewhere(
                         {text::MOVE_HERE}
                     </button>
                     <button type="button" class="button button--small button--quiet" on:click=move |_| elsewhere.set(Vec::new())>
-                        {text::CANCEL}
+                        {text::cancel()}
                     </button>
                 </div>
             </div>
@@ -718,7 +718,7 @@ fn CrewEditor(
                                 {text::REGISTER_AND_ADD}
                             </button>
                             <button type="button" class="button button--small button--quiet" on:click=move |_| unregistered.set(false)>
-                                {text::CANCEL}
+                                {text::cancel()}
                             </button>
                         </div>
                     </div>

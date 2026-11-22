@@ -61,7 +61,7 @@ pub fn DevicesView(
     let confirming = RwSignal::new(None::<DeviceId>);
     view! {
         <section aria-labelledby="devices-title" class="card">
-            <h2 id="devices-title" tabindex="-1">{if mine_only { text::MY_DEVICES } else { text::DEVICES }}</h2>
+            <h2 id="devices-title" tabindex="-1">{if mine_only { text::my_devices() } else { text::DEVICES }}</h2>
             <p>{move || if all.get() { text::DEVICES_INTRO_ALL } else { text::DEVICES_INTRO_OWN }}</p>
             {move || {
                 if !ready.get() {
@@ -280,7 +280,7 @@ fn DeviceCard(
                         <button id=confirm_id.clone() type="button" class="button button--danger" on:click=revoke>
                             {text::REVOKE_CONFIRM}
                         </button>
-                        <button type="button" class="button" on:click=cancel.clone()>{text::CANCEL}</button>
+                        <button type="button" class="button" on:click=cancel.clone()>{text::cancel()}</button>
                     </div>
                 </div>
             </Show>

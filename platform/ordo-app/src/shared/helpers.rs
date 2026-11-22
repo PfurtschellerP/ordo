@@ -533,7 +533,7 @@ fn PersonEntry(
                             }
                         }>
                         {if registered {
-                            view! { <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::EDIT}</span> }.into_any()
+                            view! { <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::edit()}</span> }.into_any()
                         } else {
                             view! { {text::HELPER_COMPLETE} }.into_any()
                         }}
@@ -1003,13 +1003,13 @@ fn HelperForm(
             <div class="row">
                 <button type="submit" class="button button--primary">
                     {match (editing_one, readable) {
-                        (true, true) => text::SAVE,
+                        (true, true) => text::save(),
                         (false, true) => text::HELPER_ADD,
                         (_, false) => text::GRANT,
                     }}
                 </button>
                 {editing_one.then(|| view! {
-                    <button type="button" class="button" on:click=move |_| editing.set(None)>{text::CANCEL}</button>
+                    <button type="button" class="button" on:click=move |_| editing.set(None)>{text::cancel()}</button>
                 })}
             </div>
         </form>

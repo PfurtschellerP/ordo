@@ -43,11 +43,11 @@ pub fn AttentionBell(
                         (n > 0).then(|| view! { <span class="attention__count" aria-hidden="true">{n}</span> })
                     }}
                 }.into_any())>
-                <h2 class="launcher__title">{text::ATTENTION}</h2>
+                <h2 class="launcher__title">{text::attention()}</h2>
                 {move || {
                     let list = items.get();
                     if list.is_empty() {
-                        return view! { <p>{text::ATTENTION_NONE}</p> }.into_any();
+                        return view! { <p>{text::attention_none()}</p> }.into_any();
                     }
                     view! {
                         <ul class="attention__list">

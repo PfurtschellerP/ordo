@@ -76,7 +76,7 @@ pub fn IncidentPicker(
     after_render(|| focus("incidents-title"));
     view! {
         <main id="main" class="page page--narrow">
-            <h1 id="incidents-title" tabindex="-1">{text::APP_NAME} " – " {text::INCIDENTS_TITLE}</h1>
+            <h1 id="incidents-title" tabindex="-1">{text::app_name()} " – " {text::INCIDENTS_TITLE}</h1>
             <p>{text::INCIDENTS_INTRO}</p>
             {move || {
                 if !ready.get() {
@@ -92,7 +92,7 @@ pub fn IncidentPicker(
                                 .map(|i| {
                                     let id = i.incident.to_string();
                                     let roles = if i.roles.is_empty() {
-                                        text::NO_ROLE.to_owned()
+                                        text::no_role().to_owned()
                                     } else {
                                         i.roles.iter().map(|r| text::role_label(r)).collect::<Vec<_>>().join(", ")
                                     };
@@ -102,7 +102,7 @@ pub fn IncidentPicker(
                                             <h2>{i.name.clone()}</h2>
                                             <p>
                                                 <span class="incident-card__state">{text::incident_state(i.state, i.paused)}</span>
-                                                " · " {text::MY_ROLES} ": " {roles}
+                                                " · " {text::my_roles()} ": " {roles}
                                             </p>
                                             <button type="button" class="button button--primary" aria-label=label
                                                 on:click=move |_| open(id.clone(), None)>
@@ -131,7 +131,7 @@ pub fn IncidentPicker(
             </Show>
             <section class="card" aria-labelledby="log-out-title">
                 <h2 id="log-out-title" class="visually-hidden">{text::LOG_OUT}</h2>
-                <p>{text::SIGNED_IN_AS} " " <strong>{crate::shell::profile::naming({
+                <p>{text::signed_in_as()} " " <strong>{crate::shell::profile::naming({
                     let me = me.clone();
                     move || crate::shell::profile::display_name(core, &me)
                 })}</strong> " (" {me.to_string()} ")"</p>
@@ -210,7 +210,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         let (Ok(starts_at), Ok(ends_at)) =
             (time(starts.get_untracked()), time(ends.get_untracked()))
         else {
-            details_status.set(Some(text::INCIDENT_TIMES_INVALID.to_owned()));
+            details_status.set(Some(text::incident_times_invalid().to_owned()));
             return;
         };
         let details = ordo_sync::incidents::Details {
@@ -221,7 +221,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         };
         details_status.set(Some(
             match core::set_incident_details(core, revision, &details) {
-                Ok(()) => text::INCIDENT_DETAILS_SAVED.to_owned(),
+                Ok(()) => text::incident_details_saved().to_owned(),
                 Err(e) => e,
             },
         ));

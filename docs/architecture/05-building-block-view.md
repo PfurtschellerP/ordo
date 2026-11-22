@@ -1603,8 +1603,34 @@ Leptos, client-side rendered, compiled to WebAssembly with Trunk and served by `
 (patient counts), resources, the patient care record (`patients.rs`) and the command
 palette (`palette.rs`). Texts in German (DE profile): the shell's in `text.rs`, each
 package's and the shared modules' in their own `text.rs`, which re-exports the layer below
-(so a package writes `text::…` for all it may use), to move to Fluent files per package
-later.
+(so a package writes `text::…` for all it may use). They move to Fluent files part by part
+(*UI texts*).
+
+#### UI texts
+`dsn~ui-texts~1`
+
+The app's texts are Fluent files, one per part of the app and language:
+`platform/ordo-app/locales/<language>/<part>.ftl` (`shell`, then `shared`, `med`, `admin`),
+German first ([ADR-0096](../adr/0096-ui-texts-in-fluent-files.md)). The build script
+(`build/fluent.rs`) parses every file with `fluent-syntax` and writes, for each German
+file, one function per message into the part's `text` module: `text::pair_title()` for a
+message without variables, `text::pending(n)` with them (in the order of a `Variables:`
+comment, else as they appear). A missing message is a compile error. At run time
+`fluent-bundle` formats messages in the language chosen at start: the first of the
+browser's languages with texts, else German; the page's `lang` follows. A message without
+variables is formatted once and kept, so it can be a `&'static str`; workspaces and views
+name their labels as functions (`nav::Label`). Plurals and other forms are Fluent
+selectors; values of ORDO's types (triage categories, states, durations) map to messages in
+`text.rs`. Tests check that every other language has the same messages with the same
+variables, and that every message formats without errors.
+
+Covers:
+
+* [req~i18n-1~1](../requirements/07-quality.md#i18n-1--german-and-english)
+
+Needs: impl, utest
+
+Tags: must, m73
 
 #### Local persistence
 `dsn~local-persistence~2`

@@ -562,7 +562,7 @@ Needs: dsn
 
 User interface in German and English at launch; all texts translatable
 
-Tags: must, quality
+Tags: must, quality, m73
 
 Needs: dsn
 

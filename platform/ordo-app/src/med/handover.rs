@@ -351,7 +351,7 @@ fn HandoverForm(
             </div>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="actions">
-                <button type="button" class="button button--quiet" on:click=reset>{text::CANCEL}</button>
+                <button type="button" class="button button--quiet" on:click=reset>{text::cancel()}</button>
                 <button type="submit" class="button button--primary button--with-icon">
                     <crate::shell::ui::Icon name="arrow-right-left" />
                     {move || match to.get() {

@@ -87,7 +87,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
         let p = decode::<med::HandedOver>(e)?;
         let words = match (&p.to, &p.outside) {
             (_, Some(receiver)) => text::handed_outside(&p.tag, receiver),
-            (Some(to), None) => text::handed_over(&p.tag, &holder(c, to)),
+            (Some(to), None) => text::handed_over(&p.tag, holder(c, to)),
             (None, None) => text::handed_over_quick(&p.tag),
         };
         Some(words.into())
@@ -99,7 +99,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
     }),
     (med::TAKEN, |e, c, _| {
         let p = decode::<med::Taken>(e)?;
-        Some(text::taken(&p.tag, &holder(c, &p.holder)).into())
+        Some(text::taken(&p.tag, holder(c, &p.holder)).into())
     }),
     // [impl->dsn~uhs-staff-request~2]
     (med::staffing::REQUESTED, |e, c, _| {

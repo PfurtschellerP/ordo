@@ -26,21 +26,21 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     nav::Workspace {
         id: "units.crew",
         // Under Sanität: medical units' crews (product owner, 2026-11-17).
-        package: crate::shared::text::TAB_MED,
-        label: crate::shared::text::WS_CREW,
+        package: || crate::shared::text::TAB_MED,
+        label: || crate::shared::text::WS_CREW,
         requires: &["incident"],
         permission: Some(crate::core::permission::CREW_WORK),
         or_organisation: &[],
         views: &[
             nav::view(
                 "tasks",
-                crate::shared::text::CREW_TASKS,
+                || crate::shared::text::CREW_TASKS,
                 "crew tasks status patient cases",
                 "clipboard-list",
             ),
             nav::view(
                 "transports",
-                crate::shared::text::TRANSPORTS,
+                || crate::shared::text::TRANSPORTS,
                 "crew transports",
                 "ambulance",
             ),
@@ -50,7 +50,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 requires: &["med.clinical"],
                 ..nav::view(
                     "patients",
-                    crate::shared::text::CREW_PATIENTS,
+                    || crate::shared::text::CREW_PATIENTS,
                     "crew patients register",
                     "users",
                 )
@@ -61,15 +61,15 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // The incident command (ADR-0061): what is set up before and adjusted during it …
     nav::Workspace {
         id: "command.prepare",
-        package: crate::shared::text::TAB_COMMAND,
-        label: crate::shared::text::WS_PREPARE,
+        package: || crate::shared::text::TAB_COMMAND,
+        label: || crate::shared::text::WS_PREPARE,
         requires: &["incident"],
         permission: Some(crate::core::permission::VIEW_SITUATION),
         or_organisation: &[],
         views: &[
             nav::view(
                 "incident",
-                crate::shared::text::INCIDENT_PAGE,
+                || crate::shared::text::INCIDENT_PAGE,
                 "incident description date time start pause resume close",
                 "flag",
             ),
@@ -81,25 +81,25 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 tabs: &[
                     nav::PageTab {
                         key: "helpers",
-                        label: crate::shared::text::TAB_HELPERS,
+                        label: || crate::shared::text::TAB_HELPERS,
                         from: 0,
                     },
                     nav::PageTab {
                         key: "devices",
-                        label: crate::shared::text::TAB_DEVICES,
+                        label: || crate::shared::text::TAB_DEVICES,
                         from: 30,
                     },
                 ],
                 ..nav::view(
                     "people",
-                    crate::shared::text::PEOPLE,
+                    || crate::shared::text::PEOPLE,
                     "people helpers roles roster devices",
                     "id-card",
                 )
             },
             nav::view(
                 "units",
-                crate::shared::text::TAB_RESOURCES,
+                || crate::shared::text::TAB_RESOURCES,
                 "units",
                 "truck",
             ),
@@ -109,7 +109,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // page, its region last.
             nav::view(
                 "map",
-                crate::shared::text::COMMAND_SPACE,
+                || crate::shared::text::COMMAND_SPACE,
                 "command structure org chart positions leader situation map region edit draw place units address",
                 "network",
             ),
@@ -119,8 +119,8 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // … and leading it while it runs (the menu follows the order of the work).
     nav::Workspace {
         id: "command.lead",
-        package: crate::shared::text::TAB_COMMAND,
-        label: crate::shared::text::WS_LEAD,
+        package: || crate::shared::text::TAB_COMMAND,
+        label: || crate::shared::text::WS_LEAD,
         requires: &["incident"],
         // The incident command's views; UHS crews do not see them.
         permission: Some(crate::core::permission::VIEW_SITUATION),
@@ -128,25 +128,25 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
         views: &[
             nav::view(
                 "overview",
-                crate::shared::text::OVERVIEW,
+                || crate::shared::text::OVERVIEW,
                 "overview summary",
                 "layout-grid",
             ),
             nav::view(
                 "map",
-                crate::shared::text::MAP_TITLE,
+                || crate::shared::text::MAP_TITLE,
                 "situation map",
                 "map",
             ),
             nav::view(
                 "dispatch",
-                crate::shared::text::DISPATCH,
+                || crate::shared::text::DISPATCH,
                 "dispatch tasks orders",
                 "clipboard-list",
             ),
             nav::view(
                 "transports",
-                crate::shared::text::TRANSPORTS,
+                || crate::shared::text::TRANSPORTS,
                 "transports",
                 "ambulance",
             ),
@@ -157,14 +157,14 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // Everyone in the incident; each device shows only what its user may read (LOG-6).
     nav::Workspace {
         id: "incident.log",
-        package: crate::shared::text::TAB_COMMAND,
-        label: crate::shared::text::LOG_TITLE,
+        package: || crate::shared::text::TAB_COMMAND,
+        label: || crate::shared::text::LOG_TITLE,
         requires: &["incident"],
         permission: None,
         or_organisation: &[],
         views: &[nav::view(
             "log",
-            crate::shared::text::LOG_TITLE,
+            || crate::shared::text::LOG_TITLE,
             "incident log diary",
             "notebook-text",
         )],

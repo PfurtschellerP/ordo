@@ -38,19 +38,19 @@ pub fn AddressSearch(
         let q = query.get_untracked().trim().to_owned();
         chosen.set(None);
         if q.is_empty() {
-            message.set(Some(text::ADDRESS_EMPTY.to_owned()));
+            message.set(Some(text::address_empty().to_owned()));
             return;
         }
         if q.chars().count() > GEOCODE_QUERY_MAX {
-            message.set(Some(text::ADDRESS_TOO_LONG.to_owned()));
+            message.set(Some(text::address_too_long().to_owned()));
             return;
         }
         if core::geocode(core, &q) {
             asked.set(Some(q));
-            message.set(Some(text::ADDRESS_SEARCHING.to_owned()));
+            message.set(Some(text::address_searching().to_owned()));
         } else {
             asked.set(None);
-            message.set(Some(text::ADDRESS_OFFLINE.to_owned()));
+            message.set(Some(text::address_offline().to_owned()));
         }
     };
     let status = move || {
@@ -61,11 +61,11 @@ pub fn AddressSearch(
             return message.get();
         };
         Some(match a.status {
-            GeocodeStatus::Found if a.places.is_empty() => text::ADDRESS_NOT_FOUND.to_owned(),
+            GeocodeStatus::Found if a.places.is_empty() => text::address_not_found().to_owned(),
             GeocodeStatus::Found => text::address_found(a.places.len()),
-            GeocodeStatus::Off => text::ADDRESS_OFF.to_owned(),
-            GeocodeStatus::Refused => text::ADDRESS_REFUSED.to_owned(),
-            GeocodeStatus::Failed => text::ADDRESS_FAILED.to_owned(),
+            GeocodeStatus::Off => text::address_off().to_owned(),
+            GeocodeStatus::Refused => text::address_refused().to_owned(),
+            GeocodeStatus::Failed => text::address_failed().to_owned(),
         })
     };
     let places = move || answer.get().map(|a| a.places).unwrap_or_default();
@@ -78,15 +78,15 @@ pub fn AddressSearch(
         <div class="address-search">
             <form class="address-search__form" role="search" on:submit=submit>
                 <div class="field">
-                    <label for=input_id.clone()>{text::ADDRESS_LABEL}</label>
+                    <label for=input_id.clone()>{text::address_label()}</label>
                     <input id=input_id type="search" autocomplete="off" enterkeyhint="search"
                         maxlength=GEOCODE_QUERY_MAX.to_string() bind:value=query />
                 </div>
-                <button type="submit" class="button">{text::ADDRESS_SUBMIT}</button>
+                <button type="submit" class="button">{text::address_submit()}</button>
             </form>
             <p role="status" class="address-search__status">{status}</p>
             <Show when=move || !places().is_empty()>
-                <ul class="address-search__places" aria-label=text::ADDRESS_PLACES>
+                <ul class="address-search__places" aria-label=text::address_places()>
                     <For each=places key=|p| (p.label.clone(), p.lat_e7, p.lon_e7) let:place>
                         {
                             let label = place.label.clone();
@@ -99,7 +99,7 @@ pub fn AddressSearch(
                         }
                     </For>
                 </ul>
-                <p class="hint">{text::ADDRESS_ATTRIBUTION}</p>
+                <p class="hint">{text::address_attribution()}</p>
             </Show>
         </div>
     }

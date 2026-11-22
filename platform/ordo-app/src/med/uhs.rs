@@ -494,7 +494,7 @@ fn CloseUhs(
                 <p role="alert">{text::uhs_close_question(&name)}</p>
                 <div class="actions">
                     <button type="button" class="button button--small button--danger" on:click=confirm.clone()>{text::UHS_CLOSE_CONFIRM}</button>
-                    <button type="button" class="button button--small button--quiet" on:click=move |_| asking.set(false)>{text::CANCEL}</button>
+                    <button type="button" class="button button--small button--quiet" on:click=move |_| asking.set(false)>{text::cancel()}</button>
                 </div>
             </Show>
             <p role="alert" class="error">{move || error.get()}</p>

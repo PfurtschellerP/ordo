@@ -1435,7 +1435,7 @@ fn StaySection(
                     }}
                     <p class="error" role="alert">{move || message.get()}</p>
                     <div class="row">
-                        <button type="submit" class="button">{text::DISCHARGE}</button>
+                        <button type="submit" class="button">{text::discharge()}</button>
                     </div>
                 </form>
                 </SectionInputs>
@@ -1600,7 +1600,7 @@ fn PhotoSection(
                 match images.await {
                     Ok((full, preview)) => {
                         if core::add_photo(core, revision, &tag, &full, preview).is_err() {
-                            error.set(Some(text::PHOTO_TOO_LARGE));
+                            error.set(Some(text::photo_too_large()));
                         }
                     }
                     Err(message) => error.set(Some(message)),
@@ -2038,7 +2038,7 @@ fn FormSection(
         FormKind::Series => text::new_entry_label(&form.label),
     };
     let (open_icon, open_text) = match form.kind {
-        FormKind::Snapshot => ("pencil", text::EDIT),
+        FormKind::Snapshot => ("pencil", text::edit()),
         FormKind::Series => ("plus", text::NEW_ENTRY),
     };
     let opener_id = opener.clone();
@@ -2100,7 +2100,7 @@ pub(crate) fn SectionInputs(
     view! {
         <crate::shell::ui::DisclosureButton id=format!("{id}-open") controls=panel.clone() open
             class="button button--small record__open">
-            {move || if open.get() { text::SECTION_CLOSE } else { open_text }}
+            {move || if open.get() { text::section_close() } else { open_text }}
         </crate::shell::ui::DisclosureButton>
         <div id=panel class="record__inputs" hidden=move || !open.get()>
             {children()}
@@ -2411,8 +2411,8 @@ fn EntryEditor(
                 .collect_view()}
             <p role="alert" class="error">{move || message.get()}</p>
             <div class="row">
-                <button type="submit" class="button button--primary">{text::SAVE}</button>
-                <button type="button" class="button" on:click=move |_| close()>{text::CANCEL}</button>
+                <button type="submit" class="button button--primary">{text::save()}</button>
+                <button type="button" class="button" on:click=move |_| close()>{text::cancel()}</button>
             </div>
         </form>
     }

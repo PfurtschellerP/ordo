@@ -61,6 +61,11 @@ js-sys = "0.3"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = "0.8"
 percent-encoding = "2"
+# The app's texts as Fluent files (ADR-0096): Project Fluent's own crates; the syntax
+# crate also reads them in the app's build script.
+fluent-bundle = "0.16"
+fluent-syntax = "0.12"
+unic-langid = "0.9"
 ed25519-dalek = "3"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 getrandom = "0.4"

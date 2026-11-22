@@ -290,17 +290,17 @@ pub fn GalleryPage(
     provide_context(Nav::inert());
     let undo = UndoSlot(RwSignal::new(None));
     view! {
-        <a class="skip-link" href="#main">{text::SKIP_LINK}</a>
+        <a class="skip-link" href="#main">{text::skip_link()}</a>
         <main id="main" class="page gallery" tabindex="-1" lang="en">
-            <a class="back-link" href=back lang="de"><span aria-hidden="true">"←"</span>{text::NOTICES_BACK}</a>
+            <a class="back-link" href=back lang="de"><span aria-hidden="true">"←"</span>{text::notices_back()}</a>
             <h1>"Component gallery"</h1>
             <p>
                 "Every building block of ORDO with sample data, in the theme chosen below. "
                 "Each says when to use it and what it does for accessibility (architecture 8.6, ADR-0094)."
             </p>
             <div class="gallery__theme field" lang="de">
-                <crate::shell::ui::SettingSelect id="gallery-theme" label=text::APPEARANCE
-                    options=&text::THEMES value=theme apply=show_theme />
+                <crate::shell::ui::SettingSelect id="gallery-theme" label=text::appearance()
+                    options=&*text::THEMES value=theme apply=show_theme />
             </div>
             <nav aria-labelledby="gallery-contents">
                 <h2 id="gallery-contents" class="gallery__contents-title">"Contents"</h2>
@@ -491,7 +491,7 @@ fn buttons() -> AnyView {
     view! {
         <div class="row">
             <button type="button" class="button button--primary">"Registrieren"</button>
-            <button type="button" class="button">{text::SAVE}</button>
+            <button type="button" class="button">{text::save()}</button>
             <button type="button" class="button button--danger">"Einsatz abschließen"</button>
             <button type="button" class="button" disabled>"Arzt/Ärztin anfordern"</button>
         </div>
@@ -499,7 +499,7 @@ fn buttons() -> AnyView {
             <button type="button" class="button button--small button--with-icon"><Icon name="plus" />"Vitalwerte"</button>
             <button type="button" class="button button--small">"Verladen"</button>
             <a class="button button--small" href="#gallery-buttons"><Icon name="map" />"Karte bearbeiten"</a>
-            <button type="button" class="button button--small button--quiet">{text::CANCEL}</button>
+            <button type="button" class="button button--small button--quiet">{text::cancel()}</button>
         </div>
     }
     .into_any()
@@ -509,9 +509,9 @@ fn icon_buttons() -> AnyView {
     view! {
         <div class="row">
             <IconButton icon="map-pin" word="Karte" label="Auf der Karte zeigen: RTW 83/1" on_click=Callback::new(|()| {}) />
-            <IconButton icon="pencil" word=text::EDIT label="Bearbeiten: RTW 83/1" on_click=Callback::new(|()| {}) />
+            <IconButton icon="pencil" word=text::edit() label="Bearbeiten: RTW 83/1" on_click=Callback::new(|()| {}) />
             <IconButton icon="trash-2" word="Entfernen" label="Entfernen: RTW 83/1" on_click=Callback::new(|()| {}) />
-            <IconButton icon="x" word=text::CLOSE label="Schließen: RTW 83/1" quiet=true on_click=Callback::new(|()| {}) />
+            <IconButton icon="x" word=text::close() label="Schließen: RTW 83/1" quiet=true on_click=Callback::new(|()| {}) />
         </div>
     }
     .into_any()

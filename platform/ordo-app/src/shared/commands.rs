@@ -22,7 +22,7 @@ pub(crate) const PALETTE: PalettePart = PalettePart {
 };
 
 fn command_access(core: Handle) -> Result<(), &'static str> {
-    nav::workspace("command.prepare").map_or(Err(text::REASON_NO_ACCESS), |w| access(core, w))
+    nav::workspace("command.prepare").map_or(Err(text::reason_no_access()), |w| access(core, w))
 }
 
 fn actions(core: Handle) -> Vec<Item> {
@@ -30,7 +30,7 @@ fn actions(core: Handle) -> Vec<Item> {
         disabled: command_access(core).err(),
         suggested: true,
         ..item(
-            text::GROUP_ACTIONS,
+            text::group_actions(),
             text::ACTION_ADD_UNIT.to_owned(),
             Action::GoFocus(
                 Route::view("command.prepare", "units"),
@@ -96,7 +96,7 @@ fn record(core: Handle, record: &Record) -> RecordPage {
             Item {
                 detail: unit.clone(),
                 suggested: true,
-                disabled: (!can_edit).then_some(text::REASON_NO_ACCESS),
+                disabled: (!can_edit).then_some(text::reason_no_access()),
                 ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
             }
         })

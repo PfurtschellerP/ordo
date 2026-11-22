@@ -242,7 +242,7 @@ fn ProviderItem(
                                 let delete_id = delete_id.clone();
                                 after_render(move || focus(&delete_id));
                             }
-                        }>{text::CANCEL}</button>
+                        }>{text::cancel()}</button>
                     </div>
                 </div>
             </Show>
@@ -356,7 +356,7 @@ fn ProviderForm(
             <div class="row">
                 <button type="submit" class="button button--primary" disabled=move || pending.busy()>{text::PROVIDER_TEST}</button>
                 <Show when=changing>
-                    <button type="button" class="button" on:click=move |_| editing.set(None)>{text::CANCEL}</button>
+                    <button type="button" class="button" on:click=move |_| editing.set(None)>{text::cancel()}</button>
                 </Show>
             </div>
         </form>

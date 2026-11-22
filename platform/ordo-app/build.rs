@@ -3,9 +3,13 @@
 //! internal form model; the transport priority settings; the transport request catalogue;
 //! the routes for medical orders; the hospital catalogue; the triage algorithms; the status
 //! codes of units; the tactical symbols with their SVG files; the formats of registration
-//! cards; the settings of the helper register.
+//! cards; the settings of the helper register. And the app's texts from their Fluent
+//! files (ADR-0096, `build/fluent.rs`).
 
 use std::path::Path;
+
+#[path = "build/fluent.rs"]
+mod fluent;
 
 use ordo_command::StructureCatalogue;
 use ordo_helpers::cards::CardCatalogue;
@@ -45,7 +49,9 @@ fn embed<T: DeserializeOwned + Serialize>(
 }
 
 fn main() {
-    let profile = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../profiles/de");
+    let app = Path::new(env!("CARGO_MANIFEST_DIR"));
+    fluent::texts(app, Path::new(&std::env::var("OUT_DIR").expect("OUT_DIR")));
+    let profile = app.join("../../profiles/de");
     let med = profile.join("med");
 
     let source = med.join("epcr-forms.json");
