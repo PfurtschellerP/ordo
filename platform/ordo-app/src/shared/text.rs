@@ -21,6 +21,8 @@ pub const TAB_DEVICES: &str = "Geräte";
 pub const INCIDENT_PAGE: &str = "Einsatz";
 // The command structure and the map on one page (ADR-0095).
 pub const COMMAND_SPACE: &str = "Führung & Raum";
+/// Its label in the phone's bottom bar.
+pub const COMMAND_SPACE_SHORT: &str = "Struktur";
 
 pub const TAB_RESOURCES: &str = "Einsatzmittel";
 

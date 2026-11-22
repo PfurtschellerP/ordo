@@ -1101,7 +1101,10 @@ fn Workspace(
                                                 aria-current=move || selected().then_some("page")
                                             >
                                                 <Icon name=v.icon />
-                                                <span class="views__label">{v.label}</span>
+                                                // [impl->dsn~workspaces-by-phase~5]
+                                                // The bar shows the short label where there is one.
+                                                <span class="views__label" class:views__label--long=v.short.is_some()>{(v.label)()}</span>
+                                                {v.short.map(|short| view! { <span class="views__label views__label--short">{short()}</span> })}
                                             </a>
                                         }
                                     })

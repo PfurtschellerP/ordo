@@ -1444,7 +1444,8 @@ during it (the incident with its details, start, pause and close; people with th
 and devices; units planned with their crews, which are incident data, with no
 organisation-wide vehicle master data; *Führung & Raum*, the command structure with the
 situation map's editor and region,
-[ADR-0095](../adr/0095-command-and-space-on-one-page.md)), *Führung*, the running incident (overview, situation map to read, dispatch
+[ADR-0095](../adr/0095-command-and-space-on-one-page.md); a view may have a short label for
+the phone's bottom bar, "Struktur" for this one), *Führung*, the running incident (overview, situation map to read, dispatch
 with the open reports, the orders and the units on scene, whose status is set there,
 transports; reports in [chapter 5](05-building-block-view.md#reports)), and the incident
 log, which everyone in the incident opens. The overview, the first view of *Führung*, is a

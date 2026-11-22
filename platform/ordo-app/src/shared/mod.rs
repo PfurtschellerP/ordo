@@ -107,12 +107,17 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // [impl->dsn~command-and-space~1]
             // Führung & Raum (ADR-0095): the command structure and the map prepared on one
             // page, its region last.
-            nav::view(
-                "map",
-                || crate::shared::text::COMMAND_SPACE,
-                "command structure org chart positions leader situation map region edit draw place units address",
-                "network",
-            ),
+            // "Struktur" in the phone's bar, where the name takes two lines (product owner,
+            // 2026-11-22; the name is to be revisited).
+            nav::View {
+                short: Some(|| crate::shared::text::COMMAND_SPACE_SHORT),
+                ..nav::view(
+                    "map",
+                    || crate::shared::text::COMMAND_SPACE,
+                    "command structure org chart positions leader situation map region edit draw place units address",
+                    "network",
+                )
+            },
         ],
         hidden: false,
     },

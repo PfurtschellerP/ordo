@@ -50,6 +50,8 @@ Tabs (option 2) would hide one of the two, which is what the page is for.
   chosen; showing chooses it on the map and centres the map on it. Focus moves to the
   editor's panel, so the next tap or *In der Kartenmitte platzieren* places it.
 * *Führung – Lagekarte*, the map to read, stays as it is.
+* On phones the bottom bar names the view "Struktur", since "Führung & Raum" takes two
+  lines there (product owner, 2026-11-22; the name is to be revisited).
 
 This supersedes the *Vorbereitung* row of ADR-0067's table and its rule that the command
 structure is prepared with the people. ADR-0067's other parts stand.

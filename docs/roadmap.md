@@ -408,6 +408,8 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.
+Backlog (product owner, 2026-11-22): revisit the name *Führung & Raum*; the phone's bottom
+bar shows "Struktur" until then, since the name takes two lines there.
 
 Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 

@@ -1044,6 +1044,13 @@ test("ORDO in the browser", async ({ browser }) => {
     expect(atLargeText[0], "at 150 % text size the menu still opens above the bar").toBeLessThanOrEqual(atLargeText[1] + 1);
     await shot(anna, "launcher-phone", false);
     await anna.locator("#launcher-bar-button").click();
+    // Feedback of 2026-11-22: on phones a category's boxes sit below it, with a gap.
+    await openView(anna, "Behandlungsplätze");
+    const strip = anna.locator(".places__strip").first();
+    const [badgeBox, boxesBox] = [await strip.locator(".triage").first().boundingBox(), await strip.locator(".places__boxes").boundingBox()];
+    expect(boxesBox!.y - (badgeBox!.y + badgeBox!.height), "a gap between the category and its boxes").toBeGreaterThanOrEqual(6);
+    await shot(anna, "places-phone", false);
+    await openView(anna, "Patienten");
     // [itest->dsn~record-overview~2]
     // The record on phones (concept 2026-11-19): short tab labels, and the quick actions in
     // the bottom bar within thumb reach, one block with the views.
@@ -1059,13 +1066,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator(".connection"), "the connection state stays (UX-12)").toBeVisible();
     const tabs = (await anna.getByRole("tab", { name: "Übersicht", exact: true }).boundingBox())!;
     expect(tabs.y + tabs.height, "the tabs on the first screen").toBeLessThan(420);
-    // Feedback of 2026-11-22: the menu stays at hand, in the header, and the way back keeps
-    // off the screen's edge.
-    const headerMenu = anna.locator("#launcher-button");
-    await expect(headerMenu, "the menu in the header while the bar holds the quick actions").toBeVisible();
-    await headerMenu.click();
+    // Feedback of 2026-11-22: the menu stays at its end of the bar, in one row with the
+    // quick actions, and the way back keeps off the screen's edge.
+    const barMenu = anna.locator("#launcher-bar-button");
+    await expect(barMenu, "the menu beside the quick actions").toBeVisible();
+    await expect(anna.locator("#launcher-button"), "not in the header").toBeHidden();
+    const [menuBox, handoverBox] = [await barMenu.boundingBox(), await bar.getByRole("button", { name: "Übergeben" }).boundingBox()];
+    expect(Math.abs(menuBox!.y - handoverBox!.y), "in one row").toBeLessThan(4);
+    expect(menuBox!.x, "at the end").toBeGreaterThan(handoverBox!.x);
+    await barMenu.click();
     await expect(anna.locator("#launcher-panel"), "it opens the menu").toBeVisible();
-    await headerMenu.click();
+    await barMenu.click();
     await expect(anna.locator("#launcher-panel")).toBeHidden();
     const backLink = (await anna.getByRole("link", { name: /Alle Patienten/ }).boundingBox())!;
     expect(backLink.x, "a 16px gutter").toBeGreaterThanOrEqual(16);
@@ -1619,7 +1630,7 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
     await openWorkspace(ben, "Vorbereitung");
     // [itest->dsn~workspaces-by-phase~5]
-    await expect(ben.locator("nav.views .views__label"), "Vorbereitung in the order of the work (ADR-0095)").toHaveText(["Einsatz", "Personal", "Einsatzmittel", "Führung & Raum"]);
+    await expect(ben.locator("nav.views .views__label:not(.views__label--short)"), "Vorbereitung in the order of the work (ADR-0095)").toHaveText(["Einsatz", "Personal", "Einsatzmittel", "Führung & Raum"]);
     await openView(ben, "Führung & Raum");
     await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
     const create = async (kind: string, name: string, parent?: string) => {
@@ -1724,6 +1735,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(ben, "Führung & Raum");
     const wide = ben.viewportSize()!;
     await ben.setViewportSize({ width: 390, height: 844 });
+    // The bar shows "Struktur", so every label takes one line (product owner, 2026-11-22).
+    const here = ben.locator("nav.views .views__item[aria-current=page]");
+    await expect(here.locator(".views__label--short"), "the short label in the bar").toHaveText("Struktur");
+    await expect(here.locator(".views__label--long")).toBeHidden();
+    const labelHeights = await ben.evaluate(() =>
+      [...document.querySelectorAll("nav.views .views__label")].filter((l) => (l as HTMLElement).offsetParent).map((l) => Math.round(l.getBoundingClientRect().height)));
+    expect(new Set(labelHeights).size, `one line each: ${labelHeights}`).toBe(1);
     await shot(ben, "command-space-phone", false);
     await shot(ben, "command-space-phone-full");
     await ben.setViewportSize(wide);

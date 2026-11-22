@@ -20,6 +20,9 @@ pub struct View {
     pub id: &'static str,
     /// Label.
     pub label: Label,
+    /// A shorter label for the phone's bottom bar, where a long one would take two lines
+    /// (feedback of 2026-11-22).
+    pub short: Option<Label>,
     /// English name, found by the command palette in every language (ADR-0036).
     pub name: &'static str,
     /// Icon (Lucide name), shown with the label in the rail and the bottom bar.
@@ -78,6 +81,7 @@ pub(crate) const fn view(
     View {
         id,
         label,
+        short: None,
         name,
         icon,
         permission: None,

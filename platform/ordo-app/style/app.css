@@ -441,6 +441,7 @@
     border-radius: var(--ordo-radius-small); background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
   }
 
+  .views__label--short { display: none; }
   .launcher { position: relative; }
   .launcher__button[aria-expanded="true"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
   .launcher__panel {
@@ -531,6 +532,9 @@
       padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
     }
     .views__item { flex: 1 1 0; text-align: center; min-width: 0; padding-inline: 0; hyphens: auto; overflow-wrap: break-word; }
+    /* A view's short label where it has one (the long one would take two lines). */
+    .views__label--long { display: none; }
+    .views__label--short { display: inline; }
     .launcher { order: 2; flex: none; position: static; }
     /* Left-handed use (ADR-0049): the menu at the start of the bar. */
     :root[data-hand="left"] .launcher { order: -1; }
@@ -886,12 +890,9 @@
   /* Phones (after the rules above, so these win): the record compact, its quick actions in
      the bottom bar. */
   @media (max-width: 48rem) {
-    /* The page's own bar above the views (the record's quick actions): one block, and the
-       content keeps that much more space free below. */
-    .navigation:has(.navigation__extra:not(:empty)) { flex-wrap: wrap; }
-    /* The views and the menu stay on one row below it. */
-    .navigation:has(.navigation__extra:not(:empty)) .views { flex-basis: 0; }
-    .navigation__extra { display: block; order: -2; flex: 1 0 100%; }
+    /* The page's own bar (the record's quick actions) takes the views' place, in one row
+       with the menu, which keeps its end (left-handed: the start). */
+    .navigation__extra { display: block; order: 0; flex: 1 1 0; min-width: 0; }
     .navigation__extra:empty { display: none; }
     /* The bar's height is measured by the page (--bottom-bar-height); 12rem until then. */
     .layout:has(.navigation__extra:not(:empty)) { padding-bottom: calc(var(--bottom-bar-height, 12rem) + var(--ordo-space-4)); }
@@ -919,14 +920,6 @@
     }
     :root:has(#main .record) :is(.app-header .search-button, .app-header__incident) { display: none; }
     :root:has(#main .record) .app-header__title { font-size: var(--ordo-font-size-3); }
-    /* The menu stays at hand (feedback of 2026-11-22): in the header, where the workspace's
-       name was, since the bottom bar holds the quick actions; the name stays for screen
-       readers, the record says where one is. Its sheet still opens above the bottom bar. */
-    :root:has(#main .record) .launcher__button.launcher__button--header { display: inline-flex; }
-    :root:has(#main .record) .app-header__heading {
-      position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden;
-      clip: rect(0 0 0 0); white-space: nowrap;
-    }
     /* A 16px gutter: "← Alle Patienten" and the record keep off the screen's edge. */
     :root:has(#main .record) .page { padding: var(--ordo-space-4); }
     .card.record { border: 0; padding: 0; background: none; box-shadow: none; }
@@ -935,8 +928,9 @@
     .record__where .record__when { display: none; }
     .record .tabs { gap: 0; }
     .record .tabs__tab { flex: 1 1 0; padding-inline: var(--ordo-space-1); }
-    .navigation:has(.navigation__extra:not(:empty)) :is(.views, .launcher__button--bar) { display: none; }
-    .navigation:has(.navigation__extra:not(:empty)) .launcher { display: contents; }
+    /* The quick actions take the views' place; the menu stays at its end of the bar, as on
+       every page (feedback of 2026-11-22). */
+    .navigation:has(.navigation__extra:not(:empty)) .views { display: none; }
     .quick-actions--bar { border-block-end: 0; margin-block-end: 0; padding-block-end: 0; }
   }
   .record__index nav { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); padding-block-start: var(--ordo-space-2); }
@@ -1193,6 +1187,8 @@
     .places__all, .places__unit { grid-template-columns: minmax(0, 1fr); padding: var(--ordo-space-3); }
     .places__strips { grid-template-columns: minmax(0, 1fr) auto; }
     .places__boxes { grid-column: 1 / -1; grid-row: 2; }
+    /* The boxes below the category keep a gap to it (feedback of 2026-11-22). */
+    .places__strip { row-gap: var(--ordo-space-2); }
   }
   .quick-links { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1 1 auto; }
   .quick-link {
