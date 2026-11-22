@@ -1213,6 +1213,9 @@
   .position p { margin: 0; }
   /* A unit or UHS under a position: a smaller card, its kind in words. */
   .position__card--member { border-style: dashed; }
+  /* A position's actions stay together; the card is too small to set the ending one apart. */
+  .position__card .row { gap: var(--ordo-space-2); }
+  .position__card .button--quiet { margin-inline-start: 0; }
   .position__kind { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-1); }
   .position__card {
     display: grid; gap: var(--ordo-space-1);
@@ -1281,6 +1284,14 @@
   /* The map editor (ADR-0064): the map as large as the page allows, the tools above it.
      The chosen tool is filled (not only another colour) and pressed for screen readers. */
   .map-editor .situation__map { block-size: max(20rem, min(70vh, 48rem)); }
+  /* Führung & Raum (ADR-0095): the command structure and the map editor side by side where
+     both have room (the org chart needs 40rem), else the structure first. */
+  .command-space { container-type: inline-size; }
+  .command-space__grid { display: grid; gap: var(--ordo-space-5); align-items: start; }
+  .command-space__grid > .situation { margin-block-end: 0; }
+  @container (min-width: 84rem) {
+    .command-space__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
   .map-tools { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .map-tool {
     display: inline-flex; align-items: center; gap: var(--ordo-space-2);

@@ -11,6 +11,7 @@ use ordo_command::{
 };
 
 use crate::core::{self, Handle};
+use crate::shared::situation::{MapAsk, MapAsks};
 use crate::shared::text;
 use crate::shell::ui::{Action, Actions, History, Suggestions};
 
@@ -38,6 +39,9 @@ pub fn position_choices(s: &CommandStructure) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The map editor on the same page (*Führung & Raum*, ADR-0095), and what is on its map.
+type OnMap = (MapAsks, std::collections::BTreeSet<String>);
+
 /// One position and, nested, the positions reporting to it.
 fn position_item(
     core: Handle,
@@ -46,6 +50,7 @@ fn position_item(
     id: &str,
     uhs_names: &std::collections::HashMap<String, String>,
     editable: bool,
+    map: Option<&OnMap>,
 ) -> AnyView {
     let Some(p) = s.positions.get(id) else {
         return ().into_any();
@@ -108,29 +113,54 @@ fn position_item(
     let span = p
         .span_exceeded()
         .then(|| text::span_of_control(p.subordinates()));
+    // [impl->dsn~command-and-space~1]
+    // Put on the map, or found there, from the tree (CMD-5).
+    let on_map = map.filter(|_| editable).map(|(asks, placed)| {
+        let asks = *asks;
+        let object = ordo_map::ObjectKind::Position.object_id(id);
+        let position = id.to_owned();
+        if placed.contains(&object) {
+            Action {
+                text: text::POSITION_MAP_SHOW,
+                label: text::position_map_show_label(&title),
+                quiet: false,
+                run: Callback::new(move |()| asks.ask(MapAsk::Show(object.clone()))),
+            }
+        } else {
+            Action {
+                text: text::POSITION_MAP_SET,
+                label: text::position_map_set_label(&title),
+                quiet: false,
+                run: Callback::new(move |()| asks.ask(MapAsk::Place(position.clone()))),
+            }
+        }
+    });
     let close = editable.then(|| {
         let id = id.to_owned();
-        vec![Action {
-            text: text::POSITION_CLOSE,
-            label: text::position_close_label(&title),
-            quiet: true,
-            run: Callback::new(move |()| {
-                let closed = PositionClosed {
-                    position: id.clone(),
-                };
-                let _ = core::command_event(
-                    core,
-                    revision,
-                    ordo_command::kinds::POSITION_CLOSED,
-                    &closed.encode().unwrap_or_default(),
-                );
-            }),
-        }]
+        on_map
+            .into_iter()
+            .chain([Action {
+                text: text::POSITION_CLOSE,
+                label: text::position_close_label(&title),
+                quiet: true,
+                run: Callback::new(move |()| {
+                    let closed = PositionClosed {
+                        position: id.clone(),
+                    };
+                    let _ = core::command_event(
+                        core,
+                        revision,
+                        ordo_command::kinds::POSITION_CLOSED,
+                        &closed.encode().unwrap_or_default(),
+                    );
+                }),
+            }])
+            .collect::<Vec<_>>()
     });
     let mut children: Vec<AnyView> = p
         .children
         .iter()
-        .map(|child| position_item(core, revision, s, child, uhs_names, editable))
+        .map(|child| position_item(core, revision, s, child, uhs_names, editable, map))
         .collect();
     children.extend(members);
     view! {
@@ -165,6 +195,13 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             .map(|u| (u.id, u.name))
             .collect::<std::collections::HashMap<_, _>>()
     });
+    // On Führung & Raum, the map editor beside the tree (ADR-0095).
+    let asks = use_context::<MapAsks>();
+    let placed = Memo::new(move |_| {
+        revision.track();
+        asks.map(|_| crate::shared::situation::placed_objects(core))
+            .unwrap_or_default()
+    });
     view! {
         <section class="card" aria-labelledby="structure-title">
             <h2 id="structure-title">{text::STRUCTURE_TITLE}</h2>
@@ -175,10 +212,11 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 let names = uhs_names.get();
                 let editable = editable.get();
+                let map = asks.map(|a| (a, placed.get()));
                 let items: Vec<AnyView> = s
                     .roots
                     .iter()
-                    .map(|id| position_item(core, revision, &s, id, &names, editable))
+                    .map(|id| position_item(core, revision, &s, id, &names, editable, map.as_ref()))
                     .collect();
                 // [impl->dsn~org-chart~2]
                 // An org chart where the card is wide enough, else an indented tree; a wide

@@ -168,7 +168,7 @@ pub(crate) fn TileHead(
     }
 }
 
-// [impl->dsn~workspaces-by-phase~4]
+// [impl->dsn~workspaces-by-phase~5]
 /// The overview of the incident command: start view of *Einsatzleitung – Führung*.
 #[component]
 pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
@@ -192,7 +192,8 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let units = Route::view("command.prepare", "units");
     let uhs = Route::view("command.lead", "map");
     let log = Route::view("incident.log", "log");
-    let people = Route::view("command.prepare", "people");
+    // The command structure is on Führung & Raum (ADR-0095).
+    let structure = Route::view("command.prepare", "map");
     let quick = [
         (
             "quick-task",
@@ -213,7 +214,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             "quick-structure",
             "network",
             text::STRUCTURE_TITLE,
-            people,
+            structure,
             false,
         ),
     ];

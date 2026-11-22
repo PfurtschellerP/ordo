@@ -500,7 +500,7 @@ pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
 }
 
-// [impl->dsn~page-tabs~1]
+// [impl->dsn~page-tabs~2]
 /// A page in tabs: the tab list, then a panel per tab with its sections.
 fn page_with_tabs(
     view: &'static str,

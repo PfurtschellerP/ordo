@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; the Vorbereitung row superseded by ADR-0095
 date: 2026-11-13
 ---
 

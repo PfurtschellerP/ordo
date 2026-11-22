@@ -17,9 +17,10 @@ pub const DISPATCH: &str = "Disposition";
 pub const PEOPLE: &str = "Personal";
 pub const CREW_PATIENTS: &str = "Patienten";
 pub const TAB_HELPERS: &str = "Helfende";
-pub const TAB_STRUCTURE: &str = "Führungsstruktur";
 pub const TAB_DEVICES: &str = "Geräte";
 pub const INCIDENT_PAGE: &str = "Einsatz";
+// The command structure and the map on one page (ADR-0095).
+pub const COMMAND_SPACE: &str = "Führung & Raum";
 
 pub const TAB_RESOURCES: &str = "Einsatzmittel";
 
@@ -592,6 +593,23 @@ pub fn span_of_control(n: usize) -> String {
 
 pub fn position_close_label(title: &str) -> String {
     format!("{title} auflösen")
+}
+
+// A position put on the map, or found there, from the tree (CMD-5).
+pub const POSITION_MAP_SET: &str = "Auf der Karte setzen";
+pub const POSITION_MAP_SHOW: &str = "Auf der Karte zeigen";
+
+pub fn position_map_set_label(title: &str) -> String {
+    format!("Auf der Karte setzen: {title}")
+}
+
+pub fn position_map_show_label(title: &str) -> String {
+    format!("Auf der Karte zeigen: {title}")
+}
+
+/// The place panel's status once a position was chosen from the tree.
+pub fn map_place_ready(label: &str) -> String {
+    format!("{label}: auf die Stelle tippen oder in der Kartenmitte platzieren.")
 }
 
 pub fn position_of(unit: &str) -> String {

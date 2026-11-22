@@ -169,7 +169,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await dora.getByRole("button", { name: "Einsatz anlegen" }).click();
     await expect.poll(() => title(dora), { message: "a new incident opens where it is prepared: the menu follows the work" }).toContain("Einsatzleitung – Vorbereitung");
     await openWorkspace(dora, "Führung");
-    // [itest->dsn~workspaces-by-phase~4]
+    // [itest->dsn~workspaces-by-phase~5]
     // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, quick links.
     await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(5);
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
@@ -199,8 +199,8 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~map-region~2]
     // MAP-8: the planner cuts the incident's map region (ADR-0062).
     await openWorkspace(dora, "Vorbereitung");
-    // The map region is prepared with the map, on Vorbereitung – Lagekarte (ADR-0067).
-    await openView(dora, "Lagekarte");
+    // The map region is prepared with the map, on Vorbereitung – Führung & Raum (ADR-0095).
+    await openView(dora, "Führung & Raum");
     await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
     await expect(region).toHaveText("Für diesen Einsatz ist noch keine Kartengrundlage erstellt.");
@@ -1081,7 +1081,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
-    // [itest->dsn~page-tabs~1]
+    // [itest->dsn~page-tabs~2]
+    await expect(ben.getByRole("tab"), "Helfende and Geräte; the command structure is on Führung & Raum").toHaveText(["Helfende", "Geräte"]);
     await pageTab(ben, "Geräte");
     // The incident command sees the devices of the incident's people, and blocks one of
     // Anna's two tablets, which she no longer uses (ORG-12).
@@ -1230,7 +1231,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const card = ben.locator(".unit-card[data-unit='RTW 83/1']");
     await expect(card, "a unit is added").toContainText("Status: –");
-    // [itest->dsn~workspaces-by-phase~4]
+    // [itest->dsn~workspaces-by-phase~5]
     await expect(card.getByLabel("Status von RTW 83/1 setzen"), "planned here; its status is set in Führung").toHaveCount(0);
     await expect(card).toContainText("RTW · DRK Musterstadt");
     await expect(card, "with service and strength").toContainText("Rettungsdienst · Stärke 0/1/1/2");
@@ -1591,8 +1592,9 @@ test("ORDO in the browser", async ({ browser }) => {
 
   await test.step("command structure: the medical branch, a handover, units and UHS", async () => {
     await openWorkspace(ben, "Vorbereitung");
-    await openView(ben, "Personal");
-    await pageTab(ben, "Führungsstruktur");
+    // [itest->dsn~workspaces-by-phase~5]
+    await expect(ben.locator("nav.views .views__label"), "Vorbereitung in the order of the work (ADR-0095)").toHaveText(["Einsatz", "Personal", "Einsatzmittel", "Führung & Raum"]);
+    await openView(ben, "Führung & Raum");
     await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
     const create = async (kind: string, name: string, parent?: string) => {
       await ben.locator("#position-kind").selectOption({ label: kind });
@@ -1643,8 +1645,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".task-card"), "a task to a position").toContainText("Sanitätseinsatzleitung SanEL – Lage der UHS melden");
     await ben.locator(".task-card").getByRole("button", { name: /^Erledigt/ }).click();
     await openWorkspace(ben, "Vorbereitung");
-    await openView(ben, "Personal");
-    await pageTab(ben, "Führungsstruktur");
+    await openView(ben, "Führung & Raum");
     await expect(sanel.locator(":scope > .position-tree > .position--member[data-member='unit']"), "units under a position, chosen in two taps, as the next level").toHaveText("RTW 83/1Einsatzmittel");
   });
 
@@ -1672,15 +1673,30 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".maplibregl-ctrl-attrib"), "OpenStreetMap is credited").toContainText("OpenStreetMap");
     await expect(ben.getByRole("link", { name: "Lagekarte bearbeiten" }), "Führung reads the map, it does not edit it").toHaveCount(0);
     // [itest->dsn~map-drawing~2]
-    // The editor (ADR-0064) on Vorbereitung – Lagekarte, with no further click (ADR-0067):
+    // The editor (ADR-0064) on Vorbereitung – Führung & Raum, with no further click (ADR-0095):
     // a toolbar, taps, and the keyboard at the crosshair.
     await openWorkspace(ben, "Vorbereitung");
-    await openView(ben, "Lagekarte");
+    await openView(ben, "Führung & Raum");
     await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
     await expect(ben.locator(".situation__map"), "the editor's map loads").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     const canvas = ben.locator(".situation__map canvas");
     const tool = (name: string) => ben.locator(".map-tools").getByRole("button", { name });
     const panelStatus = ben.locator(".map-panel__status");
+    // [itest->dsn~command-and-space~1]
+    // CMD-5: a position is put on the map from the tree beside it, and found there again.
+    await ben.getByRole("button", { name: "Auf der Karte setzen: Sanitätseinsatzleitung SanEL" }).click();
+    await expect(ben.locator("#map-panel-title"), "focus moves to the editor's panel").toBeFocused();
+    await expect(tool("Symbol setzen")).toHaveAttribute("aria-pressed", "true");
+    await expect(ben.locator("#place-kind")).toHaveValue("position");
+    await expect(ben.locator("#place-reference option:checked")).toHaveText("Sanitätseinsatzleitung SanEL");
+    await expect(panelStatus).toHaveText("Sanitätseinsatzleitung SanEL: auf die Stelle tippen oder in der Kartenmitte platzieren.");
+    await ben.getByRole("button", { name: "In der Kartenmitte platzieren" }).click();
+    await expect(panelStatus).toHaveText("Sanitätseinsatzleitung SanEL platziert.");
+    await ben.getByRole("button", { name: "Auf der Karte zeigen: Sanitätseinsatzleitung SanEL" }).click();
+    await expect(tool("Auswählen"), "showing chooses it on the map").toHaveAttribute("aria-pressed", "true");
+    await expect(ben.locator(".map-panel__chosen")).toContainText("Sanitätseinsatzleitung SanEL");
+    await audit(ben, "Führung & Raum");
+    await ben.getByRole("button", { name: "Auswahl aufheben" }).click();
     await tool("Symbol setzen").click();
     await expect(tool("Symbol setzen"), "the chosen tool is pressed").toHaveAttribute("aria-pressed", "true");
     await expect(tool("Auswählen")).toHaveAttribute("aria-pressed", "false");

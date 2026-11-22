@@ -383,8 +383,10 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        ([ADR-0086](adr/0086-the-incident-command-sets-up-the-uhs.md)); *Behandlungsplätze*
        shows the free places per triage category of every UHS in *Führung* (UHS-16) and in
        the UHS module (UHS-8).
-    5. *Führung & Raum:* the command structure and the situation map on one page in
-       *Vorbereitung* (Einsatz · Personal · Einsatzmittel · Führung & Raum).
+    5. *Führung & Raum* (m72). Done 2026-11-22: the command structure and the situation
+       map on one page in *Vorbereitung* (Einsatz · Personal · Einsatzmittel · Führung &
+       Raum); each position is put on the map from the tree (CMD-5,
+       [ADR-0095](adr/0095-command-and-space-on-one-page.md)).
     6. *Patient record and handover* (m67). Done 2026-11-20: the record opens on an
        overview with header, quick actions, tiles and tabs, and has one timeline
        (EPCR-14, EPCR-15, [ADR-0088](adr/0088-record-overview-from-the-profile.md)); the

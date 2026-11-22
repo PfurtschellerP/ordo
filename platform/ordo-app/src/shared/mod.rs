@@ -73,34 +73,16 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "incident description date time start pause resume close",
                 "flag",
             ),
-            // [impl->dsn~workspaces-by-phase~4]
-            // The map prepared on one page: its region and its objects (ADR-0067).
-            nav::view(
-                "map",
-                crate::shared::text::MAP_TITLE,
-                "situation map region edit draw place units address",
-                "map",
-            ),
-            nav::view(
-                "units",
-                crate::shared::text::TAB_RESOURCES,
-                "units",
-                "truck",
-            ),
-            // [impl->dsn~page-tabs~1]
-            // Three parts in tabs (feedback of 2026-11-21): the helpers and taking people
-            // in, the command structure, the devices (admin package, place 30).
+            // [impl->dsn~page-tabs~2]
+            // Two parts in tabs (feedback of 2026-11-21): the helpers and taking people in,
+            // the devices (admin package, place 30). The command structure is on
+            // Führung & Raum (ADR-0095).
             nav::View {
                 tabs: &[
                     nav::PageTab {
                         key: "helpers",
                         label: crate::shared::text::TAB_HELPERS,
                         from: 0,
-                    },
-                    nav::PageTab {
-                        key: "structure",
-                        label: crate::shared::text::TAB_STRUCTURE,
-                        from: 20,
                     },
                     nav::PageTab {
                         key: "devices",
@@ -111,10 +93,26 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 ..nav::view(
                     "people",
                     crate::shared::text::PEOPLE,
-                    "people helpers roles roster devices command structure",
+                    "people helpers roles roster devices",
                     "id-card",
                 )
             },
+            nav::view(
+                "units",
+                crate::shared::text::TAB_RESOURCES,
+                "units",
+                "truck",
+            ),
+            // [impl->dsn~workspaces-by-phase~5]
+            // [impl->dsn~command-and-space~1]
+            // Führung & Raum (ADR-0095): the command structure and the map prepared on one
+            // page, its region last.
+            nav::view(
+                "map",
+                crate::shared::text::COMMAND_SPACE,
+                "command structure org chart positions leader situation map region edit draw place units address",
+                "network",
+            ),
         ],
         hidden: false,
     },
@@ -202,7 +200,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         // The crew's patients come from the Med package (ADR-0093).
         ("units.crew", "patients") => Vec::new(),
         ("units.crew", _) => one(view! { <crew::CrewTasks core revision /> }.into_any()),
-        // [impl->dsn~workspaces-by-phase~4]
+        // [impl->dsn~workspaces-by-phase~5]
         // [impl->dsn~map-drawing~2]
         ("command.lead", "map") => vec![(10, view! { <situation::SituationView core revision /> }.into_any())],
         // [impl->dsn~reports~3]
@@ -210,16 +208,13 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         ("command.lead", "transports") => Vec::new(),
         ("command.lead", _) => one(view! { <summary::CommandOverview core revision /> }.into_any()),
         ("command.prepare", "units") => one(view! { <units::ResourcesView core revision /> }.into_any()),
-        // The command structure is prepared with the people (ADR-0067); old links to its
-        // own view land here. Who is there and taking people in first (feedback of
-        // 2026-11-14), the devices after them (administration).
-        ("command.prepare", "people" | "structure") => vec![
-            (10, view! { <helpers::HelpersView core revision /> }.into_any()),
-            (20, view! { <command::LeadershipView core revision /> }.into_any()),
-        ],
-        // The situation map prepared on one page: its region, then the editor, also opened
-        // to place one object (`place:<kind>:<ID>`).
-        ("command.prepare", "map") => one(view! {
+        // Who is there and taking people in first (feedback of 2026-11-14), the devices
+        // after them (administration).
+        ("command.prepare", "people") => vec![(10, view! { <helpers::HelpersView core revision /> }.into_any())],
+        // [impl->dsn~command-and-space~1]
+        // Führung & Raum (ADR-0095), also for old links to the command structure; opened
+        // to place one object with `place:<kind>:<ID>`.
+        ("command.prepare", "map" | "structure") => one(view! {
             <situation::MapPreparation core revision preset=record.get_untracked().and_then(|r| situation::preset(&r)) />
         }.into_any()),
         ("command.prepare", _) => one(view! { <incidents::IncidentPage core revision /> }.into_any()),

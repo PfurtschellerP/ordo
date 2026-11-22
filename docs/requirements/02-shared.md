@@ -208,6 +208,17 @@ Tags: must, shared, m32
 
 Needs: dsn
 
+#### CMD-5 — Command structure and map together
+`req~cmd-5~1`
+
+While the incident command prepares the incident, ORDO shall show the command structure
+and the situation map on one page, and shall let the command put a position on the map,
+or find it there, from the position's entry in the command structure.
+
+Tags: should, shared, m72
+
+Needs: dsn
+
 ### 4.4 Shared: tasks and orders
 
 #### TASK-1 — Give tasks

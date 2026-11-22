@@ -452,6 +452,29 @@ Needs: impl, itest
 
 Tags: must, m57
 
+#### Führung & Raum
+`dsn~command-and-space~1`
+
+*Vorbereitung – Führung & Raum* (`command.prepare/map`; `command.prepare/structure` lands
+there too) holds the command structure with its forms, then the map editor, then the map
+region ([ADR-0095](../adr/0095-command-and-space-on-one-page.md)). A grid of two columns
+where the page is at least 84rem wide (container query), else one below the other. For
+those who may edit, each position's card offers *Auf der Karte setzen*, or *Auf der Karte
+zeigen* when the map has it. The page shares a signal for such a request (Leptos context):
+setting opens the editor's place panel with the kind *position* and that position chosen;
+showing chooses the object, as *Bearbeiten* in the list does, and centres the map on it.
+Either brings the editor into view and moves focus to its panel heading, whose status
+line says what to do next. Nothing new is stored: placing writes `map.objectPlaced` as
+before.
+
+Covers:
+
+* [req~cmd-5~1](../requirements/02-shared.md#cmd-5--command-structure-and-map-together)
+
+Needs: impl, itest
+
+Tags: should, m72
+
 ### 5.5.1c Shared module `map`
 
 #### Situation map
@@ -469,9 +492,10 @@ The view *Führung – Lagekarte* shows the map with the objects and, below it, 
 objects (A11Y-5); it does not edit. The overview's map tile shows the same map; within
 the page it moves with two fingers, or Ctrl (⌘) and the wheel, and says so when tried with
 one, so one finger and the wheel scroll the page (MapLibre's cooperative gestures).
-Those who may edit prepare the map on *Vorbereitung – Lagekarte*
-(`command.prepare/map`, [ADR-0067](../adr/0067-command-overview-tiles-and-map-preparation.md)):
-the map region on top, then the editor ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)): the map
+Those who may edit prepare the map on *Vorbereitung – Führung & Raum*
+(`command.prepare/map`, [ADR-0095](../adr/0095-command-and-space-on-one-page.md)), with
+the command structure, in the editor ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)),
+the map region last: the map
 fills the page, a toolbar above it offers *Auswählen*, *Symbol setzen*, *Fläche* and
 *Linie*, and the list stays below. *Symbol setzen* takes the incident location, a unit, a
 UHS or a position and places it where the next tap is, or at the map's centre (the
@@ -1772,14 +1796,14 @@ Needs: impl, utest, itest
 Tags: should, m69
 
 #### Page tabs
-`dsn~page-tabs~1`
+`dsn~page-tabs~2`
 
 A view may declare tabs (`nav::View::tabs`): a key, a label, and the first section place
 each holds. The shell puts every package's sections of the page into the last tab that
 starts at or before the section's place and shows the tabs with the record's tab
 component (`TabList`, `TabPanel`): arrow keys between the tabs, hidden panels keep their
-input. *Personal* has *Helfende* (helpers and taking people in), *Führungsstruktur* and
-*Geräte* (the admin package's devices, place 30). The vim keys `gt` and `gT` switch them.
+input. *Personal* has *Helfende* (helpers and taking people in) and *Geräte* (the admin
+package's devices, place 30); the command structure is on *Führung & Raum* (ADR-0095). The vim keys `gt` and `gT` switch them.
 
 Covers:
 

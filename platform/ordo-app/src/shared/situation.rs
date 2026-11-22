@@ -818,9 +818,40 @@ pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
+/// What the command structure asks of the map editor on the same page (ADR-0095).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MapAsk {
+    /// Open the place panel with this position chosen.
+    Place(String),
+    /// Choose this object and centre the map on it.
+    Show(String),
+}
+
+/// The channel of [`MapAsk`]s on *Führung & Raum*, a Leptos context. Each ask has a number
+/// of its own, so asking the same twice still reaches the editor.
+#[derive(Clone, Copy)]
+pub struct MapAsks(RwSignal<Option<(u32, MapAsk)>>);
+
+impl MapAsks {
+    pub fn ask(self, what: MapAsk) {
+        self.0
+            .update(|last| *last = Some((last.as_ref().map_or(0, |(n, _)| n + 1), what)));
+    }
+}
+
+/// The IDs of the objects on the incident's map.
+pub fn placed_objects(core: Handle) -> std::collections::BTreeSet<String> {
+    core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)))
+        .objects
+        .into_keys()
+        .collect()
+}
+
 // [impl->dsn~situation-map~5]
-/// *Vorbereitung – Lagekarte* (ADR-0067): the incident's map region, for those who may
-/// prepare it, then the map editor, on one page.
+// [impl->dsn~command-and-space~1]
+/// *Vorbereitung – Führung & Raum* (ADR-0095): the command structure and the map editor,
+/// side by side where the page is wide enough, then the incident's map region for those
+/// who may prepare it.
 #[component]
 pub fn MapPreparation(
     core: Handle,
@@ -830,19 +861,25 @@ pub fn MapPreparation(
     preset: Option<(String, String)>,
 ) -> impl IntoView {
     let manage_map = core::permitted(core, revision, core::permission::MANAGE_MAP);
+    provide_context(MapAsks(RwSignal::new(None)));
     view! {
+        <div class="command-space">
+            <div class="command-space__grid">
+                <crate::shared::command::LeadershipView core revision />
+                <MapEditor core revision preset />
+            </div>
+        </div>
         <Show when=move || manage_map.get()>
             <crate::shared::map_region::MapRegionView core revision />
         </Show>
-        <MapEditor core revision preset />
     }
 }
 
-/// The record that opens *Vorbereitung – Lagekarte* to place one object:
+/// The record that opens *Vorbereitung – Führung & Raum* to place one object:
 /// `place:<kind>:<ID>`.
 const PLACE: &str = "place:";
 
-/// The route of *Vorbereitung – Lagekarte*, with a [`place_record`] or none.
+/// The route of *Vorbereitung – Führung & Raum*, with a [`place_record`] or none.
 pub fn editor_route(record: Option<&str>) -> Route {
     match record {
         Some(r) => Route::record("command.prepare", "map", r),
@@ -1147,6 +1184,52 @@ pub fn MapEditor(
         Some(at) => at_point(at, None),
         None => error.set(Some(text::MAP_UNAVAILABLE)),
     };
+    // [impl->dsn~command-and-space~1]
+    // Asks from the command structure on the same page: place a position, or show an
+    // object; the editor comes into view with focus on its panel.
+    let section = NodeRef::<leptos::html::Section>::new();
+    let panel_title = NodeRef::<leptos::html::H3>::new();
+    if let Some(asks) = use_context::<MapAsks>() {
+        Effect::new(move |seen: Option<Option<u32>>| {
+            let current = asks.0.get();
+            let number = current.as_ref().map(|(n, _)| *n);
+            // Not on the first run: only an ask made while the page is open.
+            if seen.is_none() || number == seen.flatten() {
+                return number;
+            }
+            let Some((_, what)) = current else {
+                return number;
+            };
+            untrack(|| match what {
+                MapAsk::Place(position) => {
+                    set_tool(Tool::Place);
+                    kind.set(place_kind(ObjectKind::Position).to_owned());
+                    let shown = place_choices(core, ObjectKind::Position)
+                        .into_iter()
+                        .find(|(id, _)| *id == position)
+                        .map(|(_, name)| name)
+                        .unwrap_or_default();
+                    reference.set(position);
+                    status.set(Some(text::map_place_ready(&shown)));
+                }
+                MapAsk::Show(id) => {
+                    choose.run(id.clone());
+                    if let Some(Geometry::Point(at)) = object(&id).map(|o| o.placed.geometry) {
+                        show_at(handle, at);
+                    }
+                }
+            });
+            // Focus first, then the editor's top into view, so the map shows above the
+            // panel that has the focus.
+            if let Some(el) = panel_title.get_untracked() {
+                let _ = el.focus();
+            }
+            if let Some(el) = section.get_untracked() {
+                el.scroll_into_view();
+            }
+            number
+        });
+    }
     // Taps on the map, once it is there.
     let tapping = StoredValue::new(false);
     Effect::new(move || {
@@ -1424,7 +1507,7 @@ pub fn MapEditor(
         }
     };
     view! {
-        <section class="card situation map-editor" aria-labelledby="map-editor-title">
+        <section class="card situation map-editor" aria-labelledby="map-editor-title" node_ref=section>
             <h2 id="map-editor-title">{text::MAP_EDIT}</h2>
             <p class="hint">{text::MAP_EDIT_HINT}</p>
             <Show
@@ -1437,7 +1520,7 @@ pub fn MapEditor(
             <MapFrame node state crosshair=true />
             <Show when=move || s.editable.get()>
                 <div class="map-panel" data-tool=move || format!("{:?}", tool.get()).to_lowercase()>
-                    <h3 id="map-panel-title">{move || tool.get().label()}</h3>
+                    <h3 id="map-panel-title" tabindex="-1" node_ref=panel_title>{move || tool.get().label()}</h3>
                     {move || match tool.get() {
                         Tool::Select => select_panel().into_any(),
                         Tool::Place => place_panel().into_any(),

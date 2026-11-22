@@ -119,7 +119,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
     let one = |v: AnyView| vec![(0, v)];
     match (workspace, view) {
         // The devices used in the incident, last on the page of its people (ORG-12).
-        ("command.prepare", "people" | "structure") => {
+        ("command.prepare", "people") => {
             vec![(
                 30,
                 view! { <devices::IncidentDevicesView core revision /> }.into_any(),
