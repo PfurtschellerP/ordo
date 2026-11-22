@@ -1300,12 +1300,19 @@
      The chosen tool is filled (not only another colour) and pressed for screen readers. */
   .map-editor .situation__map { block-size: max(20rem, min(70vh, 48rem)); }
   /* Führung & Raum (ADR-0095): the command structure and the map editor side by side where
-     both have room (the org chart needs 40rem), else the structure first. */
-  .command-space { container-type: inline-size; }
+     both have room (the org chart needs 40rem), the map region below them. Narrower, the
+     three are tabs (feedback of 2026-11-22). */
+  .command-space { container-type: inline-size; display: grid; gap: var(--ordo-space-4); }
   .command-space__grid { display: grid; gap: var(--ordo-space-5); align-items: start; }
-  .command-space__grid > .situation { margin-block-end: 0; }
+  .command-space__part { min-width: 0; }
+  .command-space__part .situation { margin-block-end: 0; }
+  @container (max-width: 83.99rem) {
+    .command-space__part:not(.command-space__part--chosen) { display: none; }
+  }
   @container (min-width: 84rem) {
+    .command-space > .tabs { display: none; }
     .command-space__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .command-space__part--region { grid-column: 1 / -1; }
   }
   .map-tools { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .map-tool {

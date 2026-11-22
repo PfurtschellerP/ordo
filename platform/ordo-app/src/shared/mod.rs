@@ -121,7 +121,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 )
             },
             // [impl->dsn~workspaces-by-phase~5]
-            // [impl->dsn~command-and-space~1]
+            // [impl->dsn~command-and-space~2]
             // Führung & Raum (ADR-0095): the command structure and the map prepared on one
             // page, its region last.
             // "Struktur" in the phone's bar, where the name takes two lines (product owner,
@@ -233,7 +233,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         // Who is there and taking people in first (feedback of 2026-11-14), the devices
         // after them (administration).
         ("command.prepare", "people") => vec![(10, view! { <helpers::HelpersView core revision /> }.into_any())],
-        // [impl->dsn~command-and-space~1]
+        // [impl->dsn~command-and-space~2]
         // Führung & Raum (ADR-0095), also for old links to the command structure; opened
         // to place one object with `place:<kind>:<ID>`.
         ("command.prepare", "map" | "structure") => one(view! {

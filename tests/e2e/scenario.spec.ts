@@ -201,6 +201,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(dora, "Vorbereitung");
     // The map region is prepared with the map, on Vorbereitung – Führung & Raum (ADR-0095).
     await openView(dora, "Führung & Raum");
+    // [itest->dsn~command-and-space~2]
+    // Narrower than 84rem the page is in tabs (ADR-0097); the region is the last one.
+    await expect(dora.locator(".command-space .tabs__long"), "structure, map and region").toHaveText(["Führungsstruktur", "Lagekarte", "Kartengrundlage"]);
+    await pageTab(dora, "Kartengrundlage");
     await expect(dora.locator("#map-region-title")).toHaveText("Kartengrundlage");
     const region = dora.locator(".map-region__state");
     await expect(region).toHaveText("Für diesen Einsatz ist noch keine Kartengrundlage erstellt.");
@@ -1722,7 +1726,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const canvas = ben.locator(".situation__map canvas");
     const tool = (name: string) => ben.locator(".map-tools").getByRole("button", { name });
     const panelStatus = ben.locator(".map-panel__status");
-    // [itest->dsn~command-and-space~1]
+    // [itest->dsn~command-and-space~2]
     // CMD-5: a position is put on the map from the tree beside it, and found there again.
     await ben.getByRole("button", { name: "Auf der Karte setzen: Sanitätseinsatzleitung SanEL" }).click();
     await expect(ben.locator("#map-panel-title"), "focus moves to the editor's panel").toBeFocused();
@@ -1736,6 +1740,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(tool("Auswählen"), "showing chooses it on the map").toHaveAttribute("aria-pressed", "true");
     await expect(ben.locator(".map-panel__chosen")).toContainText("Sanitätseinsatzleitung SanEL");
     await audit(ben, "Führung & Raum");
+    // Wide enough for both (ADR-0097): no tabs, the structure beside the map.
+    const narrow = ben.viewportSize()!;
+    await ben.setViewportSize({ width: 1800, height: 1000 });
+    await expect(ben.locator(".command-space > .tabs"), "no tabs where both fit").toBeHidden();
+    const [structureBox, editorBox] = [await ben.locator("#structure-title").boundingBox(), await ben.locator("#map-editor-title").boundingBox()];
+    expect(Math.abs(structureBox!.y - editorBox!.y), "side by side").toBeLessThan(8);
+    expect(editorBox!.x, "the map to the right").toBeGreaterThan(structureBox!.x + 300);
+    await ben.setViewportSize(narrow);
     const wide = ben.viewportSize()!;
     await ben.setViewportSize({ width: 390, height: 844 });
     // The bar shows "Struktur", so every label takes one line (product owner, 2026-11-22).
@@ -1745,6 +1757,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const labelHeights = await ben.evaluate(() =>
       [...document.querySelectorAll("nav.views .views__label")].filter((l) => (l as HTMLElement).offsetParent).map((l) => Math.round(l.getBoundingClientRect().height)));
     expect(new Set(labelHeights).size, `one line each: ${labelHeights}`).toBe(1);
+    await expect(ben.locator(".command-space .tabs__short").filter({ visible: true }), "short tab labels on a phone").toHaveText(["Struktur", "Karte", "Grundlage"]);
     await shot(ben, "command-space-phone", false);
     await shot(ben, "command-space-phone-full");
     await ben.setViewportSize(wide);

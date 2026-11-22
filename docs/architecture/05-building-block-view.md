@@ -453,17 +453,21 @@ Needs: impl, itest
 Tags: must, m57
 
 #### Führung & Raum
-`dsn~command-and-space~1`
+`dsn~command-and-space~2`
 
 *Vorbereitung – Führung & Raum* (`command.prepare/map`; `command.prepare/structure` lands
 there too) holds the command structure with its forms, then the map editor, then the map
 region ([ADR-0095](../adr/0095-command-and-space-on-one-page.md)). A grid of two columns
-where the page is at least 84rem wide (container query), else one below the other. For
+where the page is at least 84rem wide (container query), the region below them; narrower,
+the three are tabs (*Führungsstruktur*, *Lagekarte*, *Kartengrundlage*, the last only for
+those who may prepare the map; [ADR-0097](../adr/0097-command-and-space-in-tabs-when-narrow.md)),
+opened on the structure, or on the map when the page was opened to place something. The
+map follows its element's size, so a map made in a hidden tab gets its size when shown. For
 those who may edit, each position's card offers *Auf der Karte setzen*, or *Auf der Karte
 zeigen* when the map has it. The page shares a signal for such a request (Leptos context):
 setting opens the editor's place panel with the kind *position* and that position chosen;
 showing chooses the object, as *Bearbeiten* in the list does, and centres the map on it.
-Either brings the editor into view and moves focus to its panel heading, whose status
+Either shows the map's tab, brings the editor into view and moves focus to its panel heading, whose status
 line says what to do next. Nothing new is stored: placing writes `map.objectPlaced` as
 before.
 

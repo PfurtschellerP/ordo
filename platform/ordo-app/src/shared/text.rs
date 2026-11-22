@@ -557,6 +557,7 @@ pub fn task_given_by(at: &str, by: &str) -> String {
 
 // Command structure (CMD-1…4, ADR-0031).
 pub const STRUCTURE_TITLE: &str = "Führungsstruktur";
+pub const STRUCTURE_SHORT: &str = "Struktur";
 pub const STRUCTURE_EMPTY: &str = "Noch keine Führungsstruktur angelegt.";
 pub const POSITION: &str = "Funktion";
 pub const POSITION_CHOOSE: &str = "Funktion wählen";
@@ -621,6 +622,7 @@ pub fn position_of(unit: &str) -> String {
 
 // Situation map (MAP-1, MAP-2).
 pub const MAP_TITLE: &str = "Lagekarte";
+pub const MAP_SHORT: &str = "Karte";
 pub const MAP_LABEL: &str = "Lagekarte. Pfeiltasten verschieben, Plus und Minus zoomen.";
 pub const MAP_LOADING: &str = "Karte wird geladen …";
 pub const MAP_HINT_TOUCH: &str = "Karte mit zwei Fingern verschieben";
@@ -857,6 +859,7 @@ pub fn log_map_removed(label: &str) -> String {
 
 // Map region from the server (MAP-8)
 pub const MAP_REGION_TITLE: &str = "Kartengrundlage";
+pub const MAP_REGION_SHORT: &str = "Grundlage";
 pub const MAP_REGION_HINT: &str = "Die Kartengrundlage dieses Einsatzes für die Lagekarte: ein Umkreis aus der freien Weltkarte (OpenStreetMap über Protomaps). Nur die Geräte der Einsatzkräfte dieses Einsatzes erhalten sie. Geräte, die eine Offline-Karte gespeichert haben, speichern sie danach neu.";
 pub const MAP_REGION_NONE: &str = "Für diesen Einsatz ist noch keine Kartengrundlage erstellt.";
 pub const MAP_REGION_NEW: &str = "Neue Kartengrundlage";

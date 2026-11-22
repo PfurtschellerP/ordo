@@ -196,6 +196,10 @@ export async function create(element, centre, label, incident, ticket, cooperati
   // The chosen object: a ring around it, its name says the rest in the tool panel.
   map.addLayer({ id: "ordo-chosen", type: "circle", source: DRAFT, filter: ["has", "chosen"], paint: { "circle-radius": SYMBOL_HEIGHT * 0.75, "circle-opacity": 0, "circle-stroke-width": 3, "circle-stroke-color": text } });
   const handle = { map, from: source.from, tap: null, hover: null, pinned: null, draw: null, objects: null, hidden: null };
+  // The map follows its element's size, not only the window's: a map made in a hidden tab
+  // (Führung & Raum on narrow screens, ADR-0095) gets its size when the tab shows.
+  handle.sized = new ResizeObserver(() => map.resize());
+  handle.sized.observe(element);
   // [impl->dsn~map-drawing~2]
   // Taps go to the editor page, with the object hit, if any (none while Terra Draw edits).
   map.on("click", (e) => {
@@ -447,6 +451,7 @@ export function onTap(handle, callback) {
 /** Removes the map and everything it holds. */
 export function destroy(handle) {
   unpinCard(handle);
+  handle.sized?.disconnect();
   if (handle.me != null) navigator.geolocation?.clearWatch(handle.me);
   try {
     handle.draw?.stop();

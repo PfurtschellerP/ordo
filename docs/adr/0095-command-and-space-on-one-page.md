@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its layout for narrow pages superseded by ADR-0097
 date: 2026-11-22
 ---
 

@@ -113,7 +113,7 @@ fn position_item(
     let span = p
         .span_exceeded()
         .then(|| text::span_of_control(p.subordinates()));
-    // [impl->dsn~command-and-space~1]
+    // [impl->dsn~command-and-space~2]
     // Put on the map, or found there, from the tree (CMD-5).
     let on_map = map.filter(|_| editable).map(|(asks, placed)| {
         let asks = *asks;
