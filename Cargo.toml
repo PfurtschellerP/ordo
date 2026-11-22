@@ -65,7 +65,6 @@ percent-encoding = "2"
 # crate also reads them in the app's build script.
 fluent-bundle = "0.16"
 fluent-syntax = "0.12"
-unic-langid = "0.9"
 ed25519-dalek = "3"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 getrandom = "0.4"

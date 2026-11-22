@@ -30,7 +30,7 @@ Which library reads the Fluent files, and how does the code reach a message?
 
 ## Considered Options
 
-1. **Project Fluent's crates** (`fluent-bundle`, `fluent-syntax`, `unic-langid`; Apache-2.0
+1. **Project Fluent's crates** (`fluent-bundle`, `fluent-syntax`; Apache-2.0
    or MIT): the reference implementation, used by Firefox's Rust code. Releases are slow (0.16, May 2025),
    commits continue (September 2026), about 9 million downloads in 90 days.
 2. **`leptos-fluent`** (MIT): Leptos glue over `fluent-templates`, with macros that check
