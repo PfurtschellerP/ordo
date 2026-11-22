@@ -292,7 +292,26 @@ pub const TRANSPORT_NONE: &str = "Kein Transport angefordert.";
 pub const TRANSPORT_UNIT: &str = "Einsatzmittel";
 pub const TRANSPORT_DESTINATION: &str = "Ziel (z. B. Klinik)";
 pub const TRANSPORT_ASSIGN: &str = "Zuweisen";
-pub const TRANSPORT_ASSIGN_MISSING: &str = "Bitte Einsatzmittel und Ziel angeben.";
+// Transports waiting for a unit, in the bell and on the overview (TASK-3).
+pub fn transport_waiting(summary: &str, priority: &str) -> String {
+    format!("Transport ohne Einsatzmittel: {summary} · {priority}")
+}
+pub const TRANSPORTS_TITLE_SHORT: &str = "Transporte";
+pub const OPEN_TRANSPORTS: &str = "Zu den Transporten";
+pub const TRANSPORTS_WAITING: &str = "ohne Einsatzmittel";
+pub const NO_TRANSPORTS_WAITING: &str = "Keine Transportanforderung wartet.";
+pub fn transports_under_way(n: usize) -> String {
+    format!("{n} unterwegs")
+}
+pub const TRANSPORT_ASSIGN_MISSING: &str =
+    "Bitte ein Einsatzmittel wählen; das Ziel kann später folgen.";
+pub const TRANSPORT_DESTINATION_MISSING: &str = "Bitte ein Ziel wählen.";
+/// A transport sent before its destination was decided (ADR-0098).
+pub const DESTINATION_OPEN: &str = "Ziel offen";
+pub const DESTINATION_SET: &str = "Ziel festlegen";
+pub fn destination_set(destination: &str) -> String {
+    format!("Ziel: {destination}")
+}
 pub const TRANSPORT_NO_UNITS: &str = "Noch keine Einsatzmittel im Einsatz.";
 pub const TRANSPORT_CHOOSE_UNIT: &str = "Einsatzmittel wählen";
 

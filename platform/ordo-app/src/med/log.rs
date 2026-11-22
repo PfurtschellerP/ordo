@@ -192,12 +192,15 @@ const DESCRIBE: &[(&str, Describe)] = &[
     (med::transport::UPDATED, |e, c, _| {
         Some({
             let p = decode::<med::transport::TransportUpdated>(e)?;
-            text::log_transport_updated(
-                &transport(c, &p.request),
-                text::transport_status(p.status),
-                p.unit.as_deref(),
-            )
-            .into()
+            // [impl->dsn~transport-request~2]
+            // A step by the unit's status shows as it (ADR-0098), a destination set later
+            // as the destination.
+            let what = match (&p.status_code, &p.destination, p.unit.is_some()) {
+                (Some(code), _, _) => crate::text::status_label(code),
+                (None, Some(d), false) => text::destination_set(d),
+                _ => text::transport_status(p.status).to_owned(),
+            };
+            text::log_transport_updated(&transport(c, &p.request), &what, p.unit.as_deref()).into()
         })
     }),
     (med::orders::GIVEN, |e, _, _| {

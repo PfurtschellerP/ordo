@@ -311,6 +311,9 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     {move || o.with(|o| o.with_units.clone()).map(|t| view! { <p class="tile__with-units">{t}</p> })}
                 </section>
 
+                // [impl->dsn~tasks~8]
+                <crate::med::transports::TransportsTile core revision />
+
                 <section class="tile tile--quick" aria-labelledby="tile-quick">
                     <TileHead id="tile-quick" icon="zap" title=text::QUICK_LINKS />
                     <ul class="quick-links">

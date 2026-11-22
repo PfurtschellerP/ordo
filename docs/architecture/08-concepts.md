@@ -1001,7 +1001,7 @@ Needs: impl, utest, itest
 Tags: should, m26
 
 #### Transport requests
-`dsn~transport-request~1`
+`dsn~transport-request~2`
 
 A UHS crew requests a transport on the patient's record: transport type, priority and
 special needs, chosen from the profile file `med/transport-requests.toml` (DE: KTW, RTW,
@@ -1016,10 +1016,21 @@ patient). The device writes two events:
 * `patients.transportRequested` in `med.clinical`: tag number and request ID, so the
   record and the patient list show the transport.
 
-The incident command assigns a unit of the incident and a destination (a hospital of the
-list or free text, see [Hospital list](#hospital-list)) with `transport.updated`, which also moves the status on:
-requested → assigned → loading → departed → arrived → handed over, or cancelled. Both
-the UHS and the command may set the next status; ORDO records who set it and when. The
+The incident command assigns a unit of the incident with `transport.updated`; the
+destination (a hospital of the list or free text, see [Hospital list](#hospital-list)) may
+come with it or later, until the unit reaches it, so a vehicle can be sent to the UHS
+before the destination is decided
+([ADR-0098](../adr/0098-transports-follow-the-unit-status.md)). The transport then follows
+the unit's status: the profile names the steps, a unit status code each and the
+transport status it means (DE: 3 assigned, 4 loading, 7 departed, 8 arrived, 1 or 2
+handed over). The card offers them after the last step reached; a step sets the unit's
+status and records `transport.updated` with the code (`status_code`, schema version 3),
+and setting the unit's status elsewhere (*Disposition*, the crew's view) moves its open
+transport the same way. Steps show as the unit status ("7 – Patient aufgenommen"), steps
+recorded before by their old words; a profile without steps keeps ORDO's own (requested →
+assigned → loading → departed → arrived → handed over). A transport can be cancelled
+until the patient is aboard. Both the UHS and the command may set the next status; ORDO
+records who set it and when. The
 current state of a request is the latest update by hybrid logical clock; every update
 stays in its history. A status that skips steps is accepted (radio messages arrive late),
 a step back is not offered. The command workspace lists the open requests in its view
@@ -1029,7 +1040,7 @@ and history. ORDO never proposes a vehicle, a destination or an order of transpo
 Covers:
 
 * [req~trans-1~1](../requirements/04-med.md#trans-1--transport-request)
-* [req~trans-3~1](../requirements/04-med.md#trans-3--transport-assignment-and-status)
+* [req~trans-3~2](../requirements/04-med.md#trans-3--transport-assignment-and-status)
 
 Needs: impl, utest, itest
 

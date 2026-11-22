@@ -220,7 +220,7 @@ pub(crate) fn patient_stations(
                 t.requested_at().wall_ms,
                 text::flow_transport(
                     &crate::med::transports::transport_line(&t),
-                    text::transport_status(t.status),
+                    &crate::med::transports::state_label(&t),
                 ),
             )
         })

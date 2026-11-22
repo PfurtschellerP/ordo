@@ -60,6 +60,14 @@
     from { outline-offset: var(--ordo-space-3); box-shadow: 0 0 0 var(--ordo-space-3) var(--ordo-component-focus-ring-color); }
     to { outline-offset: var(--ordo-component-focus-ring-offset); box-shadow: none; }
   }
+  /* In a tab row, which scrolls, the light stays inside the tab: outside it would be cut
+     off (feedback of 2026-11-22). */
+  .tabs .keys-flash, .tabs__tab:focus-visible { outline-offset: calc(-1 * var(--ordo-component-focus-ring-width)); }
+  .tabs .keys-flash { animation-name: keys-flash-inside; }
+  @keyframes keys-flash-inside {
+    from { box-shadow: inset 0 0 0 var(--ordo-space-2) var(--ordo-component-focus-ring-color); }
+    to { box-shadow: none; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .keys-flash { animation: none; }
   }
@@ -1109,7 +1117,8 @@
   .tile--map { grid-column: span 7; grid-row: span 2; }
   .tile--dispatch, .tile--people { grid-column: span 5; }
   /* The treatment places across the width (UHS-16); the quick links below. */
-  .tile--uhs, .tile--quick { grid-column: 1 / -1; }
+  .tile--uhs { grid-column: 1 / -1; }
+  .tile--transports, .tile--quick { grid-column: span 6; }
   .tile--quick .quick-links { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
   .tile__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-3); }
   .tile__icon {
@@ -1212,7 +1221,7 @@
     .bento > .tile--people, .bento > .tile--quick { grid-column: span 1; }
   }
   @media (max-width: 40rem) {
-    .bento > .tile, .bento > .tile--people, .bento > .tile--quick { grid-column: 1 / -1; }
+    .bento > .tile, .bento > .tile--people, .bento > .tile--quick, .bento > .tile--transports { grid-column: 1 / -1; }
   }
   @media (forced-colors: active) {
     .tile, .tag, .quick-link, .places__box, .places__bar-fill { forced-color-adjust: auto; }

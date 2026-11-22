@@ -1059,7 +1059,7 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~7]
+// [impl->dsn~tasks~8]
 /// Gives a task or records a report as an Auftrag (TASK-1, REP-1): a new ID, then the event
 /// in the shared incident compartment. Returns the ID.
 pub fn give_task(
@@ -1091,7 +1091,7 @@ pub fn give_task(
     Ok(id)
 }
 
-// [impl->dsn~tasks~7]
+// [impl->dsn~tasks~8]
 /// Adds a unit to an open Auftrag (REP-2, ADR-0085).
 pub fn assign_task(
     core: Handle,
@@ -1345,10 +1345,50 @@ pub fn set_status(
         units::kinds::STATUS_CHANGED,
         &payload,
         text::status_set(unit, status),
+    )?;
+    follow_transport(core, revision, unit, status)
+}
+
+// [impl->dsn~transport-request~2]
+/// Moves the unit's open transport on when its new status is one of the transport's next
+/// steps (ADR-0098), so the unit's status and the transport never disagree, wherever the
+/// status is set.
+fn follow_transport(
+    core: Handle,
+    revision: RwSignal<u64>,
+    unit: &str,
+    status: &str,
+) -> Result<(), String> {
+    let catalogue = &*crate::med::transports::CATALOGUE;
+    let step = core.with_value(|c| {
+        transport::TransportBoard::from_events(&c.events(transport::COMPARTMENT))
+            .transports
+            .into_values()
+            .filter(|t| t.status.is_open() && t.unit.as_deref() == Some(unit))
+            .find_map(|t| {
+                catalogue
+                    .step_for(&t, status)
+                    .map(|s| (t.request.request, s))
+            })
+    });
+    let Some((request, to)) = step else {
+        return Ok(());
+    };
+    update_transport(
+        core,
+        revision,
+        &transport::TransportUpdated {
+            request,
+            status: to,
+            unit: None,
+            destination: None,
+            hospital: None,
+            status_code: Some(status.to_owned()),
+        },
     )
 }
 
-// [impl->dsn~transport-request~1]
+// [impl->dsn~transport-request~2]
 /// Requests a transport for a patient (TRANS-1): the request without patient data in the
 /// shared incident compartment, the patient it is for in `med.clinical`.
 pub fn request_transport(
@@ -1392,12 +1432,20 @@ pub fn update_transport(
     update: &transport::TransportUpdated,
 ) -> Result<(), String> {
     let payload = update.encode().map_err(|e| e.to_string())?;
+    // A step by the unit's status is announced as it (ADR-0098), a destination as it.
+    let announced = match (&update.status_code, &update.destination, &update.unit) {
+        (Some(code), _, _) => crate::text::transport_status_set_to(crate::text::status_label(code)),
+        (None, Some(d), None) => {
+            crate::text::transport_status_set_to(crate::med::text::destination_set(d))
+        }
+        _ => text::transport_status_set(update.status),
+    };
     record(
         core,
         revision,
         transport::kinds::UPDATED,
         &payload,
-        text::transport_status_set(update.status),
+        announced,
     )
 }
 

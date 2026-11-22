@@ -78,6 +78,7 @@ key-first-last = Erstes / letztes Element der Seite
 key-tabs = Nächster / vorheriger Reiter
 key-views = Erste bis vierte Ansicht
 key-menu = Menü
+key-rail = Ansichten am Rand: j/k wählen, o öffnet, l oder Esc zurück
 key-open = Eintrag öffnen
 key-insert = Ins erste Eingabefeld
 key-scroll = Halbe Seite nach unten / oben

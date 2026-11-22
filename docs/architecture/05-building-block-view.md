@@ -344,7 +344,7 @@ Tags: must, m29
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~7`
+`dsn~tasks~8`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment
 ([ADR-0081](../adr/0081-one-einsatzauftrag.md)). `tasks.given` (schema version 3) gives
@@ -375,8 +375,11 @@ one card each with kind, place, description, unit, state and next steps, and has
 *Disposition* tile shows them in short (TASK-3); the other pages carry no extra line about
 them (feedback of 2026-11-14 and 2026-11-17). On every page, everyone in an incident has a
 bell in the header (since 2026-11-18 for every role). For the command (`view_situation`)
-it counts what needs attention now: follow-ups that are due, Aufträge without anyone, and
-open staff requests, each linked to *Disposition*. For everyone else it counts the
+it counts what needs attention now: follow-ups that are due, Aufträge without anyone and
+open staff requests, each linked to *Disposition*, and transports requested without a
+unit, linked to *Transporte* (feedback of 2026-11-22: everything important and
+time-critical). The overview's *Transporte* tile lists those requests in short, by
+priority, with the open transports under way. For everyone else it counts the
 Aufträge given to them, or whose part for a unit whose crew names them has not started,
 each linked to *Sanität – Besatzung*. Its number is text, its name says it
 ("Hinweise: 2"), and its panel lists each item.
@@ -387,7 +390,7 @@ Covers:
 
 * [req~task-1~2](../requirements/02-shared.md#task-1--give-tasks)
 * [req~task-2~3](../requirements/02-shared.md#task-2--task-status)
-* [req~task-3~4](../requirements/02-shared.md#task-3--open-tasks-always-visible)
+* [req~task-3~5](../requirements/02-shared.md#task-3--open-tasks-always-visible)
 * [req~task-4~1](../requirements/02-shared.md#task-4--reminders)
 
 Needs: impl, utest, itest
@@ -1802,21 +1805,26 @@ Needs: impl, utest, itest
 Tags: should, m23
 
 #### Vim keys
-`dsn~vim-keys~2`
+`dsn~vim-keys~3`
 
 The menu's setting *Tastatur* stores `vim` on the device and sets `data-keymap` on the
 page ([ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md)). The window key handler
 (`shell/keys.rs`) runs before the list keys: a small state machine knows the `g` prefix
-(one second) and returns a command; it ignores keys in text fields, selects and editable
-areas, with Ctrl, Alt or Meta, while composing and while a dialog is open. `h`, `j`, `k`
-and `l` move spatially ([ADR-0091](../adr/0091-vim-keys-move-across-the-whole-page.md)):
-from the boxes of the shown targets of `#main` (links, buttons, summaries, choices,
-focusable areas; no text fields or selects) the nearest beyond the focused one that way
-wins, the distance across weighed more; `gg` and `G` take the first and the last. The
-target is scrolled to the middle and gets the class `keys-flash` for 0.9 s (an outline
-that settles, no motion with reduced motion). The other commands act on the page as a
-person would: the next tab of the main tab list, the n-th view, the palette, the menu,
-the first search field, scrolling. The key help is a dialog with a table of the keys and a
+(one second) and returns a command; it ignores keys in text fields and editable areas,
+with Ctrl, Alt or Meta, while composing and while a dialog is open. `h`, `j`, `k` and `l`
+move spatially ([ADR-0091](../adr/0091-vim-keys-move-across-the-whole-page.md)): from the
+boxes of the shown targets of `#main` (links, buttons, summaries, choices, selects,
+focusable areas; no text fields) the nearest beyond the focused one that way wins, the
+distance across weighed more; `gg` and `G` take the first and the last. On a select, `o`
+opens its list (the browser's picker; arrows and Enter choose), as it opens a link or
+presses a button elsewhere (feedback of 2026-11-22). `gv` goes to the current view in the
+rail (the views at the side, or the bottom bar on phones); there `j` and `k` move between
+the views, `o` opens one, and `l` or Escape returns to the page. The target is scrolled
+to the middle and gets the class `keys-flash` for 0.9 s (an outline that settles, no
+motion with reduced motion); inside a tab row, which scrolls, the outline stays within
+the tab, so it is not cut off. The other commands act on the page as a person would: the
+next tab of the tab row the focus works in, the n-th view, the palette, the menu, the
+first search field, scrolling. The key help is a dialog with a table of the keys and a
 switch, opened by `?` and from the menu.
 
 Covers:

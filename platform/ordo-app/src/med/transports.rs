@@ -79,6 +79,96 @@ fn summary(core: Handle, t: &Transport) -> String {
     )
 }
 
+/// The transports waiting for a unit, highest priority first, then the oldest; not those
+/// planned for later.
+fn waiting(core: Handle) -> Vec<Transport> {
+    core.with_value(|c| TransportBoard::from_events(&c.events(med::transport::COMPARTMENT)))
+        .open(&CATALOGUE)
+        .into_iter()
+        .filter(|t| t.status == TransportStatus::Requested)
+        .cloned()
+        .collect()
+}
+
+// [impl->dsn~tasks~8]
+/// The bell's items for the incident command: each transport waiting for a unit, linked to
+/// *Transporte* (feedback of 2026-11-22: what is important and time-critical).
+pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
+    if !core.with_value(|c| c.may(core::permission::VIEW_SITUATION)) {
+        return Vec::new();
+    }
+    let route = crate::shell::nav::Route::view("command.lead", "transports");
+    waiting(core)
+        .iter()
+        .map(|t| {
+            (
+                text::transport_waiting(
+                    &summary(core, t),
+                    label(&CATALOGUE.priorities, &t.request.priority).as_str(),
+                ),
+                route.clone(),
+            )
+        })
+        .collect()
+}
+
+// [impl->dsn~tasks~8]
+/// The overview's tile *Transporte*: the requests waiting for a unit (the first three, by
+/// priority) and how many are under way.
+#[component]
+pub fn TransportsTile(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let state = Memo::new(move |_| {
+        revision.track();
+        let open = core.with_value(|c| {
+            TransportBoard::from_events(&c.events(med::transport::COMPARTMENT))
+                .open(&CATALOGUE)
+                .into_iter()
+                .filter(|t| t.status != TransportStatus::Requested)
+                .count()
+        });
+        let waiting: Vec<(String, String, String, bool)> = waiting(core)
+            .iter()
+            .map(|t| {
+                (
+                    t.request.request.clone(),
+                    summary(core, t),
+                    label(&CATALOGUE.priorities, &t.request.priority),
+                    CATALOGUE.priority_rank(&t.request.priority) == 0,
+                )
+            })
+            .collect();
+        (waiting, open)
+    });
+    let route = crate::shell::nav::Route::view("command.lead", "transports");
+    view! {
+        <section class="tile tile--transports" aria-labelledby="tile-transports">
+            <crate::shared::summary::TileHead id="tile-transports" icon="ambulance" title=text::TRANSPORTS_TITLE_SHORT
+                route=route link=text::OPEN_TRANSPORTS />
+            <p class="tile__figure">
+                <span id="overview-transports-waiting" class="tile__number">{move || state.with(|(w, _)| w.len())}</span>
+                " " {text::TRANSPORTS_WAITING}
+                {move || state.with(|(_, open)| (*open > 0).then(|| view! { <span class="tag">{text::transports_under_way(*open)}</span> }))}
+            </p>
+            {move || {
+                let waiting = state.with(|(w, _)| w.clone());
+                if waiting.is_empty() {
+                    return view! { <p class="hint">{text::NO_TRANSPORTS_WAITING}</p> }.into_any();
+                }
+                view! {
+                    <ul class="tile__list">
+                        {waiting.into_iter().take(3).map(|(id, summary, priority, first)| view! {
+                            <li class="tile__task" data-request=id>
+                                <span class="tile__task-text"><strong>{summary}</strong></span>
+                                <span class=if first { "tag tag--warning" } else { "tag" }>{priority}</span>
+                            </li>
+                        }).collect_view()}
+                    </ul>
+                }.into_any()
+            }}
+        </section>
+    }
+}
+
 /// Status, unit and destination, the request, and every change with who and when.
 #[component]
 pub(crate) fn TransportDetails(
@@ -88,11 +178,12 @@ pub(crate) fn TransportDetails(
 ) -> impl IntoView {
     let t = transport;
     let uhs = show_uhs.then(|| core::uhs_name(core, &t.request.uhs));
+    let state = state_label(&t);
     view! {
         <p class="transport-card__status">
-            <strong>{text::transport_status(t.status)}</strong>
+            <strong>{state}</strong>
             {t.unit.clone().map(|u| view! {
-                " · " {text::transport_unit(&u, t.destination.as_deref().unwrap_or("–"))}
+                " · " {text::transport_unit(&u, t.destination.as_deref().unwrap_or(text::DESTINATION_OPEN))}
             })}
         </p>
         {t.request.planned.map(|ms| view! {
@@ -103,7 +194,7 @@ pub(crate) fn TransportDetails(
             let history = t.history.clone();
             move || history
                 .iter()
-                .map(|s| (core::clock(s.at.wall_ms), text::transport_status(s.status).to_owned(), crate::shell::profile::display_name(core, &s.by)))
+                .map(|s| (core::clock(s.at.wall_ms), step_label(s), crate::shell::profile::display_name(core, &s.by)))
                 .collect()
         }) />
     }
@@ -128,14 +219,59 @@ pub fn transport_line(t: &Transport) -> String {
     match &t.unit {
         Some(unit) => format!(
             "{kind} · {}",
-            text::transport_unit(unit, t.destination.as_deref().unwrap_or("–"))
+            text::transport_unit(
+                unit,
+                t.destination.as_deref().unwrap_or(text::DESTINATION_OPEN)
+            )
         ),
         None => kind,
     }
 }
 
-/// Buttons for the next statuses; assigning needs a unit and a destination and is offered
-/// apart (incident command).
+// [impl->dsn~transport-request~2]
+/// A transport's state in words: the unit status of its last step where it has one
+/// ("7 – Patient aufgenommen", ADR-0098), else its own status.
+pub fn state_label(t: &Transport) -> String {
+    match (
+        t.status,
+        t.history
+            .iter()
+            .rev()
+            .find_map(|h| h.status_code.as_deref()),
+    ) {
+        (TransportStatus::Cancelled, _) | (_, None) => text::transport_status(t.status).to_owned(),
+        (_, Some(code)) => crate::text::status_label(code),
+    }
+}
+
+/// One step of a transport's history in words: the unit status that moved it, the
+/// destination it set, or its status.
+pub fn step_label(step: &ordo_med_patients::transport::Step) -> String {
+    match (&step.status_code, &step.destination) {
+        (Some(code), _) => crate::text::status_label(code),
+        // A destination set without assigning a unit: set later (ADR-0098).
+        (None, Some(d)) if step.unit.is_none() => text::destination_set(d),
+        _ => text::transport_status(step.status).to_owned(),
+    }
+}
+
+/// The text of a status step's button, kept once per code (actions take `&'static str`).
+fn step_text(code: &str) -> &'static str {
+    thread_local! {
+        static KEPT: std::cell::RefCell<std::collections::HashMap<String, &'static str>> =
+            std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    KEPT.with(|kept| {
+        *kept
+            .borrow_mut()
+            .entry(code.to_owned())
+            .or_insert_with(|| Box::leak(crate::text::status_label(code).into_boxed_str()))
+    })
+}
+
+/// Buttons for the next steps: the unit statuses the profile names (ADR-0098), each setting
+/// the unit's status, which moves the transport; else ORDO's own steps. Cancelling while
+/// nobody is aboard; assigning is offered apart (incident command).
 #[component]
 pub(crate) fn StepButtons(
     core: Handle,
@@ -144,35 +280,73 @@ pub(crate) fn StepButtons(
 ) -> impl IntoView {
     let name = summary(core, &transport);
     let request = transport.request.request.clone();
-    let actions = transport
+    let update = move |status: TransportStatus| {
+        let request = request.clone();
+        Callback::new(move |()| {
+            let update = TransportUpdated {
+                request: request.clone(),
+                status,
+                unit: None,
+                destination: None,
+                hospital: None,
+                status_code: None,
+            };
+            let _ = core::update_transport(core, revision, &update);
+        })
+    };
+    let mut actions: Vec<Action> = if CATALOGUE.steps.is_empty() {
+        transport
+            .status
+            .next()
+            .into_iter()
+            .filter(|s| !matches!(s, TransportStatus::Assigned | TransportStatus::Cancelled))
+            .map(|status| {
+                let text = text::transport_step(status);
+                Action {
+                    text,
+                    label: text::transport_step_label(text, &name),
+                    quiet: false,
+                    run: update(status),
+                }
+            })
+            .collect()
+    } else {
+        // [impl->dsn~transport-request~2]
+        let unit = transport.unit.clone().unwrap_or_default();
+        CATALOGUE
+            .next_steps(&transport)
+            .into_iter()
+            .map(|step| {
+                let (unit, code) = (unit.clone(), step.status.clone());
+                let text = step_text(&code);
+                Action {
+                    text,
+                    label: text::transport_step_label(text, &name),
+                    quiet: false,
+                    run: Callback::new(move |()| {
+                        let _ = core::set_status(core, revision, &unit, &code);
+                    }),
+                }
+            })
+            .collect()
+    };
+    if transport
         .status
         .next()
-        .into_iter()
-        .filter(|s| *s != TransportStatus::Assigned)
-        .map(|status| {
-            let request = request.clone();
-            let text = text::transport_step(status);
-            Action {
-                text,
-                label: text::transport_step_label(text, &name),
-                quiet: status == TransportStatus::Cancelled,
-                run: Callback::new(move |()| {
-                    let update = TransportUpdated {
-                        request: request.clone(),
-                        status,
-                        unit: None,
-                        destination: None,
-                        hospital: None,
-                    };
-                    let _ = core::update_transport(core, revision, &update);
-                }),
-            }
-        })
-        .collect();
+        .contains(&TransportStatus::Cancelled)
+    {
+        let text = text::transport_step(TransportStatus::Cancelled);
+        actions.push(Action {
+            text,
+            label: text::transport_step_label(text, &name),
+            quiet: true,
+            run: update(TransportStatus::Cancelled),
+        });
+    }
     view! { <Actions actions /> }
 }
 
-// [impl->dsn~transport-request~1]
+// [impl->dsn~transport-request~2]
 /// The transports of one patient on the record, and the form to request one while none
 /// is going on.
 #[component]
@@ -284,7 +458,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
     }
 }
 
-// [impl->dsn~transport-request~1]
+// [impl->dsn~transport-request~2]
 // [impl->dsn~transport-board~1]
 /// The incident command's transport board, as the parts of *Führung – Transporte*: open
 /// and planned requests (assign a unit and a destination, follow the status; place 10),
@@ -362,6 +536,10 @@ fn RequestList(
                                     <TransportDetails core transport=t.clone() show_uhs=true />
                                     {(t.status == TransportStatus::Requested)
                                         .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals /> })}
+                                    // [impl->dsn~transport-request~2]
+                                    // Sent without a destination: it is set here, until the unit is there.
+                                    {(t.unit.is_some() && t.destination.is_none() && t.status.is_open() && t.status < TransportStatus::Arrived)
+                                        .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals destination_only=true /> })}
                                     <StepButtons core revision transport=t.clone() />
                                 </li>
                             })
@@ -772,8 +950,12 @@ fn AssignForm(
     transport: Transport,
     units: Memo<Vec<String>>,
     hospitals: Memo<HospitalList>,
+    /// Only the destination, for a transport on its way without one (ADR-0098).
+    #[prop(optional)]
+    destination_only: bool,
 ) -> impl IntoView {
     let request = transport.request.request.clone();
+    let current = transport.status;
     let name = summary(core, &transport);
     let unit = RwSignal::new(String::new());
     let destination = RwSignal::new(String::new());
@@ -794,16 +976,35 @@ fn AssignForm(
         });
         let free_text = chosen == OTHER || hospitals.with_untracked(|h| h.hospitals.is_empty());
         let u = unit.get_untracked();
-        if u.is_empty() || shown.is_empty() || (hospital.is_none() && !free_text) {
-            message.set(Some(text::TRANSPORT_ASSIGN_MISSING));
-            return;
-        }
-        let update = TransportUpdated {
-            request: request.clone(),
-            status: TransportStatus::Assigned,
-            unit: Some(u),
-            destination: Some(shown),
-            hospital,
+        // [impl->dsn~transport-request~2]
+        // A unit is needed; the destination may come later (ADR-0098).
+        let has_destination = !shown.is_empty() && (hospital.is_some() || free_text);
+        let update = if destination_only {
+            if !has_destination {
+                message.set(Some(text::TRANSPORT_DESTINATION_MISSING));
+                return;
+            }
+            TransportUpdated {
+                request: request.clone(),
+                status: current,
+                unit: None,
+                destination: Some(shown),
+                hospital,
+                status_code: None,
+            }
+        } else {
+            if u.is_empty() {
+                message.set(Some(text::TRANSPORT_ASSIGN_MISSING));
+                return;
+            }
+            TransportUpdated {
+                request: request.clone(),
+                status: TransportStatus::Assigned,
+                unit: Some(u),
+                destination: has_destination.then_some(shown),
+                hospital: hospital.filter(|_| has_destination),
+                status_code: None,
+            }
         };
         if core::update_transport(core, revision, &update).is_ok() {
             message.set(None);
@@ -823,6 +1024,9 @@ fn AssignForm(
     view! {
         <form class="form transport-assign" novalidate on:submit=submit>
             {move || {
+                if destination_only {
+                    return ().into_any();
+                }
                 let list = units.get();
                 if list.is_empty() {
                     return view! { <p class="hint">{text::TRANSPORT_NO_UNITS}</p> }.into_any();
@@ -872,10 +1076,15 @@ fn AssignForm(
             }}
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
-                <button type="submit" class="button button--primary"
-                    aria-label=text::transport_step_label(text::TRANSPORT_ASSIGN, &name)>
-                    {text::TRANSPORT_ASSIGN}
-                </button>
+                {move || {
+                    let word = if destination_only { text::DESTINATION_SET } else { text::TRANSPORT_ASSIGN };
+                    view! {
+                        <button type="submit" class="button button--primary"
+                            aria-label=text::transport_step_label(word, &name)>
+                            {word}
+                        </button>
+                    }
+                }}
             </div>
         </form>
     }

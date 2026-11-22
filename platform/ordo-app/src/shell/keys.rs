@@ -28,6 +28,8 @@ pub(crate) enum Command {
     PreviousTab,
     /// The n-th view of the workspace, from 1.
     View(u8),
+    /// The current view in the rail (feedback of 2026-11-22).
+    Rail,
     Menu,
     Open,
     Insert,
@@ -46,7 +48,7 @@ pub(crate) struct Keys {
 const PREFIX_MS: f64 = 1000.0;
 
 impl Keys {
-    // [impl->dsn~vim-keys~2]
+    // [impl->dsn~vim-keys~3]
     /// The command of `key` pressed at `now` (ms), if any; `g` waits for the next key.
     pub(crate) fn press(&mut self, key: &str, now: f64) -> Option<Command> {
         let prefixed = self.g.take().is_some_and(|at| now - at <= PREFIX_MS);
@@ -56,6 +58,7 @@ impl Keys {
                 "t" => Some(Command::NextTab),
                 "T" => Some(Command::PreviousTab),
                 "m" => Some(Command::Menu),
+                "v" => Some(Command::Rail),
                 "1" | "2" | "3" | "4" => key.parse().ok().map(Command::View),
                 _ => None,
             };
@@ -97,6 +100,7 @@ pub(crate) const HELP: &[(&str, crate::shell::nav::Label)] = &[
     ("g t / g T", text::key_tabs),
     ("g 1 … g 4", text::key_views),
     ("g m", text::key_menu),
+    ("g v", text::key_rail),
     ("o", text::key_open),
     ("i", text::key_insert),
     ("d / u", text::key_scroll),
@@ -126,11 +130,13 @@ fn root() -> Option<web_sys::Element> {
     document()?.document_element()
 }
 
-/// Whether the focus is where keys type: a text field, a select or an editable area.
+// [impl->dsn~vim-keys~3]
+/// Whether the focus is where keys type: a text field or an editable area. A select is not:
+/// the keys move from it, and `o` opens its list.
 fn typing(active: Option<&web_sys::Element>) -> bool {
     let Some(el) = active else { return false };
     match el.tag_name().as_str() {
-        "TEXTAREA" | "SELECT" => true,
+        "TEXTAREA" => true,
         "INPUT" => {
             let kind = el.get_attribute("type").unwrap_or_default();
             !matches!(
@@ -188,7 +194,7 @@ fn gap(a0: f64, a1: f64, b0: f64, b1: f64) -> f64 {
     (b0 - a1).max(a0 - b1).max(0.0)
 }
 
-// [impl->dsn~vim-keys~2]
+// [impl->dsn~vim-keys~3]
 /// The box nearest to `from` in the direction of `command` (`Down`, `Up`, `Left`,
 /// `Right`): it must lie beyond `from` that way; the distance across counts more, so the
 /// move stays in its column or row where it can.
@@ -222,11 +228,12 @@ pub(crate) fn nearest(from: Rect, boxes: &[Rect], command: Command) -> Option<us
         .map(|(i, _)| i)
 }
 
-/// What the movement keys go to: links, buttons, summaries, choices, and areas that take
-/// the focus; not text fields and selects, where the keys would type.
+/// What the movement keys go to: links, buttons, summaries, choices, selects, and areas
+/// that take the focus; not text fields, where the keys would type.
 const TARGETS: &[&str] = &[
     "a[href]",
     "button:not([disabled])",
+    "select:not([disabled])",
     "summary",
     "input[type=checkbox]:not([disabled])",
     "input[type=radio]:not([disabled])",
@@ -293,10 +300,25 @@ fn go(target: &web_sys::HtmlElement) {
 /// Moves the focus to the nearest target that way; from outside the targets, to the first
 /// one (down, right) or the last (up, left).
 fn step(command: Command) {
-    let all = targets();
     let active = document()
         .and_then(|d| d.active_element())
         .and_then(|a| a.dyn_into::<web_sys::HtmlElement>().ok());
+    // [impl->dsn~vim-keys~3]
+    // In the rail: to the next view that way; none that way returns to the page.
+    if let Some(from) = active.as_ref().filter(|a| in_rail(a)) {
+        let views = query_all("nav.views .views__item");
+        let boxes: Vec<Rect> = views.iter().map(rect).collect();
+        match nearest(rect(from), &boxes, command).and_then(|i| views.get(i)) {
+            Some(next) => go(next),
+            None => {
+                if let Some(first) = targets().first() {
+                    go(first);
+                }
+            }
+        }
+        return;
+    }
+    let all = targets();
     let from = active.filter(|a| all.iter().any(|t| t == a));
     let target = match from {
         Some(from) => {
@@ -371,7 +393,7 @@ pub(crate) struct Shell {
     pub help: RwSignal<bool>,
 }
 
-// [impl->dsn~vim-keys~2]
+// [impl->dsn~vim-keys~3]
 /// Runs `command` on the page, as a person would.
 fn run(command: Command, shell: Shell) {
     match command {
@@ -422,7 +444,22 @@ fn run(command: Command, shell: Shell) {
                 .and_then(|d| d.active_element())
                 .and_then(|a| a.dyn_into::<web_sys::HtmlElement>().ok())
             {
-                a.click();
+                // [impl->dsn~vim-keys~3]
+                // A select opens its list; anything else is pressed.
+                if a.tag_name() == "SELECT" {
+                    open_picker(&a);
+                } else {
+                    a.click();
+                }
+            }
+        }
+        Command::Rail => {
+            let current = query_all("nav.views .views__item[aria-current=page]");
+            if let Some(view) = current
+                .first()
+                .or(query_all("nav.views .views__item").first())
+            {
+                go(view);
             }
         }
         Command::Insert => {
@@ -437,6 +474,22 @@ fn run(command: Command, shell: Shell) {
         }
         Command::ScrollDown => scroll(1.0),
         Command::ScrollUp => scroll(-1.0),
+    }
+}
+
+/// Whether `el` is a view in the rail (the side rail, or the phone's bottom bar).
+fn in_rail(el: &web_sys::HtmlElement) -> bool {
+    el.closest("nav.views").ok().flatten().is_some()
+}
+
+/// Opens a select's list (the browser's picker), where the browser can; else the select
+/// keeps the focus and the arrow keys choose.
+fn open_picker(select: &web_sys::HtmlElement) {
+    let picker = js_sys::Reflect::get(select, &"showPicker".into())
+        .ok()
+        .and_then(|f| f.dyn_into::<js_sys::Function>().ok());
+    if let Some(f) = picker {
+        let _ = f.call0(select);
     }
 }
 
@@ -458,7 +511,7 @@ fn return_id() -> String {
         .map_or_else(|| "main".to_owned(), |a| a.id())
 }
 
-// [impl->dsn~vim-keys~2]
+// [impl->dsn~vim-keys~3]
 /// Handles a key of the window's key handler; returns whether it used it.
 pub(crate) fn handle(ev: &web_sys::KeyboardEvent, keys: StoredValue<Keys>, shell: Shell) -> bool {
     if !on() || ev.ctrl_key() || ev.alt_key() || ev.meta_key() || ev.is_composing() {
@@ -477,6 +530,19 @@ pub(crate) fn handle(ev: &web_sys::KeyboardEvent, keys: StoredValue<Keys>, shell
     }
     if dialog_open() || shell.palette.get_untracked() {
         return false;
+    }
+    // [impl->dsn~vim-keys~3]
+    // Esc in the rail returns to the page.
+    if ev.key() == "Escape"
+        && active
+            .as_ref()
+            .and_then(|a| a.dyn_ref::<web_sys::HtmlElement>())
+            .is_some_and(in_rail)
+    {
+        if let Some(first) = targets().first() {
+            go(first);
+        }
+        return true;
     }
     let now = js_sys::Date::now();
     let mut state = keys.get_value();
@@ -544,7 +610,7 @@ pub(crate) fn KeyHelp(
 mod tests {
     use super::{Command, Keys};
 
-    // [utest->dsn~vim-keys~2]
+    // [utest->dsn~vim-keys~3]
     #[test]
     fn single_keys_and_the_g_prefix_name_their_commands() {
         let mut keys = Keys::default();
@@ -558,12 +624,19 @@ mod tests {
         assert_eq!(keys.press("t", 1200.0), Some(Command::NextTab));
         keys.press("g", 0.0);
         assert_eq!(keys.press("3", 10.0), Some(Command::View(3)));
+        // [utest->dsn~vim-keys~3]
+        keys.press("g", 0.0);
+        assert_eq!(
+            keys.press("v", 10.0),
+            Some(Command::Rail),
+            "gv: the views in the rail"
+        );
         keys.press("g", 0.0);
         assert_eq!(keys.press("5", 10.0), None, "at most four views");
         assert_eq!(keys.press("x", 20.0), None, "an unknown key does nothing");
     }
 
-    // [utest->dsn~vim-keys~2]
+    // [utest->dsn~vim-keys~3]
     #[test]
     fn hjkl_go_to_the_nearest_box_that_way_staying_in_column_or_row() {
         use super::{Rect, nearest};
@@ -614,7 +687,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~vim-keys~2]
+    // [utest->dsn~vim-keys~3]
     #[test]
     fn g_waits_one_second_then_the_key_counts_on_its_own() {
         let mut keys = Keys::default();

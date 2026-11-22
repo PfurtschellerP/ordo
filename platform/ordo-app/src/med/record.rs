@@ -190,7 +190,7 @@ pub(crate) fn RecordHeader(
                 .map(|t| {
                     format!(
                         "{} · {}",
-                        text::transport_status(t.status),
+                        crate::med::transports::state_label(&t),
                         crate::med::transports::transport_line(&t)
                     )
                 });
@@ -827,7 +827,7 @@ pub(crate) fn timeline(
                 at: step.at.wall_ms,
                 kind: TRANSPORT.to_owned(),
                 label: text::TRANSPORT_TITLE.to_owned(),
-                text: format!("{what} · {}", text::transport_status(step.status)),
+                text: format!("{what} · {}", crate::med::transports::step_label(step)),
                 by: name(&step.by),
                 corrected: false,
                 corrects: None,

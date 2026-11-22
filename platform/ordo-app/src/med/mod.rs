@@ -62,6 +62,7 @@ pub(crate) const PACKAGE: Package = Package {
     bell: |core| {
         let mut items = handover::bell(core);
         items.extend(staffing::bell(core));
+        items.extend(transports::bell(core));
         items
     },
     palette: commands::PALETTE,

@@ -75,8 +75,15 @@ fn main() {
                 .ok_or_else(|| "at least one level".to_owned())
         },
     );
+    // The transport's steps name unit status codes, which must exist (ADR-0098).
+    let statuses: StatusCatalogue = toml::from_str(
+        &std::fs::read_to_string(profile.join("units/status-codes.toml"))
+            .expect("read the unit status codes"),
+    )
+    .expect("the unit status codes");
     embed(&med, "transport-requests.toml", |c: &TransportCatalogue| {
-        c.check().map_err(|e| e.to_string())
+        c.check().map_err(|e| e.to_string())?;
+        c.check_steps(&statuses).map_err(|e| e.to_string())
     });
     // The order settings must fit the ePCR forms they document into (ORDER-5).
     embed(&med, "orders.toml", |c: &OrderCatalogue| {

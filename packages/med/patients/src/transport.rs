@@ -38,6 +38,21 @@ pub struct TransportCatalogue {
     /// Special needs (physician escort, child, infectious, …).
     #[serde(rename = "need", default)]
     pub needs: Vec<Choice>,
+    /// The transport's steps as unit status codes (ADR-0098), in order; empty: ORDO's own
+    /// steps ([`TransportStatus::STEPS`]).
+    #[serde(rename = "step", default)]
+    pub steps: Vec<StatusStep>,
+}
+
+// [impl->dsn~transport-request~2]
+/// A unit status that moves a transport on: the code (from the unit status catalogue) and
+/// the transport status it means.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StatusStep {
+    /// Unit status code, e.g. "7".
+    pub status: String,
+    /// What it means for the transport.
+    pub transport: TransportStatus,
 }
 
 /// One entry of the catalogue.
@@ -61,6 +76,12 @@ pub enum CatalogueError {
     /// An ID appears twice in one list.
     #[error("the {0} ID {1:?} appears twice")]
     Duplicate(&'static str, String),
+    /// A step goes back, or means requested or cancelled.
+    #[error("the step for unit status {0:?} goes back or is not a step of a transport")]
+    StepOrder(String),
+    /// A step names a unit status the status catalogue does not have.
+    #[error("the step names unit status {0:?}, which the status catalogue does not have")]
+    UnknownStatus(String),
 }
 
 /// Checks lists of choices: `(name, list, required)`; IDs must be unique in each list.
@@ -78,13 +99,72 @@ pub(crate) fn check_lists(lists: &[(&'static str, &[Choice], bool)]) -> Result<(
 }
 
 impl TransportCatalogue {
-    /// Checks that types and priorities exist and every ID is unique in its list.
+    /// Checks that types and priorities exist, every ID is unique in its list, and the
+    /// steps go forward, each code once.
     pub fn check(&self) -> Result<(), CatalogueError> {
         check_lists(&[
             ("type", &self.types, true),
             ("priority", &self.priorities, true),
             ("need", &self.needs, false),
-        ])
+        ])?;
+        let mut seen = HashSet::new();
+        let mut last = TransportStatus::Assigned;
+        for step in &self.steps {
+            if !seen.insert(step.status.as_str()) {
+                return Err(CatalogueError::Duplicate("step", step.status.clone()));
+            }
+            if matches!(
+                step.transport,
+                TransportStatus::Requested | TransportStatus::Cancelled
+            ) || step.transport < last
+            {
+                return Err(CatalogueError::StepOrder(step.status.clone()));
+            }
+            last = step.transport;
+        }
+        Ok(())
+    }
+
+    /// Checks that every step names a unit status of `statuses`.
+    pub fn check_steps(&self, statuses: &StatusCatalogue) -> Result<(), CatalogueError> {
+        match self
+            .steps
+            .iter()
+            .find(|s| statuses.get(&s.status).is_none())
+        {
+            Some(s) => Err(CatalogueError::UnknownStatus(s.status.clone())),
+            None => Ok(()),
+        }
+    }
+
+    // [impl->dsn~transport-request~2]
+    /// The steps the transport can take next: those after the last one it reached (by its
+    /// code), not before its status. None for a transport without a unit, or ended.
+    pub fn next_steps(&self, t: &Transport) -> Vec<&StatusStep> {
+        if !t.status.is_open() || t.unit.is_none() {
+            return Vec::new();
+        }
+        let reached = t
+            .history
+            .iter()
+            .rev()
+            .find_map(|h| h.status_code.as_deref())
+            .and_then(|code| self.steps.iter().position(|s| s.status == code));
+        self.steps
+            .iter()
+            .enumerate()
+            .filter(|(i, s)| reached.is_none_or(|r| *i > r) && s.transport >= t.status)
+            .map(|(_, s)| s)
+            .collect()
+    }
+
+    /// What setting a unit's status to `code` means for its open transport `t`: the
+    /// transport status, if the code is one of its next steps.
+    pub fn step_for(&self, t: &Transport, code: &str) -> Option<TransportStatus> {
+        self.next_steps(t)
+            .into_iter()
+            .find(|s| s.status == code)
+            .map(|s| s.transport)
     }
 
     /// The label of a type, priority or need ID, or the ID itself if the profile no
@@ -233,11 +313,14 @@ pub struct TransportUpdated {
     /// `destination` (schema version 2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hospital: Option<String>,
+    /// The unit status code that moved the transport on (ADR-0098, schema version 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<String>,
 }
 
-/// Schema version of `transport.updated`: 2 since it names the hospital; version 1
-/// payloads decode unchanged.
-pub const UPDATED_SCHEMA: u32 = 2;
+/// Schema version of `transport.updated`: 3 since it names the unit status code that
+/// moved it (2 named the hospital); versions 1 and 2 decode unchanged.
+pub const UPDATED_SCHEMA: u32 = 3;
 
 impl TransportUpdated {
     /// CBOR payload.
@@ -272,6 +355,12 @@ pub struct Step {
     pub at: Hlc,
     /// Who set it.
     pub by: UserId,
+    /// The unit status code that moved it, if any (ADR-0098).
+    pub status_code: Option<String>,
+    /// The destination, if this step set it.
+    pub destination: Option<String>,
+    /// The unit, if this step assigned it.
+    pub unit: Option<String>,
 }
 
 /// A transport request with its current state.
@@ -306,7 +395,7 @@ pub struct TransportBoard {
 }
 
 impl TransportBoard {
-    // [impl->dsn~transport-request~1]
+    // [impl->dsn~transport-request~2]
     /// Computes the board. The result doesn't depend on the order of `events`: a request
     /// made twice keeps its first version; updates apply in clock order, the latest
     /// sets the status; updates for unknown requests are ignored.
@@ -347,6 +436,9 @@ impl TransportBoard {
                         status: TransportStatus::Requested,
                         at,
                         by,
+                        status_code: None,
+                        destination: None,
+                        unit: None,
                     }],
                 });
         }
@@ -358,6 +450,7 @@ impl TransportBoard {
                 continue;
             }
             t.status = update.status;
+            let (destination, unit) = (update.destination.clone(), update.unit.clone());
             if update.unit.is_some() {
                 t.unit = update.unit;
             }
@@ -369,6 +462,9 @@ impl TransportBoard {
                 status: update.status,
                 at,
                 by,
+                status_code: update.status_code,
+                destination,
+                unit,
             });
         }
         Self { transports }
@@ -509,7 +605,145 @@ mod tests {
             types: vec![choice("ktw", "KTW"), choice("rtw", "RTW")],
             priorities: vec![choice("immediate", "Sofort"), choice("normal", "Normal")],
             needs: vec![choice("child", "Kind"), choice("infectious", "Infektiös")],
+            steps: Vec::new(),
         }
+    }
+
+    /// The DE steps: unit status 3, 4, 7, 8, 1 and 2 (ADR-0098).
+    fn with_steps() -> TransportCatalogue {
+        use TransportStatus::*;
+        let step = |status: &str, transport| StatusStep {
+            status: status.into(),
+            transport,
+        };
+        TransportCatalogue {
+            steps: vec![
+                step("3", Assigned),
+                step("4", Loading),
+                step("7", Departed),
+                step("8", Arrived),
+                step("1", HandedOver),
+                step("2", HandedOver),
+            ],
+            ..catalogue()
+        }
+    }
+
+    fn coded(n: u64, id: &str, status: TransportStatus, code: &str) -> AppliedEvent {
+        let u = TransportUpdated {
+            request: id.into(),
+            status,
+            unit: None,
+            destination: None,
+            hospital: None,
+            status_code: Some(code.into()),
+        };
+        event(n, "erik", MODULE, UPDATED, u.encode().unwrap())
+    }
+
+    // [utest->dsn~transport-request~2]
+    #[test]
+    fn a_transport_follows_the_unit_status_and_its_destination_may_come_later() {
+        use TransportStatus::*;
+        let steps = with_steps();
+        assert!(steps.check().is_ok());
+        let codes = |t: &Transport| {
+            steps
+                .next_steps(t)
+                .into_iter()
+                .map(|s| s.status.clone())
+                .collect::<Vec<_>>()
+        };
+        // Sent without a destination: every step is next.
+        let assigned = TransportUpdated {
+            request: "r1".into(),
+            status: Assigned,
+            unit: Some("RTW 83/1".into()),
+            destination: None,
+            hospital: None,
+            status_code: None,
+        };
+        let mut events = vec![
+            request(1, "r1", "immediate"),
+            event(2, "ben", MODULE, UPDATED, assigned.encode().unwrap()),
+        ];
+        let board = TransportBoard::from_events(&events);
+        let t = &board.transports["r1"];
+        assert_eq!(t.destination, None, "the destination may come later");
+        assert_eq!(codes(t), ["3", "4", "7", "8", "1", "2"]);
+        assert_eq!(steps.step_for(t, "7"), Some(Departed));
+        assert_eq!(
+            steps.step_for(t, "6"),
+            None,
+            "a status that is no step leaves it"
+        );
+        // Status 7: the patient is aboard; only later steps follow, never back.
+        events.push(coded(3, "r1", Departed, "7"));
+        let destination = TransportUpdated {
+            request: "r1".into(),
+            status: Departed,
+            unit: None,
+            destination: Some("Klinikum Mitte".into()),
+            hospital: Some("h1".into()),
+            status_code: None,
+        };
+        events.push(event(
+            4,
+            "ben",
+            MODULE,
+            UPDATED,
+            destination.encode().unwrap(),
+        ));
+        let board = TransportBoard::from_events(&events);
+        let t = &board.transports["r1"];
+        assert_eq!(
+            (t.status, t.destination.as_deref()),
+            (Departed, Some("Klinikum Mitte"))
+        );
+        assert_eq!(
+            codes(t),
+            ["8", "1", "2"],
+            "after the last code reached, a later destination keeps it"
+        );
+        assert_eq!(steps.step_for(t, "4"), None, "no step back");
+        assert_eq!(
+            t.history.last().and_then(|h| h.destination.as_deref()),
+            Some("Klinikum Mitte")
+        );
+        assert_eq!(board.sent_to_hospitals()["h1"], 1);
+        // Status 2 ends it.
+        events.push(coded(5, "r1", HandedOver, "2"));
+        let board = TransportBoard::from_events(&events);
+        assert!(steps.next_steps(&board.transports["r1"]).is_empty());
+        assert_eq!(
+            board.transports["r1"].history[2].status_code.as_deref(),
+            Some("7")
+        );
+    }
+
+    #[test]
+    fn steps_go_forward_and_name_known_unit_statuses() {
+        use TransportStatus::*;
+        let mut back = with_steps();
+        back.steps.swap(0, 2);
+        assert!(matches!(back.check(), Err(CatalogueError::StepOrder(_))));
+        let mut twice = with_steps();
+        twice.steps.push(StatusStep {
+            status: "3".into(),
+            transport: HandedOver,
+        });
+        assert!(matches!(
+            twice.check(),
+            Err(CatalogueError::Duplicate("step", _))
+        ));
+        let statuses: StatusCatalogue = toml::from_str(
+            "[[status]]\ncode = \"3\"\nlabel = \"Einsatz übernommen\"\nname = \"en route\"\n",
+        )
+        .unwrap();
+        assert!(matches!(
+            with_steps().check_steps(&statuses),
+            Err(CatalogueError::UnknownStatus(code)) if code == "4"
+        ));
     }
 
     fn event(n: u64, user: &str, module: &str, event_type: &str, payload: Vec<u8>) -> AppliedEvent {
@@ -595,11 +829,12 @@ mod tests {
             unit: unit.map(Into::into),
             destination: unit.map(|_| "Klinikum Mitte".into()),
             hospital: unit.map(|_| "h1".into()),
+            status_code: None,
         };
         event(n, user, MODULE, UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~transport-request~1]
+    // [utest->dsn~transport-request~2]
     #[test]
     fn a_request_is_assigned_and_moves_through_its_steps() {
         use TransportStatus::*;
@@ -637,7 +872,7 @@ mod tests {
         assert_eq!(t.request.needs, vec!["infectious"]);
     }
 
-    // [utest->dsn~transport-request~1]
+    // [utest->dsn~transport-request~2]
     #[test]
     fn the_open_list_is_by_priority_then_age_and_drops_ended_transports() {
         let c = catalogue();
@@ -743,7 +978,7 @@ mod tests {
         assert_eq!(free, ["RTW 3"]);
     }
 
-    // [utest->dsn~transport-request~1]
+    // [utest->dsn~transport-request~2]
     #[test]
     fn steps_only_go_forward_and_cancelling_ends_before_departure() {
         use TransportStatus::*;
@@ -763,7 +998,7 @@ mod tests {
         assert!(HandedOver.next().is_empty() && Cancelled.next().is_empty());
     }
 
-    // [utest->dsn~transport-request~1]
+    // [utest->dsn~transport-request~2]
     #[test]
     fn new_requests_must_fit_the_profile_catalogue() {
         let c = catalogue();
@@ -796,7 +1031,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~transport-request~1]
+    // [utest->dsn~transport-request~2]
     #[test]
     fn the_patient_link_stays_in_the_clinical_events() {
         let link = |n, tag: &str, request: &str| {

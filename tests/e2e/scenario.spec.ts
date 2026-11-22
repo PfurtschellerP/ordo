@@ -171,8 +171,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(dora), { message: "a new incident opens where it is prepared: the menu follows the work" }).toContain("Einsatzleitung – Vorbereitung");
     await openWorkspace(dora, "Führung");
     // [itest->dsn~workspaces-by-phase~5]
-    // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, quick links.
-    await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(5);
+    // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, transports
+    // waiting for a unit (feedback of 2026-11-22), quick links.
+    await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(6);
+    await expect(dora.locator("[aria-labelledby=tile-transports]"), "no transport waits yet").toContainText("Keine Transportanforderung wartet.");
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
     await expect(dora.locator("#overview-persons"), "counts only").toHaveText("0");
     await expect(dora.locator(".tile--dispatch"), "Disposition keeps its name").toContainText("Keine offenen Aufträge.");
@@ -570,7 +572,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(photo, "removed: the photo before shows again").toHaveAttribute("src", firstSrc);
     await expect.poll(() => status(anna), { message: "the removal is sent" }).toContain("Alles gesendet");
 
-    // [itest->dsn~transport-request~1]
+    // [itest->dsn~transport-request~2]
     await showTabOf(anna, "[aria-labelledby=section-transport]");
     const transport = anna.locator("[aria-labelledby=section-transport]");
     await transport.getByLabel("RTW – Rettungswagen").check();
@@ -807,7 +809,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
     await anna.locator("#tag").fill("");
 
-    // [itest->dsn~vim-keys~2]
+    // [itest->dsn~vim-keys~3]
     // UX-15 (ADR-0090): vim keys for the whole app, turned on in the menu on this device.
     await anna.locator("#profile-button").click();
     await anna.locator("#keymap").selectOption({ label: "Vim-Tasten" });
@@ -850,6 +852,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("g");
     await anna.keyboard.press("1");
     await expect(views.nth(0), "g1: the first").toHaveAttribute("aria-current", "page");
+    // [itest->dsn~vim-keys~3]
+    // gv: the views in the rail; j moves there, Esc returns to the page (feedback of 2026-11-22).
+    await anna.keyboard.press("g");
+    await anna.keyboard.press("v");
+    await expect(views.nth(0), "gv: the current view in the rail").toBeFocused();
+    await anna.keyboard.press("j");
+    await expect(views.nth(1), "j: the next view").toBeFocused();
+    await anna.keyboard.press("Escape");
+    expect(await anna.evaluate(() => document.activeElement?.closest("#main") != null), "Esc: back to the page").toBe(true);
+    // A select is reached and left with the keys (o opens its list).
+    await anna.locator("#working-uhs").focus();
+    await anna.keyboard.press("j");
+    await expect(anna.locator("#working-uhs"), "j moves on from a select").not.toBeFocused();
     await openView(anna, "Patienten");
     await patientsPart(anna, "register");
     await anna.locator("#tag").focus();
@@ -1303,11 +1318,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#crew-dialog .crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
     await ben.keyboard.press("Escape");
 
-    // [itest->dsn~tasks~7]
+    // [itest->dsn~tasks~8]
     const strip = ben.locator(".tasks-strip");
     const bell = ben.locator("#attention-button");
-    await expect(bell, "the bell in the header says when something needs attention").toHaveAccessibleName("Hinweise: keine");
+    // A transport waiting for a unit rings the bell for the command and shows on the overview
+    // (feedback of 2026-11-22: what is important and time-critical).
+    await expect(bell, "the bell in the header says when something needs attention").toHaveAccessibleName("Hinweise: 1");
+    await bell.click();
+    await expect(ben.locator("#attention-panel").getByRole("link"), "a transport waiting for a unit").toHaveText(/^Transport ohne Einsatzmittel: RTW für UHS Eingang, \d\d:\d\d · Sofort$/);
+    await ben.keyboard.press("Escape");
     await openWorkspace(ben, "Führung");
+    const waitingTile = ben.locator("[aria-labelledby=tile-transports]");
+    await expect(waitingTile.locator("#overview-transports-waiting"), "the overview counts it").toHaveText("1");
+    await expect(waitingTile.locator(".tile__task"), "with its priority").toContainText("Sofort");
     await expect(strip, "no extra line about tasks on the pages of Führung").toHaveCount(0);
     await openView(ben, "Disposition");
     await expect(ben.locator("#tasks-title"), "the page of all tasks").toHaveText("Offene Aufträge (0)");
@@ -1335,13 +1358,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Einsatzmittel");
     await expect(card, "the status set in Führung shows where units are planned").toContainText("Status: 3 – Einsatz übernommen");
     // A due follow-up rings the bell on every page; it leads to Disposition.
-    await expect(bell).toHaveAccessibleName("Hinweise: 1");
-    await expect(bell.locator(".attention__count"), "the number as text").toHaveText("1");
+    await expect(bell).toHaveAccessibleName("Hinweise: 2");
+    await expect(bell.locator(".attention__count"), "the number as text").toHaveText("2");
     await bell.click();
     const attention = ben.locator("#attention-panel");
-    await expect(attention.getByRole("link"), "what needs attention, by name").toHaveText("Rückfrage fällig: RTW 83/1 – Lagemeldung abgeben");
+    await expect(attention.getByRole("link"), "what needs attention, by name").toHaveText([/^Transport ohne Einsatzmittel: /, "Rückfrage fällig: RTW 83/1 – Lagemeldung abgeben"]);
     await audit(ben, "Attention", [1200, 320]);
-    await attention.getByRole("link").click();
+    await attention.getByRole("link", { name: /^Rückfrage fällig/ }).click();
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (1)");
     await task.getByRole("button", { name: "In Arbeit: Lagemeldung abgeben" }).click();
     await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
@@ -1938,7 +1961,7 @@ test("ORDO in the browser", async ({ browser }) => {
   });
 
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
-    // [itest->dsn~transport-request~1]
+    // [itest->dsn~transport-request~2]
     await openView(ben, "Transporte");
     // [itest->dsn~page-tabs~4]
     // Used together: columns where the page is at least 60rem wide, tabs where narrower.
@@ -2011,18 +2034,35 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
     await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 0");
 
+    // [itest->dsn~transport-request~2]
+    // ADR-0098: the vehicle is sent before the destination is decided, and the transport
+    // follows the unit's status.
     await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
-    await request.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
     await request.getByRole("button", { name: /^Zuweisen: / }).click();
     const transportStatus = request.locator(".transport-card__status");
-    await expect(transportStatus, "a unit and a destination are assigned").toHaveText("Zugewiesen · RTW 83/1 → Klinikum Mitte");
-    await request.getByRole("button", { name: /^Abgefahren: / }).click();
-    await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("Abgefahren · RTW 83/1 → Klinikum Mitte");
+    await expect(transportStatus, "a unit, the destination still open").toHaveText("Zugewiesen · RTW 83/1 → Ziel offen");
+    await expect(request.getByRole("button", { name: /^\d – / }), "the unit's statuses are the steps").toHaveText([
+      "3 – Einsatz übernommen", "4 – Am Einsatzort", "7 – Patient aufgenommen", "8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache",
+    ]);
+    await request.getByRole("button", { name: /^3 – Einsatz übernommen: / }).click();
+    await expect(transportStatus).toHaveText("3 – Einsatz übernommen · RTW 83/1 → Ziel offen");
+    await request.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
+    await request.getByRole("button", { name: /^Ziel festlegen: / }).click();
+    await expect(transportStatus, "the destination set on the way").toHaveText("3 – Einsatz übernommen · RTW 83/1 → Klinikum Mitte");
+    await expect(request.getByRole("button", { name: /^Ziel festlegen: / }), "set once").toHaveCount(0);
+    // The unit's status set on Disposition moves its transport too.
+    await openView(ben, "Disposition");
+    await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "7 – Patient aufgenommen" });
+    await openView(ben, "Transporte");
+    await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("7 – Patient aufgenommen · RTW 83/1 → Klinikum Mitte");
+    await expect(request.getByRole("button", { name: /^\d – / }), "only later steps").toHaveText(["8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache"]);
     await expect(free, "a unit on a transport is not free").toContainText("Keine freien Transportmittel.");
     await expect(hospital.locator(".hospital-card__sent"), "the board counts the patient sent").toHaveText("Transportiert: 1");
     await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
     await request.locator("summary").click();
-    await expect(request.locator(".history-list li"), "every change with time and person").toHaveCount(3);
+    await expect(request.locator(".history-list li"), "every change with time and person").toHaveText([
+      /Angefordert/, /Zugewiesen/, /3 – Einsatz übernommen/, /Ziel: Klinikum Mitte/, /7 – Patient aufgenommen/,
+    ]);
     await expect.poll(() => status(ben), { message: "the transport is sent" }).toContain("Alles gesendet");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "the command device never receives the triage tag number").toBe(false);
     await audit(ben, "Transports");
@@ -2144,7 +2184,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const report = ben.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(report, "with kind and time it came in").toContainText(/Patient · Eingang \d\d:\d\d/);
     await expect(report.locator(".task-card__status"), "received, nobody on it yet").toContainText("Eingegangen");
-    // [itest->dsn~tasks~7]
+    // [itest->dsn~tasks~8]
     // An Auftrag no unit works on rings the bell until it is assigned.
     await expect(ben.locator("#attention-button")).toHaveAccessibleName("Hinweise: 1");
     await ben.locator("#attention-button").click();
@@ -2196,7 +2236,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(crewUnit.getByLabel("Status von SanTrp 1 setzen").locator("option[value='']"), "the prompt is no status").toHaveCount(0);
     const crewTask = crewUnit.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(crewTask.locator("button", { hasText: /Abbrechen|nachfragen/ }), "cancelling and asking again are the command's").toHaveCount(0);
-    // [itest->dsn~tasks~7]
+    // [itest->dsn~tasks~8]
     // TASK-3: the crew's bell counts the Auftrag not started yet, and leads to it.
     await expect(medic.locator("#attention-button"), "a bell for every role").toHaveAccessibleName(/^Hinweise: [1-9]/);
     await medic.locator("#attention-button").click();

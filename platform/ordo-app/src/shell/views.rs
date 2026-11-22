@@ -496,7 +496,7 @@ pub(crate) fn apply_hand(hand: &str) {
     apply_setting("data-hand", HAND_KEY, hand);
 }
 
-// [impl->dsn~vim-keys~2]
+// [impl->dsn~vim-keys~3]
 /// Turns vim keys on (`"vim"`) or off (`""`) and remembers it on this device (ADR-0090).
 pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);

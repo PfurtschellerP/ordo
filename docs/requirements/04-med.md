@@ -649,9 +649,9 @@ Tags: must, med, m18
 Needs: dsn
 
 #### TRANS-3 — Transport assignment and status
-`req~trans-3~1`
+`req~trans-3~2`
 
-When a transport request is assigned, ORDO shall record the transport unit and destination and track the status requested → assigned → loading → departed → arrived → handed over, with the time of every change.
+When a transport request is assigned, ORDO shall record the transport unit, and the destination as soon as it is known, and shall track the transport by the unit's status codes the profile names for it (DE: 3, 4, 7, 8, then 1 or 2), with the time of every change.
 
 Tags: must, med, m14
 

@@ -245,9 +245,9 @@ Tags: must, shared, m31
 Needs: dsn
 
 #### TASK-3 — Open tasks always visible
-`req~task-3~4`
+`req~task-3~5`
 
-While a person works in an incident, ORDO shall show on every page how many items need their attention: for a leader due follow-ups, Aufträge without a unit and staff requests; for everyone else the Aufträge given to them or their unit that nobody has started yet. ORDO shall list the open Aufträge on the command's overview and on its task page.
+While a person works in an incident, ORDO shall show on every page how many items need their attention: for a leader due follow-ups, Aufträge without a unit, staff requests and transports requested without a unit; for everyone else the Aufträge given to them or their unit that nobody has started yet. ORDO shall list the open Aufträge and the requested transports on the command's overview, and the Aufträge on its task page.
 
 Tags: must, shared, m31
 
