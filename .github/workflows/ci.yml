@@ -49,6 +49,17 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Test
         run: cargo test --workspace --locked
+      - name: Validate the handover PDF with veraPDF (PDF/A-3a, PDF/UA-1; ADR-0089)
+        run: |
+          mkdir -p "$RUNNER_TEMP/pdf"
+          ORDO_HANDOVER_SAMPLE="$RUNNER_TEMP/pdf/handover.pdf" \
+            cargo test --locked -p ordo-med-handover a_patient_handed_outside
+          for flavour in 3a ua1; do
+            docker run --rm --network none -v "$RUNNER_TEMP/pdf:/data:ro" \
+              verapdf/cli:v1.30.3@sha256:d74b7026c18a0f171e73c153b617fe6520e1511feb24ca98a348b2bb897669fb \
+              --flavour "$flavour" --format text --verbose /data/handover.pdf | tee "$RUNNER_TEMP/pdf/$flavour.txt"
+            grep -q '^PASS ' "$RUNNER_TEMP/pdf/$flavour.txt"
+          done
       - name: Build client-side crates for WebAssembly
         run: >-
           cargo build --locked --target wasm32-unknown-unknown

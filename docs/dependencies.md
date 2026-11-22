@@ -145,3 +145,8 @@ Taken from npm with the recorded integrity, licences next to them
 Pinned by digest, updated by Dependabot: `rust` (build), `distroless/static` (the ORDO
 image), Dex, Caddy and Garage (Compose bundle). All maintained; Garage is developed at
 git.deuxfleurs.fr, GitHub holds a mirror.
+
+veraPDF (`verapdf/cli`, 1.30.3, GPL-3.0-or-later or MPL-2.0) validates the handover PDF in
+CI only (ADR-0089); it is not part of ORDO. It is pinned by digest in `ci.yml`, which
+Dependabot does not update, so it is raised by hand. Maintained by the veraPDF consortium
+and the PDF Association.

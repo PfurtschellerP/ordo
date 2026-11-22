@@ -45,7 +45,8 @@ Chosen option: "Typst template per profile", made on the server (product owner,
   the profile's Questionnaire ([ADR-0037](0037-epcr-forms-as-fhir-questionnaire.md)).
 * **Checked.** A test compiles the DE template with sample data and checks the PDF/A and
   PDF/UA marks and the attachment; Typst itself refuses output that breaks either
-  standard. Validation with veraPDF in CI follows.
+  standard. In CI, veraPDF (the reference validator of the PDF Association) validates
+  that sample against PDF/A-3a and PDF/UA-1.
 
 ### Where the PDF is made
 
