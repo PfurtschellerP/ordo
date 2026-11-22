@@ -76,15 +76,15 @@ pub fn IncidentPicker(
     after_render(|| focus("incidents-title"));
     view! {
         <main id="main" class="page page--narrow">
-            <h1 id="incidents-title" tabindex="-1">{text::app_name()} " – " {text::INCIDENTS_TITLE}</h1>
-            <p>{text::INCIDENTS_INTRO}</p>
+            <h1 id="incidents-title" tabindex="-1">{text::app_name()} " – " {text::incidents_title()}</h1>
+            <p>{text::incidents_intro()}</p>
             {move || {
                 if !ready.get() {
-                    return view! { <p class="notice">{text::INCIDENTS_OFFLINE}</p> }.into_any();
+                    return view! { <p class="notice">{text::incidents_offline()}</p> }.into_any();
                 }
                 match incidents.get() {
-                    None => view! { <p>{text::INCIDENTS_LOADING}</p> }.into_any(),
-                    Some(list) if list.is_empty() => view! { <p class="notice">{text::INCIDENTS_EMPTY}</p> }.into_any(),
+                    None => view! { <p>{text::incidents_loading()}</p> }.into_any(),
+                    Some(list) if list.is_empty() => view! { <p class="notice">{text::incidents_empty()}</p> }.into_any(),
                     Some(list) => view! {
                         <ul class="incident-list" data-keys="list">
                             {list
@@ -96,7 +96,7 @@ pub fn IncidentPicker(
                                     } else {
                                         i.roles.iter().map(|r| text::role_label(r)).collect::<Vec<_>>().join(", ")
                                     };
-                                    let label = format!("{}: {}", text::OPEN, i.name);
+                                    let label = format!("{}: {}", text::open(), i.name);
                                     view! {
                                         <li class="incident-card">
                                             <h2>{i.name.clone()}</h2>
@@ -106,7 +106,7 @@ pub fn IncidentPicker(
                                             </p>
                                             <button type="button" class="button button--primary" aria-label=label
                                                 on:click=move |_| open(id.clone(), None)>
-                                                {text::OPEN}
+                                                {text::open()}
                                             </button>
                                         </li>
                                     }
@@ -119,24 +119,24 @@ pub fn IncidentPicker(
             }}
             <Show when=move || planner.get()>
                 <section class="card" aria-labelledby="plan-title">
-                    <h2 id="plan-title">{text::PLAN_TITLE}</h2>
+                    <h2 id="plan-title">{text::plan_title()}</h2>
                     <form class="form form--inline" on:submit=plan>
                         <div class="field">
-                            <label for="plan-name">{text::PLAN_NAME}</label>
+                            <label for="plan-name">{text::plan_name()}</label>
                             <input id="plan-name" type="text" required bind:value=name />
                         </div>
-                        <button type="submit" class="button">{text::PLAN_SUBMIT}</button>
+                        <button type="submit" class="button">{text::plan_submit()}</button>
                     </form>
                 </section>
             </Show>
             <section class="card" aria-labelledby="log-out-title">
-                <h2 id="log-out-title" class="visually-hidden">{text::LOG_OUT}</h2>
+                <h2 id="log-out-title" class="visually-hidden">{text::log_out()}</h2>
                 <p>{text::signed_in_as()} " " <strong>{crate::shell::profile::naming({
                     let me = me.clone();
                     move || crate::shell::profile::display_name(core, &me)
                 })}</strong> " (" {me.to_string()} ")"</p>
-                <p class="hint">{text::LOG_OUT_HINT}</p>
-                <button id="log-out" type="button" class="button" on:click=log_out>{text::LOG_OUT}</button>
+                <p class="hint">{text::log_out_hint()}</p>
+                <button id="log-out" type="button" class="button" on:click=log_out>{text::log_out()}</button>
             </section>
         </main>
     }
@@ -228,7 +228,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     view! {
         <section aria-labelledby="incident-title" class="card">
-            <h2 id="incident-title">{text::INCIDENT_PAGE_TITLE}</h2>
+            <h2 id="incident-title">{text::incident_page_title()}</h2>
             {move || info.get().map(|i| {
                 let times = text::incident_times(
                     i.details.starts_at.map(core::date_time).as_deref(),
@@ -236,67 +236,67 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 );
                 view! {
                     <p>
-                        <strong>{i.name.clone()}</strong> " · " {text::INCIDENT_STATE} ": "
+                        <strong>{i.name.clone()}</strong> " · " {text::incident_state_label()} ": "
                         <span id="incident-state">{text::incident_state(i.state, i.paused)}</span>
                     </p>
                     {times.map(|t| view! { <p id="incident-times">{t}</p> })}
                 }
             })}
-            <p class="hint">{text::INCIDENT_PREPARE}</p>
+            <p class="hint">{text::incident_prepare()}</p>
             <Show when=move || manage.get()>
                 <div class="row">
                     {move || info.get().map(|i| match (i.state, i.paused) {
                         (IncidentState::Planned, _) => view! {
                             <button type="button" class="button button--primary" on:click=move |_| set_state(IncidentState::Active)>
-                                {text::START_INCIDENT}
+                                {text::start_incident()}
                             </button>
                         }.into_any(),
                         (IncidentState::Active, paused) => view! {
                             {if paused {
                                 view! {
                                     <button type="button" class="button button--primary" on:click=move |_| set_paused(false)>
-                                        {text::RESUME_INCIDENT}
+                                        {text::resume_incident()}
                                     </button>
                                 }.into_any()
                             } else {
                                 view! {
                                     <button type="button" class="button" on:click=move |_| set_paused(true)>
-                                        {text::PAUSE_INCIDENT}
+                                        {text::pause_incident()}
                                     </button>
                                 }.into_any()
                             }}
                             <button type="button" class="button" on:click=move |_| set_state(IncidentState::Closed)>
-                                {text::CLOSE_INCIDENT}
+                                {text::close_incident()}
                             </button>
                         }.into_any(),
                         (IncidentState::Closed, _) => ().into_any(),
                     })}
                 </div>
                 <Show when=move || info.get().is_some_and(|i| i.state == IncidentState::Active)>
-                    <p class="hint">{text::INCIDENT_PAUSE_HINT}</p>
+                    <p class="hint">{text::incident_pause_hint()}</p>
                 </Show>
             </Show>
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
         <section aria-labelledby="incident-details-title" class="card">
-            <h2 id="incident-details-title">{text::INCIDENT_DETAILS}</h2>
+            <h2 id="incident-details-title">{text::incident_details()}</h2>
             <form class="form" novalidate on:submit=save_details>
                 <div class="field">
-                    <label for="incident-description">{text::INCIDENT_DESCRIPTION}</label>
+                    <label for="incident-description">{text::incident_description()}</label>
                     <textarea id="incident-description" rows="4" aria-describedby="incident-description-hint"
                         maxlength=ordo_sync::incidents::DESCRIPTION_MAX.to_string()
                         disabled=move || !manage.get()
                         prop:value=move || description.get()
                         on:input=move |ev| description.set(event_target_value(&ev))></textarea>
-                    <p id="incident-description-hint" class="hint">{text::INCIDENT_DESCRIPTION_HINT}</p>
+                    <p id="incident-description-hint" class="hint">{text::incident_description_hint()}</p>
                 </div>
                 <div class="form--inline">
                     <div class="field">
-                        <label for="incident-starts">{text::INCIDENT_STARTS}</label>
+                        <label for="incident-starts">{text::incident_starts()}</label>
                         <input id="incident-starts" type="datetime-local" disabled=move || !manage.get() bind:value=starts />
                     </div>
                     <div class="field">
-                        <label for="incident-ends">{text::INCIDENT_ENDS}</label>
+                        <label for="incident-ends">{text::incident_ends()}</label>
                         <input id="incident-ends" type="datetime-local" disabled=move || !manage.get() bind:value=ends />
                     </div>
                 </div>
@@ -305,12 +305,12 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <label class="choice">
                         <input id="incident-strength-detailed" type="checkbox" disabled=move || !manage.get()
                             bind:checked=strength_detailed />
-                        {text::STRENGTH_DETAILED}
+                        {text::strength_detailed()}
                     </label>
                 </div>
                 <Show when=move || manage.get()>
                     <div class="row">
-                        <button type="submit" class="button">{text::INCIDENT_DETAILS_SAVE}</button>
+                        <button type="submit" class="button">{text::incident_details_save()}</button>
                     </div>
                 </Show>
                 <p role="status">{move || details_status.get()}</p>

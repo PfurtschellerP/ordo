@@ -64,7 +64,7 @@ pub(crate) fn special_text(special: &Special) -> Option<String> {
                 .map(|n| format!("{n} × {}", f.label))
         })
         .collect();
-    (!listed.is_empty()).then(|| text::special_functions(&listed.join(", ")))
+    (!listed.is_empty()).then(|| text::special_functions(listed.join(", ")))
 }
 
 /// A qualification in short, from the profile (e.g. "NotSan").
@@ -153,7 +153,7 @@ impl StrengthDraft {
                     sub_leaders,
                     crew,
                 }),
-                _ => return Err(text::STRENGTH_NUMBERS),
+                _ => return Err(text::strength_numbers()),
             }
         };
         let mut special = Special::new();
@@ -165,7 +165,7 @@ impl StrengthDraft {
                     Some(n) => {
                         special.insert(id, n);
                     }
-                    None => return Err(text::STRENGTH_NUMBERS),
+                    None => return Err(text::strength_numbers()),
                 },
             }
         }
@@ -208,7 +208,7 @@ pub(crate) fn StrengthFields(
             let prefix = prefix.clone();
             view! {
                 <fieldset class="choices strength-input">
-                    <legend>{text::SPECIAL_FUNCTIONS_LEGEND}</legend>
+                    <legend>{text::special_functions_legend()}</legend>
                     {CATALOGUE.special_functions.iter().map(|f| {
                         let id = format!("{prefix}-special-{}", f.id);
                         let key = f.id.clone();
@@ -268,15 +268,15 @@ fn StrengthOnScene(
     });
     view! {
         <section class="strength-on-scene" aria-labelledby="strength-title">
-            <h3 id="strength-title">{text::STRENGTH_TITLE}</h3>
+            <h3 id="strength-title">{text::strength_title()}</h3>
             {move || {
                 let s = summary.get();
                 let rows = |map: std::collections::BTreeMap<String, (u32, Strength)>, service: bool| {
                     map.into_iter()
                         .map(|(key, (units, strength))| {
                             let name = if service {
-                                if key.is_empty() { text::NO_SERVICE.to_owned() } else { UnitCatalogue::label(&CATALOGUE.services, &key).to_owned() }
-                            } else if key.is_empty() { text::NO_ORGANISATION.to_owned() } else { key };
+                                if key.is_empty() { text::no_service().to_owned() } else { UnitCatalogue::label(&CATALOGUE.services, &key).to_owned() }
+                            } else if key.is_empty() { text::no_organisation().to_owned() } else { key };
                             view! { <li>{name} ": " {text::units_count(units)} " · " <StrengthText strength detailed=detailed(core) /></li> }
                         })
                         .collect_view()
@@ -286,7 +286,7 @@ fn StrengthOnScene(
                 let several = s.people.several();
                 view! {
                     <p class="strength-on-scene__total">
-                        <strong>{text::units_count(s.units)}</strong> " · " {text::STRENGTH} " " <StrengthText strength=s.total special=s.special.clone() detailed=detailed(core) />
+                        <strong>{text::units_count(s.units)}</strong> " · " {text::strength()} " " <StrengthText strength=s.total special=s.special.clone() detailed=detailed(core) />
                         {(!several.is_empty()).then(|| view! { <span class="strength-on-scene__mark" aria-hidden="true">"*"</span> })}
                         {(s.unreported > 0).then(|| format!(" · {}", text::unreported(s.unreported)))}
                     </p>
@@ -298,11 +298,11 @@ fn StrengthOnScene(
                     })}
                     <div class="strength-on-scene__groups">
                         <div>
-                            <h4>{text::BY_ORGANISATION}</h4>
+                            <h4>{text::by_organisation()}</h4>
                             <ul>{rows(s.by_organisation, false)}</ul>
                         </div>
                         <div>
-                            <h4>{text::BY_SERVICE}</h4>
+                            <h4>{text::by_service()}</h4>
                             <ul>{rows(s.by_service, true)}</ul>
                         </div>
                     </div>
@@ -450,7 +450,7 @@ pub(crate) fn AssignedElsewhere(
                             move || text::move_here_label(person.get().trim(), &here)
                         }
                         on:click=move |_| on_move.run(())>
-                        {text::MOVE_HERE}
+                        {text::move_here()}
                     </button>
                     <button type="button" class="button button--small button--quiet" on:click=move |_| elsewhere.set(Vec::new())>
                         {text::cancel()}
@@ -642,7 +642,7 @@ fn CrewEditor(
         .collect();
     view! {
         {if members.is_empty() {
-            view! { <p class="hint">{text::CREW_NONE}</p> }.into_any()
+            view! { <p class="hint">{text::crew_none()}</p> }.into_any()
         } else {
             view! {
                 <ul class="crew-list">
@@ -671,7 +671,7 @@ fn CrewEditor(
                                     }
                                 });
                                 view! {
-                                    <crate::shell::ui::IconButton icon="trash-2" word=text::CREW_REMOVE quiet=true
+                                    <crate::shell::ui::IconButton icon="trash-2" word=text::crew_remove() quiet=true
                                         label on_click=run />
                                 }
                             });
@@ -698,14 +698,14 @@ fn CrewEditor(
         {editable.then(|| view! {
             <form class="form crew-form" novalidate on:submit=add>
                 <div class="field">
-                    <label for=field.clone()>{text::CREW_MEMBER}</label>
+                    <label for=field.clone()>{text::crew_member()}</label>
                     <input id=field.clone() type="text" autocomplete="off" list=format!("{field}-people") bind:value=person />
                     <Suggestions id=format!("{field}-people") values=people core />
                 </div>
                 // [impl->dsn~icon-rules~1]
-                <CheckChips legend=text::CREW_QUALIFICATIONS options=options.clone() value=qualifications short=qualification_short />
+                <CheckChips legend=text::crew_qualifications() options=options.clone() value=qualifications short=qualification_short />
                 <div class="row">
-                    <button type="submit" class="button button--small">{text::CREW_ADD}</button>
+                    <button type="submit" class="button button--small">{text::crew_add()}</button>
                 </div>
                 <AssignedElsewhere person elsewhere here=here.label.clone() on_move />
                 <Show when=move || unregistered.get()>
@@ -715,7 +715,7 @@ fn CrewEditor(
                             <button type="button" class="button button--small"
                                 aria-label=move || text::register_and_add_label(person.get().trim())
                                 on:click=move |_| register_and_add.run(())>
-                                {text::REGISTER_AND_ADD}
+                                {text::register_and_add()}
                             </button>
                             <button type="button" class="button button--small button--quiet" on:click=move |_| unregistered.set(false)>
                                 {text::cancel()}
@@ -752,7 +752,7 @@ fn UnitCard(
     let release = editable.then(|| {
         let name = name.clone();
         vec![Action {
-            text: text::RELEASE,
+            text: text::release(),
             label: text::release_label(&name),
             quiet: true,
             run: Callback::new(move |()| {
@@ -766,14 +766,14 @@ fn UnitCard(
             <div class="card-head">
                 <h3 class="unit-card__name">{name.clone()}</h3>
                 <crate::shell::ui::EditButton id=crew_button(&name) label=crew_label
-                    icon=if editable { "pencil" } else { "users" } word=text::CREW on_click=on_crew />
+                    icon=if editable { "pencil" } else { "users" } word=text::crew() on_click=on_crew />
             </div>
             <p class="unit-card__details">
                 {details(&u)}
-                {u.strength.map(|strength| view! { " · " {text::STRENGTH} " " <StrengthText strength special=u.special.clone() detailed=detailed(core) /> })}
+                {u.strength.map(|strength| view! { " · " {text::strength()} " " <StrengthText strength special=u.special.clone() detailed=detailed(core) /> })}
             </p>
             // The status is set in *Führung – Disposition* (ADR-0070); shown here.
-            <p class="unit-card__status">{text::COL_STATUS} ": " <strong>{shown}</strong></p>
+            <p class="unit-card__status">{text::col_status()} ": " <strong>{shown}</strong></p>
             // [impl->dsn~command-structure~1]
             // Under which position: one choice, two taps (CMD-2).
             {(editable && !positions.is_empty()).then(|| {
@@ -789,7 +789,7 @@ fn UnitCard(
                         };
                         let _ = core::command_event(core, revision, ordo_command::kinds::ASSIGNED, &a.encode().unwrap_or_default());
                     }>
-                        <option value="" selected=current.is_empty()>{text::NO_POSITION}</option>
+                        <option value="" selected=current.is_empty()>{text::no_position()}</option>
                         {positions
                             .iter()
                             .map(|(id, title)| view! { <option value=id.clone() selected=*id == current>{title.clone()}</option> })
@@ -798,7 +798,7 @@ fn UnitCard(
                 }
             })}
             {(!editable).then(|| position.as_ref().and_then(|id| positions.iter().find(|(p, _)| p == id)).map(|(_, title)| view! {
-                <p class="unit-card__position">{text::POSITION} ": " {title.clone()}</p>
+                <p class="unit-card__position">{text::position()} ": " {title.clone()}</p>
             }))}
             {release.map(|actions| view! { <Actions actions /> })}
         </li>
@@ -808,13 +808,8 @@ fn UnitCard(
 /// "3 – Einsatz übernommen, seit 10:12", or that no status was set.
 pub(crate) fn status_shown(u: &Unit) -> String {
     u.status.as_ref().map_or_else(
-        || text::NO_STATUS.to_owned(),
-        |s| {
-            text::status_since(
-                &text::status_label(&s.status),
-                &core::clock(s.since.wall_ms),
-            )
-        },
+        || text::no_status().to_owned(),
+        |s| text::status_since(text::status_label(&s.status), core::clock(s.since.wall_ms)),
     )
 }
 
@@ -835,7 +830,7 @@ pub(crate) fn StatusSelect(
         }>
             // A prompt until the first status, never a choice of its own.
             {current.is_empty().then(|| view! {
-                <option value="" disabled selected>{text::COL_SET_STATUS}</option>
+                <option value="" disabled selected>{text::col_set_status()}</option>
             })}
             {STATUS
                 .codes
@@ -879,15 +874,15 @@ pub fn UnitStatusBoard(
     let prepare = crate::shell::nav::Route::view("command.prepare", "units");
     view! {
         <section class="card unit-status" aria-labelledby="unit-status-title">
-            <h2 id="unit-status-title">{text::UNIT_STATUS_TITLE}</h2>
+            <h2 id="unit-status-title">{text::unit_status_title()}</h2>
             {move || {
                 let list = rows.get();
                 if list.is_empty() {
                     let prepare = prepare.clone();
                     return view! {
                         <p>
-                            {text::UNIT_STATUS_EMPTY} " "
-                            <a href=prepare.to_path() on:click=crate::shell::views::follow_route(prepare.clone())>{text::OPEN_UNITS}</a>
+                            {text::unit_status_empty()} " "
+                            <a href=prepare.to_path() on:click=crate::shell::views::follow_route(prepare.clone())>{text::open_units()}</a>
                         </p>
                     }
                     .into_any();
@@ -905,7 +900,7 @@ pub fn UnitStatusBoard(
                                     <li class="unit-card unit-status__item" data-unit=name.clone()>
                                         <h3 class="unit-card__name">{name.clone()}</h3>
                                         <p class="unit-card__details">{details(&u)}</p>
-                                        <p class="unit-status__current">{text::COL_STATUS} ": " <strong>{status_shown(&u)}</strong></p>
+                                        <p class="unit-status__current">{text::col_status()} ": " <strong>{status_shown(&u)}</strong></p>
                                         {editable.then(|| view! { <StatusSelect core revision unit=name.clone() current /> })}
                                         <p class="unit-status__tasks">
                                             {text::open_tasks_of(open.len())}
@@ -914,7 +909,7 @@ pub fn UnitStatusBoard(
                                         {editable.then(|| view! {
                                             <button type="button" class="button button--small" aria-label=text::task_give_label(&name)
                                                 on:click=move |_| give.run(call.clone())>
-                                                {text::TASK_GIVE}
+                                                {text::task_give()}
                                             </button>
                                         })}
                                     </li>
@@ -982,7 +977,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section aria-labelledby="units-title" class="card">
-            <h2 id="units-title">{text::UNITS_TITLE}</h2>
+            <h2 id="units-title">{text::units_title()}</h2>
             {move || {
                 register
                     .get()
@@ -1000,7 +995,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let structure = crate::shared::command::structure(core);
                 let positions = crate::shared::command::position_choices(&structure);
                 if units.is_empty() {
-                    return view! { <p>{text::UNITS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::units_empty()}</p> }.into_any();
                 }
                 view! {
                     <ul class="unit-list" data-keys="list">
@@ -1045,7 +1040,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                         special: u.special.clone(),
                                     };
                                     vec![Action {
-                                        text: text::BACK_IN,
+                                        text: text::back_in(),
                                         label: text::back_in_label(&u.unit),
                                         quiet: false,
                                         run: Callback::new(move |()| {
@@ -1123,7 +1118,7 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             unit_type.get_untracked().trim().to_owned(),
         );
         if u.is_empty() || t.is_empty() {
-            error.set(Some(text::UNIT_MISSING));
+            error.set(Some(text::unit_missing()));
             return;
         }
         let (reported, special) = match strength.read() {
@@ -1152,34 +1147,34 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     view! {
         <form on:submit=submit class="form add-unit" novalidate>
-            <h3>{text::UNIT_SUBMIT}</h3>
+            <h3>{text::unit_submit()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="unit-call-sign">{text::UNIT_CALL_SIGN}</label>
+                    <label for="unit-call-sign">{text::unit_call_sign()}</label>
                     <input id="unit-call-sign" type="text" required autocomplete="off" bind:value=call_sign />
                 </div>
                 <div class="field">
-                    <label for="unit-type">{text::UNIT_TYPE}</label>
+                    <label for="unit-type">{text::unit_type()}</label>
                     <input id="unit-type" type="text" required autocomplete="off" list="unit-types" bind:value=unit_type />
                     <Suggestions id="unit-types" values=types />
                 </div>
                 <div class="field">
-                    <label for="unit-organisation">{text::UNIT_ORGANISATION}</label>
+                    <label for="unit-organisation">{text::unit_organisation()}</label>
                     <input id="unit-organisation" type="text" autocomplete="off" list="unit-organisations" bind:value=organisation />
                     <Suggestions id="unit-organisations" values=organisations />
                 </div>
                 <div class="field">
-                    <label for="unit-service">{text::UNIT_SERVICE}</label>
+                    <label for="unit-service">{text::unit_service()}</label>
                     <select id="unit-service" prop:value=move || service.get() on:change=move |ev| service.set(event_target_value(&ev))>
-                        <option value="">{text::NO_SERVICE}</option>
+                        <option value="">{text::no_service()}</option>
                         {CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
                     </select>
                 </div>
             </div>
-            <StrengthFields draft=strength prefix="unit".to_owned() title=text::STRENGTH detailed />
+            <StrengthFields draft=strength prefix="unit".to_owned() title=text::strength() detailed />
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" class="button">{text::UNIT_SUBMIT}</button>
+                <button type="submit" class="button">{text::unit_submit()}</button>
             </div>
         </form>
     }

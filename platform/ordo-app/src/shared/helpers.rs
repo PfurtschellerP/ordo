@@ -51,13 +51,13 @@ fn duty(h: &Helper, now: u64) -> Option<String> {
     let at = |ms: u64| core::date_time(ms);
     match (start, end) {
         // [impl->dsn~duty-pause~1]
-        _ if h.paused_since(now).is_some() => Some(text::paused_since(&at(h
+        _ if h.paused_since(now).is_some() => Some(text::paused_since(at(h
             .paused_since(now)
             .unwrap_or_default()))),
-        _ if h.on_duty(now) => Some(text::on_duty_since(&at(start.unwrap_or_default()))),
-        (Some(s), Some(e)) => Some(text::duty_from_to(&at(s), &at(e))),
-        (Some(s), None) => Some(text::duty_from(&at(s))),
-        (None, Some(e)) => Some(text::duty_to(&at(e))),
+        _ if h.on_duty(now) => Some(text::on_duty_since(at(start.unwrap_or_default()))),
+        (Some(s), Some(e)) => Some(text::duty_from_to(at(s), at(e))),
+        (Some(s), None) => Some(text::duty_from(at(s))),
+        (None, Some(e)) => Some(text::duty_to(at(e))),
         (None, None) => None,
     }
 }
@@ -99,7 +99,7 @@ fn diet_counts(helpers: &[Helper], now: u64) -> Vec<(String, usize)> {
     }
     counts.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     if none > 0 {
-        counts.push((text::DIET_NONE.to_owned(), none));
+        counts.push((text::diet_none().to_owned(), none));
     }
     counts
 }
@@ -222,7 +222,7 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         };
         let Some(guest) = pass.guest.clone() else {
             PENDING_ROLES.with_borrow_mut(|p| p.remove(&pass.tag));
-            error.set(Some(text::GUEST_CODE_REFUSED.to_owned()));
+            error.set(Some(text::guest_code_refused().to_owned()));
             return;
         };
         let name = helpers
@@ -252,13 +252,13 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         // Who is there, then the form to take someone in: two sections (feedback of
         // 2026-11-14), each person a card of short lines.
         <section aria-labelledby="helpers-title" class="card helpers">
-            <h2 id="helpers-title" tabindex="-1">{text::HELPERS_TITLE}</h2>
-            <p class="hint">{move || if readable.get() { text::HELPERS_INTRO } else { text::HELPERS_INTRO_ROLES }}</p>
+            <h2 id="helpers-title" tabindex="-1">{text::helpers_title()}</h2>
+            <p class="hint">{move || if readable.get() { text::helpers_intro() } else { text::helpers_intro_roles() }}</p>
             {move || {
                 let now = core::now_ms();
                 let people = list.get();
                 if people.is_empty() {
-                    return view! { <p>{text::HELPERS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::helpers_empty()}</p> }.into_any();
                 }
                 let registered: Vec<Helper> = people.iter().filter_map(|p| p.helper.clone()).collect();
                 let diets = diet_counts(&registered, now);
@@ -320,9 +320,9 @@ fn PersonEntry(
         let name = name.clone();
         Action {
             text: if paused {
-                text::DUTY_RESUME
+                text::duty_resume()
             } else {
-                text::DUTY_PAUSE
+                text::duty_pause()
             },
             label: if paused {
                 text::duty_resume_label(&name)
@@ -349,9 +349,9 @@ fn PersonEntry(
         let guest = guest.clone();
         Action {
             text: if on_duty {
-                text::DUTY_END
+                text::duty_end()
             } else {
-                text::DUTY_START
+                text::duty_start()
             },
             label: if on_duty {
                 text::duty_end_label(&name)
@@ -401,14 +401,14 @@ fn PersonEntry(
         .clone()
         .zip(person.helper.clone())
         .map(|(user, h)| Action {
-            text: text::GUEST_ACCESS,
+            text: text::guest_access(),
             label: text::guest_access_label(&name),
             quiet: true,
             // [impl->dsn~guest-access~4]
             run: Callback::new(move |()| {
                 let now = core::now_ms();
                 match h.fields.duty_end {
-                    Some(end) if end <= now => error.set(Some(text::GUEST_DUTY_ENDED.to_owned())),
+                    Some(end) if end <= now => error.set(Some(text::guest_duty_ended().to_owned())),
                     end => core::create_guest(
                         core,
                         Some(user.clone()),
@@ -423,8 +423,8 @@ fn PersonEntry(
         .as_ref()
         .and(person.helper.as_ref())
         .map(|h| match h.fields.duty_end {
-            Some(e) => text::guest_until(&core::date_time(e)),
-            None => text::GUEST_UNTIL_CLOSED.to_owned(),
+            Some(e) => text::guest_until(core::date_time(e)),
+            None => text::guest_until_closed().to_owned(),
         });
     let edit = person.clone();
     let registered = person.helper.is_some();
@@ -475,7 +475,7 @@ fn PersonEntry(
             {(!line.is_empty()).then(|| view! { <p class="person-card__duty">{line}</p> })}
             {guest_until.map(|t| view! { <p class="person-card__duty helper-list__guest">{t}</p> })}
             {(!quals.is_empty()).then(|| view! {
-                <ul class="chip-row person-card__quals" aria-label=text::CREW_QUALIFICATIONS>
+                <ul class="chip-row person-card__quals" aria-label=text::crew_qualifications()>
                     {quals.into_iter().map(|(short, full)| view! {
                         <li class="tag">
                             <abbr title=full.clone() aria-hidden="true">{short}</abbr>
@@ -485,7 +485,7 @@ fn PersonEntry(
                 </ul>
             })}
             {(!roles.is_empty()).then(|| view! {
-                <ul class="chip-row roster__roles" aria-label=text::HELPER_ROLE>
+                <ul class="chip-row roster__roles" aria-label=text::helper_role()>
                     {roles.into_iter().map(|role| {
                         let user = account.clone().unwrap_or_default();
                         let label = text::withdraw_label(&user, &role);
@@ -535,7 +535,7 @@ fn PersonEntry(
                         {if registered {
                             view! { <crate::shell::ui::Icon name="pencil" /><span class="icon-button__word" aria-hidden="true">{text::edit()}</span> }.into_any()
                         } else {
-                            view! { {text::HELPER_COMPLETE} }.into_any()
+                            view! { {text::helper_complete()} }.into_any()
                         }}
                     </button>
                 </Show>
@@ -571,17 +571,17 @@ fn GuestPassView(
     let link = pass.link.clone().unwrap_or_default();
     view! {
         <section class="notice guest-pass" aria-labelledby="guest-pass-title">
-            <h3 id="guest-pass-title" tabindex="-1">{text::GUEST_CODE_TITLE}</h3>
+            <h3 id="guest-pass-title" tabindex="-1">{text::guest_code_title()}</h3>
             // [impl->dsn~guest-access~4]
             <p>{if pass.expires >= ordo_sync::message::UNTIL_CLOSED {
                 text::guest_code_until_closed(&name)
             } else {
-                text::guest_code_for(&name, &core::date_time(pass.expires))
+                text::guest_code_for(&name, core::date_time(pass.expires))
             }}</p>
-            {image.map(|src| view! { <img class="pairing-qr__code" src=src alt=text::GUEST_CODE_ALT width="256" height="256" /> })}
-            <p>{text::GUEST_LINK} " " <a href=link.clone() class="guest-pass__link">{link.clone()}</a></p>
+            {image.map(|src| view! { <img class="pairing-qr__code" src=src alt=text::guest_code_alt() width="256" height="256" /> })}
+            <p>{text::guest_link()} " " <a href=link.clone() class="guest-pass__link">{link.clone()}</a></p>
             <div class="row">
-                <button type="button" class="button" on:click=move |_| shown.set(None)>{text::GUEST_CODE_CLOSE}</button>
+                <button type="button" class="button" on:click=move |_| shown.set(None)>{text::guest_code_close()}</button>
             </div>
         </section>
     }
@@ -681,10 +681,10 @@ fn HelperForm(
     });
     let id = helper.as_ref().map(|h| h.id.clone());
     let title = match (&person, &helper) {
-        (Some(p), Some(_)) => text::helper_edit_title(&shown_name(core, p)),
-        (Some(p), None) => text::helper_complete_title(&shown_name(core, p)),
-        (None, _) if readable => text::HELPER_ADD_TITLE.to_owned(),
-        (None, _) => text::ROLE_ADD_TITLE.to_owned(),
+        (Some(p), Some(_)) => text::helper_edit_title(shown_name(core, p)),
+        (Some(p), None) => text::helper_complete_title(shown_name(core, p)),
+        (None, _) if readable => text::helper_add_title().to_owned(),
+        (None, _) => text::role_add_title().to_owned(),
     };
     let editing_one = person.is_some();
     // Choosing an account fills in the name, unless one was typed.
@@ -709,15 +709,15 @@ fn HelperForm(
         // A role without an account: a guest, with access until the end of duty (ADR-0077).
         let guest = !chosen.is_empty() && account_value.is_empty();
         if !chosen.is_empty() && !guest && account_value.parse::<ordo_core::UserId>().is_err() {
-            error.set(Some(text::HELPER_ACCOUNT));
+            error.set(Some(text::helper_account()));
             crate::shell::views::focus("helper-account");
             return;
         }
         if guest && (!readable || chosen.contains(core::COMMANDER)) {
             error.set(Some(if readable {
-                text::GUEST_NO_COMMAND
+                text::guest_no_command()
             } else {
-                text::HELPER_ACCOUNT
+                text::helper_account()
             }));
             crate::shell::views::focus("helper-account");
             return;
@@ -728,7 +728,7 @@ fn HelperForm(
         // An end of duty that has passed gives no access; none lasts until the incident is
         // closed (ADR-0083).
         if guest && duty_end.is_some_and(|e| e <= core::now_ms()) {
-            error.set(Some(text::GUEST_DUTY_ENDED));
+            error.set(Some(text::guest_duty_ended()));
             crate::shell::views::focus("helper-duty-end");
             return;
         }
@@ -792,12 +792,12 @@ fn HelperForm(
             let withdrawn = had.difference(&chosen).map(|r| (r, false));
             for (r, on) in granted.chain(withdrawn) {
                 if core::change_role(core, revision, &account_value, r, on).is_err() {
-                    error.set(Some(text::HELPER_NOT_SAVED));
+                    error.set(Some(text::helper_not_saved()));
                     return;
                 }
             }
         } else if !readable && chosen.is_empty() && !editing_one {
-            error.set(Some(text::ROLE_MISSING));
+            error.set(Some(text::role_missing()));
             return;
         }
         error.set(None);
@@ -843,13 +843,13 @@ fn HelperForm(
         if let Some(i) = &input {
             i.set_value(""); // the same card can be photographed again
         }
-        card_status.set(Some(text::CARD_READING.to_owned()));
+        card_status.set(Some(text::card_reading().to_owned()));
         leptos::task::spawn_local(async move {
             let texts = crate::shell::images::read_qr(&file)
                 .await
                 .unwrap_or_default();
             let Some(card) = texts.iter().find_map(|t| CARDS.read(t)) else {
-                card_status.set(Some(text::CARD_NOT_RECOGNISED.to_owned()));
+                card_status.set(Some(text::card_not_recognised().to_owned()));
                 return;
             };
             let label = CARDS
@@ -899,10 +899,10 @@ fn HelperForm(
     // From a registration card (HELP-5): next to the account, where a registration starts.
     let card = (readable && !editing_one && !CARDS.card.is_empty()).then(|| view! {
         <div class="field helper-card">
-            <span class="helper-form__or" aria-hidden="true">{text::OR}</span>
+            <span class="helper-form__or" aria-hidden="true">{text::or()}</span>
             <label class="button" for="helper-card-photo">{text::card_photo(match CARDS.card.as_slice() {
                 [one] => one.label.as_str(),
-                _ => text::CARD_GENERIC,
+                _ => text::card_generic(),
             })}</label>
             <input id="helper-card-photo" class="visually-hidden" type="file" accept="image/*" capture="environment" on:change=read_card />
             <p role="status" class="hint">{move || card_status.get()}</p>
@@ -910,52 +910,52 @@ fn HelperForm(
     });
     let personal = readable.then(|| view! {
         <div class="form--inline">
-            {text_field("helper-name", text::HELPER_NAME, name, "off")}
-            {text_field("helper-organisation", text::UNIT_ORGANISATION, organisation, "off")}
+            {text_field("helper-name", text::helper_name(), name, "off")}
+            {text_field("helper-organisation", text::unit_organisation(), organisation, "off")}
             <div class="field">
-                <label for="helper-phone">{text::HELPER_PHONE}</label>
+                <label for="helper-phone">{text::helper_phone()}</label>
                 <input id="helper-phone" type="tel" autocomplete="off" aria-describedby="helper-phone-hint"
                     maxlength=ordo_helpers::TEXT_MAX.to_string() bind:value=phone />
-                <p id="helper-phone-hint" class="hint">{text::HELPER_PHONE_HINT}</p>
+                <p id="helper-phone-hint" class="hint">{text::helper_phone_hint()}</p>
             </div>
             <div class="field">
-                <label for="helper-birth-date">{text::HELPER_BIRTH_DATE_LABEL}</label>
+                <label for="helper-birth-date">{text::helper_birth_date_label()}</label>
                 <input id="helper-birth-date" type="date" bind:value=birth_date />
             </div>
         </div>
         <div class="form--inline">
-            {text_field("helper-street", text::HELPER_STREET, street, "off")}
+            {text_field("helper-street", text::helper_street(), street, "off")}
             <div class="field field--small">
-                <label for="helper-postcode">{text::HELPER_POSTCODE}</label>
+                <label for="helper-postcode">{text::helper_postcode()}</label>
                 <input id="helper-postcode" type="text" inputmode="numeric" autocomplete="off"
                     maxlength=SETTINGS.postcode.chars().count().to_string() bind:value=postcode />
             </div>
-            {text_field("helper-town", text::HELPER_TOWN, town, "off")}
+            {text_field("helper-town", text::helper_town(), town, "off")}
         </div>
         <div class="form--inline">
             <div class="field">
-                <label for="helper-diet">{text::HELPER_DIET}</label>
+                <label for="helper-diet">{text::helper_diet()}</label>
                 <select id="helper-diet" prop:value=move || diet.get() on:change=move |ev| diet.set(event_target_value(&ev))>
-                    <option value="" selected=move || diet.get().is_empty()>{text::DIET_NONE}</option>
+                    <option value="" selected=move || diet.get().is_empty()>{text::diet_none()}</option>
                     {SETTINGS.diets.iter().map(|d| {
                         let value = d.clone();
                         view! { <option value=d.clone() selected=move || diet.get() == value>{d.clone()}</option> }
                     }).collect_view()}
-                    <option value=DIET_OTHER selected=move || diet.get() == DIET_OTHER>{text::DIET_OTHER}</option>
+                    <option value=DIET_OTHER selected=move || diet.get() == DIET_OTHER>{text::diet_other()}</option>
                 </select>
             </div>
             <Show when=move || diet.get() == DIET_OTHER>
-                {text_field("helper-diet-other", text::DIET_OTHER_LABEL, other_diet, "off")}
+                {text_field("helper-diet-other", text::diet_other_label(), other_diet, "off")}
             </Show>
         </div>
-        <CheckChips legend=text::CREW_QUALIFICATIONS options=options.clone() value=qualifications />
+        <CheckChips legend=text::crew_qualifications() options=options.clone() value=qualifications />
         <div class="form--inline">
             <div class="field">
-                <label for="helper-duty-start">{text::HELPER_DUTY_START}</label>
+                <label for="helper-duty-start">{text::helper_duty_start()}</label>
                 <input id="helper-duty-start" type="datetime-local" bind:value=start />
             </div>
             <div class="field">
-                <label for="helper-duty-end">{text::HELPER_DUTY_END}</label>
+                <label for="helper-duty-end">{text::helper_duty_end()}</label>
                 <input id="helper-duty-end" type="datetime-local" bind:value=end />
             </div>
         </div>
@@ -968,14 +968,14 @@ fn HelperForm(
             <h2 id="helper-form-title">{title}</h2>
             <div class="form--inline helper-form__start">
                 <div class="field">
-                    <label for="helper-account">{text::HELPER_ACCOUNT_LABEL}</label>
+                    <label for="helper-account">{text::helper_account_label()}</label>
                     <input id="helper-account" type="text" autocomplete="off" spellcheck="false" list="helper-account-people"
                         aria-describedby="helper-account-hint"
                         prop:value=move || account.get()
                         on:input=move |ev| account.set(event_target_value(&ev))
                         on:change=move |ev| account_chosen(event_target_value(&ev)) />
                     <Suggestions id="helper-account-people" values=people core />
-                    <p id="helper-account-hint" class="hint">{text::HELPER_ACCOUNT_HINT}</p>
+                    <p id="helper-account-hint" class="hint">{text::helper_account_hint()}</p>
                 </div>
                 {card}
             </div>
@@ -995,7 +995,7 @@ fn HelperForm(
                     }
                 });
                 view! {
-                    <CheckChips legend=text::HELPER_ROLES options=role_options value=roles
+                    <CheckChips legend=text::helper_roles() options=role_options value=roles
                         disabled=no_lead id="helper-roles" />
                 }
             })}
@@ -1004,8 +1004,8 @@ fn HelperForm(
                 <button type="submit" class="button button--primary">
                     {match (editing_one, readable) {
                         (true, true) => text::save(),
-                        (false, true) => text::HELPER_ADD,
-                        (_, false) => text::GRANT,
+                        (false, true) => text::helper_add(),
+                        (_, false) => text::grant(),
                     }}
                 </button>
                 {editing_one.then(|| view! {
@@ -1051,7 +1051,7 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static st
         }
     };
     let (Ok(duty_start), Ok(duty_end)) = (ms(d.start), ms(d.end)) else {
-        return Err((text::HELPER_TIME, "helper-duty-start"));
+        return Err((text::helper_time(), "helper-duty-start"));
     };
     let phone_typed = d.phone.get_untracked();
     let phone = if phone_typed.trim().is_empty() {
@@ -1059,12 +1059,12 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static st
     } else {
         match SETTINGS.phone(&phone_typed) {
             Some(p) => p,
-            None => return Err((text::HELPER_PHONE_INVALID, "helper-phone")),
+            None => return Err((text::helper_phone_invalid(), "helper-phone")),
         }
     };
     let postcode = d.postcode.get_untracked().trim().to_owned();
     if !postcode.is_empty() && !SETTINGS.postcode_ok(&postcode) {
-        return Err((text::HELPER_POSTCODE_INVALID, "helper-postcode"));
+        return Err((text::helper_postcode_invalid(), "helper-postcode"));
     }
     let diet = match d.diet.get_untracked().as_str() {
         DIET_OTHER => d.other_diet.get_untracked(),
@@ -1136,20 +1136,20 @@ fn save_helper(d: &HelperDraft<'_>) -> Result<String, (&'static str, &'static st
         Some(id) => id.clone(),
         None => core::new_ulid()
             .map(|u| u.to_string())
-            .ok_or((text::HELPER_NOT_SAVED, "helper-name"))?,
+            .ok_or((text::helper_not_saved(), "helper-name"))?,
     };
     let change = HelperChange { helper, fields };
     if let Err(e) = change.check(registration) {
         return Err(match e {
-            FieldError::NameMissing => (text::HELPER_NAME_MISSING, "helper-name"),
-            FieldError::TooLong => (text::HELPER_TOO_LONG, "helper-name"),
-            FieldError::NotADate => (text::HELPER_BIRTH_DATE, "helper-birth-date"),
-            FieldError::NotAnAccount => (text::HELPER_ACCOUNT, "helper-account"),
+            FieldError::NameMissing => (text::helper_name_missing(), "helper-name"),
+            FieldError::TooLong => (text::helper_too_long(), "helper-name"),
+            FieldError::NotADate => (text::helper_birth_date(), "helper-birth-date"),
+            FieldError::NotAnAccount => (text::helper_account(), "helper-account"),
         });
     }
     core::helper_event(d.core, d.revision, registration, &change, name.trim())
         .map(|()| change.helper.clone())
-        .map_err(|_| (text::HELPER_NOT_SAVED, "helper-name"))
+        .map_err(|_| (text::helper_not_saved(), "helper-name"))
 }
 
 #[cfg(test)]
@@ -1193,7 +1193,7 @@ mod tests {
             [
                 ("vegetarisch".to_owned(), 2),
                 ("vegan".to_owned(), 1),
-                (text::DIET_NONE.to_owned(), 1)
+                (text::diet_none().to_owned(), 1)
             ]
         );
         assert!(

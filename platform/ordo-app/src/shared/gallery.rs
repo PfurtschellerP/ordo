@@ -35,8 +35,8 @@ pub(crate) const PARTS: &[Part] = &[Part {
 fn tile() -> AnyView {
     view! {
         <section class="tile" aria-labelledby="gallery-tile">
-            <TileHead id="gallery-tile" icon="clipboard-list" title=crate::shared::text::DISPATCH
-                route=crate::shell::nav::Route::view("command.lead", "dispatch") link=crate::shared::text::OPEN_DISPATCH />
+            <TileHead id="gallery-tile" icon="clipboard-list" title=crate::shared::text::dispatch()
+                route=crate::shell::nav::Route::view("command.lead", "dispatch") link=crate::shared::text::open_dispatch() />
             <p class="tile__figure"><span class="tile__number">"3"</span>" offen"<span class="tag tag--warning">"1 fällig"</span></p>
         </section>
     }

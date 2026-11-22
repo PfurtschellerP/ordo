@@ -79,7 +79,7 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section aria-labelledby="overview-title" class="card">
-            <h2 id="overview-title">{text::PLACES}</h2>
+            <h2 id="overview-title">{text::places()}</h2>
             <TreatmentPlaces rows level=Level::H3 />
         </section>
     }

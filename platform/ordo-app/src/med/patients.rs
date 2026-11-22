@@ -644,7 +644,7 @@ fn RegisterForm(
                         <TriageAid id="triage-algorithm" />
                         <label for="uhs">{text::REGISTER_UHS}</label>
                         <select id="uhs" required on:change=move |ev| uhs.set(event_target_value(&ev)) prop:value=move || uhs.get()>
-                            <option value="" selected=move || uhs.get().is_empty()>{text::UHS_CHOOSE}</option>
+                            <option value="" selected=move || uhs.get().is_empty()>{text::uhs_choose()}</option>
                             {holder_options(list.get(), uhs)}
                         </select>
                         <PlaceSelect id="register-place" free=free_places place hint=text::REGISTER_PLACE_HINT />
@@ -1105,7 +1105,7 @@ fn PlacesBoard(
                             <h3 class="place-plan__zone-title">
                                 {match category {
                                     Some(c) => view! { <TriageBadge category=c /> }.into_any(),
-                                    None => view! { <span>{text::PLACES}</span> }.into_any(),
+                                    None => view! { <span>{text::places()}</span> }.into_any(),
                                 }}
                                 <span class="place-plan__free">{text::places_free(free, places.len())}</span>
                             </h3>

@@ -223,7 +223,7 @@ fn TaskHead(task: Task, assignee: String) -> impl IntoView {
             };
             let received = given
                 .received_at
-                .map(|at| view! { " · " {text::task_received(&core::clock(at))} });
+                .map(|at| view! { " · " {text::task_received(core::clock(at))} });
             view! {
                 <p class="task-card__kind"><Icon name=icon />{text::task_kind(kind)}{received}</p>
                 <p class="task-card__what">
@@ -283,7 +283,7 @@ pub(crate) fn TaskItem(
             task.history[0].by.clone(),
         );
         crate::shell::profile::naming(move || {
-            text::task_given_by(&at, &crate::shell::profile::display_name(core, &user))
+            text::task_given_by(&at, crate::shell::profile::display_name(core, &user))
         })
     };
     let pin = pin_object(&task);
@@ -291,7 +291,7 @@ pub(crate) fn TaskItem(
     let taken: Vec<String> = task
         .patients
         .iter()
-        .map(|p| text::task_taken(&p.unit, &core::clock(p.at.wall_ms)))
+        .map(|p| text::task_taken(&p.unit, core::clock(p.at.wall_ms)))
         .collect();
     // Whose steps the card offers (ADR-0085): the crew its own unit's part, the command
     // each open unit's, and an Auftrag without units its own.
@@ -333,7 +333,7 @@ pub(crate) fn TaskItem(
                 }
             })
             .collect_view();
-        view! { <ul class="task-card__units" aria-label=text::TASK_UNITS>{rows}</ul> }
+        view! { <ul class="task-card__units" aria-label=text::task_units()>{rows}</ul> }
     });
     let actions = editable.then(|| {
         let id = task.given.task.clone();
@@ -383,8 +383,8 @@ pub(crate) fn TaskItem(
                 }),
             });
             list.push(Action {
-                text: text::FOLLOW_UP_LATER,
-                label: text::task_step_label(text::FOLLOW_UP_LATER, &name),
+                text: text::follow_up_later(),
+                label: text::task_step_label(text::follow_up_later(), &name),
                 quiet: true,
                 run: Callback::new(move |()| {
                     let update = TaskUpdated {
@@ -421,13 +421,13 @@ pub(crate) fn TaskItem(
             view! {
                 <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
                     panel_class="task-card__panel"
-                    button=Box::new(|| view! { <Icon name="plus" />{text::TASK_SEND_FURTHER} }.into_any())>
+                    button=Box::new(|| view! { <Icon name="plus" />{text::task_send_further()} }.into_any())>
                     <AssignForm core revision task further=true />
                 </Disclosure>
             }
         });
         view! {
-            {placed.is_some().then(|| view! { <p class="hint"><Icon name="map-pin" />{text::TASK_ON_MAP}</p> })}
+            {placed.is_some().then(|| view! { <p class="hint"><Icon name="map-pin" />{text::task_on_map()}</p> })}
             {assign}
             <PinEditor core revision object=pin.clone() label=name.clone() placed />
             {further}
@@ -490,13 +490,13 @@ fn CrewPart(
     view! {
         {placed.map(|at| view! {
             <crate::shared::situation::PlaceMap core revision object />
-            <p><a href=crate::shared::reports::maps_app_uri(at)><Icon name="map-pin" />{text::OPEN_IN_MAPS_APP}</a></p>
+            <p><a href=crate::shared::reports::maps_app_uri(at)><Icon name="map-pin" />{text::open_in_maps_app()}</a></p>
         })}
         {patient.then(|| view! {
             <Show when=move || may_register.get()>
                 <div class="row">
                     <button type="button" class="button button--primary" on:click=take.clone()>
-                        {text::CASE_REGISTER}
+                        {text::case_register()}
                     </button>
                 </div>
             </Show>
@@ -528,7 +528,7 @@ fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) 
         ev.prevent_default();
         let chosen = unit.get_untracked();
         if chosen.is_empty() {
-            error.set(Some(text::TASK_UNIT_MISSING));
+            error.set(Some(text::task_unit_missing()));
             return;
         }
         let t = task.get_value();
@@ -558,21 +558,21 @@ fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) 
         }
     };
     let label = if further {
-        text::TASK_SEND_TO
+        text::task_send_to()
     } else {
-        text::TASK_ASSIGN_TO
+        text::task_assign_to()
     };
     view! {
         <form class="form--inline task-card__assign" novalidate on:submit=submit>
             <div class="field">
                 <label for=field.clone()>{label}</label>
                 <select id=field prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
-                    <option value="" disabled selected>{text::TASK_UNIT_ONLY}</option>
+                    <option value="" disabled selected>{text::task_unit_only()}</option>
                     {move || units.get().into_iter().map(|u| view! { <option value=u.clone()>{u.clone()}</option> }).collect_view()}
                 </select>
             </div>
             <button type="submit" class="button button--small">
-                {if further { text::TASK_SEND } else { text::TASK_ASSIGN }}
+                {if further { text::task_send() } else { text::task_assign() }}
             </button>
             <p role="alert" class="error">{move || error.get()}</p>
         </form>
@@ -619,12 +619,12 @@ fn PinEditor(
             panel_class="task-card__panel"
             label=Some(Signal::derive(move || text::pin_edit_label(placed.is_some(), &label.get_value())))
             button=Box::new(move || view! {
-                <Icon name="map-pin" />{if placed.is_some() { text::PIN_MOVE } else { text::PIN_SET }}
+                <Icon name="map-pin" />{if placed.is_some() { text::pin_move() } else { text::pin_set() }}
             }.into_any())>
             <Show when=move || open.get()>
                 <crate::shared::situation::PinPicker core revision id=picker.clone() pin />
                 <div class="row">
-                    <button type="button" class="button button--small" on:click=save>{text::PIN_SAVE}</button>
+                    <button type="button" class="button button--small" on:click=save>{text::pin_save()}</button>
                 </div>
             </Show>
         </Disclosure>
@@ -678,11 +678,11 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         for t in tasks.open(now) {
             if t.is_due(now) {
                 items.push((
-                    text::attention_due(&assignee(core, t, &structure), &label(t)),
+                    text::attention_due(assignee(core, t, &structure), label(t)),
                     dispatch.clone(),
                 ));
             } else if t.phase() == Phase::Received {
-                items.push((text::attention_unassigned(&label(t)), dispatch.clone()));
+                items.push((text::attention_unassigned(label(t)), dispatch.clone()));
             }
         }
     } else {
@@ -708,7 +708,7 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         let mut seen = std::collections::BTreeSet::new();
         for t in mine {
             if seen.insert(t.given.task.clone()) {
-                items.push((text::attention_new_task(&label(t)), crew.clone()));
+                items.push((text::attention_new_task(label(t)), crew.clone()));
             }
         }
     }
@@ -762,7 +762,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             {move || {
                 let (now, list) = open.get();
                 if list.is_empty() {
-                    return view! { <p>{text::TASKS_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::tasks_empty()}</p> }.into_any();
                 }
                 let editable = editable.get();
                 view! {
@@ -781,7 +781,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     class="tasks-panel__give"
                     button_class="button button--small"
                     panel_class="tasks-panel__form"
-                    button=Box::new(|| view! { <Icon name="plus" />{text::TASK_NEW} }.into_any())
+                    button=Box::new(|| view! { <Icon name="plus" />{text::task_new()} }.into_any())
                 >
                     <NewTask core revision unit=chosen kind open=giving />
                 </Disclosure>
@@ -819,7 +819,7 @@ impl NewKind {
     fn label(self) -> &'static str {
         match self.kind() {
             Some(kind) => text::task_kind(kind),
-            None => text::TASK_KIND_OTHER,
+            None => text::task_kind_other(),
         }
     }
 }
@@ -860,7 +860,7 @@ fn NewTask(
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let Some(chosen_kind) = kind.get_untracked() else {
-            error.set(Some(text::TASK_KIND_MISSING));
+            error.set(Some(text::task_kind_missing()));
             return;
         };
         let now = core::now_ms();
@@ -871,7 +871,7 @@ fn NewTask(
             match minutes_text.parse::<u64>() {
                 Ok(m) => Some(now + m * 60 * 1000),
                 Err(_) => {
-                    error.set(Some(text::TASK_FOLLOW_UP_NUMBER));
+                    error.set(Some(text::task_follow_up_number()));
                     return;
                 }
             }
@@ -883,7 +883,7 @@ fn NewTask(
             (Some(_), time) => match core::today_at(time, now) {
                 Some(at) => Some(at),
                 None => {
-                    error.set(Some(text::TASK_TIME_INVALID));
+                    error.set(Some(text::task_time_invalid()));
                     return;
                 }
             },
@@ -910,10 +910,10 @@ fn NewTask(
         };
         if let Err(e) = task.check() {
             error.set(Some(match e {
-                ordo_tasks::TaskError::NoText => text::TASK_TEXT_MISSING,
-                ordo_tasks::TaskError::NoAssignee => text::TASK_MISSING,
-                ordo_tasks::TaskError::NoPlace => text::TASK_PLACE_MISSING,
-                ordo_tasks::TaskError::TooLong => text::TASK_TOO_LONG,
+                ordo_tasks::TaskError::NoText => text::task_text_missing(),
+                ordo_tasks::TaskError::NoAssignee => text::task_missing(),
+                ordo_tasks::TaskError::NoPlace => text::task_place_missing(),
+                ordo_tasks::TaskError::TooLong => text::task_too_long(),
             }));
             return;
         }
@@ -947,7 +947,7 @@ fn NewTask(
         <div class="new-task">
             <form id="new-task" class="form new-task__form" novalidate on:submit=submit>
                 <fieldset class="choices">
-                    <legend>{text::TASK_KIND}</legend>
+                    <legend>{text::task_kind_label()}</legend>
                     {[NewKind::Patient, NewKind::Event, NewKind::Other].into_iter().map(|k| view! {
                         <label class="choice">
                             <input type="radio" name="task-kind" value=k.id()
@@ -959,21 +959,21 @@ fn NewTask(
                 </fieldset>
                 <div class="form--inline">
                     <div class="field">
-                        <label for="task-unit">{text::TASK_UNIT}</label>
+                        <label for="task-unit">{text::task_unit()}</label>
                         <select id="task-unit" aria-describedby="task-unit-hint" prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
-                            <option value="">{move || if reported() { text::TASK_UNIT_LATER } else { text::TASK_UNIT_CHOOSE }}</option>
-                            <optgroup label=text::TAB_RESOURCES>
+                            <option value="">{move || if reported() { text::task_unit_later() } else { text::task_unit_choose() }}</option>
+                            <optgroup label=text::tab_resources()>
                                 {move || units.get().into_iter().map(|u| view! { <option value=format!("unit:{u}")>{u.clone()}</option> }).collect_view()}
                             </optgroup>
-                            <optgroup label=text::STRUCTURE_TITLE>
+                            <optgroup label=text::structure_title()>
                                 {move || positions.get().into_iter().map(|(id, title)| view! { <option value=format!("position:{id}")>{title}</option> }).collect_view()}
                             </optgroup>
                         </select>
-                        <p id="task-unit-hint" class="hint">{text::TASK_UNIT_HINT}</p>
+                        <p id="task-unit-hint" class="hint">{text::task_unit_hint()}</p>
                     </div>
                     <Show when=move || kind.get() == Some(NewKind::Other)>
                         <div class="field">
-                            <label for="task-template">{text::TASK_TEMPLATE}</label>
+                            <label for="task-template">{text::task_template()}</label>
                             <select id="task-template" prop:value=move || template.get() on:change=move |ev| {
                                 let id = event_target_value(&ev);
                                 if let Some(t) = TEMPLATES.templates.iter().find(|t| t.id == id) {
@@ -981,32 +981,32 @@ fn NewTask(
                                 }
                                 template.set(id);
                             }>
-                                <option value="">{text::TASK_TEMPLATE_NONE}</option>
+                                <option value="">{text::task_template_none()}</option>
                                 {TEMPLATES.templates.iter().map(|t| view! { <option value=t.id.clone()>{t.label.clone()}</option> }).collect_view()}
                             </select>
                         </div>
                     </Show>
                 </div>
                 <div class="field">
-                    <label for="task-place">{text::TASK_PLACE}</label>
+                    <label for="task-place">{text::task_place()}</label>
                     <input id="task-place" type="text" autocomplete="off" maxlength=ordo_tasks::PLACE_MAX bind:value=place />
                 </div>
                 <div class="field">
-                    <label for="task-text">{move || if reported() { text::TASK_WHAT } else { text::TASK_TEXT }}</label>
+                    <label for="task-text">{move || if reported() { text::task_what() } else { text::task_text() }}</label>
                     <input id="task-text" type="text" autocomplete="off" aria-describedby="task-text-hint" bind:value=text_value />
-                    <p id="task-text-hint" class="hint">{text::TASK_WHAT_HINT}</p>
+                    <p id="task-text-hint" class="hint">{text::task_what_hint()}</p>
                 </div>
                 <div class="task-times">
                     <Show when=reported>
                         <div class="field">
-                            <label for="task-received">{text::TASK_RECEIVED}</label>
+                            <label for="task-received">{text::task_received_label()}</label>
                             <input id="task-received" type="time" autocomplete="off"
                                 aria-describedby="task-received-hint" bind:value=received />
-                            <p id="task-received-hint" class="hint">{text::TASK_RECEIVED_HINT}</p>
+                            <p id="task-received-hint" class="hint">{text::task_received_hint()}</p>
                         </div>
                     </Show>
                     <div class="field">
-                        <label for="task-follow-up">{text::TASK_FOLLOW_UP}</label>
+                        <label for="task-follow-up">{text::task_follow_up()}</label>
                         <input id="task-follow-up" type="text" inputmode="numeric" autocomplete="off" bind:value=minutes />
                     </div>
                 </div>
@@ -1015,13 +1015,13 @@ fn NewTask(
             // the button, which submits the form above.
             <Show when=reported>
                 <fieldset class="new-task__pin">
-                    <legend>{text::PIN_TITLE}</legend>
+                    <legend>{text::pin_title()}</legend>
                     <crate::shared::situation::PinPicker core revision id="task" pin />
                 </fieldset>
             </Show>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="row">
-                <button type="submit" form="new-task" class="button">{text::TASK_CREATE}</button>
+                <button type="submit" form="new-task" class="button">{text::task_create()}</button>
             </div>
         </div>
     }

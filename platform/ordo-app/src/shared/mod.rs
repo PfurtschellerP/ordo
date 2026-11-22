@@ -26,21 +26,21 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     nav::Workspace {
         id: "units.crew",
         // Under Sanität: medical units' crews (product owner, 2026-11-17).
-        package: || crate::shared::text::TAB_MED,
-        label: || crate::shared::text::WS_CREW,
+        package: || crate::shared::text::tab_med(),
+        label: || crate::shared::text::ws_crew(),
         requires: &["incident"],
         permission: Some(crate::core::permission::CREW_WORK),
         or_organisation: &[],
         views: &[
             nav::view(
                 "tasks",
-                || crate::shared::text::CREW_TASKS,
+                crate::shared::text::crew_tasks,
                 "crew tasks status patient cases",
                 "clipboard-list",
             ),
             nav::view(
                 "transports",
-                || crate::shared::text::TRANSPORTS,
+                crate::shared::text::transports,
                 "crew transports",
                 "ambulance",
             ),
@@ -50,7 +50,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 requires: &["med.clinical"],
                 ..nav::view(
                     "patients",
-                    || crate::shared::text::CREW_PATIENTS,
+                    crate::shared::text::crew_patients,
                     "crew patients register",
                     "users",
                 )
@@ -61,15 +61,15 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // The incident command (ADR-0061): what is set up before and adjusted during it …
     nav::Workspace {
         id: "command.prepare",
-        package: || crate::shared::text::TAB_COMMAND,
-        label: || crate::shared::text::WS_PREPARE,
+        package: || crate::shared::text::tab_command(),
+        label: || crate::shared::text::ws_prepare(),
         requires: &["incident"],
         permission: Some(crate::core::permission::VIEW_SITUATION),
         or_organisation: &[],
         views: &[
             nav::view(
                 "incident",
-                || crate::shared::text::INCIDENT_PAGE,
+                crate::shared::text::incident_page,
                 "incident description date time start pause resume close",
                 "flag",
             ),
@@ -79,12 +79,12 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // Führung & Raum (ADR-0095).
             nav::View {
                 tabs: &[
-                    nav::tab("helpers", || crate::shared::text::TAB_HELPERS, 0),
-                    nav::tab("devices", || crate::shared::text::TAB_DEVICES, 30),
+                    nav::tab("helpers", crate::shared::text::tab_helpers, 0),
+                    nav::tab("devices", crate::shared::text::tab_devices, 30),
                 ],
                 ..nav::view(
                     "people",
-                    || crate::shared::text::PEOPLE,
+                    crate::shared::text::people,
                     "people helpers roles roster devices",
                     "id-card",
                 )
@@ -94,12 +94,12 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // list the Med package keeps there (place 40).
             nav::View {
                 tabs: &[
-                    nav::tab("units", || crate::shared::text::TAB_RESOURCES, 0),
-                    nav::tab("hospitals", || crate::shared::text::TAB_HOSPITALS, 40),
+                    nav::tab("units", crate::shared::text::tab_resources, 0),
+                    nav::tab("hospitals", crate::shared::text::tab_hospitals, 40),
                 ],
                 ..nav::view(
                     "units",
-                    || crate::shared::text::TAB_RESOURCES,
+                    crate::shared::text::tab_resources,
                     "units hospitals",
                     "truck",
                 )
@@ -113,27 +113,27 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // [impl->dsn~page-tabs~4]
             // The structure beside the map where both fit, tabs where narrower (ADR-0097).
             nav::View {
-                short: Some(|| crate::shared::text::COMMAND_SPACE_SHORT),
+                short: Some(|| crate::shared::text::command_space_short()),
                 tabs: &[
                     nav::PageTab {
-                        short: Some(|| crate::shared::text::STRUCTURE_SHORT),
-                        ..nav::tab("structure", || crate::shared::text::STRUCTURE_TITLE, 10)
+                        short: Some(|| crate::shared::text::structure_short()),
+                        ..nav::tab("structure", crate::shared::text::structure_title, 10)
                     },
                     nav::PageTab {
-                        short: Some(|| crate::shared::text::MAP_SHORT),
+                        short: Some(|| crate::shared::text::map_short()),
                         column: crate::shell::ui::Column::End,
-                        ..nav::tab("map", || crate::shared::text::MAP_TITLE, 20)
+                        ..nav::tab("map", crate::shared::text::map_title, 20)
                     },
                     nav::PageTab {
-                        short: Some(|| crate::shared::text::MAP_REGION_SHORT),
+                        short: Some(|| crate::shared::text::map_region_short()),
                         column: crate::shell::ui::Column::Below,
-                        ..nav::tab("region", || crate::shared::text::MAP_REGION_TITLE, 30)
+                        ..nav::tab("region", crate::shared::text::map_region_title, 30)
                     },
                 ],
                 columns: crate::shell::ui::TabsMode::ColumnsFrom84,
                 ..nav::view(
                     "map",
-                    || crate::shared::text::COMMAND_SPACE,
+                    crate::shared::text::command_space,
                     "command structure org chart positions leader situation map region edit draw place units address",
                     "network",
                 )
@@ -144,8 +144,8 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // … and leading it while it runs (the menu follows the order of the work).
     nav::Workspace {
         id: "command.lead",
-        package: || crate::shared::text::TAB_COMMAND,
-        label: || crate::shared::text::WS_LEAD,
+        package: || crate::shared::text::tab_command(),
+        label: || crate::shared::text::ws_lead(),
         requires: &["incident"],
         // The incident command's views; UHS crews do not see them.
         permission: Some(crate::core::permission::VIEW_SITUATION),
@@ -153,19 +153,19 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
         views: &[
             nav::view(
                 "overview",
-                || crate::shared::text::OVERVIEW,
+                crate::shared::text::overview,
                 "overview summary",
                 "layout-grid",
             ),
             nav::view(
                 "map",
-                || crate::shared::text::MAP_TITLE,
+                crate::shared::text::map_title,
                 "situation map",
                 "map",
             ),
             nav::view(
                 "dispatch",
-                || crate::shared::text::DISPATCH,
+                crate::shared::text::dispatch,
                 "dispatch tasks orders",
                 "clipboard-list",
             ),
@@ -175,21 +175,21 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // package.
             nav::View {
                 tabs: &[
-                    nav::tab("requests", || crate::shared::text::TRANSPORTS, 10),
+                    nav::tab("requests", crate::shared::text::transports, 10),
                     nav::PageTab {
-                        short: Some(|| crate::shared::text::TAB_FREE_UNITS_SHORT),
+                        short: Some(|| crate::shared::text::tab_free_units_short()),
                         column: crate::shell::ui::Column::End,
-                        ..nav::tab("free", || crate::shared::text::TAB_FREE_UNITS, 20)
+                        ..nav::tab("free", crate::shared::text::tab_free_units, 20)
                     },
                     nav::PageTab {
                         column: crate::shell::ui::Column::End,
-                        ..nav::tab("hospitals", || crate::shared::text::TAB_HOSPITALS, 30)
+                        ..nav::tab("hospitals", crate::shared::text::tab_hospitals, 30)
                     },
                 ],
                 columns: crate::shell::ui::TabsMode::ColumnsFrom60,
                 ..nav::view(
                     "transports",
-                    || crate::shared::text::TRANSPORTS,
+                    crate::shared::text::transports,
                     "transports hospitals",
                     "ambulance",
                 )
@@ -201,14 +201,14 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
     // Everyone in the incident; each device shows only what its user may read (LOG-6).
     nav::Workspace {
         id: "incident.log",
-        package: || crate::shared::text::TAB_COMMAND,
-        label: || crate::shared::text::LOG_TITLE,
+        package: || crate::shared::text::tab_command(),
+        label: || crate::shared::text::log_title(),
         requires: &["incident"],
         permission: None,
         or_organisation: &[],
         views: &[nav::view(
             "log",
-            || crate::shared::text::LOG_TITLE,
+            crate::shared::text::log_title,
             "incident log diary",
             "notebook-text",
         )],

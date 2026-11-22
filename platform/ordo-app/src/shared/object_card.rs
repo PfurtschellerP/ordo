@@ -119,7 +119,7 @@ pub fn ObjectCard(
         revision.track();
         let map = core.with_value(|c| SituationMap::from_events(&c.events(ordo_map::COMPARTMENT)));
         let Some(o) = map.objects.get(&object.get_value()).cloned() else {
-            return view! { <p>{text::MAP_OBJECT_GONE}</p> }.into_any();
+            return view! { <p>{text::map_object_gone()}</p> }.into_any();
         };
         let reference = o.placed.reference.clone().unwrap_or_default();
         match o.placed.kind {
@@ -165,7 +165,7 @@ pub fn ObjectCard(
 fn TaskPart(core: Handle, kind: ObjectKind, reference: String, editable: bool) -> impl IntoView {
     let list = pinned(&crate::shared::tasks::task_list(core), kind, &reference);
     if list.is_empty() {
-        return view! { <p>{text::TASKS_EMPTY}</p> }.into_any();
+        return view! { <p>{text::tasks_empty()}</p> }.into_any();
     }
     view! {
         <ul class="object-card__list">
@@ -184,7 +184,7 @@ fn TaskPart(core: Handle, kind: ObjectKind, reference: String, editable: bool) -
                         <p><strong>{shown_state(core, &t)}</strong></p>
                         {editable.then(|| view! {
                             <p><a class="button button--small" href=route.to_path() on:click=open>
-                                {if received { text::CARD_ASSIGN } else { text::CARD_OPEN_TASK }}
+                                {if received { text::card_assign() } else { text::card_open_task() }}
                             </a></p>
                         })}
                     </li>
@@ -250,11 +250,11 @@ fn UnitPart(core: Handle, revision: RwSignal<u64>, unit: String, editable: bool)
     let give_unit = unit.clone();
     view! {
         <p class="unit-card__details">{crate::shared::units::details(&u)}</p>
-        <p>{text::COL_STATUS} ": " <strong>{status}</strong></p>
-        {current.map(|c| view! { <p>{text::CARD_CURRENT_TASK} ": " {c}</p> })}
-        {u.strength.map(|s| view! { <p>{text::STRENGTH} ": " <crate::shared::units::StrengthText strength=s special detailed /></p> })}
+        <p>{text::col_status()} ": " <strong>{status}</strong></p>
+        {current.map(|c| view! { <p>{text::card_current_task()} ": " {c}</p> })}
+        {u.strength.map(|s| view! { <p>{text::strength()} ": " <crate::shared::units::StrengthText strength=s special detailed /></p> })}
         {(!chips.is_empty()).then(|| view! {
-            <ul class="object-card__chips" aria-label=text::QUALIFICATIONS_SHORT>
+            <ul class="object-card__chips" aria-label=text::qualifications_short()>
                 {chips.into_iter().map(|(short, label, n)| view! {
                     <li class="tag">
                         <abbr title=label.clone() aria-hidden="true">{short} " " {n}</abbr>
@@ -273,13 +273,13 @@ fn UnitPart(core: Handle, revision: RwSignal<u64>, unit: String, editable: bool)
             <crate::shared::units::StatusSelect core revision unit=unit.clone() current=code />
             <div class="row">
                 <a class="button button--small" href=edit_route.to_path()
-                    aria-label=text::card_edit_label(&unit) title=text::CARD_EDIT
+                    aria-label=text::card_edit_label(&unit) title=text::card_edit()
                     on:click=move |ev| { reveal_next(edit_selector.clone()); follow_edit(ev) }>
-                    <Icon name="pencil" /><span class="object-card__word">{text::CARD_EDIT}</span>
+                    <Icon name="pencil" /><span class="object-card__word">{text::card_edit()}</span>
                 </a>
                 <a class="button button--small" href=dispatch.to_path()
                     on:click=move |ev| { give_next(give_unit.clone()); follow_give(ev) }>
-                    {text::TASK_GIVE}
+                    {text::task_give()}
                 </a>
             </div>
         })}
@@ -305,7 +305,7 @@ fn UhsPart(core: Handle, uhs: String, editable: bool) -> impl IntoView {
     let follow_edit = crate::shell::views::follow_route(edit_route.clone());
     let name = core::uhs_name(core, &uhs);
     view! {
-        <ul class="object-card__chips" aria-label=text::CARD_PATIENTS>
+        <ul class="object-card__chips" aria-label=text::card_patients()>
             {crate::med::triage::CATEGORIES.into_iter().map(|k| view! {
                 <li><crate::med::triage::TriageBadge category=k /> " " {counts.get(k)}</li>
             }).collect_view()}
@@ -313,14 +313,14 @@ fn UhsPart(core: Handle, uhs: String, editable: bool) -> impl IntoView {
         <div class="row">
             {editable.then(|| view! {
                 <a class="button button--small" href=edit_route.to_path()
-                    aria-label=text::card_edit_label(&name) title=text::CARD_EDIT
+                    aria-label=text::card_edit_label(&name) title=text::card_edit()
                     on:click=move |ev| { reveal_next(edit_selector.clone()); follow_edit(ev) }>
-                    <Icon name="pencil" /><span class="object-card__word">{text::CARD_EDIT}</span>
+                    <Icon name="pencil" /><span class="object-card__word">{text::card_edit()}</span>
                 </a>
             })}
             {clinical.then(|| view! {
                 <a class="button button--small" href=route.to_path()
-                    on:click=move |ev| { crate::med::patients::work_at(&uhs); follow(ev) }>{text::CARD_OPEN_UHS}</a>
+                    on:click=move |ev| { crate::med::patients::work_at(&uhs); follow(ev) }>{text::card_open_uhs()}</a>
             })}
         </div>
     }

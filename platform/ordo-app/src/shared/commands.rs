@@ -31,7 +31,7 @@ fn actions(core: Handle) -> Vec<Item> {
         suggested: true,
         ..item(
             text::group_actions(),
-            text::ACTION_ADD_UNIT.to_owned(),
+            text::action_add_unit().to_owned(),
             Action::GoFocus(
                 Route::view("command.prepare", "units"),
                 "unit-call-sign".to_owned(),
@@ -51,13 +51,13 @@ fn records(core: Handle) -> Vec<Item> {
         .into_values()
         .map(|u| {
             let status = u.status.as_ref().map_or_else(
-                || text::NO_STATUS.to_owned(),
+                || text::no_status().to_owned(),
                 |s| text::status_label(&s.status),
             );
             Item {
                 detail: format!("{} · {} · {status}", u.unit_type, u.organisation),
                 ..item(
-                    text::GROUP_UNITS,
+                    text::group_units(),
                     u.unit.clone(),
                     Action::Open(Record {
                         kind: UNIT,
@@ -97,7 +97,7 @@ fn record(core: Handle, record: &Record) -> RecordPage {
                 detail: unit.clone(),
                 suggested: true,
                 disabled: (!can_edit).then_some(text::reason_no_access()),
-                ..item(text::GROUP_UNITS, text::action_status(code), action).named(name)
+                ..item(text::group_units(), text::action_status(code), action).named(name)
             }
         })
         .collect();

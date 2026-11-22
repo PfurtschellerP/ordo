@@ -414,7 +414,7 @@ fn QuickCode(link: String) -> impl IntoView {
         <div class="handover-code">
             {image.map(|src| view! { <img class="handover-code__image" src=src alt=text::QUICK_CODE_ALT width="224" height="224" /> })}
             <p class="hint">{text::QUICK_CODE_HINT}</p>
-            <p class="hint">{text::GUEST_LINK} " " <a class="handover-code__link" href=link.clone()>{link.clone()}</a></p>
+            <p class="hint">{text::guest_link()} " " <a class="handover-code__link" href=link.clone()>{link.clone()}</a></p>
         </div>
     }
 }

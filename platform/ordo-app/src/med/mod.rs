@@ -23,7 +23,7 @@ use crate::shell::nav;
 /// The workspaces of this part, in launcher order (ADR-0011, ADR-0061).
 pub(crate) const WORKSPACES: &[nav::Workspace] = &[nav::Workspace {
     id: "med.uhs",
-    package: || crate::med::text::TAB_MED,
+    package: || crate::med::text::tab_med(),
     label: || "UHS",
     requires: &["incident", "med.clinical"],
     permission: None,
@@ -39,7 +39,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[nav::Workspace {
         // The UHS are set up by the incident command (ADR-0086); here, their places.
         nav::view(
             "places",
-            || crate::med::text::PLACES,
+            crate::med::text::places,
             "treatment places overview uhs free full",
             "tent",
         ),

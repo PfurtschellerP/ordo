@@ -493,7 +493,7 @@ pub fn transport_sections(
             10,
             view! {
                 <RequestList core revision list=open units=unit_names hospitals
-                    id="transports-title" title=text::TRANSPORTS_TITLE empty=text::TRANSPORTS_EMPTY />
+                    id="transports-title" title=text::TRANSPORTS_TITLE empty=text::transports_empty() />
                 // [impl->dsn~planned-transports~1]
                 <RequestList core revision list=planned units=unit_names hospitals
                     id="planned-title" title=text::PLANNED_TITLE empty=text::PLANNED_EMPTY />

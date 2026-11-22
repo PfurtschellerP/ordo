@@ -302,7 +302,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
     (ordo_command::LEADER_SET, |e, c, name| {
         Some({
             let p = decode::<ordo_command::LeaderSet>(e)?;
-            text::log_leader(c.get("position", &p.position), &name(&p.leader)).into()
+            text::log_leader(c.get("position", &p.position), name(&p.leader)).into()
         })
     }),
     (ordo_command::ASSIGNED, |e, c, _| {
@@ -347,11 +347,11 @@ fn helper_changes(f: &ordo_helpers::Fields) -> Vec<String> {
         })
     };
     let mut changes: Vec<String> = [
-        time(text::HELPER_DUTY_START, f.duty_start),
-        time(text::HELPER_DUTY_END, f.duty_end),
+        time(text::helper_duty_start(), f.duty_start),
+        time(text::helper_duty_end(), f.duty_end),
         f.paused.map(|t| match t {
-            0 => text::LOG_PAUSE_ENDED.to_owned(),
-            t => text::log_pause_since(&core::clock(t)),
+            0 => text::log_pause_ended().to_owned(),
+            t => text::log_pause_since(core::clock(t)),
         }),
     ]
     .into_iter()
@@ -360,14 +360,14 @@ fn helper_changes(f: &ordo_helpers::Fields) -> Vec<String> {
     let address =
         f.address.is_some() || f.street.is_some() || f.postcode.is_some() || f.town.is_some();
     let named = [
-        (f.name.is_some(), text::HELPER_NAME),
-        (f.birth_date.is_some(), text::HELPER_BIRTH_DATE_LABEL),
-        (address, text::LOG_ADDRESS),
-        (f.phone.is_some(), text::HELPER_PHONE),
-        (f.organisation.is_some(), text::UNIT_ORGANISATION),
-        (f.qualifications.is_some(), text::QUALIFICATIONS_SHORT),
-        (f.diet.is_some(), text::HELPER_DIET),
-        (f.account.is_some(), text::HELPER_ACCOUNT_LABEL),
+        (f.name.is_some(), text::helper_name()),
+        (f.birth_date.is_some(), text::helper_birth_date_label()),
+        (address, text::log_address()),
+        (f.phone.is_some(), text::helper_phone()),
+        (f.organisation.is_some(), text::unit_organisation()),
+        (f.qualifications.is_some(), text::qualifications_short()),
+        (f.diet.is_some(), text::helper_diet()),
+        (f.account.is_some(), text::helper_account_label()),
     ];
     let fields: Vec<&str> = named
         .into_iter()
@@ -436,12 +436,12 @@ pub fn LogView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section class="card incident-log" aria-labelledby="log-title">
-            <h2 id="log-title">{text::LOG_TITLE}</h2>
-            <p class="hint">{text::LOG_HINT}</p>
+            <h2 id="log-title">{text::log_title()}</h2>
+            <p class="hint">{text::log_hint()}</p>
             {move || {
                 let days = days.get();
                 if days.is_empty() {
-                    return view! { <p>{text::LOG_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::log_empty()}</p> }.into_any();
                 }
                 days.into_iter()
                     .map(|(day, entries)| {
@@ -481,12 +481,12 @@ fn LogEntry(entry: Entry) -> impl IntoView {
             <span class="log-entry__text">
                 {entry.text}
                 {entry.corrects.map(|(id, at)| view! {
-                    " " <a class="log-entry__corrects" href=format!("#log-{id}")>{text::log_corrects(&core::clock_seconds(at))}</a>
+                    " " <a class="log-entry__corrects" href=format!("#log-{id}")>{text::log_corrects(core::clock_seconds(at))}</a>
                 })}
             </span>
             <span class="log-entry__by">
                 {text::log_by(&entry.by, &entry.device)}
-                {(!entry.sent).then(|| view! { " · " <span class="log-entry__pending">{text::LOG_PENDING}</span> })}
+                {(!entry.sent).then(|| view! { " · " <span class="log-entry__pending">{text::log_pending()}</span> })}
             </span>
         </li>
     }

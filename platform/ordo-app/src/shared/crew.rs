@@ -22,7 +22,7 @@ pub(crate) fn my_units(core: Handle) -> Vec<Unit> {
 
 /// Says that this person is on no crew, and who puts them on one.
 fn no_crew() -> AnyView {
-    view! { <section class="card"><p>{text::CREW_NONE_HERE}</p></section> }.into_any()
+    view! { <section class="card"><p>{text::crew_none_here()}</p></section> }.into_any()
 }
 
 // [impl->dsn~crew-workspace~3]
@@ -55,7 +55,7 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }
             let mine = (!mine.is_empty()).then(|| view! {
                 <section class="card crew-mine" aria-labelledby="crew-mine-title">
-                    <h2 id="crew-mine-title">{text::MY_TASKS}</h2>
+                    <h2 id="crew-mine-title">{text::my_tasks()}</h2>
                     <ul class="task-list" data-keys="list">
                         {mine.into_iter().map(|task| view! {
                             <crate::shared::tasks::TaskItem core revision task editable=true now crew=true />
@@ -73,11 +73,11 @@ pub fn CrewTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         <section class="card crew-unit" aria-labelledby=labelled data-unit=name.clone()>
                             <h2 id=title>{name.clone()}</h2>
                             <p class="unit-card__details">{crate::shared::units::details(&u)}</p>
-                            <p class="unit-status__current">{text::COL_STATUS} ": " <strong>{crate::shared::units::status_shown(&u)}</strong></p>
+                            <p class="unit-status__current">{text::col_status()} ": " <strong>{crate::shared::units::status_shown(&u)}</strong></p>
                             <crate::shared::units::StatusSelect core revision unit=name.clone() current />
                             <h3>{text::tasks_title(open.len())}</h3>
                             {if open.is_empty() {
-                                view! { <p>{text::TASKS_EMPTY}</p> }.into_any()
+                                view! { <p>{text::tasks_empty()}</p> }.into_any()
                             } else {
                                 view! {
                                     <ul class="task-list" data-keys="list">
@@ -129,9 +129,9 @@ pub fn CrewTransports(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             None => no_crew(),
             Some(list) => view! {
                 <section class="card crew-transports" aria-labelledby="crew-transports-title">
-                    <h2 id="crew-transports-title">{text::CREW_TRANSPORTS}</h2>
+                    <h2 id="crew-transports-title">{text::crew_transports()}</h2>
                     {if list.is_empty() {
-                        view! { <p>{text::TRANSPORTS_EMPTY}</p> }.into_any()
+                        view! { <p>{text::transports_empty()}</p> }.into_any()
                     } else {
                         view! {
                             <ul class="transport-list" data-keys="list">

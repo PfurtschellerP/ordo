@@ -198,22 +198,22 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         (
             "quick-task",
             "clipboard-list",
-            text::TASK_GIVE,
+            text::task_give(),
             dispatch.clone(),
             true,
         ),
         (
             "quick-transports",
             "ambulance",
-            text::TRANSPORTS,
+            text::transports(),
             transports,
             false,
         ),
-        ("quick-log", "notebook-text", text::LOG_TITLE, log, false),
+        ("quick-log", "notebook-text", text::log_title(), log, false),
         (
             "quick-structure",
             "network",
-            text::STRUCTURE_TITLE,
+            text::structure_title(),
             structure,
             false,
         ),
@@ -232,21 +232,21 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </span>
                 <span class="hint">{move || o.with(|o| o.times.clone())}</span>
                 {move || (manage.get() && o.with(|o| o.state == Some(IncidentState::Planned))).then(|| view! {
-                    <button type="button" class="button button--primary" on:click=start>{text::START_INCIDENT}</button>
+                    <button type="button" class="button button--primary" on:click=start>{text::start_incident()}</button>
                 })}
             </div>
             <p role="alert" class="error">{move || error.get()}</p>
             <div class="bento">
                 <section class="tile tile--map" aria-labelledby="tile-map">
-                    <TileHead id="tile-map" icon="map" title=text::MAP_TITLE route=map link=text::OPEN_MAP />
+                    <TileHead id="tile-map" icon="map" title=text::map_title() route=map link=text::open_map() />
                     <crate::shared::situation::MapPreview core revision />
                 </section>
 
                 <section class="tile tile--dispatch" aria-labelledby="tile-dispatch">
-                    <TileHead id="tile-dispatch" icon="clipboard-list" title=text::DISPATCH route=dispatch.clone() link=text::OPEN_DISPATCH />
+                    <TileHead id="tile-dispatch" icon="clipboard-list" title=text::dispatch() route=dispatch.clone() link=text::open_dispatch() />
                     <p class="tile__figure">
                         <span class="tile__number">{move || o.with(|o| o.open_tasks)}</span>
-                        " " {text::OPEN_LABEL}
+                        " " {text::open_label()}
                         {move || o.with(|o| (o.due_tasks > 0).then(|| view! {
                             <span class="tag tag--warning">{text::follow_ups_due(o.due_tasks)}</span>
                         }))}
@@ -254,7 +254,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     {move || {
                         let next = o.with(|o| o.next.clone());
                         if next.is_empty() {
-                            return view! { <p class="hint">{text::NO_OPEN_TASKS}</p> }.into_any();
+                            return view! { <p class="hint">{text::no_open_tasks()}</p> }.into_any();
                         }
                         view! {
                             <ul class="tile__list">
@@ -273,7 +273,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </section>
 
                 <section class="tile tile--people" aria-labelledby="tile-people">
-                    <TileHead id="tile-people" icon="users" title=text::PEOPLE route=units link=text::OPEN_UNITS />
+                    <TileHead id="tile-people" icon="users" title=text::people() route=units link=text::open_units() />
                     <div class="tile__pair">
                         <p class="tile__figure tile__figure--stacked">
                             <span id="overview-persons" class="tile__number">
@@ -281,20 +281,20 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                                 // [impl->dsn~double-booking~1]
                                 {move || o.with(|o| !o.several.is_empty()).then(|| view! { <span aria-hidden="true">"*"</span> })}
                             </span>
-                            <span>{text::PERSONS_ON_SCENE}</span>
+                            <span>{text::persons_on_scene()}</span>
                         </p>
                         <p class="tile__figure tile__figure--stacked">
                             <span id="overview-units" class="tile__number">{move || o.with(|o| o.units)}</span>
-                            <span>{text::UNITS_ON_SCENE}</span>
+                            <span>{text::units_on_scene()}</span>
                         </p>
                     </div>
-                    <dl class="tile__strength" aria-label=text::STRENGTH_LEGEND>
+                    <dl class="tile__strength" aria-label=text::strength_legend_title()>
                         {move || {
                             let [l, s, c] = o.with(|o| o.strength);
                             view! {
-                                <div><dt>{text::LEADERS}</dt><dd>{l}</dd></div>
-                                <div><dt>{text::SUB_LEADERS}</dt><dd>{s}</dd></div>
-                                <div><dt>{text::CREW_COUNT}</dt><dd>{c}</dd></div>
+                                <div><dt>{text::leaders()}</dt><dd>{l}</dd></div>
+                                <div><dt>{text::sub_leaders()}</dt><dd>{s}</dd></div>
+                                <div><dt>{text::crew_count()}</dt><dd>{c}</dd></div>
                             }
                         }}
                     </dl>
@@ -306,7 +306,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 
                 // [impl->dsn~command-treatment-places~1]
                 <section class="tile tile--uhs" aria-labelledby="tile-uhs">
-                    <TileHead id="tile-uhs" icon="tent" title=text::PLACES route=uhs link=text::OPEN_COUNTS />
+                    <TileHead id="tile-uhs" icon="tent" title=text::places() route=uhs link=text::open_counts() />
                     <TreatmentPlaces rows=Signal::derive(move || o.with(|o| o.uhs.clone())) level=Level::H4 />
                     {move || o.with(|o| o.with_units.clone()).map(|t| view! { <p class="tile__with-units">{t}</p> })}
                 </section>
@@ -315,7 +315,7 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 <crate::med::transports::TransportsTile core revision />
 
                 <section class="tile tile--quick" aria-labelledby="tile-quick">
-                    <TileHead id="tile-quick" icon="zap" title=text::QUICK_LINKS />
+                    <TileHead id="tile-quick" icon="zap" title=text::quick_links() />
                     <ul class="quick-links">
                         {quick.into_iter().map(|(id, icon, label, route, primary)| view! {
                             <li>

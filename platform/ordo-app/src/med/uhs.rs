@@ -358,7 +358,7 @@ fn UhsDetailsPanel(
             view! {
                 <li class="staff-member">
                     <strong>{name}</strong>
-                    <crate::shell::ui::IconButton icon="trash-2" word=text::CREW_REMOVE quiet=true
+                    <crate::shell::ui::IconButton icon="trash-2" word=text::crew_remove() quiet=true
                         label=text::staff_remove_label(member) on_click=remove />
                 </li>
             }
@@ -379,13 +379,13 @@ fn UhsDetailsPanel(
                             <input id=format!("uhs-capacity-{slug}") type="text" inputmode="numeric" autocomplete="off" bind:value=cap />
                         </div>
                         <div class="field">
-                            <label for=format!("uhs-organisation-{slug}")>{text::UNIT_ORGANISATION}</label>
+                            <label for=format!("uhs-organisation-{slug}")>{text::unit_organisation()}</label>
                             <input id=format!("uhs-organisation-{slug}") type="text" autocomplete="off" bind:value=organisation />
                         </div>
                         <div class="field">
-                            <label for=format!("uhs-service-{slug}")>{text::UNIT_SERVICE}</label>
+                            <label for=format!("uhs-service-{slug}")>{text::unit_service()}</label>
                             <select id=format!("uhs-service-{slug}") prop:value=move || service.get() on:change=move |ev| service.set(event_target_value(&ev))>
-                                <option value="">{text::NO_SERVICE}</option>
+                                <option value="">{text::no_service()}</option>
                                 {crate::shared::units::CATALOGUE.services.iter().map(|s| view! { <option value=s.id.clone()>{s.label.clone()}</option> }).collect_view()}
                             </select>
                         </div>
@@ -436,7 +436,7 @@ fn UhsDetailsPanel(
                 }}
                 <form class="form form--inline" novalidate on:submit=add>
                     <div class="field">
-                        <label for=format!("uhs-staff-{slug}")>{text::CREW_MEMBER}</label>
+                        <label for=format!("uhs-staff-{slug}")>{text::crew_member()}</label>
                         <input id=format!("uhs-staff-{slug}") type="text" autocomplete="off"
                             list=format!("uhs-staff-{slug}-people") bind:value=person />
                         <crate::shell::ui::Suggestions id=format!("uhs-staff-{slug}-people") values=people core />

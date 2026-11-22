@@ -266,15 +266,15 @@ fn mount_map(
                     for (key, hint) in [
                         (
                             "CooperativeGesturesHandler.MobileHelpText",
-                            text::MAP_HINT_TOUCH,
+                            text::map_hint_touch(),
                         ),
                         (
                             "CooperativeGesturesHandler.WindowsHelpText",
-                            text::MAP_HINT_WHEEL,
+                            text::map_hint_wheel(),
                         ),
                         (
                             "CooperativeGesturesHandler.MacHelpText",
-                            text::MAP_HINT_WHEEL_MAC,
+                            text::map_hint_wheel_mac(),
                         ),
                     ] {
                         js_sys::Reflect::set(&hints, &key.into(), &hint.into())?;
@@ -289,7 +289,7 @@ fn mount_map(
                     &[
                         element.into(),
                         centre,
-                        JsValue::from_str(text::MAP_LABEL),
+                        JsValue::from_str(text::map_label()),
                         incident,
                         ticket,
                         hints,
@@ -327,9 +327,9 @@ fn mount_map(
                         return;
                     }
                     state.set(MapState::Ready(match from.as_str() {
-                        "device" => text::MAP_FROM_DEVICE,
-                        "server" => text::MAP_FROM_SERVER,
-                        _ => text::MAP_NO_REGION,
+                        "device" => text::map_from_device(),
+                        "server" => text::map_from_server(),
+                        _ => text::map_no_region(),
                     }));
                 }
                 Err(e) => {
@@ -356,9 +356,9 @@ fn MapStateLine(state: RwSignal<MapState>) -> impl IntoView {
     view! {
         <p class="situation__state" role="status">
             {move || match state.get() {
-                MapState::Loading => text::MAP_LOADING,
+                MapState::Loading => text::map_loading(),
                 MapState::Ready(from) => from,
-                MapState::Unavailable => text::MAP_UNAVAILABLE,
+                MapState::Unavailable => text::map_unavailable(),
             }}
         </p>
     }
@@ -392,20 +392,20 @@ fn LocateButton(handle: MapHandle, state: RwSignal<MapState>) -> impl IntoView {
         let Some((module, map)) = handle.with_value(Clone::clone) else {
             return;
         };
-        located.set(Some(text::MAP_LOCATING));
+        located.set(Some(text::map_locating()));
         leptos::task::spawn_local(async move {
             let result = call_async(&module, "locate", &[map]).await;
             let _ = located.try_set(Some(match result {
-                Ok(_) => text::MAP_LOCATED,
-                Err(e) if e.as_string().as_deref() == Some("denied") => text::MAP_LOCATE_DENIED,
-                Err(_) => text::MAP_LOCATE_FAILED,
+                Ok(_) => text::map_located(),
+                Err(e) if e.as_string().as_deref() == Some("denied") => text::map_locate_denied(),
+                Err(_) => text::map_locate_failed(),
             }));
         });
     };
     view! {
         <button id="map-locate" type="button" class="button button--small"
             disabled=move || !matches!(state.get(), MapState::Ready(_))
-            on:click=locate>{text::MAP_LOCATE}</button>
+            on:click=locate>{text::map_locate()}</button>
         <p role="status" class="hint map-locate__state">{move || located.get()}</p>
     }
 }
@@ -446,12 +446,12 @@ fn ObjectList(
     // The object whose card is open in the list.
     let open = RwSignal::new(None::<String>);
     view! {
-        <h3 id="objects-title">{text::MAP_OBJECTS}</h3>
+        <h3 id="objects-title">{text::map_objects()}</h3>
         {move || {
             let list: Vec<_> = s.map.with(|m| m.list().into_iter().cloned().collect());
             let symbols = s.symbols.get();
             if list.is_empty() {
-                return view! { <p class="hint">{text::MAP_OBJECTS_NONE}</p> }.into_any();
+                return view! { <p class="hint">{text::map_objects_none()}</p> }.into_any();
             }
             let editing = edit.is_some() && s.editable.get();
             view! {
@@ -462,7 +462,7 @@ fn ObjectList(
                             let label = o.placed.label.clone();
                             let object = o.placed.object.clone();
                             let show = o.placed.geometry.anchor().map(|at| view! {
-                                <crate::shell::ui::IconButton icon="map-pin" word=text::MAP_SHOW
+                                <crate::shell::ui::IconButton icon="map-pin" word=text::map_show()
                                     label=text::map_show_label(&label)
                                     on_click=Callback::new(move |()| show_at(handle, at)) />
                             });
@@ -473,7 +473,7 @@ fn ObjectList(
                                     move || open.with(|o| o.as_deref() == Some(object.as_str()))
                                 });
                                 view! {
-                                    <crate::shell::ui::IconButton icon="info" word=text::MAP_DETAILS
+                                    <crate::shell::ui::IconButton icon="info" word=text::map_details()
                                         label=text::map_details_label(&label) expanded=is_open
                                         on_click=Callback::new(move |()| open.update(|o| {
                                             *o = (o.as_deref() != Some(object.as_str())).then(|| object.clone());
@@ -484,10 +484,10 @@ fn ObjectList(
                                 let edit = edit.expect("editing has a callback");
                                 let (chosen, gone) = (object.clone(), o.placed.clone());
                                 view! {
-                                    <crate::shell::ui::IconButton icon="pencil" word=text::MAP_EDIT_OBJECT
+                                    <crate::shell::ui::IconButton icon="pencil" word=text::map_edit_object()
                                         label=text::map_edit_label(&label)
                                         on_click=Callback::new(move |()| edit.run(chosen.clone())) />
-                                    <crate::shell::ui::IconButton icon="trash-2" word=text::MAP_REMOVE quiet=true
+                                    <crate::shell::ui::IconButton icon="trash-2" word=text::map_remove() quiet=true
                                         label=text::map_remove_label(&label)
                                         on_click=Callback::new(move |()| {
                                             remove(core, revision, &gone.object);
@@ -678,7 +678,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section class="card situation" aria-labelledby="situation-title">
-            <h2 id="situation-title">{text::MAP_TITLE}</h2>
+            <h2 id="situation-title">{text::map_title()}</h2>
             <MapStateLine state />
             <div class="situation__stage">
                 <MapFrame node state />
@@ -747,23 +747,23 @@ pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl I
         }
         let Some([lng, lat]) = pin else { return };
         following.set(true);
-        said.set(Some(text::MAP_LOCATING));
+        said.set(Some(text::map_locating()));
         leptos::task::spawn_local(async move {
             let args = [
                 map,
                 JsValue::from_f64(lng),
                 JsValue::from_f64(lat),
-                JsValue::from_str(text::MY_POSITION),
+                JsValue::from_str(text::my_position()),
             ];
             let result = call_async(&module, "followMe", &args).await;
             let _ = said.try_set(match result {
-                Ok(_) => Some(text::MY_POSITION_SHOWN),
+                Ok(_) => Some(text::my_position_shown()),
                 Err(e) => {
                     let _ = following.try_set(false);
                     Some(if e.as_string().as_deref() == Some("denied") {
-                        text::MAP_LOCATE_DENIED
+                        text::map_locate_denied()
                     } else {
-                        text::MAP_LOCATE_FAILED
+                        text::map_locate_failed()
                     })
                 }
             });
@@ -779,7 +779,7 @@ pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl I
                     aria-pressed=move || following.get().to_string()
                     disabled=move || !matches!(state.get(), MapState::Ready(_))
                     on:click=toggle>
-                    <crate::shell::ui::Icon name="crosshair" />{text::MY_POSITION_SHOW}
+                    <crate::shell::ui::Icon name="crosshair" />{text::my_position_show()}
                 </button>
                 <p role="status" class="hint">{move || said.get()}</p>
             </div>
@@ -804,14 +804,14 @@ pub fn MapPreview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         <ul class="tile__facts">
             <li id="overview-objects">{move || text::summary_map(s.map.with(|m| m.objects.len()))}</li>
             <li class="hint" data-from=move || match state.get() {
-                MapState::Ready(from) if from == text::MAP_FROM_DEVICE => "device",
+                MapState::Ready(from) if from == text::map_from_device() => "device",
                 MapState::Ready(_) => "server",
                 MapState::Loading => "loading",
                 MapState::Unavailable => "unavailable",
             }>{move || match state.get() {
                 MapState::Ready(from) => from,
-                MapState::Loading => text::MAP_LOADING,
-                MapState::Unavailable => text::MAP_UNAVAILABLE,
+                MapState::Loading => text::map_loading(),
+                MapState::Unavailable => text::map_unavailable(),
             }}</li>
         </ul>
         <OfflineRegion core state handle />
@@ -943,10 +943,10 @@ impl Tool {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Select => text::TOOL_SELECT,
-            Self::Place => text::TOOL_PLACE,
-            Self::Area => text::TOOL_AREA,
-            Self::Line => text::TOOL_LINE,
+            Self::Select => text::tool_select(),
+            Self::Place => text::tool_place(),
+            Self::Area => text::tool_area(),
+            Self::Line => text::tool_line(),
         }
     }
 
@@ -1102,7 +1102,7 @@ pub fn MapEditor(
                 Ok(_) => {
                     let _ = call(&module, "stopReshaping", &args[..1]);
                 }
-                Err(_) => error.set(Some(text::MAP_RESHAPE_FAILED)),
+                Err(_) => error.set(Some(text::map_reshape_failed())),
             }
         });
     });
@@ -1111,7 +1111,7 @@ pub fn MapEditor(
         let object_kind = object_kind(&kind.get_untracked());
         let reference_value = reference.get_untracked();
         if object_kind != ObjectKind::Incident && reference_value.is_empty() {
-            error.set(Some(text::MAP_PLACE_MISSING));
+            error.set(Some(text::map_place_missing()));
             return;
         }
         let typed = label.get_untracked().trim().to_owned();
@@ -1141,7 +1141,7 @@ pub fn MapEditor(
             kind: object_kind,
             reference: (object_kind != ObjectKind::Incident).then_some(reference_value),
             label: if shown.is_empty() {
-                text::INCIDENT_LOCATION.to_owned()
+                text::incident_location().to_owned()
             } else {
                 shown
             },
@@ -1151,13 +1151,13 @@ pub fn MapEditor(
             error.set(None);
             status.set(Some(text::map_placed(&placed.label)));
         } else {
-            error.set(Some(text::MAP_PLACE_MISSING));
+            error.set(Some(text::map_place_missing()));
         }
     };
     // Moving the chosen point object to `at`.
     let move_to = move |at: [f64; 2]| {
         let Some(o) = chosen.get_untracked().and_then(|id| object(&id)) else {
-            status.set(Some(text::MAP_TAP_TO_CHOOSE.to_owned()));
+            status.set(Some(text::map_tap_to_choose().to_owned()));
             return;
         };
         if !matches!(o.placed.geometry, Geometry::Point(_)) {
@@ -1188,7 +1188,7 @@ pub fn MapEditor(
                 // is chosen instead.
                 Some((id, point)) if !current_is_point || point => choose.run(id),
                 _ if current_is_point => move_to(at),
-                _ => status.set(Some(text::MAP_TAP_TO_CHOOSE.to_owned())),
+                _ => status.set(Some(text::map_tap_to_choose().to_owned())),
             }
         }
         Tool::Place => place_at(at),
@@ -1199,7 +1199,7 @@ pub fn MapEditor(
     };
     let at_centre = move || match map_centre(handle) {
         Some(at) => at_point(at, None),
-        None => error.set(Some(text::MAP_UNAVAILABLE)),
+        None => error.set(Some(text::map_unavailable())),
     };
     // [impl->dsn~command-and-space~2]
     // Asks from the command structure on the same page: place a position, or show an
@@ -1288,7 +1288,7 @@ pub fn MapEditor(
             .and_then(|g| g.as_string())
             .and_then(|g| serde_json::from_str::<Geometry>(&g).ok());
         let Some(geometry) = geometry else {
-            error.set(Some(text::MAP_RESHAPE_FAILED));
+            error.set(Some(text::map_reshape_failed()));
             return;
         };
         let reshaped = ObjectPlaced {
@@ -1299,7 +1299,7 @@ pub fn MapEditor(
             reset();
             status.set(Some(text::map_reshaped(&o.placed.label)));
         } else {
-            error.set(Some(text::MAP_RESHAPE_FAILED));
+            error.set(Some(text::map_reshape_failed()));
         }
     };
     let discard = move |_| {
@@ -1339,8 +1339,8 @@ pub fn MapEditor(
         let points = corners.get_untracked();
         if points.len() < c.shape.min_points() {
             error.set(Some(match c.shape {
-                ordo_map::Shape::Area => text::DRAW_TOO_FEW_AREA,
-                ordo_map::Shape::Line => text::DRAW_TOO_FEW_LINE,
+                ordo_map::Shape::Area => text::draw_too_few_area(),
+                ordo_map::Shape::Line => text::draw_too_few_line(),
             }));
             return;
         }
@@ -1375,7 +1375,7 @@ pub fn MapEditor(
             error.set(None);
             status.set(Some(text::map_drawn(&placed.label)));
         } else {
-            error.set(Some(text::MAP_PLACE_MISSING));
+            error.set(Some(text::map_place_missing()));
         }
     };
 
@@ -1398,44 +1398,44 @@ pub fn MapEditor(
             .get()
             .and_then(|id| s.map.with(|m| m.objects.get(&id).cloned()))
         else {
-            return view! { <p class="hint">{text::MAP_TAP_TO_CHOOSE}</p> }.into_any();
+            return view! { <p class="hint">{text::map_tap_to_choose()}</p> }.into_any();
         };
         let title = format!("{} · {}", o.placed.label, kind_label(&o.placed));
         if o.placed.kind == ObjectKind::Drawing {
             return view! {
                 <p class="map-panel__chosen"><strong>{title}</strong></p>
-                <p class="hint">{text::RESHAPE_HINT}</p>
+                <p class="hint">{text::reshape_hint()}</p>
                 <div class="row">
-                    <button type="button" class="button button--primary" disabled=move || !reshaping.get() on:click=apply>{text::RESHAPE_APPLY}</button>
-                    <button type="button" class="button button--quiet" on:click=discard>{text::RESHAPE_DISCARD}</button>
-                    <button type="button" class="button" on:click=draw_again>{text::RESHAPE_REDRAW}</button>
-                    <button type="button" class="button button--quiet" on:click=remove_chosen>{text::MAP_REMOVE}</button>
+                    <button type="button" class="button button--primary" disabled=move || !reshaping.get() on:click=apply>{text::reshape_apply()}</button>
+                    <button type="button" class="button button--quiet" on:click=discard>{text::reshape_discard()}</button>
+                    <button type="button" class="button" on:click=draw_again>{text::reshape_redraw()}</button>
+                    <button type="button" class="button button--quiet" on:click=remove_chosen>{text::map_remove()}</button>
                 </div>
             }
             .into_any();
         }
         view! {
             <p class="map-panel__chosen"><strong>{title}</strong></p>
-            <p class="hint">{text::MAP_MOVE_HINT}</p>
+            <p class="hint">{text::map_move_hint()}</p>
             <div class="row">
-                <button type="button" class="button button--primary" on:click=move |_| at_centre()>{text::MAP_MOVE_CENTRE}</button>
-                <button type="button" class="button button--quiet" on:click=discard>{text::MAP_DESELECT}</button>
-                <button type="button" class="button button--quiet" on:click=remove_chosen>{text::MAP_REMOVE}</button>
+                <button type="button" class="button button--primary" on:click=move |_| at_centre()>{text::map_move_centre()}</button>
+                <button type="button" class="button button--quiet" on:click=discard>{text::map_deselect()}</button>
+                <button type="button" class="button button--quiet" on:click=remove_chosen>{text::map_remove()}</button>
             </div>
         }
         .into_any()
     };
     let place_panel = move || {
         view! {
-            <p class="hint">{text::MAP_PLACE_HINT}</p>
+            <p class="hint">{text::map_place_hint()}</p>
             <div class="form--inline">
                 <div class="field">
-                    <label for="place-kind">{text::MAP_PLACE_KIND}</label>
+                    <label for="place-kind">{text::map_place_kind()}</label>
                     <select id="place-kind" prop:value=move || kind.get() on:change=move |ev| {
                         kind.set(event_target_value(&ev));
                         reference.set(String::new());
                     }>
-                        {[("incident", text::INCIDENT_LOCATION), ("unit", text::TAB_RESOURCES), ("uhs", text::UHS_TITLE), ("position", text::POSITION), ("task", text::TASK_TEXT), ("symbol", text::MAP_KIND_SYMBOL)]
+                        {[("incident", text::incident_location()), ("unit", text::tab_resources()), ("uhs", text::uhs_title()), ("position", text::position()), ("task", text::task_text()), ("symbol", text::map_kind_symbol())]
                             .into_iter()
                             .map(|(id, name)| view! { <option value=id selected=move || kind.get() == id>{name}</option> })
                             .collect_view()}
@@ -1445,9 +1445,9 @@ pub fn MapEditor(
                 // Every symbol of the profile, by topic (MAP-10), with a label if wanted.
                 <Show when=move || kind.get() == "symbol">
                     <div class="field">
-                        <label for="place-symbol">{text::MAP_KIND_SYMBOL}</label>
+                        <label for="place-symbol">{text::map_kind_symbol()}</label>
                         <select id="place-symbol" prop:value=move || reference.get() on:change=move |ev| reference.set(event_target_value(&ev))>
-                            <option value="" selected=move || reference.get().is_empty()>{text::MAP_PLACE_CHOOSE}</option>
+                            <option value="" selected=move || reference.get().is_empty()>{text::map_place_choose()}</option>
                             {SYMBOLS.by_group().into_iter().map(|(g, list)| view! {
                                 <optgroup label=g.label.clone()>
                                     {list.into_iter().map(|s| {
@@ -1459,7 +1459,7 @@ pub fn MapEditor(
                         </select>
                     </div>
                     <div class="field">
-                        <label for="place-symbol-label">{text::MAP_SYMBOL_LABEL}</label>
+                        <label for="place-symbol-label">{text::map_symbol_label()}</label>
                         <input id="place-symbol-label" type="text" autocomplete="off" bind:value=label />
                     </div>
                 </Show>
@@ -1467,15 +1467,15 @@ pub fn MapEditor(
                     when=move || kind.get() != "incident" && kind.get() != "symbol"
                     fallback=move || (kind.get() == "incident").then(|| view! {
                         <div class="field">
-                            <label for="place-label">{text::MAP_PLACE_LABEL}</label>
+                            <label for="place-label">{text::map_place_label()}</label>
                             <input id="place-label" type="text" autocomplete="off" bind:value=label />
                         </div>
                     })
                 >
                     <div class="field">
-                        <label for="place-reference">{text::MAP_PLACE_WHICH}</label>
+                        <label for="place-reference">{text::map_place_which()}</label>
                         <select id="place-reference" prop:value=move || reference.get() on:change=move |ev| reference.set(event_target_value(&ev))>
-                            <option value="" selected=move || reference.get().is_empty()>{text::MAP_PLACE_CHOOSE}</option>
+                            <option value="" selected=move || reference.get().is_empty()>{text::map_place_choose()}</option>
                             // Each option says whether it is chosen: when the list is drawn
                             // anew (a sync), the browser would otherwise show the first one.
                             {move || {
@@ -1490,19 +1490,19 @@ pub fn MapEditor(
                 </Show>
             </div>
             <div class="row">
-                <button type="button" class="button button--primary" on:click=move |_| at_centre()>{text::MAP_PLACE_SUBMIT}</button>
+                <button type="button" class="button button--primary" on:click=move |_| at_centre()>{text::map_place_submit()}</button>
             </div>
         }
     };
     let draw_panel = move || {
         let shape = tool.get().shape().unwrap_or(ordo_map::Shape::Area);
         view! {
-            {move || redraw.get().map(|_| view! { <p class="map-panel__chosen"><strong>{move || text::draw_redraw(&name.get())}</strong></p> })}
-            <p class="hint">{text::DRAW_HINT}</p>
+            {move || redraw.get().map(|_| view! { <p class="map-panel__chosen"><strong>{move || text::draw_redraw(name.get())}</strong></p> })}
+            <p class="hint">{text::draw_hint()}</p>
             <form class="form draw-form" novalidate on:submit=finish>
                 <div class="form--inline">
                     <div class="field">
-                        <label for="draw-category">{text::DRAW_CATEGORY}</label>
+                        <label for="draw-category">{text::draw_category()}</label>
                         <select id="draw-category" on:change=move |ev| category.set(event_target_value(&ev))>
                             {DRAWINGS.categories.iter().filter(|c| c.shape == shape).map(|c| {
                                 let id = c.id.clone();
@@ -1511,29 +1511,29 @@ pub fn MapEditor(
                         </select>
                     </div>
                     <div class="field">
-                        <label for="draw-label">{text::MAP_PLACE_LABEL}</label>
+                        <label for="draw-label">{text::map_place_label()}</label>
                         <input id="draw-label" type="text" autocomplete="off" bind:value=name />
                     </div>
                 </div>
                 <p class="draw-form__count" role="status">{move || text::draw_corners(corners.with(Vec::len))}</p>
                 <div class="row">
-                    <button type="button" class="button" on:click=move |_| at_centre()><Icon name="crosshair" />{text::DRAW_ADD_CORNER}</button>
-                    <button type="button" class="button button--quiet" on:click=move |_| corners.update(|c| { c.pop(); }) disabled=move || corners.with(Vec::is_empty)>{text::DRAW_UNDO}</button>
-                    <button type="button" class="button button--quiet" on:click=move |_| { reset(); name.set(String::new()); } disabled=move || corners.with(Vec::is_empty) && redraw.with(Option::is_none)>{text::DRAW_CANCEL}</button>
-                    <button type="submit" class="button button--primary">{text::DRAW_FINISH}</button>
+                    <button type="button" class="button" on:click=move |_| at_centre()><Icon name="crosshair" />{text::draw_add_corner()}</button>
+                    <button type="button" class="button button--quiet" on:click=move |_| corners.update(|c| { c.pop(); }) disabled=move || corners.with(Vec::is_empty)>{text::draw_undo()}</button>
+                    <button type="button" class="button button--quiet" on:click=move |_| { reset(); name.set(String::new()); } disabled=move || corners.with(Vec::is_empty) && redraw.with(Option::is_none)>{text::draw_cancel()}</button>
+                    <button type="submit" class="button button--primary">{text::draw_finish()}</button>
                 </div>
             </form>
         }
     };
     view! {
         <section class="card situation map-editor" aria-labelledby="map-editor-title" node_ref=section>
-            <h2 id="map-editor-title">{text::MAP_EDIT}</h2>
-            <p class="hint">{text::MAP_EDIT_HINT}</p>
+            <h2 id="map-editor-title">{text::map_edit()}</h2>
+            <p class="hint">{text::map_edit_hint()}</p>
             <Show
                 when=move || s.editable.get()
-                fallback=|| view! { <p class="notice">{text::MAP_EDIT_NOT_ALLOWED}</p> }
+                fallback=|| view! { <p class="notice">{text::map_edit_not_allowed()}</p> }
             >
-                <div class="map-tools" role="group" aria-label=text::MAP_TOOLS>{toolbar}</div>
+                <div class="map-tools" role="group" aria-label=text::map_tools()>{toolbar}</div>
             </Show>
             <MapStateLine state />
             <MapFrame node state crosshair=true />
@@ -1750,24 +1750,24 @@ pub fn PinPicker(
     view! {
         <div class="pin-picker">
             <crate::shell::address::AddressSearch core revision id=id.clone() on_choose=choose />
-            <p id=hint class="hint">{text::PIN_HINT}</p>
+            <p id=hint class="hint">{text::pin_hint()}</p>
             <div class="place-map">
                 <MapFrame node state crosshair=true />
             </div>
             <p role="status" class="pin-picker__state">
-                {move || pin.get().map_or_else(|| text::PIN_NONE.to_owned(), |p| text::pin_at(&coordinates(&Geometry::Point(p))))}
+                {move || pin.get().map_or_else(|| text::pin_none().to_owned(), |p| text::pin_at(coordinates(&Geometry::Point(p))))}
             </p>
             <div class="row">
                 <button id=format!("{id}-pin-centre") type="button" class="button button--small"
                     aria-describedby=described
                     disabled=move || !matches!(state.get(), MapState::Ready(_))
                     on:click=at_centre>
-                    <Icon name="crosshair" />{text::PIN_AT_CENTRE}
+                    <Icon name="crosshair" />{text::pin_at_centre()}
                 </button>
                 <Show when=move || pin.with(Option::is_some)>
                     <button type="button" class="button button--small button--quiet"
                         on:click=move |_| pin.set(None)>
-                        {text::PIN_CLEAR}
+                        {text::pin_clear()}
                     </button>
                 </Show>
             </div>
@@ -1791,12 +1791,12 @@ fn OfflineRegion(core: Handle, state: RwSignal<MapState>, handle: MapHandle) -> 
             return;
         }
         tried.set_value(true);
-        message.set(Some(text::MAP_SAVING.to_owned()));
+        message.set(Some(text::map_saving().to_owned()));
         leptos::task::spawn_local(async move {
             let (incident, ticket) = region_args(core);
             let done = match call_async(&m, "saveOffline", &[incident, ticket]).await {
                 Ok(size) => text::map_saved(size.as_f64().unwrap_or(0.0)),
-                Err(_) => text::MAP_SAVE_FAILED.to_owned(),
+                Err(_) => text::map_save_failed().to_owned(),
             };
             let _ = message.try_set(Some(done));
         });

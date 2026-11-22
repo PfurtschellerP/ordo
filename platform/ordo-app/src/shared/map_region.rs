@@ -38,7 +38,7 @@ fn state_line(region: &MapRegion) -> String {
         )
     });
     match region.state {
-        MapRegionState::None => text::MAP_REGION_NONE.to_owned(),
+        MapRegionState::None => text::map_region_none().to_owned(),
         MapRegionState::Running => {
             text::map_region_running(region.done.unwrap_or(0), region.total.unwrap_or(0))
         }
@@ -99,14 +99,14 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             degrees(&lon.get_untracked()),
             degrees(&radius.get_untracked()),
         ) else {
-            error.set(Some(text::MAP_REGION_INVALID));
+            error.set(Some(text::map_region_invalid()));
             return;
         };
         if !(-85.0..=85.0).contains(&la)
             || !(-180.0..=180.0).contains(&lo)
             || !(1.0..=50.0).contains(&r)
         {
-            error.set(Some(text::MAP_REGION_INVALID));
+            error.set(Some(text::map_region_invalid()));
             return;
         }
         error.set(None);
@@ -126,20 +126,20 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     };
     view! {
         <section class="card map-region" aria-labelledby="map-region-title">
-            <h2 id="map-region-title">{text::MAP_REGION_TITLE}</h2>
-            <p class="hint">{text::MAP_REGION_HINT}</p>
+            <h2 id="map-region-title">{text::map_region_title()}</h2>
+            <p class="hint">{text::map_region_hint()}</p>
             <p class="map-region__state" role="status">
-                {move || region.get().map_or_else(|| text::MAP_LOADING.to_owned(), |r| state_line(&r))}
+                {move || region.get().map_or_else(|| text::map_loading().to_owned(), |r| state_line(&r))}
             </p>
             {move || {
                 region.get().filter(|r| r.state == MapRegionState::Running).map(|r| {
                     let (done, total) = (r.done.unwrap_or(0), r.total.unwrap_or(0).max(1));
                     view! {
-                        <progress class="map-region__progress" max=total value=done aria-label=text::MAP_REGION_PROGRESS></progress>
+                        <progress class="map-region__progress" max=total value=done aria-label=text::map_region_progress()></progress>
                     }
                 })
             }}
-            <h3>{text::MAP_REGION_NEW}</h3>
+            <h3>{text::map_region_new()}</h3>
             // [impl->dsn~address-search~1]
             <crate::shell::address::AddressSearch core revision id="region"
                 on_choose=Callback::new(move |([lo, la], _): crate::shell::address::Chosen| {
@@ -149,22 +149,22 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             <form class="form" novalidate on:submit=submit>
                 <div class="form--inline">
                     <div class="field">
-                        <label for="region-lat">{text::MAP_REGION_LAT}</label>
+                        <label for="region-lat">{text::map_region_lat()}</label>
                         <input id="region-lat" type="text" inputmode="decimal" autocomplete="off" bind:value=lat />
                     </div>
                     <div class="field">
-                        <label for="region-lon">{text::MAP_REGION_LON}</label>
+                        <label for="region-lon">{text::map_region_lon()}</label>
                         <input id="region-lon" type="text" inputmode="decimal" autocomplete="off" bind:value=lon />
                     </div>
                     <div class="field">
-                        <label for="region-radius">{text::MAP_REGION_RADIUS}</label>
+                        <label for="region-radius">{text::map_region_radius()}</label>
                         <input id="region-radius" type="number" min="1" max="50" step="1" bind:value=radius />
                     </div>
                 </div>
-                <p class="hint">{if start.is_some() { text::MAP_REGION_FROM_INCIDENT } else { text::MAP_REGION_COORDINATES }}</p>
+                <p class="hint">{if start.is_some() { text::map_region_from_incident() } else { text::map_region_coordinates() }}</p>
                 <p role="alert" class="error">{move || error.get()}</p>
                 <div class="row">
-                    <button type="submit" class="button button--primary" disabled=running>{text::MAP_REGION_CUT}</button>
+                    <button type="submit" class="button button--primary" disabled=running>{text::map_region_cut()}</button>
                 </div>
             </form>
         </section>

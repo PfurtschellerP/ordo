@@ -60,8 +60,8 @@ fn position_item(
         let leader = p.leader().map(str::to_owned);
         crate::shell::profile::naming(move || {
             leader.as_deref().map_or_else(
-                || text::NO_LEADER.to_owned(),
-                |l| text::leader(&crate::shell::profile::display_text(core, l)),
+                || text::no_leader().to_owned(),
+                |l| text::leader(crate::shell::profile::display_text(core, l)),
             )
         })
     };
@@ -90,12 +90,12 @@ fn position_item(
     let members: Vec<AnyView> = p
         .units
         .iter()
-        .map(|u| ("unit", u.clone(), text::TAB_RESOURCES))
+        .map(|u| ("unit", u.clone(), text::tab_resources()))
         .chain(p.uhs.iter().map(|u| {
             (
                 "uhs",
                 uhs_names.get(u).cloned().unwrap_or_else(|| u.clone()),
-                text::MEMBER_UHS,
+                text::member_uhs(),
             )
         }))
         .map(|(kind, name, what)| {
@@ -121,14 +121,14 @@ fn position_item(
         let position = id.to_owned();
         if placed.contains(&object) {
             Action {
-                text: text::POSITION_MAP_SHOW,
+                text: text::position_map_show(),
                 label: text::position_map_show_label(&title),
                 quiet: false,
                 run: Callback::new(move |()| asks.ask(MapAsk::Show(object.clone()))),
             }
         } else {
             Action {
-                text: text::POSITION_MAP_SET,
+                text: text::position_map_set(),
                 label: text::position_map_set_label(&title),
                 quiet: false,
                 run: Callback::new(move |()| asks.ask(MapAsk::Place(position.clone()))),
@@ -140,7 +140,7 @@ fn position_item(
         on_map
             .into_iter()
             .chain([Action {
-                text: text::POSITION_CLOSE,
+                text: text::position_close(),
                 label: text::position_close_label(&title),
                 quiet: true,
                 run: Callback::new(move |()| {
@@ -204,11 +204,11 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section class="card" aria-labelledby="structure-title">
-            <h2 id="structure-title">{text::STRUCTURE_TITLE}</h2>
+            <h2 id="structure-title">{text::structure_title()}</h2>
             {move || {
                 let s = tree.get();
                 if s.roots.is_empty() {
-                    return view! { <p>{text::STRUCTURE_EMPTY}</p> }.into_any();
+                    return view! { <p>{text::structure_empty()}</p> }.into_any();
                 }
                 let names = uhs_names.get();
                 let editable = editable.get();
@@ -222,7 +222,7 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 // An org chart where the card is wide enough, else an indented tree; a wide
                 // chart scrolls within its own region, reachable by keyboard.
                 view! {
-                    <div class="org-chart" role="region" tabindex="0" aria-label=text::ORG_CHART>
+                    <div class="org-chart" role="region" tabindex="0" aria-label=text::org_chart()>
                         <ul class="position-tree position-tree--root">{items}</ul>
                     </div>
                 }
@@ -266,7 +266,7 @@ fn CommandForms(
             organisation: None,
         };
         if position.check().is_err() {
-            created_error.set(Some(text::POSITION_MISSING));
+            created_error.set(Some(text::position_missing()));
             return;
         }
         if core::create_position(core, revision, position).is_ok() {
@@ -331,64 +331,64 @@ fn CommandForms(
     };
     view! {
         <form class="form command-form" novalidate on:submit=create>
-            <h3>{text::POSITION_CREATE}</h3>
+            <h3>{text::position_create()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="position-kind">{text::POSITION_KIND}</label>
+                    <label for="position-kind">{text::position_kind()}</label>
                     <select id="position-kind" prop:value=move || kind.get() on:change=move |ev| kind.set(event_target_value(&ev))>
-                        <option value="">{text::POSITION_KIND_CHOOSE}</option>
+                        <option value="">{text::position_kind_choose()}</option>
                         {STRUCTURE.kinds.iter().map(|k| view! { <option value=k.id.clone()>{k.label.clone()}</option> }).collect_view()}
                     </select>
                 </div>
                 <div class="field">
-                    <label for="position-name">{text::POSITION_NAME}</label>
+                    <label for="position-name">{text::position_name()}</label>
                     <input id="position-name" type="text" autocomplete="off" bind:value=name />
                 </div>
                 <div class="field">
-                    <label for="position-parent">{text::POSITION_PARENT}</label>
+                    <label for="position-parent">{text::position_parent()}</label>
                     <select id="position-parent" prop:value=move || parent.get() on:change=move |ev| parent.set(event_target_value(&ev))>
-                        {position_options(text::POSITION_TOP)}
+                        {position_options(text::position_top())}
                     </select>
                 </div>
             </div>
             <p role="alert" class="error">{move || created_error.get()}</p>
-            <div class="row"><button type="submit" class="button">{text::POSITION_CREATE}</button></div>
+            <div class="row"><button type="submit" class="button">{text::position_create()}</button></div>
         </form>
         <form class="form command-form" novalidate on:submit=lead>
-            <h3>{text::LEADER_SET}</h3>
+            <h3>{text::leader_set()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="lead-position">{text::POSITION}</label>
+                    <label for="lead-position">{text::position()}</label>
                     <select id="lead-position" prop:value=move || lead_position.get() on:change=move |ev| lead_position.set(event_target_value(&ev))>
-                        {position_options(text::POSITION_CHOOSE)}
+                        {position_options(text::position_choose())}
                     </select>
                 </div>
                 <div class="field">
-                    <label for="lead-person">{text::LEADER}</label>
+                    <label for="lead-person">{text::leader_label()}</label>
                     <input id="lead-person" type="text" autocomplete="off" list="lead-people" bind:value=leader />
                     <Suggestions id="lead-people" values=people core />
                 </div>
             </div>
-            <div class="row"><button type="submit" class="button">{text::LEADER_SET}</button></div>
+            <div class="row"><button type="submit" class="button">{text::leader_set()}</button></div>
         </form>
         <form class="form command-form" novalidate on:submit=assign>
-            <h3>{text::UHS_ASSIGN}</h3>
+            <h3>{text::uhs_assign()}</h3>
             <div class="form--inline">
                 <div class="field">
-                    <label for="assign-uhs">{text::UHS_TITLE}</label>
+                    <label for="assign-uhs">{text::uhs_title()}</label>
                     <select id="assign-uhs" prop:value=move || uhs.get() on:change=move |ev| uhs.set(event_target_value(&ev))>
-                        <option value="">{text::UHS_CHOOSE}</option>
+                        <option value="">{text::uhs_choose()}</option>
                         {move || uhs_names.get().into_iter().map(|(id, name)| view! { <option value=id>{name}</option> }).collect_view()}
                     </select>
                 </div>
                 <div class="field">
-                    <label for="assign-position">{text::POSITION}</label>
+                    <label for="assign-position">{text::position()}</label>
                     <select id="assign-position" prop:value=move || uhs_position.get() on:change=move |ev| uhs_position.set(event_target_value(&ev))>
-                        {position_options(text::NO_POSITION)}
+                        {position_options(text::no_position())}
                     </select>
                 </div>
             </div>
-            <div class="row"><button type="submit" class="button">{text::UHS_ASSIGN}</button></div>
+            <div class="row"><button type="submit" class="button">{text::uhs_assign()}</button></div>
         </form>
     }
 }
