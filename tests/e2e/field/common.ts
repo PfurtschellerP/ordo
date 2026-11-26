@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Browser, BrowserContext, chromium, devices, expect, Page, webkit } from "@playwright/test";
 import type { OrdoServer } from "../support/server";
+import { patientsPart } from "../support/app";
 
 export const WORK = process.env.FIELD_WORK ?? "";
 export const SITE = { url: "https://ordo.internal/" } as OrdoServer;
@@ -77,6 +78,8 @@ export function serverMemory(): Record<string, number> {
 
 /** How long until `tag` is listed on `page`, in ms. */
 export async function arrival(page: Page, tag: string, since: number, timeout = 30_000): Promise<number> {
+  // A narrow column shows the list or the registration as tabs (chapter 8.6.5).
+  await patientsPart(page, "list");
   await expect(page.locator(`.patient-card[data-tag='${tag}']`)).toBeVisible({ timeout });
   return Date.now() - since;
 }

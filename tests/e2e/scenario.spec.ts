@@ -968,7 +968,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.getByRole("button", { name: "PDF herunterladen: Übergabedokument Patient DE-0045" }).click();
     const pdf = await saving;
     expect(pdf.suggestedFilename()).toBe("Uebergabe-DE-0045.pdf");
-    const bytes = fs.readFileSync((await pdf.path())!);
+    // As a stream, which also works with a browser on another machine.
+    const bytes = Buffer.concat(await (await pdf.createReadStream()).toArray());
     expect(bytes.subarray(0, 5).toString(), "a PDF").toBe("%PDF-");
     expect(bytes.includes("pdfaid:part"), "PDF/A").toBe(true);
     expect(bytes.includes("fhir-bundle-DE-0045.json"), "with the FHIR bundle attached").toBe(true);

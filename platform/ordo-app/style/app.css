@@ -1067,7 +1067,10 @@
   .tasks-panel__give > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .new-task { display: grid; gap: var(--ordo-space-3); }
   .new-task__pin { display: grid; gap: var(--ordo-space-2); margin: 0; padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
-  .new-task__pin legend { font-weight: var(--ordo-font-weight-bold); padding-inline: var(--ordo-space-1); }
+  /* WebKit keeps a legend's width from before its fieldset narrowed (a window resized, a
+     tablet turned), so it sticks out on one line; a container query unit is recomputed. */
+  .new-task__pin { container-type: inline-size; }
+  .new-task__pin legend { font-weight: var(--ordo-font-weight-bold); padding-inline: var(--ordo-space-1); max-inline-size: 100cqi; }
   .pin-picker { display: grid; gap: var(--ordo-space-2); }
   .pin-picker__state { margin: 0; font-family: var(--ordo-font-family-mono); }
   .pin-picker .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }

@@ -112,6 +112,18 @@ export async function createUhs(page: Page, name: string, capacity: number): Pro
   await expect(page.locator(".uhs-card__name", { hasText: name })).toBeVisible();
 }
 
+/** Puts `people` (account names) on a UHS's staff list in its dialog, as the incident command (UHS-10). */
+export async function addUhsStaff(page: Page, name: string, people: string[]): Promise<void> {
+  await page.getByRole("button", { name: `Ort und Personal von ${name}` }).click();
+  const details = page.locator("#uhs-details-dialog");
+  for (const person of people) {
+    await details.getByLabel("Name", { exact: true }).fill(person);
+    await details.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
+  }
+  await expect(page.locator(".uhs-card", { hasText: name }).locator(".uhs-card__staff")).toHaveText(`Personal: ${people.length} ${people.length === 1 ? "Person" : "Personen"}`);
+  await page.keyboard.press("Escape");
+}
+
 /** Registers a patient; `category` is the index of the triage category, or none; at a UHS with places, on `place` (a label) or on none. */
 /** Shows a part of the patient list column (chapter 8.6.5, "Tabs"): "list", "register" or "staff". */
 export async function patientsPart(page: Page, part: "list" | "register" | "staff"): Promise<void> {

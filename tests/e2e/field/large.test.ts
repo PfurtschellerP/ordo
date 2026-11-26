@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import readline from "node:readline";
 import { expect, Page, test } from "@playwright/test";
-import { grantRole, loginPair, openIncident, openView, openWorkspace, register } from "../support/app";
+import { addUhsStaff, grantRole, loginPair, openIncident, openView, openWorkspace, patientsPart, register, status } from "../support/app";
 import { arrival, budgets, connect, device, jsHeap, mb, note, serverMemory, SITE, wasmMemory, WORK } from "./common";
 
 const INCIDENT = "Großeinsatz";
@@ -52,6 +52,9 @@ async function join(page: Page, email: string, name: string): Promise<number> {
   const start = Date.now();
   await openIncident(page, INCIDENT);
   await openView(page, "Patienten");
+  // The whole incident, not only the UHS whose staff the person is on (UHS-9).
+  await page.locator("#working-uhs").selectOption({ label: "Alle UHS" });
+  await patientsPart(page, "list");
   await expect(page.locator(`.patient-card[data-tag='GE-${String(PATIENTS).padStart(4, "0")}']`)).toBeVisible({ timeout: 120_000 });
   await expect(page.locator(".patient-list .patient-card")).toHaveCount(PATIENTS);
   return Date.now() - start;
@@ -79,12 +82,17 @@ test("a large incident: 500 patients and 10,000 log entries on two tablets", asy
   await openView(dora, "Einsatz");
   await dora.getByRole("button", { name: "Einsatz beginnen" }).click();
   await expect(dora.locator("#incident-state")).toHaveText("Laufend");
-  await dora.context().close();
 
   // The load device pairs by QR code (Lea approves on her phone) and writes the incident.
   const phone = await device(android, "Pixel 7");
   const loaded = await load((address) => approve(phone, address, "lea@example.org"));
   await phone.context().close();
+  // The incident command puts the medics on the staff of the UHS they register at (UHS-10).
+  await openWorkspace(dora, "Vorbereitung");
+  await openView(dora, "Einsatzmittel");
+  await addUhsStaff(dora, "UHS 1", ["anna@ordo.internal", "ben@ordo.internal"]);
+  await expect.poll(() => status(dora), { message: "the staff is sent" }).toContain("Alles gesendet");
+  await dora.context().close();
   note(`- The load device wrote ${loaded.written} events (${Object.entries(loaded.byType).map(([t, n]) => `${n} ${t}`).join(", ")}) in ${(loaded.ms / 1000).toFixed(1)} s, ${Math.round(loaded.written / (loaded.ms / 1000))} events/s through the server`);
   expect(loaded.confirmed, "the server confirmed every event").toBe(EVENTS);
 

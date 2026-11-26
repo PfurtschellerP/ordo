@@ -2,7 +2,7 @@
 // and an iPad (WebKit), each a browser in its own container on the bundle's network. Run
 // by field/run.sh, which starts everything and sets FIELD_WORK.
 import { expect, test } from "@playwright/test";
-import { createUhs, grantRole, loginPair, openIncident, openView, openWorkspace, register, status } from "../support/app";
+import { addUhsStaff, createUhs, grantRole, loginPair, openIncident, openView, openWorkspace, register, status } from "../support/app";
 import { arrival, budgets, connect, container, device, docker, jsHeap, mb, note, serverMemory, SITE, wasmMemory, WORK } from "./common";
 
 const INCIDENT = "Feldtest";
@@ -33,13 +33,7 @@ test("two tablets and the Compose bundle, as in the field", async () => {
   // The incident command sets up the UHS and its staff (ADR-0086).
   await openView(dora, "Einsatzmittel");
   await createUhs(dora, UHS, 20);
-  const card = dora.locator(".uhs-card", { hasText: UHS });
-  await dora.getByRole("button", { name: `Ort und Personal von ${UHS}` }).click();
-  for (const person of ["anna@ordo.internal", "ben@ordo.internal"]) {
-    await card.getByLabel("Name", { exact: true }).fill(person);
-    await card.getByRole("button", { name: "Zum Personal hinzufügen" }).click();
-  }
-  await expect(card.locator(".uhs-card__staff")).toHaveText("Personal: 2 Personen");
+  await addUhsStaff(dora, UHS, ["anna@ordo.internal", "ben@ordo.internal"]);
   await expect.poll(() => status(dora), { message: "the UHS is sent" }).toContain("Alles gesendet");
   await dora.context().close();
 
