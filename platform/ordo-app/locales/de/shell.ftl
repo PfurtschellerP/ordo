@@ -292,3 +292,24 @@ task-status-open = Offen
 task-status-in-progress = In Arbeit
 task-status-done = Erledigt
 task-status-cancelled = Abgebrochen
+
+## Dates and numbers, as each language writes them
+# Day and month with two digits. Variables: $day, $month, $year
+date-of = { $day }.{ $month }.{ $year }
+# Variables: $date, $time
+date-time-of = { $date }, { $time }
+# The decimal separator, as in "1,5 MB".
+decimal-separator = ,
+
+## Errors of the device's own workings (pairing, storage, randomness)
+no-random = Keine Zufallszahlen verfügbar
+no-incident-chosen = Kein Einsatz gewählt
+device-id-invalid = Geräte-ID: { $error }
+private-key-format = Privater Schlüssel: 64 Hex-Zeichen erwartet
+photo-not-found = Foto nicht gefunden
+photo-other-version = Foto in einer anderen Version
+app-state-unavailable = App-Zustand nicht verfügbar
+no-secure-context = Sichere Speicherung nicht verfügbar: Die App muss über HTTPS geöffnet werden.
+no-device-storage = Kein Gerätespeicher
+# A device's suggested name from its browser and system (ORG-8): "Firefox auf Android".
+device-name-on = { $browser } auf { $system }

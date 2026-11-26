@@ -27,7 +27,7 @@ pub fn retriage_label(tag: &str, category: TriageCategory) -> String {
 }
 
 pub fn edit_label(form: &str) -> String {
-    edit_form(form, edit().to_lowercase())
+    edit_form(form)
 }
 
 pub fn value_error(error: &ordo_med_patients::record::ValueError) -> String {
@@ -124,7 +124,7 @@ pub fn order_spoken(giver: &str, channel: &str, read_back: bool) -> String {
 }
 
 pub fn readmit_label(tag: &str) -> String {
-    readmit_of(tag, readmit().to_lowercase())
+    readmit_of(tag)
 }
 
 /// "Aufnahme: SK I 2 · SK II 4 · SK III – (Stand 10:12, ben@…)"

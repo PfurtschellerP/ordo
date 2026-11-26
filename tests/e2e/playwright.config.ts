@@ -15,7 +15,8 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
-  use: { trace: "retain-on-failure", screenshot: "only-on-failure" },
+  // The scenario reads German texts; the app follows the browser's language (I18N-1).
+  use: { trace: "retain-on-failure", screenshot: "only-on-failure", locale: "de-DE" },
   projects: [
     { name: "firefox", use: { ...devices["Desktop Firefox"], viewport } },
     { name: "chromium", use: { ...devices["Desktop Chrome"], viewport } },

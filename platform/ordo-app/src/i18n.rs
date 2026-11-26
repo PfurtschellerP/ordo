@@ -241,6 +241,24 @@ mod tests {
 
     // [utest->dsn~ui-texts~1]
     #[test]
+    fn every_language_has_every_part() {
+        let german: Vec<&str> = SOURCES
+            .iter()
+            .filter(|(l, _, _)| *l == DEFAULT)
+            .map(|(_, p, _)| *p)
+            .collect();
+        for language in languages() {
+            for part in &german {
+                assert!(
+                    super::source(language, part).is_some(),
+                    "{language}/{part}.ftl is missing"
+                );
+            }
+        }
+    }
+
+    // [utest->dsn~ui-texts~1]
+    #[test]
     fn every_message_formats_without_errors() {
         for (language, part, source) in SOURCES {
             let bundle_language: &'static str = language;

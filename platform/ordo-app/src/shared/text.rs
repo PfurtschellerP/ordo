@@ -196,9 +196,14 @@ pub fn map_kind(kind: ordo_map::ObjectKind) -> &'static str {
     }
 }
 
-/// Megabytes with one decimal, as German writes them ("1,5").
+/// A number with the language's decimal separator ("1,5" in German).
+fn decimal(number: String) -> String {
+    number.replace('.', decimal_separator())
+}
+
+/// Megabytes with one decimal ("1,5" in German).
 fn megabytes(bytes: f64) -> String {
-    format!("{:.1}", bytes / 1_000_000.0).replace('.', ",")
+    decimal(format!("{:.1}", bytes / 1_000_000.0))
 }
 
 pub fn map_saved(bytes: f64) -> String {
@@ -266,7 +271,7 @@ pub fn map_region_ready(area: Option<(f64, f64, f64)>, bytes: f64, at: Option<St
     if let Some((lat, lon, km)) = area {
         out.push(' ');
         out.push_str(&map_region_area(
-            format!("{km}").replace('.', ","),
+            decimal(format!("{km}")),
             format!("{lat:.5}"),
             format!("{lon:.5}"),
         ));

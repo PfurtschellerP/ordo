@@ -62,8 +62,8 @@ const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ pa
 /** Content Security Policy violations reported by any page of the scenario (SEC-18). */
 const cspViolations: string[] = [];
 
-async function newDevice(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 1200, height: 1000 } });
+async function newDevice(browser: Browser, locale = "de-DE"): Promise<Page> {
+  const context = await browser.newContext({ viewport: { width: 1200, height: 1000 }, locale });
   // The page's own violation events, in every browser. Only the app's code counts, not
   // axe-core: it reads stylesheets through <style> elements the policy rightly blocks, and
   // marks its run in the page (see `runAxe`), so the decision does not depend on timing.
@@ -117,6 +117,15 @@ test("ORDO in the browser", async ({ browser }) => {
       })
       .toBe(true);
     await audit(dora, "Pairing page");
+    // I18N-1: the texts follow the browser's language, else German.
+    await expect(dora.locator("html"), "German for a German browser").toHaveAttribute("lang", "de");
+    const english = await newDevice(browser, "en-GB");
+    await english.goto(server.url);
+    await expect(english.getByRole("button", { name: "Sign in" }), "English for an English browser").toBeVisible();
+    await expect(english.locator("html"), "and the page says so").toHaveAttribute("lang", "en");
+    await expect(english.getByRole("heading", { level: 1 })).toHaveText("ORDO – Pair device");
+    await audit(english, "Pairing page in English");
+    await english.context().close();
     // [itest->dsn~licence-notices~2]
     // LIC-1: before pairing, the pairing screen links to the licences and the source code.
     await expect(dora.getByRole("contentinfo"), "no footer under every screen").toHaveCount(0);

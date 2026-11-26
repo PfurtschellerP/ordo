@@ -474,8 +474,8 @@ corrected-entries = { $n ->
     [one] 1 korrigierter Eintrag
    *[other] { $n } korrigierte Einträge
 }
-# "Vitalwerte bearbeiten": the form, then the word in lower case.
-edit-form = { $form } { $edit }
+# "Vitalwerte bearbeiten": the button's name with its form.
+edit-form = { $form } bearbeiten
 value-not-a-number = Bitte eine Zahl eingeben.
 value-between = Bitte einen Wert von { $min } bis { $max } eingeben.
 value-at-least = Bitte mindestens { $min } eingeben.
@@ -521,7 +521,8 @@ order-channel-telemedicine = per Telemedizin
 # "Mündlich angeordnet von Petra Schulz, per Funk, wiederholt und bestätigt"
 order-spoken-read-back = Mündlich angeordnet von { $giver }, { $channel }, wiederholt und bestätigt
 order-spoken-not-read-back = Mündlich angeordnet von { $giver }, { $channel }, nicht wiederholt
-readmit-of = { $tag } { $readmit }
+# "DE-0042 wieder aufnehmen": the button's name with its patient.
+readmit-of = { $tag } wieder aufnehmen
 # "Aufnahme: SK I 2 · SK II 4 · SK III – (Stand 10:12, ben@…)"
 capacity-of = Aufnahme: { $parts } (Stand { $at }, { $by })
 # "Offene Anordnungen: 3 (1 nicht bestätigt)"

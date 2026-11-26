@@ -1618,8 +1618,8 @@ below (so a package writes `text::…` for all it may use).
 `dsn~ui-texts~1`
 
 The app's texts are Fluent files, one per part of the app and language:
-`platform/ordo-app/locales/<language>/<part>.ftl` (`shell`, then `shared`, `med`, `admin`),
-German first ([ADR-0096](../adr/0096-ui-texts-in-fluent-files.md)). The build script
+`platform/ordo-app/locales/<language>/<part>.ftl` (`shell`, `shared`, `med`, `admin`), in
+German and English ([ADR-0096](../adr/0096-ui-texts-in-fluent-files.md)). The build script
 (`build/fluent.rs`) parses every file with `fluent-syntax` and writes, for each German
 file, one function per message into the part's `text` module: `text::pair_title()` for a
 message without variables, `text::pending(n)` with them (in the order of a `Variables:`
@@ -1629,8 +1629,11 @@ browser's languages with texts, else German; the page's `lang` follows. A messag
 variables is formatted once and kept, so it can be a `&'static str`; workspaces and views
 name their labels as functions (`nav::Label`). Plurals and other forms are Fluent
 selectors; values of ORDO's types (triage categories, states, durations) map to messages in
-`text.rs`. Tests check that every other language has the same messages with the same
-variables, and that every message formats without errors.
+`text.rs`. Dates and the decimal separator are messages too (`date-of`,
+`decimal-separator`): English writes dates year first. Labels from a profile (forms,
+statuses, triage aids) stay in the profile's language. Tests check that every other
+language has every part, the same messages with the same variables, and that every message
+formats without errors.
 
 Covers:
 

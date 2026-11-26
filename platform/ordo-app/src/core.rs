@@ -158,10 +158,10 @@ impl Core {
                 .device
                 .trim()
                 .parse::<Ulid>()
-                .map_err(|e| format!("Geräte-ID: {e}"))?,
+                .map_err(|e| crate::text::device_id_invalid(e.to_string()))?,
         );
-        let key: [u8; 32] = from_hex(pairing.private_key.trim())
-            .ok_or("Privater Schlüssel: 64 Hex-Zeichen erwartet")?;
+        let key: [u8; 32] =
+            from_hex(pairing.private_key.trim()).ok_or(crate::text::private_key_format())?;
         let incident: Option<IncidentId> = match pairing.incident.trim() {
             "" => None,
             id => Some(id.parse().map_err(|e| format!("{e}"))?),
@@ -255,7 +255,10 @@ impl Core {
     /// Records an event of `kind` in the chosen incident, with the schema version its module
     /// declares for it.
     fn record_event(&mut self, kind: EventKind, payload: &[u8]) -> Result<(), String> {
-        let incident = self.incident.clone().ok_or("Kein Einsatz gewählt")?;
+        let incident = self
+            .incident
+            .clone()
+            .ok_or(crate::text::no_incident_chosen())?;
         self.replica
             .record(
                 &incident,
@@ -817,7 +820,7 @@ pub fn create_uhs(
     name: &str,
     capacity: u32,
 ) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let id = new_ulid().ok_or(crate::text::no_random())?;
     let uhs = format!("uhs-{id}");
     let payload = UhsCreated {
         id: uhs.clone(),
@@ -984,7 +987,7 @@ pub fn create_position(
     revision: RwSignal<u64>,
     position: ordo_command::PositionCreated,
 ) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let id = new_ulid().ok_or(crate::text::no_random())?;
     let position = ordo_command::PositionCreated {
         position: id.to_string(),
         ..position
@@ -1067,9 +1070,7 @@ pub fn give_task(
     revision: RwSignal<u64>,
     task: ordo_tasks::TaskGiven,
 ) -> Result<String, String> {
-    let id = new_ulid()
-        .ok_or("Keine Zufallszahlen verfügbar")?
-        .to_string();
+    let id = new_ulid().ok_or(crate::text::no_random())?.to_string();
     let task = ordo_tasks::TaskGiven {
         task: id.clone(),
         ..task
@@ -1397,7 +1398,7 @@ pub fn request_transport(
     tag: &str,
     request: transport::TransportRequested,
 ) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let id = new_ulid().ok_or(crate::text::no_random())?;
     let request = transport::TransportRequested {
         request: id.to_string(),
         ..request
@@ -1457,7 +1458,7 @@ pub fn set_hospital(
     entry: hospitals::HospitalSet,
 ) -> Result<(), String> {
     let entry = if entry.hospital.is_empty() {
-        let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+        let id = new_ulid().ok_or(crate::text::no_random())?;
         hospitals::HospitalSet {
             hospital: id.to_string(),
             ..entry
@@ -1500,7 +1501,7 @@ pub fn give_order(
     revision: RwSignal<u64>,
     order: orders::OrderGiven,
 ) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let id = new_ulid().ok_or(crate::text::no_random())?;
     let order = orders::OrderGiven {
         order: id.to_string(),
         ..order
@@ -1523,7 +1524,7 @@ pub fn record_order(
     revision: RwSignal<u64>,
     order: orders::OrderRecorded,
 ) -> Result<(), String> {
-    let id = new_ulid().ok_or("Keine Zufallszahlen verfügbar")?;
+    let id = new_ulid().ok_or(crate::text::no_random())?;
     let order = orders::OrderRecorded {
         order: id.to_string(),
         ..order
@@ -1615,7 +1616,7 @@ pub fn add_photo(
     let payload = photo.encode()?;
     let incident = core
         .with_value(|c| c.incident.clone())
-        .ok_or("Kein Einsatz gewählt")?;
+        .ok_or(crate::text::no_incident_chosen())?;
     let compartment = patients::COMPARTMENT
         .parse::<ordo_core::CompartmentId>()
         .map_err(|e| e.to_string())?;
@@ -1672,9 +1673,9 @@ pub fn restore_photo(
                 })
                 .map(|e| (e.payload.clone(), e.body.schema_version))
         })
-        .ok_or("Foto nicht gefunden")?;
+        .ok_or(crate::text::photo_not_found())?;
     if schema != 1 {
-        return Err("Foto in einer anderen Version".into());
+        return Err(crate::text::photo_other_version().into());
     }
     self::record(
         core,
@@ -1715,9 +1716,7 @@ pub fn hand_over(
     revision: RwSignal<u64>,
     mut handover: patients::HandedOver,
 ) -> Result<String, String> {
-    handover.handover = new_ulid()
-        .ok_or("Keine Zufallszahlen verfügbar")?
-        .to_string();
+    handover.handover = new_ulid().ok_or(crate::text::no_random())?.to_string();
     let announcement = match (&handover.to, &handover.outside) {
         (_, Some(receiver)) => text::handed_outside(&handover.tag, receiver),
         (Some(to), None) => text::handed_over(&handover.tag, holder_name(core, to)),
@@ -1780,7 +1779,7 @@ pub(crate) fn record(
             c.push();
             Ok(())
         })
-        .unwrap_or_else(|| Err("App-Zustand nicht verfügbar".into()));
+        .unwrap_or_else(|| Err(crate::text::app_state_unavailable().into()));
     revision.update(|r| *r += 1);
     result
 }
@@ -2007,7 +2006,7 @@ pub fn suggested_device_name() -> String {
     device_name_from(&agent)
 }
 
-/// The browser and system named by a user agent, in German: "Firefox auf Android".
+/// The browser and system named by a user agent: "Firefox auf Android" in German.
 fn device_name_from(agent: &str) -> String {
     let has = |s: &str| agent.contains(s);
     let browser = if has("Edg/") || has("EdgA/") || has("EdgiOS/") {
@@ -2039,7 +2038,7 @@ fn device_name_from(agent: &str) -> String {
         None
     };
     match system {
-        Some(system) => format!("{browser} auf {system}"),
+        Some(system) => crate::text::device_name_on(browser, system),
         None => browser.to_owned(),
     }
 }
@@ -2418,14 +2417,13 @@ pub fn clock_seconds(ms: u64) -> String {
     format!("{}:{:02}", clock(ms), date.get_seconds())
 }
 
-/// Local date, `DD.MM.YYYY`, of a timestamp in milliseconds.
+/// Local date of a timestamp in milliseconds, as the language writes it ("22.11.2026").
 pub fn date(ms: u64) -> String {
     let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
-    format!(
-        "{:02}.{:02}.{}",
-        date.get_date(),
-        date.get_month() + 1,
-        date.get_full_year()
+    crate::text::date_of(
+        format!("{:02}", date.get_date()),
+        format!("{:02}", date.get_month() + 1),
+        date.get_full_year().to_string(),
     )
 }
 
@@ -2436,16 +2434,9 @@ pub fn iso_time(ms: u64) -> String {
         .into()
 }
 
-/// Local date and time, `DD.MM.YYYY, HH:MM`, of a timestamp in milliseconds.
+/// Local date and time of a timestamp in milliseconds ("22.11.2026, 09:36").
 pub fn date_time(ms: u64) -> String {
-    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
-    format!(
-        "{:02}.{:02}.{}, {}",
-        date.get_date(),
-        date.get_month() + 1,
-        date.get_full_year(),
-        clock(ms)
-    )
+    crate::text::date_time_of(date(ms), clock(ms))
 }
 
 /// The current local time of day, `HH:MM`.

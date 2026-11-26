@@ -133,11 +133,11 @@ const RANDOM_CHUNK: usize = 65_536;
 pub fn fill(buffer: &mut [u8]) -> Result<(), String> {
     let crypto = web_sys::window()
         .and_then(|w| w.crypto().ok())
-        .ok_or("Keine Zufallszahlen verfügbar")?;
+        .ok_or(crate::text::no_random())?;
     for chunk in buffer.chunks_mut(RANDOM_CHUNK) {
         crypto
             .get_random_values_with_u8_array(chunk)
-            .map_err(|_| "Keine Zufallszahlen verfügbar")?;
+            .map_err(|_| crate::text::no_random())?;
     }
     Ok(())
 }
@@ -160,19 +160,19 @@ mod web {
         pub(super) static KEK: RefCell<Option<CryptoKey>> = const { RefCell::new(None) };
     }
 
-    const NO_SECURE_CONTEXT: &str =
-        "Sichere Speicherung nicht verfügbar: Die App muss über HTTPS geöffnet werden.";
-
     pub(super) fn local_storage() -> Option<web_sys::Storage> {
         web_sys::window()?.local_storage().ok()?
     }
 
     pub(super) fn subtle() -> Result<SubtleCrypto, String> {
-        let window = web_sys::window().ok_or(NO_SECURE_CONTEXT)?;
+        let window = web_sys::window().ok_or(crate::text::no_secure_context())?;
         if !window.is_secure_context() {
-            return Err(NO_SECURE_CONTEXT.to_owned());
+            return Err(crate::text::no_secure_context().to_owned());
         }
-        Ok(window.crypto().map_err(|_| NO_SECURE_CONTEXT)?.subtle())
+        Ok(window
+            .crypto()
+            .map_err(|_| crate::text::no_secure_context())?
+            .subtle())
     }
 
     /// A readable message; the technical detail goes to the browser console.
@@ -259,7 +259,7 @@ mod web {
         let ciphertext = Uint8Array::new(&JsFuture::from(promise).await.map_err(error)?).to_vec();
         let text = BASE64.encode([iv.as_slice(), &ciphertext].concat());
         local_storage()
-            .ok_or("Kein Gerätespeicher")?
+            .ok_or(crate::text::no_device_storage())?
             .set_item(STORAGE_KEY_ITEM, &text)
             .map_err(error)
     }
