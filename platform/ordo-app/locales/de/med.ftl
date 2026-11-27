@@ -575,3 +575,5 @@ staff-go-send-label = { staff-go-send }: { $uhs }
 profile-triage = Sichtung auf diesem Gerät
 # The "+" button that opens the form to add one (ADR-0102).
 uhs-new-word = UHS
+# The "⋯" menu of a transport's further steps (ADR-0102).
+transport-more-label = Weitere Schritte: { $transport }

@@ -19,7 +19,7 @@ use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::med::text;
-use crate::shell::ui::{Action, Actions, CheckChips, History, RadioChips};
+use crate::shell::ui::{Action, CheckChips, History, RadioChips};
 
 /// What can be requested, from the profile (checked at build time, see `build.rs`).
 pub static CATALOGUE: LazyLock<TransportCatalogue> = LazyLock::new(|| {
@@ -366,7 +366,9 @@ pub(crate) fn StepButtons(
             run: update(TransportStatus::Cancelled),
         });
     }
-    view! { <Actions actions /> }
+    // [impl->dsn~building-blocks~1]
+    // The next step at hand, the others and cancelling behind "⋯" (ADR-0102).
+    view! { <crate::shell::ui::MoreActions label=text::transport_more_label(&name) actions /> }
 }
 
 // [impl->dsn~transport-request~3]
@@ -815,7 +817,12 @@ fn HospitalCard(
                 move || capacity_line(core, &hospital)
             })}</p>
             <p class="hospital-card__sent"><strong>{text::sent(sent)}</strong></p>
-            <CapacityForm core revision hospital=hospital.clone() />
+            // [impl->dsn~building-blocks~1]
+            // Entered when the hospital reports (ADR-0102): folded until then.
+            <details class="hospital-card__edit">
+                <summary class="button button--small"><crate::shell::ui::Icon name="pencil" />{text::capacity_legend()}</summary>
+                <CapacityForm core revision hospital=hospital.clone() />
+            </details>
         </li>
     }
 }

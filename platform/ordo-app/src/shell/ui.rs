@@ -1212,3 +1212,27 @@ pub fn CreateButton(
         </EditDialog>
     }
 }
+
+// [impl->dsn~building-blocks~1]
+/// One action at hand, the rest behind "⋯" (ADR-0102): the first action shows as a button,
+/// the others open from the menu button, named for its item (`label`, e.g. "Weitere
+/// Schritte: RTW für UHS Eingang").
+#[component]
+pub fn MoreActions(#[prop(into)] label: String, actions: Vec<Action>) -> impl IntoView {
+    let mut actions = actions.into_iter();
+    let first: Vec<Action> = actions.by_ref().take(1).collect();
+    let rest: Vec<Action> = actions.collect();
+    view! {
+        <div class="more-actions">
+            <Actions actions=first />
+            {(!rest.is_empty()).then(|| view! {
+                <details class="more-actions__menu">
+                    <summary class="button button--small icon-button" aria-label=label.clone() data-tip=label>
+                        <Icon name="ellipsis" />
+                    </summary>
+                    <div class="more-actions__panel"><Actions actions=rest /></div>
+                </details>
+            })}
+        </div>
+    }
+}

@@ -1415,6 +1415,18 @@
   .section-head__count { color: var(--ordo-color-text-secondary); font-variant-numeric: tabular-nums; font-weight: var(--ordo-font-weight-regular); }
   .section-head__action { flex: none; display: flex; gap: var(--ordo-space-2); }
   .item-rows { list-style: none; margin: 0; padding: 0; }
+  .more-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--ordo-space-2); }
+  .more-actions__menu { position: relative; }
+  .more-actions__menu > summary { list-style: none; cursor: pointer; }
+  .more-actions__menu > summary::-webkit-details-marker { display: none; }
+  .more-actions__panel {
+    margin-block-start: var(--ordo-space-2); padding: var(--ordo-space-2);
+    background: var(--ordo-color-surface-raised); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    border-radius: var(--ordo-radius-medium);
+  }
+  .hospital-card__edit > summary { list-style: none; cursor: pointer; display: inline-flex; }
+  .hospital-card__edit > summary::-webkit-details-marker { display: none; }
+  .hospital-card__edit[open] > summary { margin-block-end: var(--ordo-space-2); }
   .item-row {
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
     column-gap: var(--ordo-space-3); padding: var(--ordo-space-2) 0;

@@ -2156,6 +2156,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(hospital).toContainText("Unfallchirurgie · Schockraum · Stroke Unit");
     await expect(hospital.getByRole("button", { name: /^Bearbeiten/ }), "no editing in Führung").toHaveCount(0);
     await expect(hospital.locator(".hospital-card__capacity")).toHaveText("Aufnahme: nicht gemeldet");
+    // ADR-0102: entered when the hospital reports, folded until then.
+    await hospital.locator(".hospital-card__edit > summary").click();
     await hospital.getByLabel("SK I", { exact: true }).fill("2");
     await hospital.getByLabel("SK II", { exact: true }).fill("3");
     await hospital.getByRole("button", { name: "Aufnahme speichern: Klinikum Mitte" }).click();
@@ -2169,6 +2171,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await request.getByRole("button", { name: /^Zuweisen: / }).click();
     const transportStatus = request.locator(".transport-card__status");
     await expect(transportStatus, "a unit, the destination still open").toHaveText("Zugewiesen · RTW 83/1 → Ziel offen");
+    // [itest->dsn~building-blocks~1]
+    // ADR-0102: the next step at hand, the others behind "⋯".
+    await expect(request.getByRole("button", { name: /^\d – / }), "the next step at hand").toHaveText(["3 – Einsatz übernommen"]);
+    const moreSteps = async () => {
+      const menu = request.locator(".more-actions__menu");
+      if ((await menu.count()) && !(await menu.evaluate((d) => (d as HTMLDetailsElement).open))) await menu.locator("summary").click();
+    };
+    await moreSteps();
     await expect(request.getByRole("button", { name: /^\d – / }), "the unit's statuses are the steps").toHaveText([
       "3 – Einsatz übernommen", "4 – Am Einsatzort", "7 – Patient aufgenommen", "8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache",
     ]);
@@ -2183,6 +2193,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "7 – Patient aufgenommen" });
     await openView(ben, "Transporte");
     await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("7 – Patient aufgenommen · RTW 83/1 → Klinikum Mitte");
+    await moreSteps();
     await expect(request.getByRole("button", { name: /^\d – / }), "only later steps").toHaveText(["8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache"]);
     await expect(free, "a unit on a transport is not free").toContainText("Keine freien Transportmittel.");
     await expect(hospital.locator(".hospital-card__sent"), "the board counts the patient sent").toHaveText("Transportiert: 1");
