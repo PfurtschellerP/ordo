@@ -603,6 +603,7 @@ impl Replica {
             | ServerMessage::Geocoded(_)
             | ServerMessage::Guest(_)
             | ServerMessage::Avatars(_)
+            | ServerMessage::Profile(_)
             | ServerMessage::OrganisationRoles(_)
             | ServerMessage::Accounts(_)
             | ServerMessage::LoginProviders(_)

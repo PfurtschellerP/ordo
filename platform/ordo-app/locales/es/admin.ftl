@@ -164,3 +164,7 @@ provider-test-passed-email = El inicio de sesión de prueba ha funcionado. ORDO 
 provider-not-found = Este proveedor ya no existe, o solo puede cambiarse en la configuración.
 provider-not-tested = Primero pruebe con éxito; el inicio de sesión de prueba es válido 10 minutos.
 provider-refused = El servicio de inicio de sesión ha rechazado el cambio. ¿Está activada su interfaz para proveedores (DEX_API_CONNECTORS_CRUD)?
+
+## The person's own pages (ADR-0100).
+ws-person = Perfil y dispositivos
+profile-view = Perfil

@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use ordo_contracts::TriageCategory;
 
-// [impl->dsn~ui-texts~2]
+// [impl->dsn~ui-texts~3]
 include!(concat!(env!("OUT_DIR"), "/text_shell.rs"));
 
 pub fn registered(tag: &str, category: TriageCategory, uhs: &str) -> String {
@@ -52,8 +52,6 @@ pub static THEMES: LazyLock<[(&str, &str); 4]> = LazyLock::new(|| {
 });
 pub static HANDS: LazyLock<[(&str, &str); 2]> =
     LazyLock::new(|| [("", hand_right()), ("left", hand_left())]);
-pub static KEYMAPS: LazyLock<[(&str, &str); 2]> =
-    LazyLock::new(|| [("", keymap_standard()), ("vim", keymap_vim())]);
 
 /// Roles offered when granting (prototype; later from the profile).
 pub static ROLES: LazyLock<[(&str, &str); 4]> = LazyLock::new(|| {
@@ -214,7 +212,7 @@ mod tests {
         assert_eq!(super::ago(3 * 1440 * min), "vor 3 Tagen");
     }
 
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn counts_choose_their_form() {
         assert_eq!(super::pending(0usize), "Alles gesendet");

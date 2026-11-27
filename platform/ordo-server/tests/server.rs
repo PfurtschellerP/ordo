@@ -211,6 +211,26 @@ impl Client {
         }
     }
 
+    /// Sends `message` and waits for the user's profile.
+    async fn profile(&mut self, message: Option<ClientMessage>) -> message::Profile {
+        if let Some(message) = message {
+            self.send(message).await;
+        }
+        loop {
+            let frame = tokio::time::timeout(Duration::from_secs(10), self.socket.next())
+                .await
+                .expect("timed out waiting for the profile")
+                .expect("connection closed")
+                .unwrap();
+            if let Message::Binary(bytes) = frame {
+                match message::decode::<ServerMessage>(&bytes).unwrap() {
+                    ServerMessage::Profile(profile) => return profile,
+                    other => self.replica.receive(other, now()).unwrap(),
+                }
+            }
+        }
+    }
+
     /// Searches an address for the incident's map and waits for the answer.
     async fn geocode(&mut self, query: &str) -> message::Geocoded {
         self.send(ClientMessage::Geocode(message::GeocodeRequest {
@@ -508,7 +528,7 @@ async fn sync_over_websocket_survives_a_restart() {
     )
     .unwrap();
     assert_eq!(announced["sync"]["min"], "1.4");
-    assert_eq!(announced["sync"]["max"], "1.5");
+    assert_eq!(announced["sync"]["max"], "1.6");
     assert_eq!(announced["http"]["max"], "1.2");
     assert_eq!(announced["build"]["version"], env!("CARGO_PKG_VERSION"));
     let version_of = |r: &reqwest::Response| {
@@ -916,6 +936,61 @@ async fn the_incident_command_searches_an_address_through_the_geocoder() {
     assert!(
         asked[1].2.duration_since(*first) >= Duration::from_millis(990),
         "at most one request per second"
+    );
+    running.stop().await.unwrap();
+}
+
+// [itest->dsn~ui-texts~3]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_persons_language_follows_them_to_their_other_devices() {
+    let dir = tempfile::tempdir().unwrap();
+    write_setup(dir.path(), [9; 32]);
+    let running = start_server(dir.path()).await.unwrap();
+    let addr = running.addr;
+    let mut tablet = Client::connect(addr, replica("anna")).await;
+    let mut phone = Client::connect(addr, replica("anna")).await;
+    let mut ben = Client::connect(addr, replica("ben")).await;
+    assert_eq!(
+        tablet.profile(Some(ClientMessage::GetProfile)).await,
+        message::Profile::default(),
+        "none chosen yet"
+    );
+    let set = tablet
+        .profile(Some(ClientMessage::SetLanguage(Some("fr".into()))))
+        .await;
+    assert_eq!(set.language.as_deref(), Some("fr"));
+    assert_eq!(
+        phone.profile(None).await.language.as_deref(),
+        Some("fr"),
+        "her other device is told"
+    );
+    assert_eq!(
+        ben.profile(Some(ClientMessage::GetProfile)).await,
+        message::Profile::default(),
+        "each person has their own, and nobody hears another's"
+    );
+    let odd = tablet
+        .profile(Some(ClientMessage::SetLanguage(Some("<script>".into()))))
+        .await;
+    assert_eq!(
+        odd.language.as_deref(),
+        Some("fr"),
+        "anything but a language tag is refused"
+    );
+    tablet
+        .profile(Some(ClientMessage::SetLanguage(Some("es".into()))))
+        .await;
+    running.stop().await.unwrap();
+    // Kept across a restart, with the display names.
+    let running = start_server(dir.path()).await.unwrap();
+    let mut again = Client::connect(running.addr, replica("anna")).await;
+    assert_eq!(
+        again
+            .profile(Some(ClientMessage::GetProfile))
+            .await
+            .language
+            .as_deref(),
+        Some("es")
     );
     running.stop().await.unwrap();
 }

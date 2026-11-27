@@ -571,3 +571,5 @@ waiting-transport-total = Esperan traslado: { $n }
 registered-here-discharged = Registrados { $all } · aquí ahora { $here } · dados de alta { $discharged }
 staff-go-send = Enviar personal
 staff-go-send-label = { staff-go-send }: { $uhs }
+# The triage aid on the profile page (PAT-11, ADR-0100).
+profile-triage = Triaje en este dispositivo

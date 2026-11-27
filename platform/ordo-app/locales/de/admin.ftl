@@ -164,3 +164,7 @@ provider-test-passed-email = Die Testanmeldung hat geklappt. ORDO würde sie als
 provider-not-found = Diesen Anbieter gibt es nicht mehr, oder er lässt sich nur in der Konfiguration ändern.
 provider-not-tested = Bitte zuerst erfolgreich testen; die Testanmeldung gilt 10 Minuten.
 provider-refused = Der Anmeldedienst hat die Änderung abgelehnt. Ist seine Schnittstelle für Anbieter freigeschaltet (DEX_API_CONNECTORS_CRUD)?
+
+## The person's own pages (ADR-0100).
+ws-person = Profil und Geräte
+profile-view = Profil

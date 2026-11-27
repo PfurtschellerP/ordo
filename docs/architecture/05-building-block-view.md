@@ -1685,7 +1685,7 @@ palette (`palette.rs`). Texts are Fluent files per part (*UI texts*); each part'
 below (so a package writes `text::…` for all it may use).
 
 #### UI texts
-`dsn~ui-texts~2`
+`dsn~ui-texts~3`
 
 The app's texts are Fluent files, one per part of the app and language:
 `platform/ordo-app/locales/<language>/<part>.ftl` (`shell`, `shared`, `med`, `admin`), in
@@ -1694,11 +1694,18 @@ German, English, French and Spanish ([ADR-0096](../adr/0096-ui-texts-in-fluent-f
 file, one function per message into the part's `text` module: `text::pair_title()` for a
 message without variables, `text::pending(n)` with them (in the order of a `Variables:`
 comment, else as they appear). A missing message is a compile error. At run time
-`fluent-bundle` formats messages in the language chosen at start: the one chosen in the
-menu under *Sprache* (kept on the device, `ordo.language`, so a shared tablet keeps it),
+`fluent-bundle` formats messages in the language chosen at start: the person's
+([Profile page](#profile-page), [ADR-0100](../adr/0100-profile-page-and-language-per-person.md)),
 else the first of the browser's languages with texts, else German; the page's `lang`
-follows. The menu names each language in itself (`language-name`); choosing one reloads
-the page, unless entries could not be stored, then it applies at the next start. A message without
+follows. The person's language is kept by the server with their display name
+(`setLanguage`, protocol 1.6); the device asks for it after every welcome
+(`getProfile`, answered by `profile`, also sent to the person's other connected devices
+when it changes) and keeps a copy (`ordo.language`) for starts without a connection.
+When the language told differs from the one shown, the page reloads, unless entries could
+not be stored, then it applies at the next start. A copy kept from before (the device's
+own choice, protocol 1.5) becomes the person's when the server knows none. Signing out
+removes the copy, so the next person starts in the browser's language. The profile page
+names each language in itself (`language-name`). A message without
 variables is formatted once and kept, so it can be a `&'static str`; workspaces and views
 name their labels as functions (`nav::Label`). Plurals and other forms are Fluent
 selectors; values of ORDO's types (triage categories, states, durations) map to messages in
@@ -1710,11 +1717,41 @@ formats without errors.
 
 Covers:
 
-* [req~i18n-1~2](../requirements/07-quality.md#i18n-1--languages-of-the-user-interface)
+* [req~i18n-1~3](../requirements/07-quality.md#i18n-1--languages-of-the-user-interface)
 
-Needs: impl, utest
+Needs: impl, utest, itest
 
-Tags: must, m73
+Tags: must, m73, m75
+
+#### Profile page
+`dsn~profile-page~1`
+
+*Person – Profil* (`person.devices/profile`, before *Geräte*;
+[ADR-0100](../adr/0100-profile-page-and-language-per-person.md)) has two parts, side by
+side from 60rem and tabs where narrower ([Page tabs](#page-tabs)), each saying where it
+applies:
+
+* **Ich** – on all my devices: picture, display name ([ADR-0047](../adr/0047-profile-pictures.md),
+  ORG-7), *Sprache* (automatic, or one of the languages named in itself; see
+  [UI texts](#ui-texts)), and the roles in this incident.
+* **Dieses Gerät** – for everyone using it: *Erscheinungsbild* (Auto, Tag, Nacht, hoher
+  Kontrast), *Bedient mit* (hand), *Vim-Tasten verwenden* (a check box,
+  [ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md)) with the shortcut list, the triage aid (Med
+  package, place 30; PAT-11, recorded with every triage, so it stays in the registration
+  too), and *Abmelden*, which unpairs the device and says that it must be paired again.
+
+Everything of *Dieses Gerät* is kept on the device and works offline. The person's menu
+keeps who is signed in, the roles in this incident, the appearance as radio chips
+(*Auto · Tag · Nacht*) and the links *Profil und Einstellungen*, *Meine Geräte*, *Einsatz
+wechseln* and *Abmelden*.
+
+Covers:
+
+* [req~ux-17~1](../requirements/07-quality.md#ux-17--a-page-for-ones-own-settings)
+
+Needs: impl, itest
+
+Tags: should, m75
 
 #### Local persistence
 `dsn~local-persistence~2`
@@ -1798,8 +1835,9 @@ the outer columns share the remaining width equally, so the search stays centred
 second; the menu button of the header is hidden and the one in the bottom bar shown. Both
 buttons control the same panel (`aria-controls`, `aria-expanded`), and only the visible
 one is in the accessibility tree. The person's button (picture and name, disclosure)
-opens the profile menu with who is signed in, profile picture, appearance, handedness,
-change incident and unpair. Escape closes either menu and returns the focus to its
+opens the profile menu with who is signed in, the roles, the appearance and the ways to
+the profile page, the person's devices, another incident and signing out
+([Profile page](#profile-page)). Escape closes either menu and returns the focus to its
 button; a click or tap anywhere outside a menu, its buttons and its panel closes it too and
 leaves the focus where the click put it. The connection state's menu behaves the same. Handedness ("right" by default, or "left") is kept on the device like the theme
 and set as `data-hand` on `<html>`; with "left", the bottom bar puts the menu first.
@@ -1882,7 +1920,8 @@ Tags: should, m23
 #### Vim keys
 `dsn~vim-keys~3`
 
-The menu's setting *Tastatur* stores `vim` on the device and sets `data-keymap` on the
+The check box *Vim-Tasten verwenden* on the profile page ([Profile page](#profile-page))
+stores `vim` on the device and sets `data-keymap` on the
 page ([ADR-0090](../adr/0090-vim-keys-for-the-whole-app.md)). The window key handler
 (`shell/keys.rs`) runs before the list keys: a small state machine knows the `g` prefix
 (one second) and returns a command; it ignores keys in text fields and editable areas,

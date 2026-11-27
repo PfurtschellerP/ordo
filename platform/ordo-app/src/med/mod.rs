@@ -136,6 +136,20 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         }
         // [impl->dsn~page-tabs~5]
         ("command.lead", "transports") => transports::transport_sections(core, revision),
+        // [impl->dsn~profile-page~1]
+        // The triage aid of this device, for those who triage (PAT-11, ADR-0100).
+        ("person.devices", "profile") if crate::core::granted(core, ordo_med_patients::COMPARTMENT) => {
+            vec![(
+                30,
+                view! {
+                    <section class="card profile-part" aria-labelledby="profile-triage-title">
+                        <h2 id="profile-triage-title">{text::profile_triage()}</h2>
+                        <patients::TriageAid id="profile-triage-algorithm" />
+                    </section>
+                }
+                .into_any(),
+            )]
+        }
         _ => Vec::new(),
     }
 }

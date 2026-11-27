@@ -346,6 +346,35 @@ impl Store {
         Ok(())
     }
 
+    // [impl->dsn~ui-texts~3]
+    /// Sets (or, with `None`, clears) the language `user` chose (ADR-0100).
+    pub async fn set_language(
+        &self,
+        user: &UserId,
+        language: Option<&str>,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO people (user_id, language) VALUES (?, ?)
+             ON CONFLICT (user_id) DO UPDATE SET language = excluded.language",
+        )
+        .bind(user.as_str())
+        .bind(language)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// The language `user` chose, if any.
+    pub async fn language(&self, user: &UserId) -> Result<Option<String>, StoreError> {
+        Ok(
+            sqlx::query_scalar("SELECT language FROM people WHERE user_id = ?")
+                .bind(user.as_str())
+                .fetch_optional(&self.pool)
+                .await?
+                .flatten(),
+        )
+    }
+
     /// The display name of `user`, if known: the chosen one, else the provider's.
     pub async fn display_name(&self, user: &UserId) -> Result<Option<String>, StoreError> {
         Ok(sqlx::query_scalar(
@@ -1024,7 +1053,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 applied,
-                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 "each migration, applied once"
             );
             let events: i64 = sqlx::query_scalar("SELECT count(*) FROM events")

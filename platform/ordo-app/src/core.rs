@@ -141,6 +141,8 @@ pub struct Core {
     heard_ms: u64,
     /// Whether the server answers `ping` (protocol 1.2 agreed).
     liveness: bool,
+    /// Whether the server keeps the person's language (protocol 1.6 agreed, ADR-0100).
+    pub profiles: bool,
     /// Whether the line is watched (one timer for the app's lifetime).
     watching: bool,
 }
@@ -210,6 +212,7 @@ impl Core {
             connection: Connection::Offline,
             announcement: String::new(),
             error: None,
+            profiles: false,
             storage_failed: false,
             login_expired: false,
             revoked: false,
@@ -303,6 +306,41 @@ impl Core {
         }
     }
 
+    // [impl->dsn~ui-texts~3]
+    /// Follows the person's profile from the server: tells a language chosen here without
+    /// a connection, keeps the server's on the device; true when the page must show another
+    /// language (not when entries could not be stored: then it applies at the next start).
+    fn follow_profile(&mut self, profile: &ordo_sync::message::Profile) -> bool {
+        let kept = preference(crate::i18n::PREFERENCE).filter(|l| !l.is_empty());
+        let unsent = preference(crate::i18n::UNSENT).is_some();
+        let follow = crate::i18n::follow(
+            profile.language.as_deref(),
+            kept.as_deref(),
+            unsent,
+            crate::i18n::language(),
+            &browser_languages(),
+        );
+        // Unsent until the server's answer confirms it.
+        if let Some(language) = follow.tell {
+            set_preference(crate::i18n::UNSENT, Some("1"));
+            self.send(&ClientMessage::SetLanguage(language));
+        }
+        if follow.confirmed {
+            set_preference(crate::i18n::UNSENT, None);
+        }
+        if let Some(language) = follow.keep {
+            set_preference(crate::i18n::PREFERENCE, language.as_deref());
+        }
+        follow.reload && !self.storage_failed
+    }
+
+    /// Whether a message sent now reaches the server.
+    pub(crate) fn online(&self) -> bool {
+        self.socket
+            .as_ref()
+            .is_some_and(|s| s.ready_state() == WebSocket::OPEN)
+    }
+
     pub(crate) fn send(&self, message: &ClientMessage) {
         if let (Some(socket), Ok(bytes)) = (&self.socket, message::encode(message))
             && socket.ready_state() == WebSocket::OPEN
@@ -377,7 +415,13 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         if let ServerMessage::DocumentTicket(answer) = &message {
             crate::med::document::on_ticket(answer.clone());
         }
+        // [impl->dsn~ui-texts~3]
+        // The person's language (ADR-0100): told, kept, or shown after a reload.
+        let mut reload = false;
         core.update_value(|c| {
+            if let ServerMessage::Profile(profile) = &message {
+                reload = c.follow_profile(profile);
+            }
             if let ServerMessage::Avatars(list) = &message {
                 for a in list {
                     c.avatars_asked.remove(&a.user);
@@ -447,6 +491,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                 c.map_regions = w
                     .version
                     .is_some_and(|v| v >= ordo_sync::version::SYNC_MAP_REGION);
+                c.profiles = w
+                    .version
+                    .is_some_and(|v| v >= ordo_sync::version::SYNC_PROFILE);
             }
             // Deliveries confirm sent events: the next batch of the outbox may follow.
             let delivery = matches!(message, ServerMessage::Deliver(_));
@@ -473,6 +520,10 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
                             && let Some(incident) = c.incident.clone()
                         {
                             c.send(&ClientMessage::MapTicket(incident));
+                        }
+                        // [impl->dsn~ui-texts~3]
+                        if c.profiles {
+                            c.send(&ClientMessage::GetProfile);
                         }
                         c.finish_plan();
                     }
@@ -518,6 +569,9 @@ pub fn connect(core: Handle, revision: RwSignal<u64>) {
         }
         if welcome && core.with_value(|c| c.replica.is_ready()) {
             crate::attachments::on_welcome(core, revision);
+        }
+        if reload && let Some(w) = web_sys::window() {
+            let _ = w.location().reload();
         }
         revision.update(|r| *r += 1);
     });
@@ -2292,6 +2346,33 @@ pub fn set_triage_algorithm(id: &str) {
     set_preference(TRIAGE_ALGORITHM_KEY, (!id.is_empty()).then_some(id));
 }
 
+/// The browser's languages, most wanted first.
+pub fn browser_languages() -> Vec<String> {
+    web_sys::window()
+        .map(|w| {
+            w.navigator()
+                .languages()
+                .iter()
+                .filter_map(|l| l.as_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// [impl->dsn~ui-texts~3]
+/// Chooses the person's language (`None`: automatic, the browser's): kept on the device
+/// and told to the server, marked unsent until the server confirms it, so a choice made
+/// offline or lost in the reload is told on the next connection (ADR-0100).
+pub fn set_language(core: Handle, language: Option<&str>) {
+    set_preference(crate::i18n::PREFERENCE, language);
+    set_preference(crate::i18n::UNSENT, Some("1"));
+    core.with_value(|c| {
+        if c.profiles && c.online() {
+            c.send(&ClientMessage::SetLanguage(language.map(str::to_owned)));
+        }
+    });
+}
+
 /// Saves or (with `None`) removes a per-device preference.
 pub fn set_preference(key: &str, value: Option<&str>) {
     if let Some(storage) = storage() {
@@ -2310,6 +2391,10 @@ pub fn forget_device() {
         let _ = storage.remove_item(PAIRING_KEY);
         let _ = storage.remove_item(REPLICA_KEY);
         let _ = storage.remove_item(PENDING_KEY);
+        // [impl->dsn~ui-texts~3]
+        // The next person starts in the browser's language.
+        let _ = storage.remove_item(crate::i18n::PREFERENCE);
+        let _ = storage.remove_item(crate::i18n::UNSENT);
     }
     crate::storage::clear();
     crate::attachments::clear();

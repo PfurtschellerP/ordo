@@ -92,7 +92,7 @@ impl VersionRange {
 /// carried them in plain text, were dropped (ADR-0080).
 pub const SYNC: VersionRange = VersionRange {
     min: Version::new(1, 4),
-    max: Version::new(1, 5),
+    max: Version::new(1, 6),
 };
 
 /// The version of a hello that names none (ADR-0052).
@@ -118,6 +118,10 @@ pub const SYNC_SEALED_KEYS: Version = Version::new(1, 4);
 
 /// Sync protocol 1.5: `documentTicket`, the handover document (ADR-0089).
 pub const SYNC_DOCUMENTS: Version = Version::new(1, 5);
+
+/// Sync protocol 1.6: `getProfile`, `setLanguage` and `profile`, the person's language
+/// (ADR-0100).
+pub const SYNC_PROFILE: Version = Version::new(1, 6);
 
 /// The versions of the client–server HTTP API (login, attachments) this implementation
 /// speaks; a request names its version in the header [`HTTP_HEADER`].

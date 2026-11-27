@@ -29,6 +29,8 @@ client-message = { "hello": hello }
                / { "getAvatars": [* user-id] }
                / { "setAvatar": { ? "image": bstr .size (0..131072) } } ; none: remove
                / { "setName": tstr / null }   ; own display name, null clears it (1.2)
+               / "getProfile"                 ; own profile: the language (1.6)
+               / { "setLanguage": tstr / null } ; own language, null clears it (1.6)
                / "getOrganisationRoles"       ; with manage_roles (1.2)
                / { "setOrganisationRole": organisation-role-change } ; with manage_roles (1.2)
                / "getAccounts"                ; with manage_accounts (1.2)
@@ -81,6 +83,7 @@ server-message = { "challenge": challenge }
                / { "geocoded": geocoded }     ; answer to geocode (1.2)
                / { "guest": guest-pass }      ; answer to createGuest (1.3)
                / { "avatars": [* avatar] }    ; answer to getAvatars and setAvatar
+               / { "profile": profile }       ; answer to getProfile and setLanguage (1.6)
                / { "organisationRoles": [* organisation-role] } ; answer to
                                               ; getOrganisationRoles and setOrganisationRole
                                               ; (1.2); empty without manage_roles
@@ -244,6 +247,11 @@ blob-ticket = {
 
 ; Profile picture, resolved by the server: uploaded in ORDO, else the identity provider's
 ; picture, else Gravatar (ADR-0047). JPEG, PNG or WebP.
+; The user's own profile (1.6, ADR-0100): never sent about anyone else.
+profile = {
+  ? "language": tstr,              ; e.g. "fr"; absent: none chosen
+}
+
 avatar = {
   "user": user-id,
   ? "image": bstr,

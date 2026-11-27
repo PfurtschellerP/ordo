@@ -492,6 +492,15 @@ impl<P: AccessPolicy> Hub<P> {
         self.sessions.get(&session).map(|s| s.user.clone())
     }
 
+    /// The sessions `user` is signed in with.
+    pub fn sessions_of(&self, user: &UserId) -> Vec<SessionId> {
+        self.sessions
+            .iter()
+            .filter(|(_, s)| s.user == *user)
+            .map(|(id, _)| *id)
+            .collect()
+    }
+
     // [impl->dsn~incident-roles~1]
     /// The incidents `user` takes part in; all of them for planners.
     fn incident_list(&self, user: &UserId) -> Vec<IncidentSummary> {
@@ -792,6 +801,8 @@ impl<P: AccessPolicy> Hub<P> {
             ClientMessage::GetAvatars(_)
             | ClientMessage::SetAvatar(_)
             | ClientMessage::SetName(_)
+            | ClientMessage::GetProfile
+            | ClientMessage::SetLanguage(_)
             | ClientMessage::GetOrganisationRoles
             | ClientMessage::SetOrganisationRole(_)
             | ClientMessage::GetAccounts

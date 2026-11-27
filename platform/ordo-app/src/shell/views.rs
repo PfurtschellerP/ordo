@@ -880,7 +880,7 @@ fn Workspace(
     // Kept locally (the callbacks are not `Send`), so the profile menu can hold them.
     let on_unpair = StoredValue::new_local(on_unpair);
     let on_change_incident = StoredValue::new_local(on_change_incident);
-    let unpair = move |_| {
+    let unpair = move |_: ()| {
         let device = core.with_value(|c| c.replica.device());
         core::revoke_device(core, device);
         core::forget_device();
@@ -941,24 +941,19 @@ fn Workspace(
         RwSignal::new(core::preference(crate::shell::keys::KEYMAP_KEY).unwrap_or_default());
     let close_profile = Callback::new(move |()| profile_open.set(false));
     // The person's roles in this incident, shown in the profile menu.
-    let my_roles = {
-        let me = me.clone();
-        move || {
-            revision.track();
-            core.with_value(|c| c.incident_info().and_then(|i| i.roster.get(&me).cloned()))
-                .filter(|roles| !roles.is_empty())
-                .map_or_else(
-                    || text::no_role().to_owned(),
-                    |roles| {
-                        roles
-                            .iter()
-                            .map(|r| text::role_label(r))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    },
-                )
-        }
+    let my_roles = move || {
+        revision.track();
+        my_roles(core)
     };
+    // [impl->dsn~profile-page~1]
+    // The device's settings, for the menu and the profile page (ADR-0100).
+    provide_context(Settings {
+        theme,
+        hand,
+        keymap,
+        key_help,
+        sign_out: Callback::new(move |()| unpair(())),
+    });
 
     view! {
         <a class="skip-link" href="#main" on:click=move |ev| {
@@ -1016,21 +1011,17 @@ fn Workspace(
                         }
                     }}</strong> " (" {user.clone()} ")"</p>
                     <p id="my-roles">{text::my_roles()} ": " {my_roles}</p>
-                    <crate::shell::profile::ProfilePicture core revision />
-                    <crate::shell::profile::DisplayName core revision />
-                    <SettingSelect id="theme" label=text::appearance() options=&*text::THEMES value=theme apply=apply_theme />
-                    <SettingSelect id="hand" label=text::hand() options=&*text::HANDS value=hand apply=apply_hand />
-                    <SettingSelect id="keymap" label=text::keymap() options=&*text::KEYMAPS value=keymap apply=apply_keymap />
-                    <LanguageSelect core />
-                    <button id="keys-button" type="button" class="button button--with-icon" aria-haspopup="dialog"
-                        on:click=move |_| { profile_open.set(false); key_help.set(true); }>
-                        <Icon name="keyboard" />{text::keys_title()}
-                    </button>
+                    // [impl->dsn~profile-page~1]
+                    // Short (ADR-0100): the appearance one tap away at dusk, the rest on the
+                    // profile page.
+                    <AppearanceChips theme />
+                    <a id="profile-settings" class="button" href=nav::Route::view("person.devices", "profile").to_path()
+                        on:click=move |ev| { profile_open.set(false); follow(nav, nav::Route::view("person.devices", "profile"))(ev) }>{text::profile_settings()}</a>
                     <a id="my-devices" class="button" href=nav::Route::view("person.devices", "devices").to_path()
-                        on:click=follow(nav, nav::Route::view("person.devices", "devices"))>{text::my_devices()}</a>
+                        on:click=move |ev| { profile_open.set(false); follow(nav, nav::Route::view("person.devices", "devices"))(ev) }>{text::my_devices()}</a>
                     <button id="change-incident" type="button" class="button"
                         on:click=move |_| on_change_incident.with_value(|f| f())>{text::change_incident()}</button>
-                    <button type="button" class="button" on:click=unpair>{text::unpair()}</button>
+                    <button id="sign-out" type="button" class="button" on:click=move |_| unpair(())>{text::unpair()}</button>
                 </Disclosure>
             </div>
         </header>
@@ -1284,12 +1275,12 @@ pub(crate) fn click(id: &str) {
 
 /// Connection and outbox state, as text (OFF-5).
 // [impl->dsn~compact-navigation~2]
-// [impl->dsn~ui-texts~2]
-/// The device's language (I18N-1): "Automatisch" follows the browser; a shared tablet keeps
-/// the language chosen here. Each language is named in itself. The page reloads to show it,
-/// unless entries could not be stored: then it applies at the next start.
+// [impl->dsn~ui-texts~3]
+/// The person's language (I18N-1, ADR-0100): "Automatisch" follows the browser; a choice
+/// follows the person to every device. Each language is named in itself. The page reloads
+/// to show it, unless entries could not be stored: then it applies at the next start.
 #[component]
-fn LanguageSelect(core: Handle) -> impl IntoView {
+pub(crate) fn LanguageSelect(core: Handle) -> impl IntoView {
     let value = RwSignal::new(core::preference(crate::i18n::PREFERENCE).unwrap_or_default());
     let later = RwSignal::new(false);
     let options: Vec<(&'static str, String)> =
@@ -1306,10 +1297,7 @@ fn LanguageSelect(core: Handle) -> impl IntoView {
             .collect();
     let change = move |ev: leptos::ev::Event| {
         let chosen = event_target_value(&ev);
-        core::set_preference(
-            crate::i18n::PREFERENCE,
-            (!chosen.is_empty()).then_some(chosen.as_str()),
-        );
+        core::set_language(core, (!chosen.is_empty()).then_some(chosen.as_str()));
         value.set(chosen);
         if core.with_value(|c| c.storage_failed) {
             later.set(true);
@@ -1318,15 +1306,159 @@ fn LanguageSelect(core: Handle) -> impl IntoView {
         }
     };
     view! {
-        <label for="language">{text::language()}</label>
-        <select id="language" prop:value=move || value.get() on:change=change>
+        <div class="field">
+            <label for="language">{text::language()}</label>
+            <select id="language" aria-describedby="language-hint" prop:value=move || value.get() on:change=change>
+                {options
+                    .into_iter()
+                    .map(|(v, name)| view! { <option value=v lang=(!v.is_empty()).then_some(v)>{name}</option> })
+                    .collect_view()}
+            </select>
+            <span id="language-hint" class="hint">{text::language_person_hint()}</span>
+            <p class="hint" role="status">{move || later.get().then(text::language_after_reload)}</p>
+        </div>
+    }
+}
+
+// [impl->dsn~profile-page~1]
+/// The device's settings and actions, for the person's menu and the profile page (a
+/// Leptos context provided by the workspace).
+#[derive(Clone, Copy)]
+pub(crate) struct Settings {
+    pub theme: RwSignal<String>,
+    pub hand: RwSignal<String>,
+    pub keymap: RwSignal<String>,
+    /// Opens the list of keyboard shortcuts.
+    pub key_help: RwSignal<bool>,
+    /// Signs out: forgets the device here and on the server.
+    pub sign_out: Callback<()>,
+}
+
+/// The person's roles in this incident, in words, or that they have none.
+pub(crate) fn my_roles(core: Handle) -> String {
+    let me = core.with_value(|c| c.replica.user().clone());
+    core.with_value(|c| c.incident_info().and_then(|i| i.roster.get(&me).cloned()))
+        .filter(|roles| !roles.is_empty())
+        .map_or_else(
+            || text::no_role().to_owned(),
+            |roles| {
+                roles
+                    .iter()
+                    .map(|r| text::role_label(r))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
+        )
+}
+
+// [impl->dsn~profile-page~1]
+/// The appearance as radio chips in the person's menu: Auto follows the device's light or
+/// dark setting, Tag and Nacht fix it (ADR-0100). High contrast is on the profile page.
+#[component]
+fn AppearanceChips(theme: RwSignal<String>) -> impl IntoView {
+    let options = text::THEMES[..3].to_vec();
+    view! {
+        <fieldset class="choices appearance-chips">
+            <legend>{text::appearance()}</legend>
             {options
                 .into_iter()
-                .map(|(v, name)| view! { <option value=v lang=(!v.is_empty()).then_some(v)>{name}</option> })
+                .map(|(id, label)| {
+                    view! {
+                        <label class="choice chip">
+                            <input type="radio" name="appearance" prop:checked=move || theme.get() == id
+                                on:change=move |_| {
+                                    apply_theme(id);
+                                    theme.set(id.to_owned());
+                                } />
+                            {label}
+                        </label>
+                    }
+                })
                 .collect_view()}
-        </select>
-        <p class="hint" role="status">{move || later.get().then(text::language_after_reload)}</p>
+        </fieldset>
     }
+}
+
+// [impl->dsn~profile-page~1]
+/// *Profil – Ich*: what follows the person to all their devices.
+#[component]
+pub(crate) fn ProfileMe(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let user = core.with_value(|c| c.replica.user().clone());
+    let roles = move || {
+        revision.track();
+        my_roles(core)
+    };
+    view! {
+        <section class="card profile-part" aria-labelledby="profile-me-title">
+            <h2 id="profile-me-title">{text::profile_me()}</h2>
+            <p class="hint">{text::profile_me_hint()}</p>
+            <p class="launcher__user">{text::signed_in_as()} " " <strong>{{
+                let user = user.clone();
+                move || {
+                    revision.track();
+                    crate::shell::profile::display_name(core, &user)
+                }
+            }}</strong> " (" {user.to_string()} ")"</p>
+            <crate::shell::profile::ProfilePicture core revision />
+            <crate::shell::profile::DisplayName core revision />
+            <LanguageSelect core />
+            <p id="profile-roles">{text::my_roles()} ": " {roles}</p>
+        </section>
+    }
+}
+
+// [impl->dsn~profile-page~1]
+/// *Profil – Dieses Gerät*: what applies to everyone using this device, kept on it.
+#[component]
+pub(crate) fn ProfileDevice() -> impl IntoView {
+    let Some(settings) = use_context::<Settings>() else {
+        return ().into_any();
+    };
+    let Settings {
+        theme,
+        hand,
+        keymap,
+        key_help,
+        sign_out,
+    } = settings;
+    view! {
+        <section class="card profile-part" aria-labelledby="profile-device-title">
+            <h2 id="profile-device-title">{text::profile_device()}</h2>
+            <p class="hint">{text::profile_device_hint()}</p>
+            <div class="field">
+                <SettingSelect id="theme" label=text::appearance() options=&*text::THEMES value=theme apply=apply_theme />
+            </div>
+            <div class="field">
+                <SettingSelect id="hand" label=text::hand() options=&*text::HANDS value=hand apply=apply_hand />
+            </div>
+            <fieldset class="field profile-part__group">
+                <legend>{text::keymap()}</legend>
+                <label class="choice">
+                    <input id="keymap-vim" type="checkbox" aria-describedby="keymap-vim-hint"
+                        prop:checked=move || keymap.get() == "vim"
+                        on:change=move |ev| {
+                            let chosen = if event_target_checked(&ev) { "vim" } else { "" };
+                            apply_keymap(chosen);
+                            keymap.set(chosen.to_owned());
+                        } />
+                    {text::keymap_vim_use()}
+                </label>
+                <span id="keymap-vim-hint" class="hint">{text::keymap_vim_hint()}</span>
+            </fieldset>
+            <div class="row">
+                <button id="keys-button" type="button" class="button button--with-icon" aria-haspopup="dialog"
+                    on:click=move |_| key_help.set(true)>
+                    <Icon name="keyboard" />{text::keys_title()}
+                </button>
+            </div>
+            <div class="profile-part__sign-out">
+                <button id="profile-sign-out" type="button" class="button" aria-describedby="sign-out-hint"
+                    on:click=move |_| sign_out.run(())>{text::unpair()}</button>
+                <span id="sign-out-hint" class="hint">{text::sign_out_hint()}</span>
+            </div>
+        </section>
+    }
+    .into_any()
 }
 
 #[component]

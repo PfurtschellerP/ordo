@@ -17,10 +17,10 @@ fn main() {
     leptos::mount::mount_to_body(shell::views::App);
 }
 
-// [impl->dsn~ui-texts~2]
-/// The texts' language: the one chosen on this device, else the first of the browser's
-/// languages ORDO has texts for, else German (ADR-0096); the page's `lang` follows, for
-/// screen readers and hyphenation.
+// [impl->dsn~ui-texts~3]
+/// The texts' language: the person's, as the device keeps it, else the first of the
+/// browser's languages ORDO has texts for, else German (ADR-0096, ADR-0100); the page's
+/// `lang` follows, for screen readers and hyphenation.
 fn choose_language() {
     let Some(window) = web_sys::window() else {
         return;

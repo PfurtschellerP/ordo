@@ -164,3 +164,7 @@ provider-test-passed-email = The test sign-in worked. ORDO would recognise it as
 provider-not-found = This provider no longer exists, or it can only be changed in the configuration.
 provider-not-tested = Please test successfully first; the test sign-in is valid for 10 minutes.
 provider-refused = The sign-in service refused the change. Is its interface for providers enabled (DEX_API_CONNECTORS_CRUD)?
+
+## The person's own pages (ADR-0100).
+ws-person = Profile and devices
+profile-view = Profile

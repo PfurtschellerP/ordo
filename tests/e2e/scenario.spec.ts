@@ -37,6 +37,7 @@ import {
   recordFrames,
   storedItem,
   title,
+  openProfile,
 } from "./support/app";
 import { DEX_URL, ORDO_PORT, startDex, UPSTREAM } from "./support/dex";
 import { PLACE, startGeocoder } from "./support/geocoder";
@@ -545,9 +546,6 @@ test("ORDO in the browser", async ({ browser }) => {
       return canvas.toDataURL("image/png").split(",")[1];
     });
     await anna.locator("#photo-upload").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
-    // Anna's own profile picture (ADR-0047): set in the menu, shown in her header.
-    await anna.locator("#avatar-upload").setInputFiles({ name: "me.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
-    await expect(anna.locator("#profile-button img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
     const photo = anna.locator("img.photo");
     await expect(photo, "a photo for identification is shown in the record").toBeVisible({ timeout: 20_000 });
     await expect(photo, "the taking device shows the full photo at once").toHaveAttribute("data-photo", "full");
@@ -817,12 +815,18 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.type("jk");
     await expect(anna.locator("#tag"), "in a text field j and k are typed").toHaveValue("jk");
     await anna.locator("#tag").fill("");
+    // Anna's own profile picture (ADR-0047): set on her profile page, shown in her header.
+    await openProfile(anna);
+    await anna.locator("#avatar-upload").setInputFiles({ name: "me.jpg", mimeType: "image/jpeg", buffer: patientPhoto });
+    await expect(anna.locator("#profile-button img.avatar"), "the own picture appears in the header").toBeVisible({ timeout: 20_000 });
+    await anna.goBack();
 
     // [itest->dsn~vim-keys~3]
-    // UX-15 (ADR-0090): vim keys for the whole app, turned on in the menu on this device.
-    await anna.locator("#profile-button").click();
-    await anna.locator("#keymap").selectOption({ label: "Vim-Tasten" });
-    await anna.keyboard.press("Escape");
+    // UX-15 (ADR-0090): vim keys for the whole app, turned on for this device on the
+    // profile page (ADR-0100).
+    await openProfile(anna, "Dieses Gerät");
+    await anna.getByLabel("Vim-Tasten verwenden").check();
+    await anna.goBack();
     await patientsPart(anna, "list");
     await anna.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     const cards = anna.locator("#main [data-keys=list] .patient-card");
@@ -879,9 +883,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.locator("#tag").focus();
     await anna.keyboard.press("Escape");
     await expect(anna.locator("#tag"), "Esc leaves a text field").not.toBeFocused();
-    await anna.locator("#profile-button").click();
-    await anna.locator("#keymap").selectOption({ label: "Standard" });
-    await anna.keyboard.press("Escape");
+    await openProfile(anna, "Dieses Gerät");
+    await anna.getByLabel("Vim-Tasten verwenden").uncheck();
+    await anna.goBack();
   });
 
   await test.step("input survives being offline and a reload", async () => {
@@ -1052,16 +1056,16 @@ test("ORDO in the browser", async ({ browser }) => {
       return [connection.top < person.bottom && connection.bottom > person.top, search.top >= person.bottom];
     });
     expect(headerRows, "heading, connection and person in one row, the search below").toEqual([true, true]);
-    await anna.locator("#profile-button").click();
+    await openProfile(anna, "Dieses Gerät");
     await anna.locator("#hand").selectOption({ label: "linker Hand" });
     await expect(anna.locator("html"), "left-handed use is kept on the device").toHaveAttribute("data-hand", "left");
-    await anna.keyboard.press("Escape");
-    await expect(anna.locator("#profile-panel")).toBeHidden();
+    await audit(anna, "Profile page (phone)");
+    await anna.goBack();
     expect(await menuAtEnd(), "left-handed: the menu at the left end").toEqual([false, true]);
     await shot(anna, "med-phone-left", false);
-    await anna.locator("#profile-button").click();
+    await openProfile(anna, "Dieses Gerät");
     await anna.locator("#hand").selectOption({ label: "rechter Hand" });
-    await anna.keyboard.press("Escape");
+    await anna.goBack();
     expect(await menuAtEnd()).toEqual([true, false]);
     await anna.evaluate(() => window.scrollTo(0, 0));
     // Feedback of 2026-11-22: a label on two lines ("Behandlungsplätze") keeps the bar even.
@@ -1212,16 +1216,18 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-panel"), "a click inside keeps it open").toBeVisible();
     await ben.locator("#profile-button").click();
     await ben.locator("#profile-button").click();
-    await expect(ben.locator("#profile-panel"), "the person's menu holds their settings").toContainText("Angemeldet als Ben Weber (ben@localhost)");
-    // ORG-7: a person may choose their own name; clearing it returns to the provider's.
-    await expect(ben.locator("#display-name")).toHaveValue("Ben Weber");
-    await ben.locator("#display-name").fill("Ben W.");
-    await ben.getByRole("button", { name: "Namen speichern" }).click();
-    await expect(ben.locator(".profile-menu__name"), "shown at once").toHaveText("Ben W.");
-    await ben.getByRole("button", { name: "Namen aus der Anmeldung verwenden" }).click();
-    await expect(ben.locator(".profile-menu__name"), "the provider's name again").toHaveText("Ben Weber");
-    await expect(ben.locator("#profile-panel #theme")).toBeVisible();
+    const panel = ben.locator("#profile-panel");
+    await expect(panel, "the person's menu says who is signed in").toContainText("Angemeldet als Ben Weber (ben@localhost)");
     await expect(ben.locator("#my-roles"), "the roles show only in the profile menu").toHaveText("Rollen: Einsatzleitung");
+    // [itest->dsn~profile-page~1]
+    // ADR-0100: the menu is short: the appearance one tap away, the rest on the profile page.
+    await expect(panel.locator("#display-name, #hand, #language"), "no settings beyond the appearance").toHaveCount(0);
+    await panel.getByRole("radio", { name: "Nacht" }).check();
+    await expect(ben.locator("html"), "night at once").toHaveAttribute("data-theme", "night");
+    await panel.getByRole("radio", { name: "Automatisch" }).check();
+    await expect(ben.locator("html"), "Auto follows the device's setting").not.toHaveAttribute("data-theme", /./);
+    await expect(panel.getByRole("link"), "and the ways on").toHaveText(["Profil und Einstellungen", "Meine Geräte"]);
+    await expect(panel.getByRole("button", { name: "Abmelden" })).toBeVisible();
     // [itest->dsn~compact-navigation~2]
     await expect(ben.locator(".views__item .icon svg"), "every view has an icon in the rail").toHaveCount(4);
     const connection = ben.locator(".connection");
@@ -1241,6 +1247,33 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#profile-panel")).toBeHidden();
     await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
+    // The profile page: the person's settings apart from the device's, each saying so.
+    await openProfile(ben);
+    await expect(ben.getByRole("heading", { level: 1 })).toHaveText("Person – Profil und Geräte");
+    await expect(ben.locator(".profile-part h2"), "side by side where wide").toHaveText(["Ich", "Dieses Gerät"]);
+    await expect(ben.locator(".profile-part .hint").first()).toHaveText("Gilt auf allen Ihren Geräten.");
+    // ORG-7: a person may choose their own name; clearing it returns to the provider's.
+    await expect(ben.locator("#display-name")).toHaveValue("Ben Weber");
+    await ben.locator("#display-name").fill("Ben W.");
+    await ben.getByRole("button", { name: "Namen speichern" }).click();
+    await expect(ben.locator(".profile-menu__name"), "shown at once").toHaveText("Ben W.");
+    await ben.getByRole("button", { name: "Namen aus der Anmeldung verwenden" }).click();
+    await expect(ben.locator(".profile-menu__name"), "the provider's name again").toHaveText("Ben Weber");
+    await expect(ben.locator("#profile-roles")).toHaveText("Rollen: Einsatzleitung");
+    await expect(ben.locator("#theme"), "high contrast is here").toContainText("Hoher Kontrast");
+    await expect(ben.locator("#sign-out-hint"), "signing out says what follows").toHaveText(
+      "Danach muss dieses Gerät neu gekoppelt werden; eine andere Person kann sich dann anmelden.",
+    );
+    await audit(ben, "Profile page");
+    // [itest->dsn~ui-texts~3]
+    // I18N-1: the language follows the person; the page shows it at once.
+    await ben.locator("#language").selectOption("en");
+    await expect(ben.locator("#profile-me-title"), "English after the reload").toHaveText("Me");
+    await expect(ben.locator("html")).toHaveAttribute("lang", "en");
+    await expect.poll(() => ben.evaluate(() => localStorage.getItem("ordo.language-unsent")), { message: "told to the server" }).toBeNull();
+    await ben.locator("#language").selectOption("");
+    await expect(ben.locator("#profile-me-title"), "back to the browser's language").toHaveText("Ich");
+    await openWorkspace(ben, "Führung");
 
     // The overview counts the patients; the situation map shows them per UHS.
     // [itest->dsn~command-treatment-places~2]

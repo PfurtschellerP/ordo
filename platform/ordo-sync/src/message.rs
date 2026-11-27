@@ -53,6 +53,11 @@ pub enum ClientMessage {
     SetAvatar(AvatarImage),
     /// Sets (or, with `None`, clears) the user's own display name (ORG-7); protocol 1.2.
     SetName(Option<String>),
+    /// Asks for the user's own profile: their language (ADR-0100); protocol 1.6.
+    GetProfile,
+    /// Sets (or, with `None`, clears) the user's own language, e.g. `"fr"` (I18N-1,
+    /// ADR-0100); protocol 1.6.
+    SetLanguage(Option<String>),
     /// Asks for the organisation roles (ORG-9; permission `manage_roles`); protocol 1.2.
     GetOrganisationRoles,
     /// Grants or withdraws an organisation role (permission `manage_roles`); protocol 1.2.
@@ -351,6 +356,31 @@ pub struct Avatar {
     /// Their display name (ORG-7), if known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+}
+
+// [impl->dsn~ui-texts~3]
+/// The user's own profile (ADR-0100): what follows them to every device. Never sent about
+/// anyone else.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Profile {
+    /// The language they chose for ORDO's interface, e.g. `"fr"`; none: not chosen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+}
+
+/// Whether `tag` is a language tag the server keeps: two or three lower-case letters,
+/// optionally `-` and a region of two letters or three digits (e.g. `es-419`).
+pub fn is_language_tag(tag: &str) -> bool {
+    let (language, region) = match tag.split_once('-') {
+        Some((l, r)) => (l, Some(r)),
+        None => (tag, None),
+    };
+    (2..=3).contains(&language.len())
+        && language.bytes().all(|b| b.is_ascii_lowercase())
+        && region.is_none_or(|r| {
+            (r.len() == 2 && r.bytes().all(|b| b.is_ascii_uppercase()))
+                || (r.len() == 3 && r.bytes().all(|b| b.is_ascii_digit()))
+        })
 }
 
 /// Whether `bytes` is a JPEG, PNG or WebP image of acceptable size.
@@ -738,6 +768,9 @@ pub enum ServerMessage {
     Guest(GuestPass),
     /// Profile pictures (answer to `getAvatars` and `setAvatar`).
     Avatars(Vec<Avatar>),
+    /// The user's own profile (answer to `getProfile` and `setLanguage`, also sent to their
+    /// other connections when it changes; protocol 1.6).
+    Profile(Profile),
     /// The organisation roles (answer to `getOrganisationRoles` and `setOrganisationRole`,
     /// protocol 1.2): empty without permission `manage_roles`.
     OrganisationRoles(Vec<OrganisationRole>),
@@ -933,6 +966,44 @@ mod tests {
             decode::<ClientMessage>(&encode(&set).unwrap()).unwrap(),
             set
         );
+    }
+
+    // [utest->dsn~ui-texts~3]
+    #[test]
+    fn profile_messages_round_trip_and_only_language_tags_are_kept() {
+        for message in [
+            ClientMessage::GetProfile,
+            ClientMessage::SetLanguage(Some("fr".into())),
+            ClientMessage::SetLanguage(None),
+        ] {
+            assert_eq!(
+                decode::<ClientMessage>(&encode(&message).unwrap()).unwrap(),
+                message
+            );
+        }
+        let mut expected = vec![0x6a];
+        expected.extend_from_slice(b"getProfile");
+        assert_eq!(encode(&ClientMessage::GetProfile).unwrap(), expected);
+        let profile = ServerMessage::Profile(Profile {
+            language: Some("es".into()),
+        });
+        assert_eq!(
+            decode::<ServerMessage>(&encode(&profile).unwrap()).unwrap(),
+            profile
+        );
+        assert!(
+            !encode(&Profile::default())
+                .unwrap()
+                .windows(8)
+                .any(|w| w == b"language"),
+            "no language: none sent"
+        );
+        for tag in ["de", "fr", "es-419", "pt-BR", "ast"] {
+            assert!(is_language_tag(tag), "{tag}");
+        }
+        for tag in ["", "d", "DE", "deutsch", "de-", "de-de", "de-1234", "<b>"] {
+            assert!(!is_language_tag(tag), "{tag}");
+        }
     }
 
     // [utest->dsn~address-search~1]

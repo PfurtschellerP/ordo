@@ -413,23 +413,33 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        profile stay German. French and Spanish followed the same day (product owner:
        "at least a big part of the West covered"), and the language can be chosen per
        device in the menu, for shared tablets. Next: labels from the profile in the
-       person's language (hospital departments, services, qualifications), then the
-       profile page (concept of 2026-11-27).
-   10. *Lage* (m74). Done 2026-11-27: *Führung – Lagekarte* became *Lage*, the map beside
-       the units or the treatment places where the page is wide, tabs where narrow
-       ([ADR-0099](adr/0099-units-and-treatment-places-in-lage.md)). The units by group
-       (einsatzbereit, im Auftrag, Transport, nicht einsatzbereit; the group of each
-       status code from the profile) with status since when, Auftrag or transport,
-       strength and qualifications (UNIT-10); the UHS with their free places of all, those
-       waiting for a transport, staff by qualification, open requests and discharged
-       patients (UHS-16), replacing *Patienten je UHS*; an overview tile *Einsatzmittel*.
-       Next: "entlassen, davon transportiert" needs the counts by outcome (a new version of
-       the counts event).
+       person's language (hospital departments, services, qualifications).
+    10. *Lage* (m74). Done 2026-11-27: *Führung – Lagekarte* became *Lage*, the map beside
+        the units or the treatment places where the page is wide, tabs where narrow
+        ([ADR-0099](adr/0099-units-and-treatment-places-in-lage.md)). The units by group
+        (einsatzbereit, im Auftrag, Transport, nicht einsatzbereit; the group of each
+        status code from the profile) with status since when, Auftrag or transport,
+        strength and qualifications (UNIT-10); the UHS with their free places of all, those
+        waiting for a transport, staff by qualification, open requests and discharged
+        patients (UHS-16), replacing *Patienten je UHS*; an overview tile *Einsatzmittel*.
+        Next: "entlassen, davon transportiert" needs the counts by outcome (a new version of
+        the counts event).
+    11. *Profile page* (m75). Done 2026-11-27: *Person – Profil* holds the person's
+        settings (picture, name, language, roles) apart from the device's (appearance with
+        high contrast, hand, vim keys as a check box, the shortcut list, the triage aid,
+        signing out); the menu keeps who is signed in, the roles, the appearance as *Auto ·
+        Tag · Nacht* and the ways on. *Abmelden* replaces *Gerät entkoppeln*. The language
+        follows the person: the server keeps it with the name (protocol 1.6), the device a
+        copy for offline starts ([ADR-0100](adr/0100-profile-page-and-language-per-person.md)).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.
 Backlog (product owner, 2026-11-22): revisit the name *Führung & Raum*; the phone's bottom
 bar shows "Struktur" until then, since the name takes two lines there.
+Backlog (product owner, 2026-11-27): review the open Dependabot pull requests (five since
+2026-11-21: the cargo group, the storage worker's group, Playwright 1.65.1, the Caddy
+image, Rust 1.100 in the container) and merge or close each, with the dependency analysis
+in [dependencies.md](dependencies.md).
 
 Blocked or later: units and status from Rescuetrack and BOS digital radio (vendor interfaces, see below).
 

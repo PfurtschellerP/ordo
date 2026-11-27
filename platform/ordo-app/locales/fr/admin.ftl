@@ -164,3 +164,7 @@ provider-test-passed-email = La connexion de test a réussi. ORDO la reconnaîtr
 provider-not-found = Ce fournisseur n'existe plus, ou il ne peut être modifié que dans la configuration.
 provider-not-tested = Veuillez d'abord tester avec succès ; la connexion de test est valable 10 minutes.
 provider-refused = Le service de connexion a refusé la modification. Son interface pour les fournisseurs est-elle activée (DEX_API_CONNECTORS_CRUD) ?
+
+## The person's own pages (ADR-0100).
+ws-person = Profil et appareils
+profile-view = Profil

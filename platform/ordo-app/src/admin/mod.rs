@@ -81,20 +81,42 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
         )],
         hidden: false,
     },
-    // The person's own devices, for everyone (SEC-4): opened from the person's menu.
+    // The person's profile and own devices, for everyone (SEC-4, ADR-0100): opened from
+    // the person's menu. The ID stays for the old links to the devices.
     nav::Workspace {
         id: "person.devices",
         package: || crate::admin::text::tab_person(),
-        label: crate::admin::text::my_devices,
+        label: crate::admin::text::ws_person,
         requires: &[],
         permission: None,
         or_organisation: &[],
-        views: &[nav::view(
-            "devices",
-            crate::admin::text::my_devices,
-            "my devices",
-            "tablet-smartphone",
-        )],
+        views: &[
+            // [impl->dsn~profile-page~1]
+            // [impl->dsn~page-tabs~5]
+            // The person's and the device's settings, side by side where both fit.
+            nav::View {
+                tabs: &[
+                    nav::tab("me", crate::text::profile_me, 0),
+                    nav::PageTab {
+                        column: crate::shell::ui::Column::End,
+                        ..nav::tab("device", crate::text::profile_device, 20)
+                    },
+                ],
+                columns: crate::shell::ui::TabsMode::ColumnsFrom60,
+                ..nav::view(
+                    "profile",
+                    crate::admin::text::profile_view,
+                    "profile settings language appearance theme hand keyboard vim sign out",
+                    "id-card",
+                )
+            },
+            nav::view(
+                "devices",
+                crate::admin::text::my_devices,
+                "my devices",
+                "tablet-smartphone",
+            ),
+        ],
         hidden: true,
     },
 ];
@@ -136,6 +158,17 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         }
         ("admin.access", _) => one(view! { <accounts::AccountsView core revision /> }.into_any()),
         ("admin.info", _) => one(view! { <notices::InfoView /> }.into_any()),
+        // [impl->dsn~profile-page~1]
+        ("person.devices", "profile") => vec![
+            (
+                0,
+                view! { <crate::shell::views::ProfileMe core revision /> }.into_any(),
+            ),
+            (
+                20,
+                view! { <crate::shell::views::ProfileDevice /> }.into_any(),
+            ),
+        ],
         ("person.devices", _) => {
             one(view! { <devices::DevicesView core revision mine_only=true /> }.into_any())
         }

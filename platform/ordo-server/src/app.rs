@@ -475,6 +475,9 @@ impl App {
         {
             return self.avatars(session, message).await;
         }
+        if let ClientMessage::GetProfile | ClientMessage::SetLanguage(_) = &message {
+            return self.profile(session, message).await;
+        }
         if let ClientMessage::BlobTicket(request) = message {
             return self.blob_ticket(session, request).await;
         }
@@ -1213,6 +1216,35 @@ impl App {
             .get(&session)
         {
             let _ = sender.send(ServerMessage::Avatars(avatars));
+        }
+        Ok(())
+    }
+
+    // [impl->dsn~ui-texts~3]
+    /// The user's own profile (ADR-0100): asked for, or their language set. A set language
+    /// goes to all their connections, so their other devices follow; nobody else is told.
+    async fn profile(&self, session: SessionId, message: ClientMessage) -> Result<(), StoreError> {
+        let Some(user) = self.hub.lock().await.session_user(session) else {
+            return Ok(()); // not authenticated: nothing
+        };
+        let mut to = vec![session];
+        // Anything but a language tag (or none) is refused: the language stays.
+        if let ClientMessage::SetLanguage(language) = message
+            && language
+                .as_deref()
+                .is_none_or(ordo_sync::message::is_language_tag)
+        {
+            self.store.set_language(&user, language.as_deref()).await?;
+            to = self.hub.lock().await.sessions_of(&user);
+        }
+        let profile = ServerMessage::Profile(ordo_sync::message::Profile {
+            language: self.store.language(&user).await?,
+        });
+        let sessions = self.sessions.lock().expect("session registry lock");
+        for session in to {
+            if let Some(sender) = sessions.get(&session) {
+                let _ = sender.send(profile.clone());
+            }
         }
         Ok(())
     }

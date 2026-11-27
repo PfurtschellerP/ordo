@@ -1486,7 +1486,7 @@ fn StaySection(
 /// and the *Sichtungshilfe*: the profile's algorithms with their sources (ADR-0045). The
 /// category is always the person's choice; nothing here proposes or checks one.
 #[component]
-fn TriageAid(id: &'static str) -> impl IntoView {
+pub(crate) fn TriageAid(id: &'static str) -> impl IntoView {
     if TRIAGE.algorithms.is_empty() {
         return ().into_any();
     }

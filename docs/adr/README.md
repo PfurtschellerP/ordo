@@ -104,5 +104,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0097](0097-command-and-space-in-tabs-when-narrow.md) | Führung & Raum in tabs where the page is narrow | accepted | 2026-11-22 |
 | [0098](0098-transports-follow-the-unit-status.md) | Transports follow the unit's status, and the destination may come later | accepted | 2026-11-22 |
 | [0099](0099-units-and-treatment-places-in-lage.md) | Units and treatment places in *Führung – Lage* | accepted | 2026-11-27 |
+| [0100](0100-profile-page-and-language-per-person.md) | A profile page, and the language per person | accepted | 2026-11-27 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

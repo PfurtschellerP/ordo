@@ -21,7 +21,7 @@ pair-device = Geräte-ID
 pair-key = Privater Schlüssel des Geräts
 pair-incident = Einsatz-ID
 pair-submit = Koppeln
-unpair = Gerät entkoppeln
+unpair = Abmelden
 signed-in-as = Angemeldet als
 avatar-change = Profilbild ändern
 avatar-remove = Profilbild entfernen
@@ -258,8 +258,6 @@ theme-night = Nacht
 theme-high-contrast = Hoher Kontrast
 hand-right = rechter Hand
 hand-left = linker Hand
-keymap-standard = Standard
-keymap-vim = Vim-Tasten
 
 ## Roles offered when granting (prototype; later from the profile)
 role-commander = Einsatzleitung
@@ -320,3 +318,14 @@ language-name = Deutsch
 language = Sprache
 language-auto = Automatisch (wie der Browser)
 language-after-reload = Die Sprache gilt nach dem nächsten Neuladen. Bitte erst neu laden, wenn alles gesendet ist.
+
+## The profile page (ADR-0100): the person's settings apart from the device's.
+profile-settings = Profil und Einstellungen
+profile-me = Ich
+profile-me-hint = Gilt auf allen Ihren Geräten.
+profile-device = Dieses Gerät
+profile-device-hint = Gilt für alle, die dieses Gerät nutzen.
+keymap-vim-use = Vim-Tasten verwenden
+keymap-vim-hint = Die üblichen Tastenkürzel gelten immer; Vim-Tasten kommen dazu.
+sign-out-hint = Danach muss dieses Gerät neu gekoppelt werden; eine andere Person kann sich dann anmelden.
+language-person-hint = Folgt Ihnen auf jedes Gerät, auf dem Sie angemeldet sind.

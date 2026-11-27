@@ -21,7 +21,7 @@ pair-device = Device ID
 pair-key = Device's private key
 pair-incident = Incident ID
 pair-submit = Pair
-unpair = Unpair device
+unpair = Sign out
 signed-in-as = Signed in as
 avatar-change = Change profile picture
 avatar-remove = Remove profile picture
@@ -258,8 +258,6 @@ theme-night = Night
 theme-high-contrast = High contrast
 hand-right = right hand
 hand-left = left hand
-keymap-standard = Standard
-keymap-vim = Vim keys
 
 ## Roles offered when granting (prototype; later from the profile)
 role-commander = Incident command
@@ -321,3 +319,14 @@ language-name = English
 language = Language
 language-auto = Automatic (as the browser)
 language-after-reload = The language applies after the next reload. Please reload only once everything is sent.
+
+## The profile page (ADR-0100): the person's settings apart from the device's.
+profile-settings = Profile and settings
+profile-me = Me
+profile-me-hint = Applies on all your devices.
+profile-device = This device
+profile-device-hint = Applies to everyone using this device.
+keymap-vim-use = Use Vim keys
+keymap-vim-hint = The usual shortcuts always work; Vim keys come on top.
+sign-out-hint = This device then has to be paired again; someone else can then sign in.
+language-person-hint = Follows you to every device you are signed in on.

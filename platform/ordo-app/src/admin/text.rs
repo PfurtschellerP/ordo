@@ -5,7 +5,7 @@
 
 pub use crate::shared::text::*;
 
-// [impl->dsn~ui-texts~2]
+// [impl->dsn~ui-texts~3]
 include!(concat!(env!("OUT_DIR"), "/text_admin.rs"));
 
 pub fn revoke_question(short: &str, own: bool) -> String {
@@ -73,7 +73,7 @@ pub fn account_error(error: ordo_sync::message::AccountError) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn texts_by_hand_read_as_before() {
         use super::*;

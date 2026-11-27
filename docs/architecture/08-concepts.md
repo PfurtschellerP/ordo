@@ -715,8 +715,8 @@ configured ([ADR-0060](../adr/0060-local-accounts-managed-in-ordo.md)), the serv
 the accounts every minute and fills in the name where it has none. The person is found
 by the account's login identity, or, before the first login, by the user ID the login
 would give (from the e-mail address), unless another login already holds that ID. A
-name from a login or a chosen name always wins. In the
-profile menu a person may set their own name, which wins while it is set, or clear it
+name from a login or a chosen name always wins. On the
+profile page a person may set their own name, which wins while it is set, or clear it
 (`setName`); then the provider's name shows again. Names go to devices with the profile
 pictures: `avatars` carries an optional `name` per person, and the app asks for the people
 it shows, as for pictures. The server remembers who each connection asked about and sends

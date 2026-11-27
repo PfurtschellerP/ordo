@@ -73,8 +73,15 @@ pub fn languages() -> Vec<&'static str> {
 /// Chooses the first of the `preferred` languages (BCP 47 tags, e.g. the browser's) that
 /// has texts, by its primary subtag; German if none has. Call once, before showing text.
 pub fn choose(preferred: &[String]) -> &'static str {
+    let chosen = pick(preferred);
+    LANGUAGE.with(|l| *l.borrow_mut() = chosen);
+    chosen
+}
+
+/// The first of the `preferred` languages that has texts, else German, without choosing it.
+fn pick(preferred: &[String]) -> &'static str {
     let available = languages();
-    let chosen = preferred
+    preferred
         .iter()
         .filter_map(|tag| tag.split(['-', '_']).next())
         .find_map(|primary| {
@@ -83,9 +90,7 @@ pub fn choose(preferred: &[String]) -> &'static str {
                 .find(|a| a.eq_ignore_ascii_case(primary))
                 .copied()
         })
-        .unwrap_or(DEFAULT);
-    LANGUAGE.with(|l| *l.borrow_mut() = chosen);
-    chosen
+        .unwrap_or(DEFAULT)
 }
 
 /// The chosen language.
@@ -142,8 +147,64 @@ fn formatted(part: &'static str, id: &'static str, args: Option<&Args>) -> Strin
         .unwrap_or_else(|| id.to_owned())
 }
 
-/// Where the device keeps the language chosen in the menu; none follows the browser.
+/// Where the device keeps its copy of the person's language (ADR-0100), for starts without
+/// a connection; none follows the browser.
 pub const PREFERENCE: &str = "ordo.language";
+
+/// Marks a language chosen on this device while the server could not be told.
+pub const UNSENT: &str = "ordo.language-unsent";
+
+// [impl->dsn~ui-texts~3]
+/// What the device does with the person's profile from the server (ADR-0100).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Follow {
+    /// Tell the server this language (`Some(None)`: none chosen).
+    pub tell: Option<Option<String>>,
+    /// Keep this copy on the device (`Some(None)`: remove it).
+    pub keep: Option<Option<String>>,
+    /// Show the page again in another language.
+    pub reload: bool,
+    /// The server has the language chosen here: it need not be told again.
+    pub confirmed: bool,
+}
+
+// [impl->dsn~ui-texts~3]
+/// The person's language as the server `told` it, against the device's `kept` copy and
+/// the language `shown`: a choice the server has not confirmed yet (`unsent`, also one
+/// lost in a reload) is told until it does, as is a copy from before the language followed
+/// the person, when the server knows none; otherwise the server's language counts, kept
+/// and shown.
+pub fn follow(
+    told: Option<&str>,
+    kept: Option<&str>,
+    unsent: bool,
+    shown: &str,
+    browser: &[String],
+) -> Follow {
+    if unsent && told == kept {
+        return Follow {
+            confirmed: true,
+            ..Follow::default()
+        };
+    }
+    if unsent || (told.is_none() && kept.is_some()) {
+        return Follow {
+            tell: Some(kept.map(str::to_owned)),
+            ..Follow::default()
+        };
+    }
+    let wanted: Vec<String> = told
+        .map(str::to_owned)
+        .into_iter()
+        .chain(browser.iter().cloned())
+        .collect();
+    Follow {
+        tell: None,
+        keep: (told != kept).then(|| told.map(str::to_owned)),
+        reload: pick(&wanted) != shown,
+        confirmed: false,
+    }
+}
 
 /// The name of `language` in itself ("Deutsch", "English"), so each person finds their own.
 pub fn name_of(language: &'static str) -> String {
@@ -240,7 +301,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn every_language_has_the_german_messages_with_the_same_variables() {
         for (language, part, source) in SOURCES.iter().filter(|(l, _, _)| *l != DEFAULT) {
@@ -257,7 +318,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn every_language_has_every_part() {
         let german: Vec<&str> = SOURCES
@@ -275,7 +336,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn every_message_formats_without_errors() {
         for (language, part, source) in SOURCES {
@@ -312,5 +373,53 @@ mod tests {
         assert_eq!(choose(&["it".into(), "de-AT".into()]), "de");
         assert_eq!(choose(&["xx".into()]), DEFAULT);
         assert_eq!(language(), DEFAULT);
+    }
+
+    // [utest->dsn~ui-texts~3]
+    #[test]
+    fn the_language_follows_the_person_and_a_choice_made_offline_is_told_later() {
+        let browser = ["en-GB".to_owned()];
+        // The person chose French elsewhere: kept and shown here.
+        assert_eq!(
+            follow(Some("fr"), None, false, "en", &browser),
+            Follow {
+                keep: Some(Some("fr".into())),
+                reload: true,
+                ..Follow::default()
+            }
+        );
+        // Already shown: nothing to do.
+        assert_eq!(
+            follow(Some("fr"), Some("fr"), false, "fr", &browser),
+            Follow::default()
+        );
+        // Chosen on this device without a connection: the server hears it now.
+        assert_eq!(
+            follow(Some("fr"), Some("es"), true, "es", &browser).tell,
+            Some(Some("es".into()))
+        );
+        assert_eq!(
+            follow(Some("fr"), None, true, "en", &browser).tell,
+            Some(None),
+            "back to automatic, offline or lost in the reload"
+        );
+        assert!(
+            follow(Some("es"), Some("es"), true, "es", &browser).confirmed,
+            "the server has it: no longer unsent"
+        );
+        // A copy from the time the language was the device's becomes the person's.
+        assert_eq!(
+            follow(None, Some("es"), false, "es", &browser).tell,
+            Some(Some("es".into()))
+        );
+        // Cleared elsewhere: the copy goes, and the browser's language shows.
+        assert_eq!(
+            follow(None, None, false, "fr", &browser),
+            Follow {
+                reload: true,
+                ..Follow::default()
+            }
+        );
+        assert_eq!(follow(None, None, false, "en", &browser), Follow::default());
     }
 }

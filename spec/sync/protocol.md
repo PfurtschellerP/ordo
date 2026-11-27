@@ -236,6 +236,13 @@ the order ORDO, identity provider, Gravatar
 ([ADR-0047](../../docs/adr/0047-profile-pictures.md)), and MUST accept only JPEG, PNG or
 WebP images of at most 128 KiB.
 
+`getProfile` (version 1.6) asks for the user's own profile: the language they chose for
+ORDO's interface ([ADR-0100](../../docs/adr/0100-profile-page-and-language-per-person.md)).
+`setLanguage` sets it (a language tag such as `"fr"`) or, with `null`, clears it. The server
+answers both with `profile`, and after `setLanguage` also sends `profile` to the user's
+other connections. It MUST accept only tags of two or three lower-case letters, optionally
+followed by `-` and a region, and MUST NOT tell anyone else a user's language.
+
 ## 9. Attachments
 
 Attachments are encrypted on the device and named by the BLAKE3 hash of their ciphertext
@@ -308,4 +315,5 @@ clients raises `major`.
 | 1.3 | `createGuest`, `setGuestAccess` and `guest` (§7, ADR-0077) | 1.1: `POST /auth/guest` |
 | 1.4 | `kem_key` in `hello`, proof `"ORDO hello v2"`; `keys` sealed for the device (§2, ADR-0080). The server's range starts at 1.4: 1.0–1.3 sent data keys in plain text and were dropped before the first release | unchanged |
 | 1.5 | `documentTicket` and its answer (§9a, ADR-0089) | 1.2: `GET /documents/handover` with a ticket |
+| 1.6 | `getProfile`, `setLanguage` and `profile` (§8, ADR-0100) | unchanged |
 

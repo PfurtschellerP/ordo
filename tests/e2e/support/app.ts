@@ -100,6 +100,17 @@ export async function openWorkspace(page: Page, label: string): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(new RegExp(`– ${label}$`));
 }
 
+/** Opens *Person – Profil* from the person's menu (ADR-0100), on the device's part where the
+ * page is narrow enough for tabs. */
+export async function openProfile(page: Page, part: "Ich" | "Dieses Gerät" = "Ich"): Promise<void> {
+  await page.locator("#profile-button").click();
+  await page.locator("#profile-settings").click();
+  await expect(page.locator("#profile-me-title")).toBeAttached();
+  const tab = page.locator("#main [role=tablist]").first().getByRole("tab", { name: part, exact: true });
+  if (await tab.isVisible()) await tab.click();
+  await expect(page.locator(part === "Ich" ? "#profile-me-title" : "#profile-device-title")).toBeVisible();
+}
+
 export async function openView(page: Page, label: string): Promise<void> {
   await page.getByRole("navigation", { name: "Ansichten" }).getByRole("link", { name: label, exact: true }).click();
 }

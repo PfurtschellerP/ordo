@@ -161,6 +161,24 @@ Tags: should, quality, m69
 
 Needs: dsn
 
+#### UX-17 — A page for one's own settings
+`req~ux-17~1`
+
+ORDO shall gather a person's settings on a profile page, apart into what applies to the
+person on all their devices (picture, display name, language) and what applies to the
+device for everyone using it (appearance, hand, keys, triage aid), each part saying so.
+The person's menu shall hold who is signed in, their roles in the incident, a switch of
+the appearance, and the ways to the profile page, their devices, another incident and
+signing out.
+
+Rationale: the menu had grown to nine settings and mixed the person's with the device's,
+which matters on a crew's shared tablet
+([ADR-0100](../adr/0100-profile-page-and-language-per-person.md)).
+
+Tags: should, quality, m75
+
+Needs: dsn
+
 ### 5.2 Offline and reliability
 
 #### OFF-1 — Fully offline
@@ -560,11 +578,11 @@ Needs: dsn
 ### 5.6 Internationalisation
 
 #### I18N-1 — Languages of the user interface
-`req~i18n-1~2`
+`req~i18n-1~3`
 
-ORDO shall offer its user interface in German, English, French and Spanish, with all texts translatable. When a person chooses a language on a device, ORDO shall show that language on it; otherwise the first of the browser's languages it has texts for, else German.
+ORDO shall offer its user interface in German, English, French and Spanish, with all texts translatable. When a person chooses a language, ORDO shall show that language on every device they are signed in on, also offline once the device has known it; before sign-in and without a choice, ORDO shall show the first of the browser's languages it has texts for, else German.
 
-Tags: must, quality, m73
+Tags: must, quality, m73, m75
 
 Needs: dsn
 

@@ -6,7 +6,7 @@
 
 pub use crate::text::*;
 
-// [impl->dsn~ui-texts~2]
+// [impl->dsn~ui-texts~3]
 include!(concat!(env!("OUT_DIR"), "/text_shared.rs"));
 
 /// People on more than one crew or staff list (UNIT-8), e.g. "Ben (RTW 1, UHS Süd)".
@@ -301,7 +301,7 @@ pub fn helper_edit_label(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    // [utest->dsn~ui-texts~2]
+    // [utest->dsn~ui-texts~3]
     #[test]
     fn texts_by_hand_read_as_before() {
         use super::*;
