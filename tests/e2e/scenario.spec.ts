@@ -1722,14 +1722,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(ben, "Guest code");
     await pass.getByRole("button", { name: "Fertig" }).click();
     await expect(pass).toHaveCount(0);
-    // His phone pairs with it and opens the incident with his role …
+    // His phone pairs with it and opens the incident with his role … [itest->dsn~assignment-access~1]
+    // As a medic on no UHS's staff list and no crew yet, he gets the incident's log, not its
+    // patients (ADR-0101).
     const guestPhone = await newDevice(browser);
     await guestPhone.goto(link);
-    await expect.poll(() => title(guestPhone), { message: "the guest's phone opens the incident as a medic", timeout: 30_000 }).toContain("Sanität – UHS");
+    await expect.poll(() => title(guestPhone), { message: "the guest's phone opens the incident, without patients while he works nowhere", timeout: 30_000 }).toContain("Einsatztagebuch");
     // … and so does his tablet, with the same code (ADR-0084).
     const guestTablet = await newDevice(browser);
     await guestTablet.goto(link);
-    await expect.poll(() => title(guestTablet), { message: "one code for all his devices", timeout: 30_000 }).toContain("Sanität – UHS");
+    await expect.poll(() => title(guestTablet), { message: "one code for all his devices", timeout: 30_000 }).toContain("Einsatztagebuch");
     // Ending his duty ends his access at once, on every device.
     await jonas.getByRole("button", { name: "Dienst beginnen: Jonas Sommer" }).click();
     await jonas.getByRole("button", { name: "Dienst beenden: Jonas Sommer" }).click();
@@ -2332,7 +2334,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const medic = await newDevice(browser);
     await loginPair(medic, server, "petra@example.org");
     await openIncident(medic, INCIDENT);
-    // [itest->dsn~crew-workspace~3]
+    // [itest->dsn~crew-workspace~4]
     // UNIT-9 (ADR-0079): the crew's own workspace: status, Aufträge and transports.
     await openWorkspace(medic, "Besatzung");
     await expect.poll(() => title(medic)).toContain("Sanität – Besatzung");

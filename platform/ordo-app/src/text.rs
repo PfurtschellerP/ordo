@@ -54,12 +54,15 @@ pub static HANDS: LazyLock<[(&str, &str); 2]> =
     LazyLock::new(|| [("", hand_right()), ("left", hand_left())]);
 
 /// Roles offered when granting (prototype; later from the profile).
-pub static ROLES: LazyLock<[(&str, &str); 4]> = LazyLock::new(|| {
+pub static ROLES: LazyLock<[(&str, &str); 5]> = LazyLock::new(|| {
     [
         ("commander", role_commander()),
         ("medic", role_medic()),
         ("physician", role_physician()),
         ("paramedic", role_paramedic()),
+        // [impl->dsn~assignment-access~1]
+        // On a crew without patient data, e.g. a driver (ADR-0101).
+        ("crew", role_crew()),
     ]
 });
 

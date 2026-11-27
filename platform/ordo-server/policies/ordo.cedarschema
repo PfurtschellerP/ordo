@@ -11,6 +11,11 @@ entity Compartment;
 
 type Request = {
   roles: Set<String>,
+  // Where the user works in this incident now (ADR-0101): "crew:<call sign>" for a unit's
+  // crew, "uhs:<ID>" for a UHS's staff list; with `on_crew` and `on_staff` for short.
+  assignments: Set<String>,
+  on_crew: Bool,
+  on_staff: Bool,
   // Whether the user is a guest: a helper without an account, paired by a one-time code
   // for one incident (ADR-0077).
   guest: Bool,

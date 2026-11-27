@@ -377,7 +377,7 @@ export function locate(handle) {
 
 const ME = "ordo-me";
 
-// [impl->dsn~crew-workspace~3]
+// [impl->dsn~crew-workspace~4]
 /** Shows the device's position as a dot named `label` and keeps it current (browser
  *  geolocation; the position stays on the device). The first fix fits the map to the
  *  position and the point `lng`, `lat` (the Auftrag's pin), so both are in view. Resolves

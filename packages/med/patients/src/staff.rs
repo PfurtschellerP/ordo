@@ -182,7 +182,42 @@ impl UhsStaffGuard {
     }
 }
 
+impl Incident {
+    // [impl->dsn~assignment-access~1]
+    /// Where `user` works now (ADR-0101): the crews and the staff lists of open UHS that
+    /// name them in their latest version.
+    fn assignments(&self, user: &str) -> Vec<String> {
+        let latest = |h: &History<Vec<String>>| h.last().map(|(_, list)| list.clone());
+        let crews = self.crews.iter().filter_map(|(unit, h)| {
+            latest(h)
+                .filter(|crew| crew.iter().any(|m| ordo_units::same_person(m, user)))
+                .map(|_| format!("crew:{unit}"))
+        });
+        let staff = self
+            .staff
+            .iter()
+            .filter(|(uhs, _)| !self.closed.contains_key(*uhs))
+            .filter_map(|(uhs, h)| {
+                latest(h)
+                    .filter(|list| list.iter().any(|s| s.trim().eq_ignore_ascii_case(user)))
+                    .map(|_| format!("uhs:{uhs}"))
+            });
+        crews.chain(staff).collect()
+    }
+}
+
 impl WriteGuard for UhsStaffGuard {
+    fn assignments(
+        &self,
+        incident: &ordo_core::IncidentId,
+        user: &ordo_core::UserId,
+    ) -> Vec<String> {
+        self.incidents
+            .get(&incident.to_string())
+            .map(|i| i.assignments(user.as_str()))
+            .unwrap_or_default()
+    }
+
     fn observes(&self, compartment: &CompartmentId) -> bool {
         // The units' crews live in the incident compartment too.
         compartment.as_str() == COMPARTMENT || compartment.as_str() == UHS_COMPARTMENT
@@ -910,5 +945,33 @@ mod tests {
             !g.allows(&take(6, "carl", "h2", nord), &[]),
             "not someone off its staff list"
         );
+    }
+
+    // [utest->dsn~assignment-access~1]
+    #[test]
+    fn a_person_is_assigned_where_the_latest_crew_or_staff_list_names_them() {
+        let mut g = UhsStaffGuard::default();
+        let ev = staff(1, "dora", "nord", &["anna", "ben"]);
+        let incident = ev.body.incident.clone();
+        let user = |name: &str| -> ordo_core::UserId {
+            format!("{name}@ordo.example.org")
+                .parse()
+                .expect("valid user")
+        };
+        for e in [
+            ev,
+            crew(2, "RTW 1", &["anna", "jonas"]),
+            staff(3, "dora", "nord", &["ben"]),
+        ] {
+            g.observe(&e);
+        }
+        assert_eq!(
+            g.assignments(&incident, &user("anna")),
+            ["crew:RTW 1"],
+            "taken off the staff list"
+        );
+        assert_eq!(g.assignments(&incident, &user("ben")), ["uhs:nord"]);
+        assert_eq!(g.assignments(&incident, &user("jonas")), ["crew:RTW 1"]);
+        assert!(g.assignments(&incident, &user("eva")).is_empty(), "nowhere");
     }
 }

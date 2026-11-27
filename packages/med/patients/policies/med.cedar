@@ -43,8 +43,10 @@ when {
   (context.module != "reports" || context.event_type == "reports.patientRegistered")
 };
 
-// … and with clinical data: patients, triage, patient care records, orders. Nobody else
-// gets clinical data by default (need to know, SEC-9).
+// … and with clinical data: patients, triage, patient care records, orders, only where they
+// work (ADR-0101): on a crew or a UHS's staff list; physicians work at every UHS (ADR-0056).
+// Nobody else gets clinical data by default (need to know, SEC-9). Which holder's patients
+// they write, the Med write guard decides (ADR-0082, ADR-0087).
 @id("med.medic-clinical")
 permit (
   principal,
@@ -52,9 +54,9 @@ permit (
   resource == Compartment::"med.clinical"
 )
 when {
-  context.roles.contains("medic") ||
   context.roles.contains("physician") ||
-  context.roles.contains("paramedic")
+  ((context.roles.contains("medic") || context.roles.contains("paramedic")) &&
+   (context.on_crew || context.on_staff))
 };
 
 // Medical orders are given only by physicians (ORDER-3, ADR-0053): under federal law a
@@ -99,8 +101,8 @@ permit (
 )
 when { context.roles.contains("physician") };
 
-// Members of the medical service work on units' crews: their own workspace (UNIT-9,
-// ADR-0079).
+// Members of the medical service on a unit's crew work in their own workspace (UNIT-9,
+// ADR-0079, ADR-0101).
 @id("med.crew-work")
 permit (
   principal,
@@ -108,7 +110,21 @@ permit (
   resource == Compartment::"incident"
 )
 when {
-  context.roles.contains("medic") ||
-  context.roles.contains("physician") ||
-  context.roles.contains("paramedic")
+  context.on_crew &&
+  (context.roles.contains("medic") ||
+   context.roles.contains("physician") ||
+   context.roles.contains("paramedic"))
+};
+
+// Crew members without a medical role (Einsatzkraft, e.g. a driver; ADR-0101) move their
+// unit's transports on, as the crew does; never clinical data.
+@id("med.crew-transports")
+permit (
+  principal,
+  action == Action::"write",
+  resource == Compartment::"incident"
+)
+when {
+  context.roles.contains("crew") && context.on_crew &&
+  context.module == "med.transport" && context.event_type == "transport.updated"
 };

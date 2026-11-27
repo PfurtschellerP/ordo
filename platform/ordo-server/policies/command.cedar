@@ -55,3 +55,35 @@ forbid (
   resource is Compartment
 )
 when { context.guest && context.roles.contains("commander") };
+
+// Crew members without a medical role (Einsatzkraft, e.g. a driver; ADR-0101): on a unit's
+// crew they read the shared incident data, set their unit's status and move their
+// Aufträge on, in their own workspace (UNIT-9). Without a crew they read the shared data
+// only. Never clinical data, never the helper register.
+@id("command.crew-incident")
+permit (
+  principal,
+  action == Action::"read",
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("crew") };
+
+@id("command.crew-writes")
+permit (
+  principal,
+  action == Action::"write",
+  resource == Compartment::"incident"
+)
+when {
+  context.roles.contains("crew") && context.on_crew &&
+  ((context.module == "units" && context.event_type == "units.statusChanged") ||
+   (context.module == "tasks" && context.event_type == "tasks.updated"))
+};
+
+@id("command.crew-work")
+permit (
+  principal,
+  action == Action::"crew_work",
+  resource == Compartment::"incident"
+)
+when { context.roles.contains("crew") && context.on_crew };

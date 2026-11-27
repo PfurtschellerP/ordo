@@ -46,6 +46,7 @@ launcher = Changer d'espace de travail
 views = Vues
 incident = Intervention
 reason-no-access = Pas d'accès dans cette intervention
+reason-no-crew = Seulement pour les membres d'un équipage de cette intervention
 reason-not-connected = Disponible après la première connexion
 no-workspace = Aucun espace de travail n'a encore été ouvert pour cet appareil dans cette intervention.
 
@@ -264,6 +265,7 @@ role-commander = Commandement
 role-medic = Secours à personne
 role-physician = Médecin
 role-paramedic = Secouriste
+role-crew = Équipier
 
 ## States
 incident-now-paused = Intervention en pause

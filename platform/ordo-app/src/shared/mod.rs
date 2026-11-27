@@ -22,7 +22,7 @@ use crate::shell::nav;
 
 /// The workspaces of this part, in launcher order (ADR-0011, ADR-0061).
 pub(crate) const WORKSPACES: &[nav::Workspace] = &[
-    // [impl->dsn~crew-workspace~3]
+    // [impl->dsn~crew-workspace~4]
     // A unit's crew: its status, tasks, patient cases and transports (UNIT-9, ADR-0079).
     nav::Workspace {
         id: "units.crew",

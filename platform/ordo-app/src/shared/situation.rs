@@ -768,7 +768,7 @@ pub fn PlaceMap(
             show_at(handle, at);
         }
     });
-    // [impl->dsn~crew-workspace~3]
+    // [impl->dsn~crew-workspace~4]
     // The crew sees where they are in relation to the pin; the position stays on the device.
     let following = RwSignal::new(false);
     let said = RwSignal::new(None::<&'static str>);

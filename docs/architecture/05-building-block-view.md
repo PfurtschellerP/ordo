@@ -257,11 +257,15 @@ ordo/
 ### 5.5.1 Shared module `units`
 
 #### Crew workspace
-`dsn~crew-workspace~3`
+`dsn~crew-workspace~4`
 
 *Sanität – Besatzung* ([ADR-0079](../adr/0079-crew-workspace.md)) opens with the
-incident permission `crew_work` (medical roles, `med.cedar`) and shows the units present
-whose crew names the person's account (`UnitRegister::crewed_by`). View *Aufträge*: first
+incident permission `crew_work`, which the policies give only to people on a crew
+([Access by assignment](#access-by-assignment)): with a medical role (`med.cedar`) or as
+*Einsatzkraft* (`crew`, `command.cedar`). Without it the menu shows the workspace disabled,
+"Nur für Mitglieder einer Besatzung in diesem Einsatz". It shows the units present
+whose crew names the person's account (`UnitRegister::crewed_by`); the view *Patienten*
+needs the clinical data, so an Einsatzkraft does not see it. View *Aufträge*: first
 the open Aufträge that name the person ([Tasks](#tasks)), then per unit its status since
 when and the status select (`units.statusChanged`) and its open Aufträge, one card each
 ([ADR-0081](../adr/0081-one-einsatzauftrag.md)): kind, place and description, a small map
@@ -280,13 +284,41 @@ Cedar lets medical roles write `units.statusChanged`, `tasks.updated` and
 
 Covers:
 
-* [req~unit-9~1](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
+* [req~unit-9~2](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
 * [req~rep-3~2](../requirements/02-shared.md#rep-3--patient-from-a-patient-case)
 * [req~rep-4~3](../requirements/02-shared.md#rep-4--place-on-the-map)
 
 Needs: impl, utest, itest
 
-Tags: should, m62
+Tags: should, m62, m76
+
+#### Access by assignment
+`dsn~assignment-access~1`
+
+A role says what a person may do, an assignment where
+([ADR-0101](../adr/0101-access-by-role-and-assignment.md)). Packages' write guards report
+where a person works now (`WriteGuard::assignments`): the Med guard the units whose latest
+crew names them (`crew:<call sign>`) and the open UHS whose latest staff list does
+(`uhs:<ID>`). The hub adds these, marked `assigned:`, to the roles it gives the access
+policy for reading, writing and the incident permissions; the server's policy passes them to
+Cedar apart, as `context.assignments`, with `on_crew` and `on_staff`. Default policies:
+clinical data with a medical role and `on_crew` or `on_staff`, or as physician; `crew_work`
+only `on_crew`; the role `crew` (Einsatzkraft) reads the shared data and, on a crew, writes
+its unit's status, its Aufträge' steps and its transports' steps. Each session keeps what
+its user may do and read; after events the guards learn from, the hub compares it with
+what the user may now and closes the sessions where it changed (`rolesChanged`), so the
+devices reconnect with the new grants and drop what they may no longer read. The clinical
+compartment is one stream per incident: a person on any crew or staff list receives all of
+it, and the app shows them their holder's patients.
+
+Covers:
+
+* [req~unit-11~1](../requirements/02-shared.md#unit-11--access-by-role-and-assignment)
+* [req~unit-9~2](../requirements/02-shared.md#unit-9--the-crews-own-workspace)
+
+Needs: impl, utest, itest
+
+Tags: must, m76
 
 #### Lost-update detection
 `dsn~lost-update-detection~1`

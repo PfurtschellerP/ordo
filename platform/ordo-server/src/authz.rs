@@ -294,14 +294,40 @@ impl RolePolicy {
         (module, event_type): (&str, &str),
         incident_roles: &[String],
     ) -> bool {
+        // [impl->dsn~assignment-access~1]
+        // The hub marks where the user works (ADR-0101); the policies see it apart.
         let mut roles = self.roles.of(user);
-        roles.extend(incident_roles.iter().cloned());
+        let mut assignments: Vec<String> = Vec::new();
+        for entry in incident_roles {
+            match entry.strip_prefix(ordo_sync::ASSIGNED) {
+                Some(a) => assignments.push(a.to_owned()),
+                None => roles.push(entry.clone()),
+            }
+        }
+        let on = |prefix: &str| assignments.iter().any(|a| a.starts_with(prefix));
+        let (on_crew, on_staff) = (on("crew:"), on("uhs:"));
         let context = Context::from_pairs([
             (
                 "roles".to_owned(),
                 RestrictedExpression::new_set(
                     roles.into_iter().map(RestrictedExpression::new_string),
                 ),
+            ),
+            (
+                "assignments".to_owned(),
+                RestrictedExpression::new_set(
+                    assignments
+                        .into_iter()
+                        .map(RestrictedExpression::new_string),
+                ),
+            ),
+            (
+                "on_crew".to_owned(),
+                RestrictedExpression::new_bool(on_crew),
+            ),
+            (
+                "on_staff".to_owned(),
+                RestrictedExpression::new_bool(on_staff),
             ),
             // [impl->dsn~guest-access~4]
             (
@@ -468,9 +494,15 @@ mod tests {
             compartment("incident"),
             compartment("med.clinical"),
         );
+        // [utest->dsn~assignment-access~1]
+        let at_uhs = ["assigned:uhs:nord".to_owned()];
         assert!(
-            p.can_read(&user("anna"), &incident, &clinical, &[]),
-            "medics read clinical data"
+            !p.can_read(&user("anna"), &incident, &clinical, &[]),
+            "a medic working nowhere reads no clinical data (ADR-0101)"
+        );
+        assert!(
+            p.can_read(&user("anna"), &incident, &clinical, &at_uhs),
+            "medics read clinical data where they work"
         );
         assert!(p.can_write(&user("anna"), &incident, &shared, "", "", &[]));
         assert!(
@@ -529,9 +561,10 @@ mod tests {
             !p.can_read(&erik, &incident, &clinical, &[]),
             "no role in the incident: nothing"
         );
+        let medic_at_uhs = ["medic".to_owned(), "assigned:uhs:nord".to_owned()];
         assert!(
-            p.can_read(&erik, &incident, &clinical, &medic),
-            "a medic in this incident reads its clinical data"
+            p.can_read(&erik, &incident, &clinical, &medic_at_uhs),
+            "a medic in this incident reads its clinical data where they work"
         );
         assert!(!p.can_assign_roles(&erik, &incident, &medic));
         assert!(p.can_assign_roles(&erik, &incident, &commander));
@@ -562,7 +595,8 @@ mod tests {
         let incident = incident();
         let erik = user("erik");
         let blocks = |roles: &[&str]| {
-            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            let mut roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            roles.push("assigned:uhs:nord".to_owned());
             p.incident_permissions(&erik, &incident, &roles)
                 .contains(&"block_devices".to_owned())
         };
@@ -570,6 +604,53 @@ mod tests {
         assert!(!blocks(&["medic"]), "the crews do not");
         assert!(!blocks(&["physician"]));
         assert!(!blocks(&[]));
+    }
+
+    // [utest->dsn~assignment-access~1]
+    #[test]
+    fn a_crew_member_without_a_medical_role_works_on_the_crew_without_clinical_data() {
+        let p = policy(&[]).expect("valid");
+        let (incident, shared, clinical) = (
+            incident(),
+            compartment("incident"),
+            compartment("med.clinical"),
+        );
+        let jonas = user("jonas");
+        let driver = ["crew".to_owned()];
+        let driving = ["crew".to_owned(), "assigned:crew:RTW 1".to_owned()];
+        let write = |subject: &[String], module: &str, event_type: &str| {
+            p.can_write(&jonas, &incident, &shared, module, event_type, subject)
+        };
+        assert!(
+            p.can_read(&jonas, &incident, &shared, &driver),
+            "reads the shared data"
+        );
+        assert!(
+            p.incident_permissions(&jonas, &incident, &driver)
+                .is_empty(),
+            "no crew: no workspace"
+        );
+        assert!(
+            !write(&driver, "units", "units.statusChanged"),
+            "nor sets a status"
+        );
+        assert_eq!(
+            p.incident_permissions(&jonas, &incident, &driving),
+            ["crew_work"]
+        );
+        assert!(write(&driving, "units", "units.statusChanged"));
+        assert!(write(&driving, "tasks", "tasks.updated"));
+        assert!(write(&driving, "med.transport", "transport.updated"));
+        assert!(
+            !write(&driving, "tasks", "tasks.given"),
+            "gives no Aufträge"
+        );
+        assert!(!write(&driving, "units", "units.crewSet"), "sets no crew");
+        assert!(
+            !p.can_read(&jonas, &incident, &clinical, &driving),
+            "never clinical data"
+        );
+        assert!(!p.can_read(&jonas, &incident, &compartment("people"), &driving));
     }
 
     // [utest->dsn~views-by-role~1]
@@ -580,10 +661,16 @@ mod tests {
         let erik = user("erik");
         let medic = ["medic".to_owned()];
         let commander = ["commander".to_owned()];
+        // [utest->dsn~assignment-access~1]
+        assert!(
+            p.incident_permissions(&erik, &incident, &medic).is_empty(),
+            "a medic on no crew: no situation view, no crew workspace (ADR-0101)"
+        );
+        let on_crew = ["medic".to_owned(), "assigned:crew:RTW 1".to_owned()];
         assert_eq!(
-            p.incident_permissions(&erik, &incident, &medic),
+            p.incident_permissions(&erik, &incident, &on_crew),
             ["crew_work"],
-            "UHS crews: no situation view, their crew's workspace"
+            "on a crew: their crew's workspace"
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &commander),
@@ -596,8 +683,8 @@ mod tests {
         );
         assert_eq!(
             p.incident_permissions(&erik, &incident, &["physician".to_owned()]),
-            ["give_orders", "all_uhs", "crew_work"],
-            "physicians give orders and work at every UHS"
+            ["give_orders", "all_uhs"],
+            "physicians give orders and work at every UHS; a crew's workspace only on a crew"
         );
         // [utest->dsn~uhs-staff~3]
         assert!(
@@ -660,7 +747,7 @@ mod tests {
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"
         );
-        // [utest->dsn~crew-workspace~3]
+        // [utest->dsn~crew-workspace~4]
         // A crew moves its tasks on and sets its status (UNIT-9, ADR-0079).
         assert!(p.can_write(&erik, &incident, &shared, "tasks", "tasks.updated", &medic));
         assert!(p.can_write(
@@ -838,7 +925,8 @@ mod tests {
         let (incident, clinical) = (incident(), compartment("med.clinical"));
         let erik = user("erik");
         let write = |roles: &[&str], event_type: &str| {
-            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            let mut roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            roles.push("assigned:uhs:nord".to_owned());
             p.can_write(
                 &erik,
                 &incident,
@@ -859,7 +947,7 @@ mod tests {
         assert!(write(&["medic", "physician"], "orders.given"));
         assert!(!write(&[], "orders.updated"));
         for role in ["physician", "paramedic"] {
-            let roles = [role.to_owned()];
+            let roles = [role.to_owned(), "assigned:uhs:nord".to_owned()];
             assert!(
                 p.can_read(&erik, &incident, &clinical, &roles),
                 "{role} reads clinical data"
@@ -884,7 +972,8 @@ mod tests {
         let p = policy(&[]).expect("valid");
         let (incident, clinical) = (incident(), compartment("med.clinical"));
         let write = |roles: &[&str], event_type: &str| {
-            let roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            let mut roles: Vec<String> = roles.iter().map(|r| (*r).to_owned()).collect();
+            roles.push("assigned:uhs:nord".to_owned());
             p.can_write(
                 &user("erik"),
                 &incident,

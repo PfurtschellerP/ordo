@@ -43,7 +43,22 @@ pub trait WriteGuard: Send {
 
     /// Learns from an ordered event of an observed compartment.
     fn observe(&mut self, event: &AppliedEvent);
+
+    // [impl->dsn~assignment-access~1]
+    /// Where `user` works in `incident` now, as the package knows it, e.g. `crew:RTW 1` or
+    /// `uhs:<ID>` (ADR-0101): the policies see these with the roles.
+    fn assignments(
+        &self,
+        _incident: &ordo_core::IncidentId,
+        _user: &ordo_core::UserId,
+    ) -> Vec<String> {
+        Vec::new()
+    }
 }
+
+/// The prefix that tells an assignment from a role in the list the hub gives the access
+/// policy (ADR-0101); role IDs never contain a colon.
+pub const ASSIGNED: &str = "assigned:";
 
 // [impl->dsn~server-derived-connectors~2]
 /// Derives connector events on the server that orders the source compartment

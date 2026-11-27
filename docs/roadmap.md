@@ -431,6 +431,13 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
         Tag · Nacht* and the ways on. *Abmelden* replaces *Gerät entkoppeln*. The language
         follows the person: the server keeps it with the name (protocol 1.6), the device a
         copy for offline starts ([ADR-0100](adr/0100-profile-page-and-language-per-person.md)).
+    12. *Access by assignment* (m76). Done 2026-11-27, the first of the concept *Order and
+        calm*: a role says what a person may do, the assignment (crew, UHS staff list) where
+        ([ADR-0101](adr/0101-access-by-role-and-assignment.md)). Patient data and
+        *Besatzung* need an assignment; new role *Einsatzkraft* for crew members without
+        patient data; a changed assignment reconnects the person's devices. Next, in the
+        agreed order: building blocks and screen space with calm pages (slim header with
+        the ORDO mark), then the navigation rules, then the notification centre.
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

@@ -137,14 +137,15 @@ Tags: should, shared, m57
 Needs: dsn
 
 #### UNIT-9 — The crew's own workspace
-`req~unit-9~1`
+`req~unit-9~2`
 
-When a person is on the crew of a unit in the incident, ORDO shall give them a workspace
-with that unit's status, open tasks, patient cases and transports, in which they set the
-unit's status, move its tasks and transports on and take its patients over, without the
-incident command's views.
+When a person is on the crew of a unit in the incident, and only then, ORDO shall give them
+a workspace with that unit's status, open tasks and transports, in which they set the
+unit's status and move its tasks and transports on, without the incident command's views;
+with a medical role also its patient cases, which they take over. A crew member without a
+medical role (Einsatzkraft) shall get the workspace without patient data.
 
-Tags: should, shared, m62
+Tags: should, shared, m62, m76
 
 Needs: dsn
 
@@ -175,6 +176,21 @@ Rationale: the command leads the units from *Führung*; editing them stays in
 *Vorbereitung* ([ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md)).
 
 Tags: should, shared, m74
+
+Needs: dsn
+
+#### UNIT-11 — Access by role and assignment
+`req~unit-11~1`
+
+ORDO shall give a person the patient data of an incident only when one of their roles in it
+permits it and they are on the crew of a unit or the staff of a UHS of the incident, or a
+role permits work at every UHS. When a change of crew or staff list changes what a person
+may see or do, ORDO shall apply it on their connected devices without a new login.
+
+Rationale: a role says what a person may do, the assignment where
+([ADR-0101](../adr/0101-access-by-role-and-assignment.md)); qualifications grant nothing.
+
+Tags: must, shared, m76
 
 Needs: dsn
 

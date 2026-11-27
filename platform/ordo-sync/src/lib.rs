@@ -17,7 +17,7 @@ pub mod policy;
 mod replica;
 pub mod version;
 
-pub use applied::{AppliedEvent, Derived, Deriver, Entropy, StreamKey, WriteGuard};
+pub use applied::{ASSIGNED, AppliedEvent, Derived, Deriver, Entropy, StreamKey, WriteGuard};
 pub use error::SyncError;
 pub use hub::{BLOCK_DEVICES, Change, Hub, HubConfig, Outgoing, RestoreError, SessionId};
 pub use kind::{EventKind, ServerPackage};

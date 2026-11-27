@@ -142,9 +142,17 @@ struct Session {
     device: DeviceId,
     user: UserId,
     streams: HashSet<StreamKey>,
+    /// Every stream asked for in the hello, granted or not, and what the user may do and
+    /// read there, to notice when an assignment changes it (ADR-0101).
+    subscribed: Vec<StreamKey>,
+    access: Access,
     /// The protocol version agreed in the hello; the server sends nothing newer.
     version: Version,
 }
+
+/// What a user may do and read: the incident permissions per incident, and the readable
+/// streams among those asked for.
+type Access = (Vec<(IncidentId, Vec<String>)>, Vec<StreamKey>);
 
 /// The server side of sync for the incidents this server is home of.
 pub struct Hub<P> {
@@ -429,7 +437,7 @@ impl<P: AccessPolicy> Hub<P> {
         compartment: &CompartmentId,
         write: bool,
     ) -> bool {
-        let roles = self.registry.roles(user, incident);
+        let roles = self.subject(user, incident);
         if write {
             self.policy
                 .can_write(user, incident, compartment, "", "", &roles)
@@ -441,11 +449,51 @@ impl<P: AccessPolicy> Hub<P> {
     /// Whether `user`'s roles in `incident` give the incident permission `permission`
     /// (e.g. `manage_map`: cut the incident's map region, MAP-8).
     pub fn may_in_incident(&self, user: &UserId, incident: &IncidentId, permission: &str) -> bool {
-        let roles = self.registry.roles(user, incident);
+        let roles = self.subject(user, incident);
         self.policy
             .incident_permissions(user, incident, &roles)
             .iter()
             .any(|p| p == permission)
+    }
+
+    // [impl->dsn~assignment-access~1]
+    /// The user's roles in `incident` and, marked with [`crate::ASSIGNED`], where they work
+    /// there now, as the packages' guards know it (ADR-0101): what the access policy judges.
+    fn subject(&self, user: &UserId, incident: &IncidentId) -> Vec<String> {
+        let mut subject = self.registry.roles(user, incident);
+        for guard in &self.guards {
+            subject.extend(
+                guard
+                    .assignments(incident, user)
+                    .into_iter()
+                    .map(|a| format!("{}{a}", crate::ASSIGNED)),
+            );
+        }
+        subject
+    }
+
+    /// What `user` may do and read of `subscribed` now (ADR-0101).
+    fn access(&self, user: &UserId, subscribed: &[StreamKey]) -> Access {
+        let incidents: BTreeSet<&IncidentId> = subscribed.iter().map(|(i, _)| i).collect();
+        let permissions = incidents
+            .into_iter()
+            .map(|i| {
+                let subject = self.subject(user, i);
+                (
+                    i.clone(),
+                    self.policy.incident_permissions(user, i, &subject),
+                )
+            })
+            .collect();
+        let readable = subscribed
+            .iter()
+            .filter(|(i, c)| {
+                !self.deleted.contains(&(i.clone(), c.clone()))
+                    && self.policy.can_read(user, i, c, &self.subject(user, i))
+            })
+            .cloned()
+            .collect();
+        (permissions, readable)
     }
 
     /// Whether `user` may grant and withdraw roles in `incident` (ADR-0046), e.g. to make a
@@ -987,7 +1035,7 @@ impl<P: AccessPolicy> Hub<P> {
             .map(|s| s.incident.clone())
             .collect();
         for incident in incidents {
-            let roles = self.registry.roles(&hello.user, &incident);
+            let roles = self.subject(&hello.user, &incident);
             let permissions = self
                 .policy
                 .incident_permissions(&hello.user, &incident, &roles);
@@ -996,9 +1044,14 @@ impl<P: AccessPolicy> Hub<P> {
                 permissions,
             });
         }
+        let subscribed: Vec<StreamKey> = hello
+            .subscriptions
+            .iter()
+            .map(|s| (s.incident.clone(), s.compartment.clone()))
+            .collect();
         for sub in hello.subscriptions {
             let key = (sub.incident.clone(), sub.compartment.clone());
-            let roles = self.registry.roles(&hello.user, &sub.incident);
+            let roles = self.subject(&hello.user, &sub.incident);
             // [impl->dsn~helper-retention~1]
             // A deleted stream is denied: the device deletes its copy and key.
             if self.deleted.contains(&key)
@@ -1061,12 +1114,15 @@ impl<P: AccessPolicy> Hub<P> {
             streams.insert(key);
             welcome.granted.push(sub);
         }
+        let access = self.access(&hello.user, &subscribed);
         self.sessions.insert(
             session,
             Session {
                 device: hello.device,
                 user: hello.user,
                 streams,
+                subscribed,
+                access,
                 version,
             },
         );
@@ -1119,6 +1175,10 @@ impl<P: AccessPolicy> Hub<P> {
                 }),
             }
         }
+        // An event the guards learn from may change where someone works (ADR-0101).
+        let assignments_may_change = new
+            .keys()
+            .any(|k| self.guards.iter().any(|g| g.observes(&k.1)));
         for (key, events) in new {
             for (&sid, session) in &self.sessions {
                 if session.streams.contains(&key) {
@@ -1132,6 +1192,17 @@ impl<P: AccessPolicy> Hub<P> {
                     });
                 }
             }
+        }
+        // [impl->dsn~assignment-access~1]
+        // Whose assignment changed what they may do or read reconnects too (ADR-0101).
+        if assignments_may_change {
+            let changed: Vec<UserId> = self
+                .sessions
+                .values()
+                .filter(|s| self.access(&s.user, &s.subscribed) != s.access)
+                .map(|s| s.user.clone())
+                .collect();
+            roles_changed.extend(changed);
         }
         // [impl->dsn~incident-roles~1]
         // Whose roles changed reconnects, to receive what they may read now.
@@ -1193,13 +1264,14 @@ impl<P: AccessPolicy> Hub<P> {
                     }
                 }
         } else {
+            // [impl->dsn~assignment-access~1]
             self.policy.can_write(
                 user,
                 &body.incident,
                 &body.compartment,
                 body.module.as_str(),
                 body.event_type.as_str(),
-                &roles,
+                &self.subject(user, &body.incident),
             )
         };
         let key = (body.incident.clone(), body.compartment.clone());

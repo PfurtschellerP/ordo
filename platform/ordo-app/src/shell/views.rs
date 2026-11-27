@@ -420,6 +420,10 @@ pub(crate) fn access(core: Handle, workspace: &nav::Workspace) -> Result<(), &'s
                 .any(|p| c.replica.has_permission(p));
         if readable && permitted {
             Ok(())
+        } else if workspace.permission == Some(crate::core::permission::CREW_WORK) {
+            // [impl->dsn~assignment-access~1]
+            // The crew's workspace follows the assignment (ADR-0101): say so.
+            Err(text::reason_no_crew())
         } else {
             Err(text::reason_no_access())
         }

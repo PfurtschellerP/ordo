@@ -46,6 +46,7 @@ launcher = Switch workspace
 views = Views
 incident = Incident
 reason-no-access = No access in this incident
+reason-no-crew = Only for members of a crew in this incident
 reason-not-connected = Available after the first connection
 no-workspace = No workspace has been released for this device in this incident yet.
 
@@ -264,6 +265,7 @@ role-commander = Incident command
 role-medic = Medical service
 role-physician = Physician
 role-paramedic = Paramedic
+role-crew = Crew member
 
 ## States
 incident-now-paused = Incident paused

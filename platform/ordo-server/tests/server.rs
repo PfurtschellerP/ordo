@@ -38,6 +38,36 @@ const PEOPLE: [(&str, u8, &[&str]); 5] = [
     ("dora", 5, &["planner"]),
 ];
 
+/// Puts `people` on the staff list of `uhs`, as the incident command (Ben) does: where they
+/// work gives medics the clinical data (ADR-0101).
+async fn put_on_staff(addr: std::net::SocketAddr, uhs: &str, people: &[&str]) {
+    let mut ben = Client::connect(addr, replica("ben")).await;
+    let staff = patients::UhsUpdated {
+        id: uhs.into(),
+        staff: Some(people.iter().map(|p| format!("{p}@{SERVER}")).collect()),
+        ..Default::default()
+    }
+    .encode()
+    .unwrap();
+    ben.replica
+        .record(
+            &incident(),
+            patients::UHS_COMPARTMENT,
+            patients::UHS_MODULE,
+            patients::UHS_UPDATED,
+            1,
+            &staff,
+            now(),
+        )
+        .unwrap();
+    ben.push_and_settle().await;
+    assert!(
+        ben.replica.rejected().is_empty(),
+        "{:?}",
+        ben.replica.rejected()
+    );
+}
+
 fn device_id(seed: u8) -> DeviceId {
     DeviceId(Ulid::from_parts(T0, u128::from(seed)).unwrap())
 }
@@ -394,6 +424,7 @@ async fn attachments_follow_the_rules_of_their_stream() {
     write_setup(dir.path(), [6; 32]);
     let running = start_server(dir.path()).await.unwrap();
     let addr = running.addr;
+    put_on_staff(addr, "UHS 1", &["anna", "clara"]).await;
     let mut anna = Client::connect(addr, replica("anna")).await;
     anna.settle().await;
     let blob = b"ciphertext of a photo".to_vec();
@@ -487,7 +518,9 @@ async fn sync_over_websocket_survives_a_restart() {
     let running = start_server(dir.path()).await.unwrap();
     let addr = running.addr;
 
-    // A medic registers a patient; the commander sees only the counts.
+    // A medic at UHS 1 registers a patient; the commander sees only the counts. Clara works
+    // there too: after the restart, the server still knows it (ADR-0101).
+    put_on_staff(addr, "UHS 1", &["anna", "clara"]).await;
     let mut anna = Client::connect(addr, replica("anna")).await;
     anna.register("DE-0042", Immediate);
     anna.sync().await;
@@ -507,8 +540,8 @@ async fn sync_over_websocket_survives_a_restart() {
     assert_eq!(http_get(addr, "/readyz").await.0, 200);
     let (_, metrics) = http_get(addr, "/metrics").await;
     assert!(
-        metrics.contains("ordo_events_total 2"),
-        "patient + derived counts: {metrics}"
+        metrics.contains("ordo_events_total 3"),
+        "staff list + patient + derived counts: {metrics}"
     );
     assert!(metrics.contains("ordo_sessions 2"), "{metrics}");
 
@@ -634,7 +667,9 @@ async fn only_a_uhs_staff_registers_its_patients() {
     let running = start_server(dir.path()).await.unwrap();
     let addr = running.addr;
 
-    // A UHS the server has not seen created cannot be judged (recorded offline).
+    // Clara works at UHS 2 (ADR-0101). A UHS the server has not seen yet cannot be judged
+    // (recorded offline).
+    put_on_staff(addr, "UHS 2", &["clara"]).await;
     let mut clara = Client::connect(addr, replica("clara")).await;
     clara.register("DE-0001", Urgent);
     clara.push_and_settle().await;
@@ -685,6 +720,15 @@ async fn only_a_uhs_staff_registers_its_patients() {
         ben.replica.rejected().is_empty(),
         "{:?}",
         ben.replica.rejected()
+    );
+    // [itest->dsn~assignment-access~1]
+    // Working nowhere, Anna had no clinical data; on the list, her device reconnects and
+    // gets it (ADR-0101).
+    assert!(!anna.replica.is_granted(&incident(), "med.clinical"));
+    let mut anna = Client::connect(addr, replica("anna")).await;
+    assert!(
+        anna.replica.is_granted(&incident(), "med.clinical"),
+        "on the staff list: the clinical data"
     );
 
     // Clara is not on it: the server refuses her registration there.
@@ -1019,6 +1063,7 @@ async fn only_a_physician_gives_orders_and_the_crew_carries_them_out() {
     };
 
     // A medic's device writes an order anyway (e.g. an old app): the server refuses it.
+    put_on_staff(addr, "UHS 1", &["anna"]).await;
     let mut anna = Client::connect(addr, replica("anna")).await;
     let refused = anna.order_event(orders::GIVEN, &order("by-anna"));
     anna.push_and_settle().await;
@@ -1076,6 +1121,7 @@ async fn a_wrong_master_key_cannot_open_stored_keys() {
     let dir = tempfile::tempdir().unwrap();
     write_setup(dir.path(), [5; 32]);
     let running = start_server(dir.path()).await.unwrap();
+    put_on_staff(running.addr, "UHS 1", &["anna"]).await;
     let mut anna = Client::connect(running.addr, replica("anna")).await;
     anna.register("DE-0042", Immediate);
     anna.sync().await;
@@ -1114,6 +1160,7 @@ async fn the_database_holds_no_clinical_plaintext() {
     let dir = tempfile::tempdir().unwrap();
     write_setup(dir.path(), [5; 32]);
     let running = start_server(dir.path()).await.unwrap();
+    put_on_staff(running.addr, "UHS 1", &["anna"]).await;
     let mut anna = Client::connect(running.addr, replica("anna")).await;
     anna.register("DE-0042", Immediate);
     anna.sync().await;
