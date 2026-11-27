@@ -38,6 +38,8 @@ col-load = Belegung
 load = { $patients } / { $capacity }
 
 ## Patient list and record
+# The workspace of one UHS in the launcher.
+ws-uhs = UHS
 patients-title = Patienten
 all-patients = Alle Patienten
 registered-word = registriert.
@@ -143,6 +145,8 @@ transport-destination-missing = Bitte ein Ziel wählen.
 # A transport sent before its destination was decided (ADR-0098).
 destination-open = Ziel offen
 destination-set-label = Ziel festlegen
+# A destination set before changes on the way, e.g. a hospital stops admitting.
+destination-change = Ziel ändern
 destination-set = Ziel: { $destination }
 transport-no-units = Noch keine Einsatzmittel im Einsatz.
 transport-choose-unit = Einsatzmittel wählen

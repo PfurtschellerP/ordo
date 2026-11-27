@@ -38,6 +38,8 @@ col-load = Occupancy
 load = { $patients } / { $capacity }
 
 ## Patient list and record
+# The workspace of one UHS in the launcher.
+ws-uhs = Care unit
 patients-title = Patients
 all-patients = All patients
 registered-word = registered.
@@ -143,6 +145,8 @@ transport-destination-missing = Please choose a destination.
 # A transport sent before its destination was decided (ADR-0098).
 destination-open = Destination open
 destination-set-label = Set destination
+# A destination set before changes on the way, e.g. a hospital stops admitting.
+destination-change = Change destination
 destination-set = Destination: { $destination }
 transport-no-units = No units in the incident yet.
 transport-choose-unit = Choose unit

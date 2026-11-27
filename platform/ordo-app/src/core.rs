@@ -1350,7 +1350,7 @@ pub fn set_status(
     follow_transport(core, revision, unit, status)
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 /// Moves the unit's open transport on when its new status is one of the transport's next
 /// steps (ADR-0098), so the unit's status and the transport never disagree, wherever the
 /// status is set.
@@ -1389,7 +1389,7 @@ fn follow_transport(
     )
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 /// Requests a transport for a patient (TRANS-1): the request without patient data in the
 /// shared incident compartment, the patient it is for in `med.clinical`.
 pub fn request_transport(

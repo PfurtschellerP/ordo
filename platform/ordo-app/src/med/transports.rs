@@ -228,7 +228,7 @@ pub fn transport_line(t: &Transport) -> String {
     }
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 /// A transport's state in words: the unit status of its last step where it has one
 /// ("7 – Patient aufgenommen", ADR-0098), else its own status.
 pub fn state_label(t: &Transport) -> String {
@@ -311,7 +311,7 @@ pub(crate) fn StepButtons(
             })
             .collect()
     } else {
-        // [impl->dsn~transport-request~2]
+        // [impl->dsn~transport-request~3]
         let unit = transport.unit.clone().unwrap_or_default();
         CATALOGUE
             .next_steps(&transport)
@@ -346,7 +346,7 @@ pub(crate) fn StepButtons(
     view! { <Actions actions /> }
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 /// The transports of one patient on the record, and the form to request one while none
 /// is going on.
 #[component]
@@ -458,7 +458,7 @@ pub fn TransportSection(core: Handle, revision: RwSignal<u64>, tag: String) -> i
     }
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 // [impl->dsn~transport-board~1]
 /// The incident command's transport board, as the parts of *Führung – Transporte*: open
 /// and planned requests (assign a unit and a destination, follow the status; place 10),
@@ -536,10 +536,27 @@ fn RequestList(
                                     <TransportDetails core transport=t.clone() show_uhs=true />
                                     {(t.status == TransportStatus::Requested)
                                         .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals /> })}
-                                    // [impl->dsn~transport-request~2]
+                                    // [impl->dsn~transport-request~3]
                                     // Sent without a destination: it is set here, until the unit is there.
                                     {(t.unit.is_some() && t.destination.is_none() && t.status.is_open() && t.status < TransportStatus::Arrived)
                                         .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals destination_only=true /> })}
+                                    // Changed on the way, e.g. when a hospital stops admitting.
+                                    {(t.unit.is_some() && t.destination.is_some() && t.status.is_open() && t.status < TransportStatus::Arrived)
+                                        .then(|| {
+                                            // Closed once saved: the card is updated in place.
+                                            let details = NodeRef::<leptos::html::Details>::new();
+                                            let saved = Callback::new(move |()| {
+                                                if let Some(d) = details.get_untracked() {
+                                                    d.set_open(false);
+                                                }
+                                            });
+                                            view! {
+                                                <details class="transport-change" node_ref=details>
+                                                    <summary>{text::destination_change()}</summary>
+                                                    <AssignForm core revision transport=t.clone() units hospitals destination_only=true on_saved=saved />
+                                                </details>
+                                            }
+                                        })}
                                     <StepButtons core revision transport=t.clone() />
                                 </li>
                             })
@@ -953,13 +970,28 @@ fn AssignForm(
     /// Only the destination, for a transport on its way without one (ADR-0098).
     #[prop(optional)]
     destination_only: bool,
+    /// Called once the update is recorded.
+    #[prop(optional)]
+    on_saved: Option<Callback<()>>,
 ) -> impl IntoView {
     let request = transport.request.request.clone();
     let current = transport.status;
     let name = summary(core, &transport);
     let unit = RwSignal::new(String::new());
-    let destination = RwSignal::new(String::new());
-    let other = RwSignal::new(String::new());
+    // A destination set before is chosen already: a hospital of the list, else free text.
+    let change = transport.destination.is_some();
+    let destination = RwSignal::new(match (&transport.hospital, change) {
+        (Some(h), _) => h.clone(),
+        (None, true) => OTHER.to_owned(),
+        (None, false) => String::new(),
+    });
+    let other = RwSignal::new(
+        transport
+            .destination
+            .clone()
+            .filter(|_| transport.hospital.is_none())
+            .unwrap_or_default(),
+    );
     let message = RwSignal::new(None::<&'static str>);
     let (unit_id, destination_id, other_id) = (
         format!("unit-{request}"),
@@ -976,7 +1008,7 @@ fn AssignForm(
         });
         let free_text = chosen == OTHER || hospitals.with_untracked(|h| h.hospitals.is_empty());
         let u = unit.get_untracked();
-        // [impl->dsn~transport-request~2]
+        // [impl->dsn~transport-request~3]
         // A unit is needed; the destination may come later (ADR-0098).
         let has_destination = !shown.is_empty() && (hospital.is_some() || free_text);
         let update = if destination_only {
@@ -1008,6 +1040,9 @@ fn AssignForm(
         };
         if core::update_transport(core, revision, &update).is_ok() {
             message.set(None);
+            if let Some(saved) = on_saved {
+                saved.run(());
+            }
         }
     };
     let other_field = {
@@ -1077,7 +1112,11 @@ fn AssignForm(
             <p class="error" role="alert">{move || message.get()}</p>
             <div class="row">
                 {move || {
-                    let word = if destination_only { text::destination_set_label() } else { text::transport_assign() };
+                    let word = match (destination_only, change) {
+                        (false, _) => text::transport_assign(),
+                        (true, false) => text::destination_set_label(),
+                        (true, true) => text::destination_change(),
+                    };
                     view! {
                         <button type="submit" class="button button--primary"
                             aria-label=text::transport_step_label(word, &name)>

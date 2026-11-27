@@ -1001,7 +1001,7 @@ Needs: impl, utest, itest
 Tags: should, m26
 
 #### Transport requests
-`dsn~transport-request~2`
+`dsn~transport-request~3`
 
 A UHS crew requests a transport on the patient's record: transport type, priority and
 special needs, chosen from the profile file `med/transport-requests.toml` (DE: KTW, RTW,
@@ -1020,7 +1020,11 @@ The incident command assigns a unit of the incident with `transport.updated`; th
 destination (a hospital of the list or free text, see [Hospital list](#hospital-list)) may
 come with it or later, until the unit reaches it, so a vehicle can be sent to the UHS
 before the destination is decided
-([ADR-0098](../adr/0098-transports-follow-the-unit-status.md)). The transport then follows
+([ADR-0098](../adr/0098-transports-follow-the-unit-status.md)). Until then it may also be
+changed, e.g. when a hospital stops admitting (card: *Ziel ändern*): the latest destination
+counts, also for the patients per hospital. Such an update carries no status code and never
+moves the transport's status back, so a step recorded on another device while it was
+offline is kept. The transport then follows
 the unit's status: the profile names the steps, a unit status code each and the
 transport status it means (DE: 3 assigned, 4 loading, 7 departed, 8 arrived, 1 or 2
 handed over). The card offers them after the last step reached; a step sets the unit's
@@ -1040,7 +1044,7 @@ and history. ORDO never proposes a vehicle, a destination or an order of transpo
 Covers:
 
 * [req~trans-1~1](../requirements/04-med.md#trans-1--transport-request)
-* [req~trans-3~2](../requirements/04-med.md#trans-3--transport-assignment-and-status)
+* [req~trans-3~3](../requirements/04-med.md#trans-3--transport-assignment-and-status)
 
 Needs: impl, utest, itest
 

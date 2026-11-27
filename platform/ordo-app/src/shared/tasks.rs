@@ -427,7 +427,7 @@ pub(crate) fn TaskItem(
             }
         });
         view! {
-            {placed.is_some().then(|| view! { <p class="hint"><Icon name="map-pin" />{text::task_on_map()}</p> })}
+            {placed.is_some().then(|| view! { <PinShown core revision object=pin.clone() label=name.clone() /> })}
             {assign}
             <PinEditor core revision object=pin.clone() label=name.clone() placed />
             {further}
@@ -576,6 +576,26 @@ fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) 
             </button>
             <p role="alert" class="error">{move || error.get()}</p>
         </form>
+    }
+}
+
+// [impl->dsn~reports~3]
+/// An Auftrag's pin for the incident command (REP-4): "Pin zeigen" opens the small map
+/// centred on it. The map is made only when opened; a list of cards stays light.
+#[component]
+fn PinShown(core: Handle, revision: RwSignal<u64>, object: String, label: String) -> impl IntoView {
+    let open = RwSignal::new(false);
+    let id = format!("pin-shown-{}", core::slug(&object));
+    let object = StoredValue::new(object);
+    view! {
+        <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
+            panel_class="task-card__panel"
+            label=Some(Signal::derive(move || text::pin_show_label(&label)))
+            button=Box::new(|| view! { <Icon name="map-pin" />{text::pin_show()} }.into_any())>
+            <Show when=move || open.get()>
+                <crate::shared::situation::PlaceMap core revision object=object.get_value() locate=false />
+            </Show>
+        </Disclosure>
     }
 }
 

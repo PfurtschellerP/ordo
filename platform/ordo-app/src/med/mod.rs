@@ -24,12 +24,17 @@ use crate::shell::nav;
 pub(crate) const WORKSPACES: &[nav::Workspace] = &[nav::Workspace {
     id: "med.uhs",
     package: || crate::med::text::tab_med(),
-    label: || "UHS",
+    label: crate::med::text::ws_uhs,
     requires: &["incident", "med.clinical"],
     permission: None,
     or_organisation: &[],
     views: &[
-        nav::view("patients", || "Patienten", "patients", "users"),
+        nav::view(
+            "patients",
+            crate::med::text::patients_title,
+            "patients",
+            "users",
+        ),
         nav::view(
             "orders",
             crate::med::text::orders,

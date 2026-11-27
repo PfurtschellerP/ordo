@@ -179,7 +179,9 @@ task-unit-missing = Bitte ein Einsatzmittel wählen.
 task-send-further = Weiteres Einsatzmittel schicken
 task-send-to = Zusätzlich schicken
 task-send = Schicken
-task-on-map = Pin auf der Lagekarte
+# Opens a small map centred on the Auftrag's pin.
+pin-show = Pin zeigen
+pin-show-label = Pin zeigen: { $task }
 my-tasks = Meine Aufträge
 pin-title = Pin auf der Karte (optional)
 pin-hint = Adresse suchen oder in die Karte tippen. Mit der Tastatur: Karte mit den Pfeiltasten verschieben, dann „Pin in Kartenmitte setzen“.

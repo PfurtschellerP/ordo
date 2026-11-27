@@ -581,7 +581,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(photo, "removed: the photo before shows again").toHaveAttribute("src", firstSrc);
     await expect.poll(() => status(anna), { message: "the removal is sent" }).toContain("Alles gesendet");
 
-    // [itest->dsn~transport-request~2]
+    // [itest->dsn~transport-request~3]
     await showTabOf(anna, "[aria-labelledby=section-transport]");
     const transport = anna.locator("[aria-labelledby=section-transport]");
     await transport.getByLabel("RTW – Rettungswagen").check();
@@ -1971,7 +1971,7 @@ test("ORDO in the browser", async ({ browser }) => {
   });
 
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
-    // [itest->dsn~transport-request~2]
+    // [itest->dsn~transport-request~3]
     await openView(ben, "Transporte");
     // [itest->dsn~page-tabs~4]
     // Used together: columns where the page is at least 60rem wide, tabs where narrower.
@@ -2044,7 +2044,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(hospital.locator(".hospital-card__capacity"), "capacity per category, with who and when").toHaveText(/^Aufnahme: SK I 2 · SK II 3 · SK III – \(Stand .+, Ben Weber\)$/);
     await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 0");
 
-    // [itest->dsn~transport-request~2]
+    // [itest->dsn~transport-request~3]
     // ADR-0098: the vehicle is sent before the destination is decided, and the transport
     // follows the unit's status.
     await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
@@ -2069,9 +2069,25 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(free, "a unit on a transport is not free").toContainText("Keine freien Transportmittel.");
     await expect(hospital.locator(".hospital-card__sent"), "the board counts the patient sent").toHaveText("Transportiert: 1");
     await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
-    await request.locator("summary").click();
+    // The destination changes on the way (a hospital stops admitting), and back again.
+    const change = request.locator(".transport-change");
+    await change.locator("summary").click();
+    await expect(change.getByLabel("Ziel", { exact: true }), "the destination so far is chosen").toHaveValue(/.+/);
+    await change.getByLabel("Ziel", { exact: true }).selectOption({ label: "Anderes Ziel (Freitext)" });
+    await change.getByLabel("Anderes Ziel", { exact: true }).fill("Kreiskrankenhaus Nord");
+    await change.getByRole("button", { name: /^Ziel ändern: / }).click();
+    await expect(transportStatus, "the new destination").toHaveText("7 – Patient aufgenommen · RTW 83/1 → Kreiskrankenhaus Nord");
+    await expect(hospital.locator(".hospital-card__sent"), "the count follows the destination").toHaveText("Transportiert: 0");
+    await change.locator("summary").click();
+    await expect(change.getByLabel("Anderes Ziel", { exact: true }), "free text is kept for a change").toHaveValue("Kreiskrankenhaus Nord");
+    await change.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
+    await change.getByRole("button", { name: /^Ziel ändern: / }).click();
+    await expect(transportStatus).toHaveText("7 – Patient aufgenommen · RTW 83/1 → Klinikum Mitte");
+    await expect(hospital.locator(".hospital-card__sent")).toHaveText("Transportiert: 1");
+    await request.locator(".history-list summary").click();
     await expect(request.locator(".history-list li"), "every change with time and person").toHaveText([
       /Angefordert/, /Zugewiesen/, /3 – Einsatz übernommen/, /Ziel: Klinikum Mitte/, /7 – Patient aufgenommen/,
+      /Ziel: Kreiskrankenhaus Nord/, /Ziel: Klinikum Mitte/,
     ]);
     await expect.poll(() => status(ben), { message: "the transport is sent" }).toContain("Alles gesendet");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "the command device never receives the triage tag number").toBe(false);
@@ -2219,7 +2235,13 @@ test("ORDO in the browser", async ({ browser }) => {
       `${second} · Zugewiesen`,
     ]);
     if (placed) {
-      await expect(report, "REP-4: its pin is on the situation map").toContainText("Pin auf der Lagekarte");
+      // REP-4: the command sees the pin on the card, on a small map made when opened.
+      const shown = report.getByRole("button", { name: "Pin zeigen: Patient: Bühne Nord, links" });
+      await expect(report.locator(".place-map"), "no map until asked for").toHaveCount(0);
+      await shown.click();
+      await expect(report.locator(".place-map .situation__map"), "the small map").toBeVisible();
+      await expect(report.getByRole("button", { name: /Standort/ }), "no own position on the command's card").toHaveCount(0);
+      await shown.click();
       await expect(report.getByRole("button", { name: "Pin verschieben: Patient: Bühne Nord, links" }), "and moves in place").toHaveCount(1);
     }
     await audit(ben, "Aufträge");
@@ -2343,7 +2365,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // The other unit still works on it; when it is done too, by radio, the Auftrag ends.
     await expect(report.locator(".task-card__unit > span")).toHaveText(["SanTrp 1 · Erledigt", `${second} · Zugewiesen`]);
     await expect(report.locator(".task-card__status"), "open while one unit works").toContainText("In Arbeit");
-    if (placed) await expect(report, "its pin stays").toContainText("Pin auf der Lagekarte");
+    if (placed) await expect(report.getByRole("button", { name: "Pin zeigen: Patient: Bühne Nord, links" }), "its pin stays").toHaveCount(1);
     await expect(report.getByRole("button", { name: /^Erledigt/ }), "its steps once, in its row").toHaveCount(1);
     await report.getByRole("button", { name: `Erledigt: ${second} – Patient: Bühne Nord, links` }).click();
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (0)");

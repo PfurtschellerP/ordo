@@ -895,7 +895,8 @@ Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
   sets it, "Pin in Kartenmitte setzen" sets it from the keyboard, and it can be removed
   before saving.
 * **Pin:** a map object of the kind `task` (`map.objectPlaced`, schema version 4,
-  `reference` the Auftrag's ID). The card moves it in place, with the same small map.
+  `reference` the Auftrag's ID). The card shows it on a small map (*Pin zeigen*, made
+  only when opened) and moves it in place, with the same small map.
   "Weiteres Einsatzmittel schicken" adds a unit to the Auftrag (ADR-0085), offering only
   units not on it yet; a linked Auftrag of an older incident (`follows`) uses the first
   one's pin. The situation map shows a pin while one of its Aufträge is open; the map

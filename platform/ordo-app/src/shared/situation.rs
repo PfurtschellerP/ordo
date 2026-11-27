@@ -713,9 +713,17 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 
 // [impl->dsn~reports~3]
 /// A small map of the incident, centred on one object: an Auftrag's pin for the crew sent
-/// there (REP-4). It moves with two fingers, so one finger scrolls the page.
+/// there (REP-4), or for the incident command on its card. It moves with two fingers, so
+/// one finger scrolls the page.
 #[component]
-pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl IntoView {
+pub fn PlaceMap(
+    core: Handle,
+    revision: RwSignal<u64>,
+    object: String,
+    /// "Meinen Standort zeigen", for the crew on its way.
+    #[prop(default = true)]
+    locate: bool,
+) -> impl IntoView {
     let s = situation(core, revision);
     let node = NodeRef::<leptos::html::Div>::new();
     let (handle, state) = mount_map(core, node, s, true);
@@ -773,7 +781,7 @@ pub fn PlaceMap(core: Handle, revision: RwSignal<u64>, object: String) -> impl I
         <div class="place-map">
             <MapFrame node state />
         </div>
-        {pin.map(|_| view! {
+        {pin.filter(|_| locate).map(|_| view! {
             <div class="row place-map__me">
                 <button type="button" class="button button--small button--with-icon"
                     aria-pressed=move || following.get().to_string()

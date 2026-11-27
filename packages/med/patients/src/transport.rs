@@ -44,7 +44,7 @@ pub struct TransportCatalogue {
     pub steps: Vec<StatusStep>,
 }
 
-// [impl->dsn~transport-request~2]
+// [impl->dsn~transport-request~3]
 /// A unit status that moves a transport on: the code (from the unit status catalogue) and
 /// the transport status it means.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,7 +137,7 @@ impl TransportCatalogue {
         }
     }
 
-    // [impl->dsn~transport-request~2]
+    // [impl->dsn~transport-request~3]
     /// The steps the transport can take next: those after the last one it reached (by its
     /// code), not before its status. None for a transport without a unit, or ended.
     pub fn next_steps(&self, t: &Transport) -> Vec<&StatusStep> {
@@ -395,7 +395,7 @@ pub struct TransportBoard {
 }
 
 impl TransportBoard {
-    // [impl->dsn~transport-request~2]
+    // [impl->dsn~transport-request~3]
     /// Computes the board. The result doesn't depend on the order of `events`: a request
     /// made twice keeps its first version; updates apply in clock order, the latest
     /// sets the status; updates for unknown requests are ignored.
@@ -449,7 +449,17 @@ impl TransportBoard {
             if at <= t.requested_at() {
                 continue;
             }
-            t.status = update.status;
+            // [impl->dsn~transport-request~3]
+            // Only a destination, set or changed (ADR-0098): it never moves the status back,
+            // so a step recorded meanwhile on a device that was offline is kept.
+            let destination_only = update.unit.is_none()
+                && update.status_code.is_none()
+                && update.destination.is_some();
+            t.status = if destination_only {
+                t.status.max(update.status)
+            } else {
+                update.status
+            };
             let (destination, unit) = (update.destination.clone(), update.unit.clone());
             if update.unit.is_some() {
                 t.unit = update.unit;
@@ -641,7 +651,7 @@ mod tests {
         event(n, "erik", MODULE, UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn a_transport_follows_the_unit_status_and_its_destination_may_come_later() {
         use TransportStatus::*;
@@ -711,8 +721,44 @@ mod tests {
             Some("Klinikum Mitte")
         );
         assert_eq!(board.sent_to_hospitals()["h1"], 1);
+        // The hospital stops admitting: the destination changes on the way, the patients
+        // per hospital follow it.
+        let changed = TransportUpdated {
+            destination: Some("St. Marien".into()),
+            hospital: Some("h2".into()),
+            ..destination.clone()
+        };
+        events.push(event(5, "ben", MODULE, UPDATED, changed.encode().unwrap()));
+        let board = TransportBoard::from_events(&events);
+        let t = &board.transports["r1"];
+        assert_eq!(t.destination.as_deref(), Some("St. Marien"));
+        assert_eq!(board.sent_to_hospitals().get("h1"), None);
+        assert_eq!(board.sent_to_hospitals()["h2"], 1);
+        // Status 8 set on a device that was offline; a change made later on a device that
+        // had not seen it yet still carries status 7: 8 stays.
+        let mut late = events.clone();
+        late.push(coded(6, "r1", Arrived, "8"));
+        let free_text = TransportUpdated {
+            destination: Some("Kreiskrankenhaus".into()),
+            hospital: None,
+            ..changed
+        };
+        late.push(event(
+            7,
+            "ben",
+            MODULE,
+            UPDATED,
+            free_text.encode().unwrap(),
+        ));
+        let board = TransportBoard::from_events(&late);
+        let t = &board.transports["r1"];
+        assert_eq!(
+            (t.status, t.destination.as_deref(), t.hospital.as_deref()),
+            (Arrived, Some("Kreiskrankenhaus"), None),
+            "a destination never moves the status back"
+        );
         // Status 2 ends it.
-        events.push(coded(5, "r1", HandedOver, "2"));
+        events.push(coded(8, "r1", HandedOver, "2"));
         let board = TransportBoard::from_events(&events);
         assert!(steps.next_steps(&board.transports["r1"]).is_empty());
         assert_eq!(
@@ -834,7 +880,7 @@ mod tests {
         event(n, user, MODULE, UPDATED, u.encode().unwrap())
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn a_request_is_assigned_and_moves_through_its_steps() {
         use TransportStatus::*;
@@ -872,7 +918,7 @@ mod tests {
         assert_eq!(t.request.needs, vec!["infectious"]);
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn the_open_list_is_by_priority_then_age_and_drops_ended_transports() {
         let c = catalogue();
@@ -978,7 +1024,7 @@ mod tests {
         assert_eq!(free, ["RTW 3"]);
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn steps_only_go_forward_and_cancelling_ends_before_departure() {
         use TransportStatus::*;
@@ -998,7 +1044,7 @@ mod tests {
         assert!(HandedOver.next().is_empty() && Cancelled.next().is_empty());
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn new_requests_must_fit_the_profile_catalogue() {
         let c = catalogue();
@@ -1031,7 +1077,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~transport-request~2]
+    // [utest->dsn~transport-request~3]
     #[test]
     fn the_patient_link_stays_in_the_clinical_events() {
         let link = |n, tag: &str, request: &str| {

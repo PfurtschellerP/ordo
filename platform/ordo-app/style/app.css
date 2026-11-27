@@ -682,6 +682,7 @@
   .order-form { display: grid; gap: var(--ordo-space-2); }
   .history-list ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
   .transport-assign { display: grid; gap: var(--ordo-space-2); grid-template-columns: minmax(0, 1fr); }
+  .transport-change > .transport-assign { margin-block-start: var(--ordo-space-2); }
   .incident-card h2 { margin: 0; font-size: var(--ordo-font-size-4); }
   .incident-card p { margin: 0; }
   .incident-card .button { justify-self: start; }

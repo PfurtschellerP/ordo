@@ -192,7 +192,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
     (med::transport::UPDATED, |e, c, _| {
         Some({
             let p = decode::<med::transport::TransportUpdated>(e)?;
-            // [impl->dsn~transport-request~2]
+            // [impl->dsn~transport-request~3]
             // A step by the unit's status shows as it (ADR-0098), a destination set later
             // as the destination.
             let what = match (&p.status_code, &p.destination, p.unit.is_some()) {

@@ -179,7 +179,9 @@ task-unit-missing = Please choose a unit.
 task-send-further = Send another unit
 task-send-to = Also send
 task-send = Send
-task-on-map = Pin on the situation map
+# Opens a small map centred on the Auftrag's pin.
+pin-show = Show pin
+pin-show-label = Show pin: { $task }
 my-tasks = My tasks
 pin-title = Pin on the map (optional)
 pin-hint = Search an address or tap into the map. With the keyboard: move the map with the arrow keys, then “Set pin at map centre”.
