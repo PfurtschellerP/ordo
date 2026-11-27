@@ -1399,7 +1399,7 @@
   /* Building blocks (ADR-0102): section head, item row, status tag, key-value grid, empty
      state. A head is close to its rows and apart from the section above (law of
      proximity); an item's tag and actions line up at the right. */
-  .section-head { display: flex; align-items: center; gap: var(--ordo-space-3); margin: 0 0 var(--ordo-space-2); }
+  .section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2) var(--ordo-space-3); margin: 0 0 var(--ordo-space-2); min-width: 0; }
   * + .section-head, .section-head:not(:first-child) {
     margin-block-start: var(--ordo-space-5); padding-block-start: var(--ordo-space-4);
     border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
@@ -1409,7 +1409,7 @@
     inline-size: 2rem; block-size: 2rem; border-radius: var(--ordo-radius-small);
     background: var(--ordo-color-feedback-info-surface); color: var(--ordo-color-feedback-info-text);
   }
-  .section-head__title { flex: 1 1 auto; margin: 0; font-size: var(--ordo-font-size-4); }
+  .section-head__title { flex: 1 1 8rem; min-width: 0; margin: 0; font-size: var(--ordo-font-size-4); overflow-wrap: anywhere; }
   .section-head__count { color: var(--ordo-color-text-secondary); font-variant-numeric: tabular-nums; font-weight: var(--ordo-font-weight-regular); }
   .section-head__action { flex: none; display: flex; gap: var(--ordo-space-2); }
   .item-rows { list-style: none; margin: 0; padding: 0; }

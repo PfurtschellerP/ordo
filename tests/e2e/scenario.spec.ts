@@ -58,7 +58,13 @@ let annaFrames: ReturnType<typeof recordFrames>;
 let patientPhoto: Buffer;
 let benFrames: ReturnType<typeof recordFrames>;
 
-const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
+// Browsers take no screenshot taller than 32767 pixels (WebKit refuses it): a page that
+// tall (the gallery) is taken as far as the viewport.
+const shot = async (page: Page, name: string, fullPage = true) => {
+  // In device pixels: Desktop Safari has a pixel ratio of 2.
+  const tall = await page.evaluate(() => document.documentElement.scrollHeight * window.devicePixelRatio > 32_000);
+  return page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: fullPage && !tall });
+};
 
 /** Content Security Policy violations reported by any page of the scenario (SEC-18). */
 const cspViolations: string[] = [];
