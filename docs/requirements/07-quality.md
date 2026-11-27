@@ -97,11 +97,11 @@ Tags: should, quality, m6
 Needs: dsn
 
 #### UX-11 — Header and reach for both hands
-`req~ux-11~1`
+`req~ux-11~2`
 
-ORDO shall show, on wide screens, the menu, the page heading, the search in the middle, the connection state and the signed-in person in the header from left to right, with the person's settings in a menu of their own; when a person chooses left-handed use on a device, ORDO shall put the menu of the bottom bar at its left end on that device.
+ORDO shall show its header as one slim row: on wide screens the menu (with ORDO's mark), the path of the page and the incident, then search, attention, connection state and the signed-in person as icons with their names as tooltips; on phones the mark, the view's name and those icons, with the menu in the bottom bar. The person's settings shall be in a menu of their own. When a person chooses left-handed use on a device, ORDO shall put the menu of the bottom bar at its left end on that device.
 
-Tags: should, quality, m16, m55
+Tags: should, quality, m16, m55, m77
 
 Needs: dsn
 
@@ -158,6 +158,22 @@ side by side where the screen is wide enough for both, and on tabs where it is n
 so shows one task at a time on a phone, and its keyboard order is the order on screen.
 
 Tags: should, quality, m69
+
+Needs: dsn
+
+#### UX-18 — Calm pages
+`req~ux-18~1`
+
+ORDO shall show on a page what is, and what is done there, before how to change it: forms
+to create or edit something open on request; read values stand compactly; hints take one
+line, longer explanations open on request; repeated actions are icons with their names;
+state is shown by colour, icon and word together; and lists, heads, items, tags and empty
+states look and behave the same on every page, on phones as on wide screens.
+
+Rationale: pages had grown crowded and uneven
+([ADR-0102](../adr/0102-building-blocks-screen-space-and-calm-pages.md)).
+
+Tags: should, quality, m77
 
 Needs: dsn
 

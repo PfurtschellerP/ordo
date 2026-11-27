@@ -438,6 +438,11 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
         patient data; a changed assignment reconnects the person's devices. Next, in the
         agreed order: building blocks and screen space with calm pages (slim header with
         the ORDO mark), then the navigation rules, then the notification centre.
+    13. *Calm pages* (m77), begun 2026-11-27: the header is one slim row with ORDO's mark
+        as the menu button, the path and icons; the rail is icons with short labels; the
+        building blocks (section head, item row, status tag, key-value grid, empty state)
+        are in the gallery ([ADR-0102](adr/0102-building-blocks-screen-space-and-calm-pages.md)).
+        Next: the pages move to them, the record and *Führung & Raum* first.
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

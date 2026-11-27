@@ -150,6 +150,15 @@ test("ORDO in the browser", async ({ browser }) => {
     }
     await expect(dora.locator("#gallery-icons li"), "every icon with its meaning").not.toHaveCount(0);
     await expect(dora.locator("#gallery-patient-cards .patient-card"), "the package's own building blocks").toHaveCount(5);
+    // [itest->dsn~building-blocks~1]
+    // ADR-0102: the blocks of calm pages, each shown in the gallery.
+    await expect(dora.getByRole("heading", { level: 2, name: "Building blocks of calm pages", exact: true })).toBeVisible();
+    const rows = dora.locator("#gallery-item-row .item-row");
+    await expect(rows, "item rows").toHaveCount(3);
+    const [tag, actions, text] = await Promise.all([".item-row__status", ".item-row__actions", ".item-row__text"].map((c) => rows.first().locator(c).boundingBox()));
+    expect(text!.x < tag!.x && tag!.x < actions!.x, "text, then the tag, then the actions at the right").toBe(true);
+    await expect(dora.locator("#gallery-status-tag .status-tag"), "a tag in each tone").toHaveCount(4);
+    await expect(dora.locator("#gallery-section-head .section-head__count")).toHaveText("2");
     await dora.getByRole("button", { name: "Ort und Personal: UHS Eingang" }).click();
     await expect(dora.getByRole("dialog", { name: "UHS Eingang bearbeiten" })).toBeVisible();
     await dora.keyboard.press("Escape");
@@ -1025,7 +1034,7 @@ test("ORDO in the browser", async ({ browser }) => {
     });
     expect(barBottom, "the bar sits at the bottom").toBe(viewportHeight);
     expect(menuInBar, "the menu is in the bar").toBe(true);
-    // [itest->dsn~header-layout~2]
+    // [itest->dsn~header-layout~3]
     await expect(anna.getByRole("button", { name: "Menü – Arbeitsbereich wechseln" }), "exactly one menu button: the one in the bar").toHaveCount(1);
     await expect(anna.locator("#launcher-button"), "the header's menu button is hidden on phones").toBeHidden();
     const menuAtEnd = () =>
@@ -1050,12 +1059,15 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.keyboard.press("Escape");
     await expect(anna.locator("#connection-panel")).toBeHidden();
     await expect(connection, "focus returns to it").toBeFocused();
+    // [itest->dsn~header-layout~3]
+    // ADR-0102: on phones too one slim row: ORDO's mark, the view, then the icons.
     const headerRows = await anna.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      const [connection, person, search] = ["#connection-button", "#profile-button", "#palette-button"].map(box);
-      return [connection.top < person.bottom && connection.bottom > person.top, search.top >= person.bottom];
+      const [mark, title, search, connection, person, bar] = [".app-header__mark", ".app-header__title", "#palette-button", "#connection-button", "#profile-button", ".app-header"].map(box);
+      const sameRow = (a: DOMRect, b: DOMRect) => a.top < b.bottom && a.bottom > b.top;
+      return [sameRow(mark, person) && sameRow(title, person) && sameRow(search, person) && sameRow(connection, person), bar.height <= 64];
     });
-    expect(headerRows, "heading, connection and person in one row, the search below").toEqual([true, true]);
+    expect(headerRows, "mark, view, search, connection and person in one slim row").toEqual([true, true]);
     await openProfile(anna, "Dieses Gerät");
     await anna.locator("#hand").selectOption({ label: "linker Hand" });
     await expect(anna.locator("html"), "left-handed use is kept on the device").toHaveAttribute("data-hand", "left");
@@ -1191,16 +1203,19 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.keyboard.press("Escape");
     await expect(ben.locator("#launcher-panel"), "Escape closes the menu").toBeHidden();
     await expect(ben.locator("#launcher-button"), "focus returns to the menu button").toBeFocused();
-    // [itest->dsn~header-layout~2]
+    // [itest->dsn~header-layout~3]
     const header = await ben.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
       const [menu, title, search, status, person, bar] = ["#launcher-button", ".app-header__title", "#palette-button", "#connection-button", "#profile-button", ".app-header"].map(box);
       return {
         order: menu.right <= title.left && title.right <= search.left && search.right <= status.left && status.right <= person.left,
-        centred: Math.abs((search.left + search.right) / 2 - (bar.left + bar.right) / 2) < 2,
+        slim: bar.height <= 64,
       };
     });
-    expect(header, "header: menu, heading, search in the middle, connection, person").toEqual({ order: true, centred: true });
+    // ADR-0102: one slim row, the path after ORDO's menu, the icons at the right.
+    expect(header, "header: menu, path, then search, connection, person, in one slim row").toEqual({ order: true, slim: true });
+    await expect(ben.locator(".app-header__title"), "the path: workspace › view").toHaveText(/^Einsatzleitung – \S+ ›\s+\S+/);
+    await expect(ben.locator("#palette-button"), "the search is an icon with its name").toHaveAccessibleName("Suchen");
     await expect(ben.getByRole("button", { name: "Menü – Arbeitsbereich wechseln" }), "exactly one menu button on wide screens").toHaveCount(1);
     await ben.locator("#launcher-button").click();
     await expect(ben.locator("#launcher-panel"), "the main menu lists workspaces only").not.toContainText("Gerät entkoppeln");
@@ -1249,7 +1264,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
     // The profile page: the person's settings apart from the device's, each saying so.
     await openProfile(ben);
-    await expect(ben.getByRole("heading", { level: 1 })).toHaveText("Person – Profil und Geräte");
+    await expect(ben.getByRole("heading", { level: 1 })).toHaveText(/Person – Profil und Geräte ›\s+Profil$/);
     await expect(ben.locator(".profile-part h2"), "side by side where wide").toHaveText(["Ich", "Dieses Gerät"]);
     await expect(ben.locator(".profile-part .hint").first()).toHaveText("Gilt auf allen Ihren Geräten.");
     // ORG-7: a person may choose their own name; clearing it returns to the provider's.
@@ -1870,9 +1885,9 @@ test("ORDO in the browser", async ({ browser }) => {
     // The bar shows "Struktur", so every label takes one line (product owner, 2026-11-22).
     const here = ben.locator("nav.views .views__item[aria-current=page]");
     await expect(here.locator(".views__label--short"), "the short label in the bar").toHaveText("Struktur");
-    await expect(here.locator(".views__label--long")).toBeHidden();
+    await expect(here, "the full name stays the link's name (ADR-0102)").toHaveAccessibleName("Führung & Raum");
     const labelHeights = await ben.evaluate(() =>
-      [...document.querySelectorAll("nav.views .views__label")].filter((l) => (l as HTMLElement).offsetParent).map((l) => Math.round(l.getBoundingClientRect().height)));
+      [...document.querySelectorAll("nav.views .views__label:not(.views__label--long)")].filter((l) => (l as HTMLElement).offsetParent).map((l) => Math.round(l.getBoundingClientRect().height)));
     expect(new Set(labelHeights).size, `one line each: ${labelHeights}`).toBe(1);
     await expect(ben.locator("#main .parts .tabs__short").filter({ visible: true }), "short tab labels on a phone").toHaveText(["Struktur", "Karte", "Grundlage"]);
     await shot(ben, "command-space-phone", false);

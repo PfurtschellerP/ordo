@@ -1858,29 +1858,67 @@ Needs: impl, itest
 Tags: must, m5
 
 #### Header and profile menu
-`dsn~header-layout~2`
+`dsn~header-layout~3`
 
-The header is a grid of three columns: menu button, page heading and incident on the left,
-the search in the middle column, connection state and the person's button on the right;
-the outer columns share the remaining width equally, so the search stays centred. Up to
-48 rem the heading, connection and person share the first row and the search takes the
-second; the menu button of the header is hidden and the one in the bottom bar shown. Both
-buttons control the same panel (`aria-controls`, `aria-expanded`), and only the visible
-one is in the accessibility tree. The person's button (picture and name, disclosure)
-opens the profile menu with who is signed in, the roles, the appearance and the ways to
-the profile page, the person's devices, another incident and signing out
-([Profile page](#profile-page)). Escape closes either menu and returns the focus to its
-button; a click or tap anywhere outside a menu, its buttons and its panel closes it too and
-leaves the focus where the click put it. The connection state's menu behaves the same. Handedness ("right" by default, or "left") is kept on the device like the theme
-and set as `data-hand` on `<html>`; with "left", the bottom bar puts the menu first.
+The header is one row of 48 pixels ([ADR-0102](../adr/0102-building-blocks-screen-space-and-calm-pages.md)):
+at the left the menu button, ORDO's mark (the ring and centre of the app icon, without its
+tile, in the text colour, so it follows the theme) with the word ORDO, "Menü" as its
+accessible name and tooltip; then the path of the page, workspace › view ("Führung ›
+Lage"), and the incident's name in small type, cut with "…" where narrow and whole as its
+tooltip. At the right, icon buttons only, each with its name as accessible name and
+tooltip: search (⌘K/Ctrl+K in the tooltip), the bell with its number, the connection state
+(its shape and colour, the number of unsent inputs), the person's picture. The rail is 72
+pixels: each view's icon with its short label under it, as in the bottom bar. Up to 48 rem
+the header shows the mark alone and the view's name, the search, bell, connection and
+picture; the menu button of the header is hidden and the one in the bottom bar shown. Both
+buttons control the same panel (`aria-controls`, `aria-expanded`), and only the visible one
+is in the accessibility tree. The person's button opens the profile menu with who is signed
+in, the roles, the appearance and the ways to the profile page, the person's devices,
+another incident and signing out ([Profile page](#profile-page)). Escape closes either menu
+and returns the focus to its button; a click or tap anywhere outside a menu, its buttons
+and its panel closes it too and leaves the focus where the click put it. The connection
+state's menu behaves the same. Handedness ("right" by default, or "left") is kept on the
+device like the theme and set as `data-hand` on `<html>`; with "left", the bottom bar puts
+the menu first.
 
 Covers:
 
-* [req~ux-11~1](../requirements/07-quality.md#ux-11--header-and-reach-for-both-hands)
+* [req~ux-11~2](../requirements/07-quality.md#ux-11--header-and-reach-for-both-hands)
 
 Needs: impl, itest
 
-Tags: should, m16, m55
+Tags: should, m16, m55, m77
+
+#### Building blocks
+`dsn~building-blocks~1`
+
+Calm pages ([ADR-0102](../adr/0102-building-blocks-screen-space-and-calm-pages.md),
+chapter 8.6.5) are built from a few components in `shell::ui`, each in the gallery in
+every theme:
+
+* `SectionHead`: icon, title, number, one action at the right. It stands close to its own
+  rows and apart from the section above (space and a thin divider).
+* `ItemRow`: time and text at the left, the text taking the free width and wrapping where
+  narrow; then the status tag and the icon actions at the right, in fixed columns, the
+  actions at the section head's edge. Items of a section are rows with a line between
+  them, never cards inside a card.
+* `StatusTag`: tone (`ok`, `attention`, `urgent`, `neutral`, from the design tokens), icon
+  and word.
+* `KeyValues`: read values in a grid, several per line; an entry of a record is one
+  `ItemRow` that opens for its details.
+* `EmptyState`: icon, one sentence, the way on.
+
+Forms that create or change something open in the edit dialog from a "+ Neu" or ✎; hints
+take one line, longer ones open from an ⓘ. Pages move to these blocks one by one, the
+record and *Führung & Raum* first.
+
+Covers:
+
+* [req~ux-18~1](../requirements/07-quality.md#ux-18--calm-pages)
+
+Needs: impl, itest
+
+Tags: should, m77
 
 #### Compact navigation
 `dsn~compact-navigation~2`

@@ -493,7 +493,7 @@ pub(crate) fn stored_theme() -> String {
     core::preference(THEME_KEY).unwrap_or_default()
 }
 
-// [impl->dsn~header-layout~2]
+// [impl->dsn~header-layout~3]
 /// Applies the handedness (`""` = right, `"left"`) and remembers it on this device: the
 /// bottom bar puts the menu at the end the thumb reaches.
 pub(crate) fn apply_hand(hand: &str) {
@@ -547,7 +547,23 @@ fn page_with_tabs(
     }
 }
 
-/// The content of both menu buttons (header and bottom bar).
+/// ORDO's mark: the ring and centre of the app icon, without its tile, drawn in the text
+/// colour so it follows the theme (ADR-0102).
+const ORDO_MARK: &str = r#"<svg viewBox="78 78 356 356" focusable="false"><path d="M383.2 176.5A150 150 0 0 1 383.2 335.5M335.5 383.2A150 150 0 0 1 176.5 383.2M128.8 335.5A150 150 0 0 1 128.8 176.5M176.5 128.8A150 150 0 0 1 335.5 128.8" fill="none" stroke="currentColor" stroke-width="56" stroke-linecap="round"/><circle cx="256" cy="256" r="46" fill="currentColor"/></svg>"#;
+
+// [impl->dsn~header-layout~3]
+/// The header's menu button: ORDO's mark and name; its accessible name and tooltip say
+/// what it does ("Menü – Arbeitsbereich wechseln").
+#[component]
+fn HeaderMenuLabel() -> impl IntoView {
+    view! {
+        <span class="ordo-mark" aria-hidden="true" inner_html=ORDO_MARK></span>
+        <span class="launcher__brand" aria-hidden="true">"ORDO"</span>
+        <span class="visually-hidden">{text::menu()} " – " {text::launcher()}</span>
+    }
+}
+
+/// The content of the bottom bar's menu button.
 #[component]
 fn MenuLabel() -> impl IntoView {
     view! {
@@ -866,16 +882,10 @@ fn Workspace(
             .map(ToString::to_string)
             .unwrap_or_default()
     });
-    let incident_name = move || {
+    let incident_name = Signal::derive(move || {
         revision.track();
         core.with_value(|c| c.incident_info().map(|i| i.name))
             .unwrap_or_else(|| format!("{}…", incident.chars().take(10).collect::<String>()))
-    };
-    let incident = core.with_value(|c| {
-        c.incident
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_default()
     });
     let user = core.with_value(|c| c.replica.user().to_string());
     let me = core.with_value(|c| c.replica.user().clone());
@@ -890,9 +900,27 @@ fn Workspace(
         core::forget_device();
         on_unpair.with_value(|f| f());
     };
+    // [impl->dsn~header-layout~3]
+    // The path, "Führung › Lage" (ADR-0102); the package for screen readers and search.
     let title = move || match current.get().and_then(nav::workspace) {
-        Some(w) => format!("{} – {}", (w.package)(), (w.label)()),
-        None => text::app_name().to_owned(),
+        Some(w) => {
+            let view = current_view
+                .get()
+                .filter(|_| w.views.len() > 1)
+                .and_then(|v| w.views.iter().find(|x| x.id == v))
+                .map(|v| (v.label)());
+            view! {
+                <span class="visually-hidden">{(w.package)()} " – "</span>
+                <span class="app-header__workspace">{(w.label)()}</span>
+                {view.map(|v| view! {
+                    <span class="app-header__sep" aria-hidden="true">" › "</span>
+                    <span class="visually-hidden">" "</span>
+                    <span class="app-header__view">{v}</span>
+                })}
+            }
+            .into_any()
+        }
+        None => text::app_name().into_any(),
     };
     let mac = web_sys::window()
         .and_then(|w| w.navigator().platform().ok())
@@ -934,7 +962,7 @@ fn Workspace(
         }
     });
     on_cleanup(move || keys.remove());
-    // [impl->dsn~header-layout~2]
+    // [impl->dsn~header-layout~3]
     crate::shell::ui::close_on_click_outside(
         open,
         "#launcher-button, #launcher-bar-button, #launcher-panel".to_owned(),
@@ -968,28 +996,30 @@ fn Workspace(
             <div class="app-header__start">
                 <DisclosureButton id="launcher-button" controls="launcher-panel" open
                     class="launcher__button launcher__button--header" on_open=Some(close_profile)>
-                    <MenuLabel />
+                    <HeaderMenuLabel />
                 </DisclosureButton>
+                // On phones the menu is in the bottom bar: the mark alone names the app.
+                <span class="app-header__mark" aria-hidden="true" inner_html=ORDO_MARK></span>
                 <div class="app-header__heading">
                     <h1 class="app-header__title">{title}</h1>
-                    <p class="app-header__incident">
-                        <span>{text::incident()} ": "</span>
-                        <span id="incident-name" title=incident.clone()>{incident_name}</span>
+                    <p class="app-header__incident" title=incident_name>
+                        <span class="visually-hidden">{text::incident()} ": "</span>
+                        <span id="incident-name">{incident_name}</span>
                     </p>
                 </div>
             </div>
+            <div class="app-header__end">
             <button
                 id="palette-button"
                 type="button"
-                class="search-button"
+                class="search-button icon-button"
                 aria-keyshortcuts="Control+K Meta+K"
+                data-tip=format!("{} ({shortcut})", text::search())
                 on:click=move |_| palette.set(true)
             >
                 <Icon name="search" />
-                <span>{text::search()}</span>
-                <kbd class="search-button__keys" aria-hidden="true">{shortcut}</kbd>
+                <span class="visually-hidden">{text::search()}</span>
             </button>
-            <div class="app-header__end">
                 <crate::shell::attention::AttentionBell core revision on_open=Callback::new(move |()| { open.set(false); profile_open.set(false); }) />
                 <ConnectionStatus core revision />
                 <Disclosure id="profile" open=profile_open class="profile-menu"
@@ -1103,12 +1133,15 @@ fn Workspace(
                                                 href=nav::Route::view(w.id, v.id).to_path()
                                                 on:click=follow(nav, nav::Route::view(w.id, v.id))
                                                 aria-current=move || selected().then_some("page")
+                                                title=(v.label)()
                                             >
                                                 <Icon name=v.icon />
                                                 // [impl->dsn~workspaces-by-phase~5]
                                                 // The bar shows the short label where there is one.
+                                                // The full name is the link's name and tooltip; a short
+                                                // one is only what shows (ADR-0102).
                                                 <span class="views__label" class:views__label--long=v.short.is_some()>{(v.label)()}</span>
-                                                {v.short.map(|short| view! { <span class="views__label views__label--short">{short()}</span> })}
+                                                {v.short.map(|short| view! { <span class="views__label views__label--short" aria-hidden="true">{short()}</span> })}
                                             </a>
                                         }
                                     })

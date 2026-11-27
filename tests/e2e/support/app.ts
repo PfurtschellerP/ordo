@@ -4,7 +4,10 @@ import type { DeviceKey, OrdoServer } from "./server";
 
 /** The connection state, as the connection button names it ("Verbindung: Verbunden. Alles gesendet"). */
 export const status = (page: Page) => page.locator("#connection-button").getAttribute("aria-label").then((t) => t ?? "");
-export const title = (page: Page) => page.locator(".app-header__title").innerText();
+/** The page's path as text, e.g. "Einsatzleitung – Führung › Lage" (the package part is
+ * only for screen readers, ADR-0102). */
+export const title = (page: Page) =>
+  page.locator(".app-header__title").evaluate((e) => (e.textContent ?? "").replace(/\s+/g, " ").trim());
 export const announced = (page: Page) => page.locator("body > [role=status]").innerText();
 export const pathOf = (page: Page) => decodeURIComponent(new URL(page.url()).pathname);
 
@@ -97,7 +100,7 @@ export async function openWorkspace(page: Page, label: string): Promise<void> {
   await page.locator("#launcher-button").click();
   await page.locator("#launcher-panel").getByRole("button", { name: label, exact: true }).click();
   // Wait until the switch has happened, so a following view is chosen within it.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(new RegExp(`– ${label}$`));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(new RegExp(`– ${label}( › .+)?$`));
 }
 
 /** Opens *Person – Profil* from the person's menu (ADR-0100), on the device's part where the

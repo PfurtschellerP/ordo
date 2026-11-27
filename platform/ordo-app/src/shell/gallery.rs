@@ -10,8 +10,9 @@ use std::collections::BTreeSet;
 use leptos::prelude::*;
 
 use crate::shell::ui::{
-    Actions, Ago, CheckChips, Disclosure, EditButton, EditDialog, History, ICONS, Icon, IconButton,
-    RadioChips, Suggestions, UndoBar, UndoSlot, offer_undo,
+    Actions, Ago, CheckChips, Disclosure, EditButton, EditDialog, EmptyState, History, ICONS, Icon,
+    IconButton, ItemRow, KeyValues, RadioChips, SectionHead, StatusTag, Suggestions, Tone, UndoBar,
+    UndoSlot, offer_undo,
 };
 use crate::shell::views::{Nav, show_theme, stored_theme};
 use crate::text;
@@ -227,6 +228,53 @@ const SHELL: &[Part] = &[
                 usage: "Separate tasks used one at a time: always tabs (Personal, Einsatzmittel, the patient list, the record). Parts used together: side by side from 60 or 84rem, tabs below (Führung & Raum, Transporte). Not for one list or form, steps in order, or a part shorter than a screen; what needs attention stays above the tabs. Two to five nouns, a short label for phones, the main part first; an action that needs another part shows it (chapter 8.6.5).",
                 access: "WAI-ARIA tabs: arrow keys, Home and End move, vim gt/gT; the chosen tab is underlined thick and bold. Hidden parts keep their input; focusing into one shows it.",
                 show: tabs,
+            },
+        ],
+    },
+    // [impl->dsn~building-blocks~1]
+    Part {
+        id: "blocks",
+        title: "Building blocks of calm pages",
+        examples: &[
+            Example {
+                id: "section-head",
+                name: "Section head",
+                code: "shell::ui::SectionHead",
+                usage: "The head of each part of a page: icon, title, number, one action at the right (\"+ Neu\"). Close to its rows, apart from the section above (space and a thin line). Replaces a large heading inside each card (ADR-0102).",
+                access: "A real heading; the number is text; the action names its section.",
+                show: section_head,
+            },
+            Example {
+                id: "item-row",
+                name: "Item row",
+                code: "shell::ui::ItemRow, .item-rows",
+                usage: "One item of a list: time and text at the left, the text taking the free width; the status tag, then icon actions at the far right, lined up down the list. Items are rows with a line between them, never cards inside a card. A documented entry is one row, opened for its details.",
+                access: "A list item; tag and actions follow the text in reading order.",
+                show: item_rows,
+            },
+            Example {
+                id: "status-tag",
+                name: "Status tag",
+                code: "shell::ui::StatusTag, Tone",
+                usage: "A state in four tones: ok, attention, urgent, neutral. Always icon or shape plus word.",
+                access: "The word is the text; colour repeats it, never alone; contrast checked in every theme.",
+                show: status_tags,
+            },
+            Example {
+                id: "key-values",
+                name: "Key-value grid",
+                code: "shell::ui::KeyValues",
+                usage: "Values that are read, not typed: several per line, the label small above. Not for forms.",
+                access: "A description list: term and description.",
+                show: key_values,
+            },
+            Example {
+                id: "empty-state",
+                name: "Empty state",
+                code: "shell::ui::EmptyState",
+                usage: "Nothing here yet: an icon, one sentence, and the way on.",
+                access: "Text with a link; the icon is decoration.",
+                show: empty_state,
             },
         ],
     },
@@ -747,6 +795,73 @@ fn history() -> AnyView {
         ]
     });
     view! { <History entries /> }.into_any()
+}
+
+fn section_head() -> AnyView {
+    view! {
+        <section aria-labelledby="gallery-sh-orders">
+            <SectionHead id="gallery-sh-orders" icon="clipboard-list" title="Anordnungen" count=Signal::derive(|| 2)>
+                <button type="button" class="button button--small"><Icon name="plus" />"Anordnung"</button>
+            </SectionHead>
+            <p class="hint">"Zwei Einträge …"</p>
+            <SectionHead id="gallery-sh-vitals" title="Vitalwerte" />
+            <p class="hint">"Ein Eintrag …"</p>
+        </section>
+    }
+    .into_any()
+}
+
+fn item_rows() -> AnyView {
+    let more = || {
+        view! { <IconButton icon="ellipsis" word="Mehr" label="Mehr: Paracetamol" on_click=Callback::new(|()| {}) /> }.into_any()
+    };
+    view! {
+        <ul class="item-rows">
+            <ItemRow time="15:51" status=view! { <StatusTag tone=Tone::Ok icon="circle-check" text="durchgeführt" /> }.into_any() actions=more()>
+                <strong>"Paracetamol 1 g i.v."</strong> " · Dr. Lang"
+            </ItemRow>
+            <ItemRow time="15:52" status=view! { <StatusTag tone=Tone::Attention icon="triangle-alert" text="zu bestätigen" /> }.into_any() actions=more()>
+                <strong>"Novaminsulfon 1 g i.v."</strong> " · per Funk"
+            </ItemRow>
+            <ItemRow time="15:51" actions=view! { <IconButton icon="pencil" word="Bearbeiten" label="Bearbeiten: Vitalwerte 15:51" on_click=Callback::new(|()| {}) /> }.into_any()>
+                "HF " <strong>"92"</strong> " · SpO₂ " <strong>"97 %"</strong> " · GCS " <strong>"15"</strong> <span class="hint">" · Anna Schmidt"</span>
+            </ItemRow>
+        </ul>
+    }
+    .into_any()
+}
+
+fn status_tags() -> AnyView {
+    view! {
+        <div class="row">
+            <StatusTag tone=Tone::Ok icon="circle-check" text="einsatzbereit" />
+            <StatusTag tone=Tone::Attention icon="triangle-alert" text="Rückfrage fällig" />
+            <StatusTag tone=Tone::Urgent icon="triangle-alert" text="Sofort" />
+            <StatusTag tone=Tone::Neutral text="geplant" />
+        </div>
+    }
+    .into_any()
+}
+
+fn key_values() -> AnyView {
+    let items = [
+        ("Name", "Mustermann, Max"),
+        ("Alter", "40 J. (geschätzt)"),
+        ("Geschlecht", "männlich"),
+        ("Allergien", "Penicillin"),
+    ]
+    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+    .to_vec();
+    view! { <KeyValues items /> }.into_any()
+}
+
+fn empty_state() -> AnyView {
+    view! {
+        <EmptyState icon="tent" text="Noch keine UHS.">
+            <a href="#gallery-empty-state">"UHS anlegen"</a>
+        </EmptyState>
+    }
+    .into_any()
 }
 
 fn table() -> AnyView {

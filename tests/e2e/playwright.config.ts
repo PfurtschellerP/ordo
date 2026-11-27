@@ -9,7 +9,9 @@ const viewport = { width: 1200, height: 1000 };
 export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
-  timeout: 10 * 60_000,
+  // One long scenario per browser; WebKit in CI takes about 10 minutes since Lage, the
+  // profile page and access by assignment (2026-11-27), so it has room to 15.
+  timeout: 15 * 60_000,
   expect: { timeout: 15_000 },
   // One scenario per browser, one after the other: each starts its own server.
   workers: 1,

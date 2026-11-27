@@ -238,7 +238,7 @@ pub fn DisclosureButton(
     }
 }
 
-// [impl->dsn~header-layout~2]
+// [impl->dsn~header-layout~3]
 /// Closes a menu when the person clicks or taps anywhere outside the elements matching
 /// `inside` (its buttons and panel), as menus do elsewhere. The focus stays where the click
 /// put it. A click on an element that left the page meanwhile (the panel re-rendered)
@@ -1045,5 +1045,120 @@ mod tests {
         assert_eq!(list_direction("j", true), None, "Ctrl+J is the palette's");
         assert_eq!(list_direction("J", false), None);
         assert_eq!(list_direction("x", false), None);
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// The tone of a status (ADR-0102): always shown with an icon or shape and a word, never by
+/// colour alone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    Ok,
+    Attention,
+    Urgent,
+    Neutral,
+}
+
+impl Tone {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Attention => "attention",
+            Self::Urgent => "urgent",
+            Self::Neutral => "neutral",
+        }
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// A state in a word, its tone as colour and its icon (if any) as shape.
+#[component]
+pub fn StatusTag(
+    tone: Tone,
+    #[prop(optional)] icon: Option<&'static str>,
+    #[prop(into)] text: String,
+) -> impl IntoView {
+    view! {
+        <span class=format!("status-tag status-tag--{}", tone.key())>
+            {icon.map(|name| view! { <Icon name /> })}
+            <span>{text}</span>
+        </span>
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// The head of a section: icon, title, number and one action at the right. It belongs to
+/// the rows below it and stands apart from the section above (ADR-0102).
+#[component]
+pub fn SectionHead(
+    /// ID of the title, for the section's `aria-labelledby`.
+    #[prop(into)]
+    id: String,
+    #[prop(optional)] icon: Option<&'static str>,
+    #[prop(into)] title: String,
+    #[prop(optional, into)] count: Option<Signal<usize>>,
+    /// The one action at the right, e.g. "+ Neu".
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView {
+    view! {
+        <div class="section-head">
+            {icon.map(|name| view! { <span class="section-head__icon"><Icon name /></span> })}
+            <h3 id=id class="section-head__title">
+                {title}
+                {count.map(|n| view! { " " <span class="section-head__count">{move || n.get()}</span> })}
+            </h3>
+            {children.map(|c| view! { <div class="section-head__action">{c()}</div> })}
+        </div>
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// One item of a list: time and text at the left, the text taking the free width; the
+/// status tag and the icon actions at the right, in columns that line up (ADR-0102).
+#[component]
+pub fn ItemRow(
+    #[prop(optional, into)] time: Option<String>,
+    #[prop(optional)] status: Option<AnyView>,
+    #[prop(optional)] actions: Option<AnyView>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <li class="item-row">
+            <span class="item-row__time">{time}</span>
+            <span class="item-row__text">{children()}</span>
+            <span class="item-row__status">{status}</span>
+            <span class="item-row__actions">{actions}</span>
+        </li>
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// Read values in a grid, several per line: label above value, small.
+#[component]
+pub fn KeyValues(items: Vec<(String, String)>) -> impl IntoView {
+    view! {
+        <dl class="key-values">
+            {items.into_iter().map(|(key, value)| view! {
+                <div><dt>{key}</dt><dd>{value}</dd></div>
+            }).collect_view()}
+        </dl>
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// Nothing here yet: an icon, one sentence, and the way on (`children`, e.g. a link).
+#[component]
+pub fn EmptyState(
+    icon: &'static str,
+    #[prop(into)] text: String,
+    #[prop(optional)] children: Option<Children>,
+) -> impl IntoView {
+    view! {
+        <p class="empty-state">
+            <Icon name=icon />
+            <span>{text}</span>
+            {children.map(|c| view! { " " {c()} })}
+        </p>
     }
 }
