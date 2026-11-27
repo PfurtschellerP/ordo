@@ -2043,7 +2043,7 @@ fn FormSection(
                         }
                         let corrected = entries.iter().filter(|e| e.replaced_by.is_some()).count();
                         view! {
-                            <ol class="entries" reversed>
+                            <ol class="entries item-rows" reversed>
                                 {entries
                                     .iter()
                                     .rev()
@@ -2243,22 +2243,58 @@ fn EntryView(
     );
     let corrected = entry.replaced_by.is_some();
     let id = entry.id.clone();
+    // [impl->dsn~building-blocks~1]
+    // One line (ADR-0102): the values with short labels, who documented them, the way to
+    // correct; the full values open from the line.
+    let shorts: BTreeMap<&str, String> = form
+        .fields
+        .iter()
+        .map(|f| {
+            (
+                f.label.as_str(),
+                f.short.clone().unwrap_or_else(|| f.label.clone()),
+            )
+        })
+        .collect();
+    let summary = facts
+        .iter()
+        .map(|(label, value)| match shorts.get(label.as_str()) {
+            Some(short) => format!("{short} {value}"),
+            None => format!("{label} {value}"),
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let status = corrected.then(|| {
+        view! { <crate::shell::ui::StatusTag tone=crate::shell::ui::Tone::Neutral text=text::corrected() /> }
+            .into_any()
+    });
+    let actions = (!corrected).then(|| {
+        let time = time.clone();
+        view! {
+            <crate::shell::ui::IconButton icon="pencil" word=text::correct()
+                label=format!("{}: {} {}", text::correct(), form.label, time)
+                on_click=Callback::new(move |()| editing.set(Some(Mode::Correct(id.clone())))) />
+        }
+        .into_any()
+    });
+    let class = if corrected {
+        "entry entry--corrected"
+    } else {
+        "entry"
+    };
     view! {
-        <li class="entry" class:entry--corrected=corrected>
-            <p class="entry__head">
-                <strong>{time.clone()}</strong> " · " {crate::shell::profile::naming({
-                    let by = entry.by.clone();
-                    move || crate::shell::profile::display_name(core, &by)
-                })}
-                {corrected.then(|| view! { " · " <em>{text::corrected()}</em> })}
-            </p>
-            <Facts facts />
-            {(!corrected).then(|| view! {
-                <crate::shell::ui::IconButton icon="pencil" word=text::correct()
-                    label=format!("{}: {} {}", text::correct(), form.label, time)
-                    on_click=Callback::new(move |()| editing.set(Some(Mode::Correct(id.clone())))) />
-            })}
-        </li>
+        <crate::shell::ui::ItemRow time=time.clone() class status=status.unwrap_or_else(|| ().into_any()) actions=actions.unwrap_or_else(|| ().into_any())>
+            <details class="entry__details">
+                <summary class="entry__summary">
+                    <span>{summary}</span>
+                    <span class="hint">" · " {crate::shell::profile::naming({
+                        let by = entry.by.clone();
+                        move || crate::shell::profile::display_name(core, &by)
+                    })}</span>
+                </summary>
+                <Facts facts />
+            </details>
+        </crate::shell::ui::ItemRow>
     }
 }
 

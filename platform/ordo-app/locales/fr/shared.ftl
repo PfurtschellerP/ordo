@@ -253,8 +253,6 @@ span-of-control = { $n } subordonnés directs : plus de 5, attention à l'éten
 position-close-label = Dissoudre { $title }
 
 ## A position put on the map, or found there, from the tree (CMD-5).
-position-map-set = Placer sur la carte
-position-map-show = Afficher sur la carte
 position-map-set-label = Placer sur la carte : { $title }
 position-map-show-label = Afficher sur la carte : { $title }
 # The place panel's status once a position was chosen from the tree.
@@ -594,3 +592,13 @@ units-available-of = sur { $total } disponibles
 col-type = Type
 col-free = libres
 col-all = total
+
+## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+position-new = Fonction
+lead-word = Direction
+sub-position-word = Sous-fonction
+uhs-word = PMA
+map-set-word = Placer
+leader-set-label = Désigner la direction : { $title }
+position-sub-label = Ajouter une sous-fonction : { $title }
+uhs-assign-label = Rattacher un PMA : { $title }

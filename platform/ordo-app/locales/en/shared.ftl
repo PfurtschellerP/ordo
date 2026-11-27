@@ -253,8 +253,6 @@ span-of-control = { $n } reporting directly: more than 5, mind the span of contr
 position-close-label = Dissolve { $title }
 
 ## A position put on the map, or found there, from the tree (CMD-5).
-position-map-set = Set on the map
-position-map-show = Show on the map
 position-map-set-label = Set on the map: { $title }
 position-map-show-label = Show on the map: { $title }
 # The place panel's status once a position was chosen from the tree.
@@ -594,3 +592,13 @@ units-available-of = of { $total } available
 col-type = Type
 col-free = free
 col-all = all
+
+## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+position-new = Position
+lead-word = Lead
+sub-position-word = Sub-position
+uhs-word = Care unit
+map-set-word = Place
+leader-set-label = Set the lead: { $title }
+position-sub-label = Add a sub-position: { $title }
+uhs-assign-label = Assign a care unit: { $title }

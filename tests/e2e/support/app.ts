@@ -22,9 +22,17 @@ export const patientRows = (page: Page) =>
   );
 
 /** The documented values of one record section, as text. */
+/** The documented values of a section, as read: each entry opened first (an entry is one
+ * line that opens for its values, ADR-0102). */
 export const facts = (page: Page, section: string) =>
   page.locator(`[aria-labelledby=section-${section}] .facts`).evaluateAll((list) =>
-    list.map((f) => (f as HTMLElement).innerText.replace(/\n/g, " ")).join(" / "),
+    list
+      .map((f) => {
+        const details = f.closest("details");
+        if (details) details.open = true;
+        return (f as HTMLElement).innerText.replace(/\n/g, " ");
+      })
+      .join(" / "),
   );
 
 /** An item as stored on the device (encrypted: "enc1:" and Base64, ADR-0041). */

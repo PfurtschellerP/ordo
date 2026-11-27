@@ -96,10 +96,13 @@ pub fn IconButton(
     /// For a button that shows and hides something.
     #[prop(optional, into)]
     expanded: Option<Signal<bool>>,
+    /// For a dialog that gives the focus back to it.
+    #[prop(optional, into)]
+    id: Option<String>,
     on_click: Callback<()>,
 ) -> impl IntoView {
     view! {
-        <button type="button" class="button button--small icon-button" class:button--quiet=quiet
+        <button type="button" id=id class="button button--small icon-button" class:button--quiet=quiet
             aria-label=label.clone() data-tip=label
             aria-expanded=move || expanded.map(|e| e.get().to_string())
             on:click=move |_| on_click.run(())>
@@ -1121,10 +1124,13 @@ pub fn ItemRow(
     #[prop(optional, into)] time: Option<String>,
     #[prop(optional)] status: Option<AnyView>,
     #[prop(optional)] actions: Option<AnyView>,
+    /// More classes, e.g. what the item is.
+    #[prop(optional, into)]
+    class: String,
     children: Children,
 ) -> impl IntoView {
     view! {
-        <li class="item-row">
+        <li class=format!("item-row {class}")>
             <span class="item-row__time">{time}</span>
             <span class="item-row__text">{children()}</span>
             <span class="item-row__status">{status}</span>

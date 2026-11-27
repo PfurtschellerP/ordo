@@ -1001,11 +1001,13 @@
   .facts dt { color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
   .facts dd { margin: 0; font-weight: var(--ordo-font-weight-bold); overflow-wrap: anywhere; white-space: pre-line; }
   .history { display: grid; gap: var(--ordo-space-2); }
-  .entries { display: grid; gap: var(--ordo-space-3); }
-  .entry { display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3); background: var(--ordo-color-surface-default); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
-  .entry .button { justify-self: start; }
-  .entry--corrected { border-style: dashed; }
-  .entry--corrected .facts dd { text-decoration: line-through; }
+  /* A documented entry is one item row (ADR-0102): its values on one line, opened for the
+     full list; a corrected one is struck through and tagged. */
+  .entries { display: block; }
+  .entry__details > summary { cursor: pointer; list-style-position: outside; }
+  .entry__details[open] > summary { margin-block-end: var(--ordo-space-2); }
+  .entry__summary > span:first-child { font-weight: var(--ordo-font-weight-bold); }
+  .entry--corrected .entry__summary > span:first-child, .entry--corrected .facts dd { text-decoration: line-through; }
   /* Triage references (ADR-0045): the algorithm used and its sources, next to the input. */
   .triage-aid { display: grid; gap: var(--ordo-space-2); }
   .triage-aid__panel[hidden] { display: none; }

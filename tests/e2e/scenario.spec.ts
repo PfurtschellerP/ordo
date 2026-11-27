@@ -465,11 +465,11 @@ test("ORDO in the browser", async ({ browser }) => {
     await fillForm(anna, "vitals", { heart_rate: "112", spo2: "97", gcs_eye: "4", gcs_verbal: "5", gcs_motor: "6" });
     await saveForm(anna, "vitals");
     await expect.poll(() => facts(anna, "vitals"), { message: "vital signs with the GCS total" }).toMatch(/112 \/min.*GCS gesamt 15/);
-    await anna.locator("[aria-labelledby=section-vitals] .entry").getByRole("button").click(); // Korrigieren
+    await anna.locator("[aria-labelledby=section-vitals] .entry").getByRole("button", { name: /^Korrigieren/ }).click();
     await fillForm(anna, "vitals", { heart_rate: "92" });
     await saveForm(anna, "vitals");
     await expect.poll(() => facts(anna, "vitals")).toContain("92 /min");
-    await expect(anna.locator("[aria-labelledby=section-vitals] .corrected summary"), "the old entry stays visible").toHaveText("1 korrigierter Eintrag");
+    await expect(anna.locator("[aria-labelledby=section-vitals] .corrected > summary"), "the old entry stays visible").toHaveText("1 korrigierter Eintrag");
 
     // [itest->dsn~open-choice~1]
     // [itest->dsn~pupil-findings~1]
@@ -1778,29 +1778,38 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("nav.views .views__label:not(.views__label--short)"), "Vorbereitung in the order of the work (ADR-0095)").toHaveText(["Einsatz", "Personal", "Einsatzmittel", "Führung & Raum"]);
     await openView(ben, "Führung & Raum");
     await expect(ben.locator("#structure-title")).toHaveText("Führungsstruktur");
+    // [itest->dsn~building-blocks~1]
+    // ADR-0102: the forms open in a dialog, from "+ Funktion" or from the position itself.
+    const dialog = ben.locator("#structure-form-dialog");
     const create = async (kind: string, name: string, parent?: string) => {
+      if (parent) await ben.getByRole("button", { name: `Unterfunktion anlegen: ${parent}`, exact: true }).click();
+      else await ben.locator("#position-new").click();
+      await expect(dialog.getByRole("heading", { name: "Funktion anlegen" })).toBeVisible();
+      if (parent) await expect(ben.locator("#position-parent option:checked"), "opened at its parent").toHaveText(parent);
       await ben.locator("#position-kind").selectOption({ label: kind });
       await ben.locator("#position-name").fill(name);
-      if (parent) await ben.locator("#position-parent").selectOption({ label: parent });
-      await ben.getByRole("button", { name: "Funktion anlegen" }).click();
+      await dialog.getByRole("button", { name: "Funktion anlegen", exact: true }).click();
+      await expect(dialog, "the dialog closes once the position is made").toBeHidden();
     };
     await create("Einsatzleitung", "Stadtfest");
     await create("Sanitätseinsatzleitung", "SanEL", "Einsatzleitung Stadtfest");
     const sanel = ben.locator(".position", { hasText: "Sanitätseinsatzleitung SanEL" }).last();
     await expect(ben.locator(".position-tree--root > .position > .position-tree .position__title"), "a tree, the medical command under the incident command").toHaveText("Sanitätseinsatzleitung SanEL");
     const lead = async (who: string) => {
-      await ben.locator("#lead-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
+      await ben.getByRole("button", { name: "Leitung festlegen: Sanitätseinsatzleitung SanEL", exact: true }).click();
       await ben.locator("#lead-person").fill(who);
-      await ben.getByRole("button", { name: "Leitung festlegen oder übergeben" }).click();
+      await dialog.getByRole("button", { name: "Leitung festlegen oder übergeben", exact: true }).click();
+      await expect(dialog).toBeHidden();
     };
     await lead("ben@localhost");
     await lead("dora@localhost");
     await expect(sanel.locator(".position__leader")).toHaveText("Leitung: Dora Klein");
     await sanel.locator(".history-list summary").click();
     await expect(sanel.locator(".history-list li").last(), "the handover is logged with both people").toContainText("Übergabe: Ben Weber → Dora Klein");
+    await ben.getByRole("button", { name: "UHS zuordnen: Sanitätseinsatzleitung SanEL", exact: true }).click();
     await ben.locator("#assign-uhs").selectOption({ label: "UHS Eingang" });
-    await ben.locator("#assign-position").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
-    await ben.getByRole("button", { name: "UHS zuordnen" }).click();
+    await dialog.getByRole("button", { name: "UHS zuordnen", exact: true }).click();
+    await expect(dialog).toBeHidden();
     // The UHS is the next level of the tree, below its position.
     await expect(sanel.locator(":scope > .position-tree > .position--member[data-member='uhs']")).toHaveText("UHS EingangUHS");
     // [itest->dsn~org-chart~2]
@@ -1882,7 +1891,11 @@ test("ORDO in the browser", async ({ browser }) => {
     const narrow = ben.viewportSize()!;
     await ben.setViewportSize({ width: 1800, height: 1000 });
     await expect(ben.locator("#page-map-tab-structure"), "no tabs where both fit").toBeHidden();
-    const [structureBox, editorBox] = [await ben.locator("#structure-title").boundingBox(), await ben.locator("#map-editor-title").boundingBox()];
+    // The two cards, side by side at the top (their heads may differ in size).
+    const [structureBox, editorBox] = [
+      await ben.locator("section[aria-labelledby=structure-title]").boundingBox(),
+      await ben.locator("#map-editor-title").locator("xpath=ancestor::section[1]").boundingBox(),
+    ];
     expect(Math.abs(structureBox!.y - editorBox!.y), "side by side").toBeLessThan(8);
     expect(editorBox!.x, "the map to the right").toBeGreaterThan(structureBox!.x + 300);
     await ben.setViewportSize(narrow);

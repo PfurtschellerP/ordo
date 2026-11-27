@@ -253,8 +253,6 @@ span-of-control = { $n } direkt unterstellt: mehr als 5, Führungsspanne beachte
 position-close-label = { $title } auflösen
 
 ## A position put on the map, or found there, from the tree (CMD-5).
-position-map-set = Auf der Karte setzen
-position-map-show = Auf der Karte zeigen
 position-map-set-label = Auf der Karte setzen: { $title }
 position-map-show-label = Auf der Karte zeigen: { $title }
 # The place panel's status once a position was chosen from the tree.
@@ -594,3 +592,13 @@ units-available-of = von { $total } einsatzbereit
 col-type = Typ
 col-free = frei
 col-all = gesamt
+
+## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+position-new = Funktion
+lead-word = Leitung
+sub-position-word = Unterfunktion
+uhs-word = UHS
+map-set-word = Setzen
+leader-set-label = Leitung festlegen: { $title }
+position-sub-label = Unterfunktion anlegen: { $title }
+uhs-assign-label = UHS zuordnen: { $title }

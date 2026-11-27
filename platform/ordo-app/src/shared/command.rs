@@ -13,7 +13,28 @@ use ordo_command::{
 use crate::core::{self, Handle};
 use crate::shared::situation::{MapAsk, MapAsks};
 use crate::shared::text;
-use crate::shell::ui::{Action, Actions, History, Suggestions};
+use crate::shell::ui::{EditDialog, History, IconButton, Suggestions};
+
+// [impl->dsn~building-blocks~1]
+/// What the structure's dialog is open for (ADR-0102): a new position (under a parent, or
+/// at the top), its lead, or a UHS under it; with the ID of the button that opened it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum FormAsk {
+    Create(Option<String>),
+    Lead(String),
+    Assign(String),
+}
+
+/// The dialog's state: what it is open for, and where the focus goes back.
+#[derive(Clone, Copy)]
+struct Asked(RwSignal<Option<FormAsk>>, RwSignal<String>);
+
+impl Asked {
+    fn open(self, ask: FormAsk, back: String) {
+        self.1.set(back);
+        self.0.set(Some(ask));
+    }
+}
 
 /// Position kinds from the profile (`command/structure.toml`, checked at build time).
 pub static STRUCTURE: LazyLock<StructureCatalogue> = LazyLock::new(|| {
@@ -43,6 +64,7 @@ pub fn position_choices(s: &CommandStructure) -> Vec<(String, String)> {
 type OnMap = (MapAsks, std::collections::BTreeSet<String>);
 
 /// One position and, nested, the positions reporting to it.
+#[allow(clippy::too_many_arguments)]
 fn position_item(
     core: Handle,
     revision: RwSignal<u64>,
@@ -51,6 +73,7 @@ fn position_item(
     uhs_names: &std::collections::HashMap<String, String>,
     editable: bool,
     map: Option<&OnMap>,
+    asked: Asked,
 ) -> AnyView {
     let Some(p) = s.positions.get(id) else {
         return ().into_any();
@@ -114,53 +137,63 @@ fn position_item(
         .span_exceeded()
         .then(|| text::span_of_control(p.subordinates()));
     // [impl->dsn~command-and-space~2]
-    // Put on the map, or found there, from the tree (CMD-5).
+    // [impl->dsn~building-blocks~1]
+    // The position's actions as icons (ADR-0102): its lead, a sub-position, a UHS under
+    // it, its place on the map (CMD-5), and closing it. The forms open in the dialog.
+    let slug = core::slug(id);
     let on_map = map.filter(|_| editable).map(|(asks, placed)| {
         let asks = *asks;
         let object = ordo_map::ObjectKind::Position.object_id(id);
         let position = id.to_owned();
         if placed.contains(&object) {
-            Action {
-                text: text::position_map_show(),
-                label: text::position_map_show_label(&title),
-                quiet: false,
-                run: Callback::new(move |()| asks.ask(MapAsk::Show(object.clone()))),
+            view! {
+                <IconButton icon="map-pin" word=text::map_show() label=text::position_map_show_label(&title)
+                    on_click=Callback::new(move |()| asks.ask(MapAsk::Show(object.clone()))) />
             }
+            .into_any()
         } else {
-            Action {
-                text: text::position_map_set(),
-                label: text::position_map_set_label(&title),
-                quiet: false,
-                run: Callback::new(move |()| asks.ask(MapAsk::Place(position.clone()))),
+            view! {
+                <IconButton icon="map-pin" word=text::map_set_word() label=text::position_map_set_label(&title)
+                    on_click=Callback::new(move |()| asks.ask(MapAsk::Place(position.clone()))) />
             }
+            .into_any()
         }
     });
-    let close = editable.then(|| {
-        let id = id.to_owned();
-        on_map
-            .into_iter()
-            .chain([Action {
-                text: text::position_close(),
-                label: text::position_close_label(&title),
-                quiet: true,
-                run: Callback::new(move |()| {
-                    let closed = PositionClosed {
-                        position: id.clone(),
-                    };
-                    let _ = core::command_event(
-                        core,
-                        revision,
-                        ordo_command::kinds::POSITION_CLOSED,
-                        &closed.encode().unwrap_or_default(),
-                    );
-                }),
-            }])
-            .collect::<Vec<_>>()
+    let actions = editable.then(|| {
+        let (lead, sub, uhs, close) = (id.to_owned(), id.to_owned(), id.to_owned(), id.to_owned());
+        let (lead_id, sub_id, uhs_id) = (
+            format!("lead-{slug}"),
+            format!("sub-{slug}"),
+            format!("assign-{slug}"),
+        );
+        view! {
+            <div class="position__actions">
+                <IconButton icon="pencil" word=text::lead_word() label=text::leader_set_label(&title) id=lead_id.clone()
+                    on_click=Callback::new(move |()| asked.open(FormAsk::Lead(lead.clone()), lead_id.clone())) />
+                <IconButton icon="plus" word=text::sub_position_word() label=text::position_sub_label(&title) id=sub_id.clone()
+                    on_click=Callback::new(move |()| asked.open(FormAsk::Create(Some(sub.clone())), sub_id.clone())) />
+                <IconButton icon="tent" word=text::uhs_word() label=text::uhs_assign_label(&title) id=uhs_id.clone()
+                    on_click=Callback::new(move |()| asked.open(FormAsk::Assign(uhs.clone()), uhs_id.clone())) />
+                {on_map}
+                <IconButton icon="trash-2" word=text::position_close() label=text::position_close_label(&title) quiet=true
+                    on_click=Callback::new(move |()| {
+                        let closed = PositionClosed {
+                            position: close.clone(),
+                        };
+                        let _ = core::command_event(
+                            core,
+                            revision,
+                            ordo_command::kinds::POSITION_CLOSED,
+                            &closed.encode().unwrap_or_default(),
+                        );
+                    }) />
+            </div>
+        }
     });
     let mut children: Vec<AnyView> = p
         .children
         .iter()
-        .map(|child| position_item(core, revision, s, child, uhs_names, editable, map))
+        .map(|child| position_item(core, revision, s, child, uhs_names, editable, map, asked))
         .collect();
     children.extend(members);
     view! {
@@ -170,7 +203,7 @@ fn position_item(
                 <p class="position__leader">{leader}</p>
                 {span.map(|s| view! { <p class="notice position__span">{s}</p> })}
                 {(!p.leaders.is_empty()).then(|| view! { <History entries=handovers /> })}
-                {close.map(|actions| view! { <Actions actions /> })}
+                {actions}
             </div>
             {(!children.is_empty()).then(|| view! { <ul class="position-tree">{children}</ul> })}
         </li>
@@ -202,9 +235,20 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         asks.map(|_| crate::shared::situation::placed_objects(core))
             .unwrap_or_default()
     });
+    let asked = Asked(RwSignal::new(None), RwSignal::new(String::new()));
     view! {
         <section class="card" aria-labelledby="structure-title">
-            <h2 id="structure-title">{text::structure_title()}</h2>
+            <div class="section-head">
+                <h2 id="structure-title" class="section-head__title">{text::structure_title()}</h2>
+                <Show when=move || editable.get()>
+                    <div class="section-head__action">
+                        <button id="position-new" type="button" class="button button--small"
+                            on:click=move |_| asked.open(FormAsk::Create(None), "position-new".to_owned())>
+                            <crate::shell::ui::Icon name="plus" />{text::position_new()}
+                        </button>
+                    </div>
+                </Show>
+            </div>
             {move || {
                 let s = tree.get();
                 if s.roots.is_empty() {
@@ -216,7 +260,7 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 let items: Vec<AnyView> = s
                     .roots
                     .iter()
-                    .map(|id| position_item(core, revision, &s, id, &names, editable, map.as_ref()))
+                    .map(|id| position_item(core, revision, &s, id, &names, editable, map.as_ref(), asked))
                     .collect();
                 // [impl->dsn~org-chart~2]
                 // An org chart where the card is wide enough, else an indented tree; a wide
@@ -229,7 +273,7 @@ pub fn LeadershipView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 .into_any()
             }}
             <Show when=move || editable.get()>
-                <CommandForms core revision tree uhs_names />
+                <CommandForms core revision tree uhs_names asked />
             </Show>
         </section>
     }
@@ -243,7 +287,10 @@ fn CommandForms(
     revision: RwSignal<u64>,
     tree: Memo<CommandStructure>,
     uhs_names: Memo<std::collections::HashMap<String, String>>,
+    asked: Asked,
 ) -> impl IntoView {
+    let Asked(ask, back) = asked;
+    let close = Callback::new(move |()| ask.set(None));
     let choices = Memo::new(move |_| tree.with(position_choices));
     let people = Memo::new(move |_| {
         revision.track();
@@ -272,10 +319,21 @@ fn CommandForms(
         if core::create_position(core, revision, position).is_ok() {
             name.set(String::new());
             created_error.set(None);
+            ask.set(None);
         }
     };
     // Leader.
     let lead_position = RwSignal::new(String::new());
+    // UHS under a position.
+    let uhs = RwSignal::new(String::new());
+    let uhs_position = RwSignal::new(String::new());
+    // The dialog opens with the position it was opened at.
+    Effect::new(move || match ask.get() {
+        Some(FormAsk::Create(p)) => parent.set(p.unwrap_or_default()),
+        Some(FormAsk::Lead(p)) => lead_position.set(p),
+        Some(FormAsk::Assign(p)) => uhs_position.set(p),
+        None => {}
+    });
     let leader = RwSignal::new(String::new());
     let lead = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -299,11 +357,9 @@ fn CommandForms(
         .is_ok()
         {
             leader.set(String::new());
+            ask.set(None);
         }
     };
-    // UHS under a position.
-    let uhs = RwSignal::new(String::new());
-    let uhs_position = RwSignal::new(String::new());
     let assign = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let id = uhs.get_untracked();
@@ -316,13 +372,27 @@ fn CommandForms(
             uhs: Some(id),
             position: (!position.is_empty()).then_some(position),
         };
-        let _ = core::command_event(
+        if core::command_event(
             core,
             revision,
             ordo_command::kinds::ASSIGNED,
             &a.encode().unwrap_or_default(),
-        );
+        )
+        .is_ok()
+        {
+            ask.set(None);
+        }
     };
+    let title = Signal::derive(move || {
+        match ask.get() {
+            Some(FormAsk::Lead(_)) => text::leader_set(),
+            Some(FormAsk::Assign(_)) => text::uhs_assign(),
+            _ => text::position_create(),
+        }
+        .to_owned()
+    });
+    let showing =
+        move |which: fn(&FormAsk) -> bool| move || ask.with(|a| a.as_ref().is_some_and(which));
     let position_options = move |none: &'static str| {
         view! {
             <option value="">{none}</option>
@@ -330,8 +400,10 @@ fn CommandForms(
         }
     };
     view! {
-        <form class="form command-form" novalidate on:submit=create>
-            <h3>{text::position_create()}</h3>
+        <EditDialog id="structure-form" open=Signal::derive(move || ask.with(Option::is_some)) on_close=close
+            title back>
+        <form class="form command-form" novalidate on:submit=create
+            hidden=move || !showing(|a| matches!(a, FormAsk::Create(_)))()>
             <div class="form--inline">
                 <div class="field">
                     <label for="position-kind">{text::position_kind()}</label>
@@ -354,8 +426,8 @@ fn CommandForms(
             <p role="alert" class="error">{move || created_error.get()}</p>
             <div class="row"><button type="submit" class="button">{text::position_create()}</button></div>
         </form>
-        <form class="form command-form" novalidate on:submit=lead>
-            <h3>{text::leader_set()}</h3>
+        <form class="form command-form" novalidate on:submit=lead
+            hidden=move || !showing(|a| matches!(a, FormAsk::Lead(_)))()>
             <div class="form--inline">
                 <div class="field">
                     <label for="lead-position">{text::position()}</label>
@@ -371,8 +443,8 @@ fn CommandForms(
             </div>
             <div class="row"><button type="submit" class="button">{text::leader_set()}</button></div>
         </form>
-        <form class="form command-form" novalidate on:submit=assign>
-            <h3>{text::uhs_assign()}</h3>
+        <form class="form command-form" novalidate on:submit=assign
+            hidden=move || !showing(|a| matches!(a, FormAsk::Assign(_)))()>
             <div class="form--inline">
                 <div class="field">
                     <label for="assign-uhs">{text::uhs_title()}</label>
@@ -390,5 +462,6 @@ fn CommandForms(
             </div>
             <div class="row"><button type="submit" class="button">{text::uhs_assign()}</button></div>
         </form>
+        </EditDialog>
     }
 }

@@ -253,8 +253,6 @@ span-of-control = { $n } subordinados directos: más de 5, atención al ámbito 
 position-close-label = Disolver { $title }
 
 ## A position put on the map, or found there, from the tree (CMD-5).
-position-map-set = Colocar en el mapa
-position-map-show = Mostrar en el mapa
 position-map-set-label = Colocar en el mapa: { $title }
 position-map-show-label = Mostrar en el mapa: { $title }
 # The place panel's status once a position was chosen from the tree.
@@ -594,3 +592,13 @@ units-available-of = de { $total } disponibles
 col-type = Tipo
 col-free = libres
 col-all = total
+
+## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+position-new = Función
+lead-word = Mando
+sub-position-word = Subfunción
+uhs-word = PMA
+map-set-word = Situar
+leader-set-label = Asignar el mando: { $title }
+position-sub-label = Añadir una subfunción: { $title }
+uhs-assign-label = Asignar un PMA: { $title }
