@@ -162,7 +162,6 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let map = Route::view("command.lead", "map");
     let dispatch = Route::view("command.lead", "dispatch");
     let transports = Route::view("command.lead", "transports");
-    let units = Route::view("command.prepare", "units");
     // [impl->dsn~command-lage~1]
     // The tiles open their tab of *Lage* (ADR-0099).
     let uhs = Route::record("command.lead", "map", "places");
@@ -249,7 +248,9 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 </section>
 
                 <section class="tile tile--people" aria-labelledby="tile-people">
-                    <TileHead id="tile-people" icon="users" title=text::people() route=units link=text::open_units() />
+                    // Leading stays in Führung: to the units in *Lage*, not where they are
+                    // planned (feedback of 2026-11-27).
+                    <TileHead id="tile-people" icon="users" title=text::people() route=lage_units.clone() link=text::open_units() />
                     <div class="tile__pair">
                         <p class="tile__figure tile__figure--stacked">
                             <span id="overview-persons" class="tile__number">

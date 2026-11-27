@@ -890,14 +890,16 @@ const MAP_TAB: &str = "map";
 /// The [`MapAsks`] of this page: the one there is, or a new one, for the lists of *Lage*
 /// to show a unit or a UHS on its map (ADR-0099). Each package's sections may ask first.
 pub fn map_asks() -> MapAsks {
-    use_context::<MapAsks>().unwrap_or_else(|| {
-        let asks = MapAsks(
-            RwSignal::new(None),
-            use_context::<crate::shell::ui::PageTabs>(),
-        );
-        provide_context(asks);
-        asks
-    })
+    // One per page: a channel left from the page shown before (its signals gone with it)
+    // never carries the asks of this one.
+    let tabs = use_context::<crate::shell::ui::PageTabs>();
+    use_context::<MapAsks>()
+        .filter(|asks| asks.1.map(|t| t.0) == tabs.map(|t| t.0) && !asks.0.is_disposed())
+        .unwrap_or_else(|| {
+            let asks = MapAsks(RwSignal::new(None), tabs);
+            provide_context(asks);
+            asks
+        })
 }
 
 /// *Auf der Karte* for the object `object` (a map object ID, e.g. `unit:RTW 1`) of

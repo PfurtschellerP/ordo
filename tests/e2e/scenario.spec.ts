@@ -1265,14 +1265,6 @@ test("ORDO in the browser", async ({ browser }) => {
       "Danach muss dieses Gerät neu gekoppelt werden; eine andere Person kann sich dann anmelden.",
     );
     await audit(ben, "Profile page");
-    // [itest->dsn~ui-texts~3]
-    // I18N-1: the language follows the person; the page shows it at once.
-    await ben.locator("#language").selectOption("en");
-    await expect(ben.locator("#profile-me-title"), "English after the reload").toHaveText("Me");
-    await expect(ben.locator("html")).toHaveAttribute("lang", "en");
-    await expect.poll(() => ben.evaluate(() => localStorage.getItem("ordo.language-unsent")), { message: "told to the server" }).toBeNull();
-    await ben.locator("#language").selectOption("");
-    await expect(ben.locator("#profile-me-title"), "back to the browser's language").toHaveText("Ich");
     await openWorkspace(ben, "Führung");
 
     // The overview counts the patients; the situation map shows them per UHS.
@@ -2034,6 +2026,16 @@ test("ORDO in the browser", async ({ browser }) => {
     await gateRow.getByRole("button", { name: "Details: UHS Eingang" }).click();
     await expect(gateRow.locator(".object-card .triage"), "a UHS: its patients per triage category").toHaveCount(6);
     await gateRow.getByRole("button", { name: "Schließen: UHS Eingang" }).click();
+    // [itest->dsn~command-lage~1]
+    // ADR-0099: "Zeigen" in the list of units centres the map on the UHS and opens its card.
+    const lageUnits = ben.locator(".lage-units");
+    if (!(await lageUnits.isVisible())) await pageTab(ben, "Einsatzmittel");
+    await lageUnits.locator(".unit-glance__item", { hasText: "UHS Eingang" }).getByRole("button", { name: "UHS Eingang auf der Karte zeigen" }).click();
+    const shownCard = ben.locator(".situation__card .object-card");
+    await expect(shownCard, "its card opens at it on the map").toContainText("UHS Eingang");
+    await expect(ben.locator(".situation__map"), "and the map comes into view").toBeInViewport();
+    await ben.keyboard.press("Escape");
+    await expect(shownCard).toHaveCount(0);
     await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
     await rtwCard.getByRole("link", { name: "Bearbeiten: RTW 83/1" }).click();
     await expect.poll(() => title(ben), { message: "the pencil leads to the unit in Vorbereitung" }).toContain("Vorbereitung");
@@ -2577,11 +2579,24 @@ test("ORDO in the browser", async ({ browser }) => {
     await openIncident(ben, INCIDENT);
   });
 
+  // [itest->dsn~ui-texts~3]
+  // Late in the scenario: the reloads it takes drop the kept map region in Playwright's
+  // WebKit, whose throwaway profiles lose large Cache Storage entries on reload.
+  await test.step("the language follows the person, and the page shows it at once", async () => {
+    await openProfile(ben);
+    await ben.locator("#language").selectOption("en");
+    await expect(ben.locator("#profile-me-title"), "English after the reload").toHaveText("Me");
+    await expect(ben.locator("html")).toHaveAttribute("lang", "en");
+    await expect.poll(() => ben.evaluate(() => localStorage.getItem("ordo.language-unsent")), { message: "told to the server" }).toBeNull();
+    await ben.locator("#language").selectOption("");
+    await expect(ben.locator("#profile-me-title"), "back to the browser's language").toHaveText("Ich");
+  });
+
   // [itest->dsn~device-revocation~1]
   await test.step("a lost device is revoked and deletes its data", async () => {
     // Ben sees only his own device, from his person's menu (SEC-4).
     await ben.locator("#profile-button").click();
-    await ben.getByRole("link", { name: "Meine Geräte" }).click();
+    await ben.locator("#profile-panel").getByRole("link", { name: "Meine Geräte" }).click();
     await expect(ben.locator("#devices-title")).toHaveText("Meine Geräte");
     await expect(ben.locator(".device-card"), "a person sees their own devices").toHaveCount(1);
     await expect(ben.locator(".device-card h3")).toContainText("dieses Gerät");

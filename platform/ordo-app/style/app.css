@@ -1067,6 +1067,9 @@
   .task-card__panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .tasks-panel__give > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .new-task { display: grid; gap: var(--ordo-space-3); }
+  /* "Für" with its hint and "Vorlage" start on one line; the form's gap is the only space
+     above them (feedback of 2026-11-27). */
+  .new-task__form .form--inline { align-items: start; margin-top: 0; }
   .new-task__pin { display: grid; gap: var(--ordo-space-2); margin: 0; padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); }
   /* WebKit keeps a legend's width from before its fieldset narrowed (a window resized, a
      tablet turned), so it sticks out on one line; a container query unit is recomputed. */
@@ -1592,7 +1595,9 @@
     border-radius: var(--ordo-radius-large);
     box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
   }
-  .palette::backdrop, .edit-dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+  /* The page behind a modal recedes: darker and blurred, so nothing of it reads as part of
+     the dialog, also on the dark themes (feedback of 2026-11-27). */
+  .palette::backdrop, .edit-dialog::backdrop { background: rgb(0 0 0 / 0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   /* Edit dialog (8.6, pattern "edit dialog"): one per card list, so the list never shifts
      and may update under it. Header and footer stay; the body scrolls between them and
      puts its parts in columns where there is room. */
