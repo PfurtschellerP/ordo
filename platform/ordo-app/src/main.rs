@@ -17,18 +17,24 @@ fn main() {
     leptos::mount::mount_to_body(shell::views::App);
 }
 
-// [impl->dsn~ui-texts~1]
-/// The texts' language: the first of the browser's languages ORDO has texts for, else
-/// German (ADR-0096); the page's `lang` follows, for screen readers and hyphenation.
+// [impl->dsn~ui-texts~2]
+/// The texts' language: the one chosen on this device, else the first of the browser's
+/// languages ORDO has texts for, else German (ADR-0096); the page's `lang` follows, for
+/// screen readers and hyphenation.
 fn choose_language() {
     let Some(window) = web_sys::window() else {
         return;
     };
-    let preferred: Vec<String> = window
-        .navigator()
-        .languages()
-        .iter()
-        .filter_map(|l| l.as_string())
+    let preferred: Vec<String> = core::preference(i18n::PREFERENCE)
+        .filter(|l| !l.is_empty())
+        .into_iter()
+        .chain(
+            window
+                .navigator()
+                .languages()
+                .iter()
+                .filter_map(|l| l.as_string()),
+        )
         .collect();
     let chosen = i18n::choose(&preferred);
     if let Some(root) = window.document().and_then(|d| d.document_element()) {

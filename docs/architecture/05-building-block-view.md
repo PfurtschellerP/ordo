@@ -1616,17 +1616,20 @@ palette (`palette.rs`). Texts are Fluent files per part (*UI texts*); each part'
 below (so a package writes `text::…` for all it may use).
 
 #### UI texts
-`dsn~ui-texts~1`
+`dsn~ui-texts~2`
 
 The app's texts are Fluent files, one per part of the app and language:
 `platform/ordo-app/locales/<language>/<part>.ftl` (`shell`, `shared`, `med`, `admin`), in
-German and English ([ADR-0096](../adr/0096-ui-texts-in-fluent-files.md)). The build script
+German, English, French and Spanish ([ADR-0096](../adr/0096-ui-texts-in-fluent-files.md)). The build script
 (`build/fluent.rs`) parses every file with `fluent-syntax` and writes, for each German
 file, one function per message into the part's `text` module: `text::pair_title()` for a
 message without variables, `text::pending(n)` with them (in the order of a `Variables:`
 comment, else as they appear). A missing message is a compile error. At run time
-`fluent-bundle` formats messages in the language chosen at start: the first of the
-browser's languages with texts, else German; the page's `lang` follows. A message without
+`fluent-bundle` formats messages in the language chosen at start: the one chosen in the
+menu under *Sprache* (kept on the device, `ordo.language`, so a shared tablet keeps it),
+else the first of the browser's languages with texts, else German; the page's `lang`
+follows. The menu names each language in itself (`language-name`); choosing one reloads
+the page, unless entries could not be stored, then it applies at the next start. A message without
 variables is formatted once and kept, so it can be a `&'static str`; workspaces and views
 name their labels as functions (`nav::Label`). Plurals and other forms are Fluent
 selectors; values of ORDO's types (triage categories, states, durations) map to messages in
@@ -1638,7 +1641,7 @@ formats without errors.
 
 Covers:
 
-* [req~i18n-1~1](../requirements/07-quality.md#i18n-1--german-and-english)
+* [req~i18n-1~2](../requirements/07-quality.md#i18n-1--languages-of-the-user-interface)
 
 Needs: impl, utest
 

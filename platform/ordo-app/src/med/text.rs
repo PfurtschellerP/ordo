@@ -7,7 +7,7 @@
 pub use crate::shared::text::*;
 use ordo_contracts::TriageCategory;
 
-// [impl->dsn~ui-texts~1]
+// [impl->dsn~ui-texts~2]
 include!(concat!(env!("OUT_DIR"), "/text_med.rs"));
 
 /// Spoken description, so screen readers convey the meaning, not only the label.
@@ -210,7 +210,7 @@ pub fn log_transport_updated(transport: &str, status: &str, unit: Option<&str>) 
 
 #[cfg(test)]
 mod tests {
-    // [utest->dsn~ui-texts~1]
+    // [utest->dsn~ui-texts~2]
     #[test]
     fn texts_by_hand_read_as_before() {
         use super::*;

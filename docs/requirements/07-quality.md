@@ -559,10 +559,10 @@ Needs: dsn
 
 ### 5.6 Internationalisation
 
-#### I18N-1 — German and English
-`req~i18n-1~1`
+#### I18N-1 — Languages of the user interface
+`req~i18n-1~2`
 
-User interface in German and English at launch; all texts translatable
+ORDO shall offer its user interface in German, English, French and Spanish, with all texts translatable. When a person chooses a language on a device, ORDO shall show that language on it; otherwise the first of the browser's languages it has texts for, else German.
 
 Tags: must, quality, m73
 

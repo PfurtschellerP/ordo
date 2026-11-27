@@ -314,3 +314,10 @@ no-secure-context = Secure storage not available: the app must be opened over HT
 no-device-storage = No device storage
 # A device's suggested name from its browser and system (ORG-8): "Firefox on Android".
 device-name-on = { $browser } on { $system }
+
+## Language of this device (I18N-1)
+# Each language names itself in its own file.
+language-name = English
+language = Language
+language-auto = Automatic (as the browser)
+language-after-reload = The language applies after the next reload. Please reload only once everything is sent.

@@ -142,6 +142,24 @@ fn formatted(part: &'static str, id: &'static str, args: Option<&Args>) -> Strin
         .unwrap_or_else(|| id.to_owned())
 }
 
+/// Where the device keeps the language chosen in the menu; none follows the browser.
+pub const PREFERENCE: &str = "ordo.language";
+
+/// The name of `language` in itself ("Deutsch", "English"), so each person finds their own.
+pub fn name_of(language: &'static str) -> String {
+    with_bundle(language, "shell", |bundle| {
+        let bundle = bundle?;
+        let pattern = bundle.get_message("language-name")?.value()?;
+        let mut errors = Vec::new();
+        Some(
+            bundle
+                .format_pattern(pattern, None, &mut errors)
+                .into_owned(),
+        )
+    })
+    .unwrap_or_else(|| language.to_owned())
+}
+
 /// The text of a message without variables.
 pub fn message(part: &'static str, id: &'static str) -> &'static str {
     let language = language();
@@ -222,7 +240,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~1]
+    // [utest->dsn~ui-texts~2]
     #[test]
     fn every_language_has_the_german_messages_with_the_same_variables() {
         for (language, part, source) in SOURCES.iter().filter(|(l, _, _)| *l != DEFAULT) {
@@ -239,7 +257,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~1]
+    // [utest->dsn~ui-texts~2]
     #[test]
     fn every_language_has_every_part() {
         let german: Vec<&str> = SOURCES
@@ -257,7 +275,7 @@ mod tests {
         }
     }
 
-    // [utest->dsn~ui-texts~1]
+    // [utest->dsn~ui-texts~2]
     #[test]
     fn every_message_formats_without_errors() {
         for (language, part, source) in SOURCES {
@@ -289,7 +307,9 @@ mod tests {
 
     #[test]
     fn the_language_follows_the_browser_else_german() {
-        assert_eq!(choose(&["fr-FR".into(), "de-AT".into()]), "de");
+        assert_eq!(choose(&["fr-FR".into(), "de-AT".into()]), "fr");
+        assert_eq!(choose(&["pt-BR".into(), "es-419".into()]), "es");
+        assert_eq!(choose(&["it".into(), "de-AT".into()]), "de");
         assert_eq!(choose(&["xx".into()]), DEFAULT);
         assert_eq!(language(), DEFAULT);
     }

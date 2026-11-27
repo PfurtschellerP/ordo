@@ -410,7 +410,11 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        checked at build time ([ADR-0096](adr/0096-ui-texts-in-fluent-files.md)); the
        language follows the browser. English followed on 2026-11-27 (I18N-1): every
        message, the dates (year first) and the decimal separator; labels from the
-       profile stay German. Next: an English profile for a region that needs one.
+       profile stay German. French and Spanish followed the same day (product owner:
+       "at least a big part of the West covered"), and the language can be chosen per
+       device in the menu, for shared tablets. Next: labels from the profile in the
+       person's language (hospital departments, services, qualifications), then the
+       profile page and the Führung view *Lage* (concept of 2026-11-27).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

@@ -1021,6 +1021,7 @@ fn Workspace(
                     <SettingSelect id="theme" label=text::appearance() options=&*text::THEMES value=theme apply=apply_theme />
                     <SettingSelect id="hand" label=text::hand() options=&*text::HANDS value=hand apply=apply_hand />
                     <SettingSelect id="keymap" label=text::keymap() options=&*text::KEYMAPS value=keymap apply=apply_keymap />
+                    <LanguageSelect core />
                     <button id="keys-button" type="button" class="button button--with-icon" aria-haspopup="dialog"
                         on:click=move |_| { profile_open.set(false); key_help.set(true); }>
                         <Icon name="keyboard" />{text::keys_title()}
@@ -1275,6 +1276,51 @@ pub(crate) fn click(id: &str) {
 
 /// Connection and outbox state, as text (OFF-5).
 // [impl->dsn~compact-navigation~2]
+// [impl->dsn~ui-texts~2]
+/// The device's language (I18N-1): "Automatisch" follows the browser; a shared tablet keeps
+/// the language chosen here. Each language is named in itself. The page reloads to show it,
+/// unless entries could not be stored: then it applies at the next start.
+#[component]
+fn LanguageSelect(core: Handle) -> impl IntoView {
+    let value = RwSignal::new(core::preference(crate::i18n::PREFERENCE).unwrap_or_default());
+    let later = RwSignal::new(false);
+    let options: Vec<(&'static str, String)> =
+        std::iter::once(("", text::language_auto().to_owned()))
+            .chain(crate::i18n::languages().into_iter().map(|l| {
+                // The language shown: its name from the texts already loaded.
+                let name = if l == crate::i18n::language() {
+                    text::language_name().to_owned()
+                } else {
+                    crate::i18n::name_of(l)
+                };
+                (l, name)
+            }))
+            .collect();
+    let change = move |ev: leptos::ev::Event| {
+        let chosen = event_target_value(&ev);
+        core::set_preference(
+            crate::i18n::PREFERENCE,
+            (!chosen.is_empty()).then_some(chosen.as_str()),
+        );
+        value.set(chosen);
+        if core.with_value(|c| c.storage_failed) {
+            later.set(true);
+        } else if let Some(w) = web_sys::window() {
+            let _ = w.location().reload();
+        }
+    };
+    view! {
+        <label for="language">{text::language()}</label>
+        <select id="language" prop:value=move || value.get() on:change=change>
+            {options
+                .into_iter()
+                .map(|(v, name)| view! { <option value=v lang=(!v.is_empty()).then_some(v)>{name}</option> })
+                .collect_view()}
+        </select>
+        <p class="hint" role="status">{move || later.get().then(text::language_after_reload)}</p>
+    }
+}
+
 #[component]
 fn ConnectionStatus(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let state = Memo::new(move |_| {

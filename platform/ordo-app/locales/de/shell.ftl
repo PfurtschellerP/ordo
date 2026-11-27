@@ -313,3 +313,10 @@ no-secure-context = Sichere Speicherung nicht verfügbar: Die App muss über HTT
 no-device-storage = Kein Gerätespeicher
 # A device's suggested name from its browser and system (ORG-8): "Firefox auf Android".
 device-name-on = { $browser } auf { $system }
+
+## Language of this device (I18N-1)
+# Each language names itself in its own file.
+language-name = Deutsch
+language = Sprache
+language-auto = Automatisch (wie der Browser)
+language-after-reload = Die Sprache gilt nach dem nächsten Neuladen. Bitte erst neu laden, wenn alles gesendet ist.

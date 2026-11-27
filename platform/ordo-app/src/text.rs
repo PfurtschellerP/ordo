@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use ordo_contracts::TriageCategory;
 
-// [impl->dsn~ui-texts~1]
+// [impl->dsn~ui-texts~2]
 include!(concat!(env!("OUT_DIR"), "/text_shell.rs"));
 
 pub fn registered(tag: &str, category: TriageCategory, uhs: &str) -> String {
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(super::ago(3 * 1440 * min), "vor 3 Tagen");
     }
 
-    // [utest->dsn~ui-texts~1]
+    // [utest->dsn~ui-texts~2]
     #[test]
     fn counts_choose_their_form() {
         assert_eq!(super::pending(0usize), "Alles gesendet");
