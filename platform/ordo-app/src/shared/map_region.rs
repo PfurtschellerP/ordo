@@ -127,7 +127,6 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     view! {
         <section class="card map-region" aria-labelledby="map-region-title">
             <h2 id="map-region-title">{text::map_region_title()}</h2>
-            <p class="hint">{text::map_region_hint()}</p>
             <p class="map-region__state" role="status">
                 {move || region.get().map_or_else(|| text::map_loading().to_owned(), |r| state_line(&r))}
             </p>
@@ -139,7 +138,13 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     }
                 })
             }}
-            <h3>{text::map_region_new()}</h3>
+            // [impl->dsn~building-blocks~1]
+            // Calm (ADR-0102): open while there is no region yet, folded once there is.
+            <details class="map-region__new" prop:open=move || {
+                region.get().is_none_or(|r| matches!(r.state, MapRegionState::None | MapRegionState::Failed))
+            }>
+            <summary><h3>{text::map_region_new()}</h3></summary>
+            <p class="hint">{text::map_region_hint()}</p>
             // [impl->dsn~address-search~1]
             <crate::shell::address::AddressSearch core revision id="region"
                 on_choose=Callback::new(move |([lo, la], _): crate::shell::address::Chosen| {
@@ -167,6 +172,7 @@ pub fn MapRegionView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     <button type="submit" class="button button--primary" disabled=running>{text::map_region_cut()}</button>
                 </div>
             </form>
+            </details>
         </section>
     }
 }

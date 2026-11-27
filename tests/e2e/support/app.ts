@@ -128,9 +128,10 @@ export async function openView(page: Page, label: string): Promise<void> {
 
 /** Sets up a UHS on *Vorbereitung – Einsatzmittel*, as the incident command (ADR-0086). */
 export async function createUhs(page: Page, name: string, capacity: number): Promise<void> {
+  await page.locator("#new-uhs-open").click(); // the form opens in a dialog (ADR-0102)
   await page.locator("#uhs-name").fill(name);
   await page.locator("#uhs-capacity").fill(String(capacity));
-  await page.getByRole("button", { name: "UHS anlegen" }).click();
+  await page.locator("#new-uhs-dialog").getByRole("button", { name: "UHS anlegen" }).click();
   await expect(page.locator(".uhs-card__name", { hasText: name })).toBeVisible();
 }
 

@@ -611,7 +611,17 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
     let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="uhs-resources-title" class="card">
-            <h2 id="uhs-resources-title">{text::uhs_resources_title()}</h2>
+            <div class="section-head">
+                <h2 id="uhs-resources-title" class="section-head__title">{text::uhs_resources_title()}</h2>
+                // [impl->dsn~building-blocks~1]
+                <Show when=move || editable.get()>
+                    <div class="section-head__action">
+                        <crate::shell::ui::CreateButton id="new-uhs" word=text::uhs_new_word() title=text::uhs_new()>
+                            <NewUhsForm core revision />
+                        </crate::shell::ui::CreateButton>
+                    </div>
+                </Show>
+            </div>
             {move || {
                 let rows = rows.get();
                 crate::shell::views::keep_focus();
@@ -659,9 +669,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
                     view! { <UhsDetailsPanel core revision id name capacity details draft patients=held on_done=close /> }
                 })}
             </crate::shell::ui::EditDialog>
-            <Show when=move || editable.get()>
-                <NewUhsForm core revision />
-            </Show>
+
         </section>
     }
 }
@@ -669,6 +677,7 @@ pub(crate) fn UhsResources(core: Handle, revision: RwSignal<u64>) -> impl IntoVi
 /// Sets up a UHS with its name and capacity, which also gives it its places (UHS-1, UHS-7).
 #[component]
 fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let created = use_context::<crate::shell::ui::CreateOpen>();
     let name = RwSignal::new(String::new());
     let capacity = RwSignal::new("10".to_owned());
     let error = RwSignal::new(None::<String>);
@@ -684,6 +693,7 @@ fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     Ok(()) => {
                         name.set(String::new());
                         error.set(None);
+                        crate::shell::ui::CreateOpen::done(created);
                     }
                     Err(e) => error.set(Some(e)),
                 }
@@ -692,7 +702,6 @@ fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         }
     };
     view! {
-        <h3>{text::uhs_new()}</h3>
         <form on:submit=submit class="form form--inline new-uhs">
             <div class="field">
                 <label for="uhs-name">{text::uhs_name()}</label>

@@ -602,3 +602,11 @@ map-set-word = Setzen
 leader-set-label = Leitung festlegen: { $title }
 position-sub-label = Unterfunktion anlegen: { $title }
 uhs-assign-label = UHS zuordnen: { $title }
+# The "+" button that opens the form to add one (ADR-0102).
+unit-new = Einsatzmittel
+# The incident's details, read compactly; ✎ opens the form (ADR-0102).
+incident-details-edit = Angaben bearbeiten
+not-set = nicht angegeben
+strength-detailed-short = Stärke ausführlich
+yes = ja
+no = nein

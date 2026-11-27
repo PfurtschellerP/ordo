@@ -270,11 +270,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(dora, "Einsatz");
     // [itest->dsn~incident-details~1]
     // ORG-13: a description and the planned times, kept with the incident.
+    // ADR-0102: what is stored reads compactly; ✎ opens the form in a dialog.
+    await dora.locator("#incident-details-open").click();
     await dora.locator("#incident-description").fill("Stadtfest in der Altstadt, drei Tage, etwa 20 000 Gäste.");
     await dora.locator("#incident-starts").fill("2030-05-01T10:00");
     await dora.locator("#incident-ends").fill("2030-04-30T10:00");
     await dora.getByRole("button", { name: "Angaben speichern" }).click();
-    await expect(dora.locator("[aria-labelledby=incident-details-title] [role=status]"), "an end before the start is refused").toHaveText("Das Ende liegt vor dem Beginn, oder ein Datum ist unvollständig.");
+    await expect(dora.locator("#incident-details-dialog [role=alert]"), "an end before the start is refused").toHaveText("Das Ende liegt vor dem Beginn, oder ein Datum ist unvollständig.");
     await dora.locator("#incident-ends").fill("2030-05-03T23:00");
     await dora.getByRole("button", { name: "Angaben speichern" }).click();
     await expect(dora.locator("#incident-times")).toHaveText("01.05.2030, 10:00 bis 03.05.2030, 23:00");
@@ -1350,6 +1352,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     // [itest->dsn~unit-register~3]
+    await ben.locator("#add-unit-open").click(); // the form opens in a dialog (ADR-0102)
     await ben.locator("#unit-call-sign").fill("RTW 83/1");
     await ben.locator("#unit-type").fill("RTW");
     await ben.locator("#unit-organisation").fill("DRK Musterstadt");
@@ -1357,7 +1360,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#unit-leaders").fill("0");
     await ben.locator("#unit-sub-leaders").fill("1");
     await ben.locator("#unit-crew").fill("1");
-    await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
+    await ben.locator("#add-unit-dialog").getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const card = ben.locator(".unit-card[data-unit='RTW 83/1']");
     await expect(card, "a unit is added").toContainText("Status: –");
     // [itest->dsn~workspaces-by-phase~5]
@@ -1552,6 +1555,7 @@ test("ORDO in the browser", async ({ browser }) => {
     const total = ben.locator(".strength-on-scene__total");
     const notation = async (detailed: boolean) => {
       await openView(ben, "Einsatz");
+      await ben.locator("#incident-details-open").click();
       await ben.locator("#incident-strength-detailed").setChecked(detailed);
       await ben.getByRole("button", { name: "Angaben speichern" }).click();
       await expect(ben.locator("[aria-labelledby=incident-details-title] [role=status]")).toHaveText("Angaben zum Einsatz gespeichert.");
@@ -1566,8 +1570,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#uhs-details-dialog").getByRole("button", { name: "Speichern" }).click();
     await expect(total, "with the special functions after it").toHaveText("3 Einsatzmittel · Stärke 1/0/2/4/7 (davon 1 × Ärzte) · ohne Stärkemeldung: 1");
     await ben.keyboard.press("Escape");
+    await ben.locator("#add-unit-open").click();
     await expect(ben.locator("#unit-unit-leaders"), "the unit form asks for leaders of formations too").toBeVisible();
     await audit(ben, "Detailed strength");
+    await ben.keyboard.press("Escape");
     await notation(false);
     await expect(total, "back to four numbers: both leaders as Führer").toHaveText("3 Einsatzmittel · Stärke 1/2/4/7 · ohne Stärkemeldung: 1");
     // [itest->dsn~double-booking~1]
@@ -2279,10 +2285,11 @@ test("ORDO in the browser", async ({ browser }) => {
     // a crew member on no staff list could not (UHS-10, ADR-0086).
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
+    await ben.locator("#add-unit-open").click(); // the form opens in a dialog (ADR-0102)
     await ben.locator("#unit-call-sign").fill("SanTrp 1");
     await ben.locator("#unit-type").fill("SanTrp");
     await ben.locator("#unit-organisation").fill("DRK Musterstadt");
-    await ben.getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
+    await ben.locator("#add-unit-dialog").getByRole("button", { name: "Einsatzmittel hinzufügen" }).click();
     const team = ben.locator(".unit-card[data-unit='SanTrp 1']");
     await team.getByRole("button", { name: /^Besatzung von SanTrp 1/ }).click();
     await ben.locator("#crew-santrp-1").fill("petra@localhost");

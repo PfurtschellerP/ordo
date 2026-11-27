@@ -198,6 +198,7 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     );
     let strength_detailed = RwSignal::new(stored.strength_detailed);
     let details_status = RwSignal::new(None::<String>);
+    let editing = RwSignal::new(false);
     let save_details = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let time = |v: String| -> Result<Option<u64>, ()> {
@@ -221,10 +222,49 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         };
         details_status.set(Some(
             match core::set_incident_details(core, revision, &details) {
-                Ok(()) => text::incident_details_saved().to_owned(),
+                Ok(()) => {
+                    editing.set(false);
+                    text::incident_details_saved().to_owned()
+                }
                 Err(e) => e,
             },
         ));
+    };
+    // [impl->dsn~building-blocks~1]
+    // What is stored, read compactly (ADR-0102); the form opens in a dialog.
+    let read = move || {
+        info.get().map(|i| {
+            let d = i.details;
+            let none = || text::not_set().to_owned();
+            let items = vec![
+                (
+                    text::incident_description().to_owned(),
+                    if d.description.trim().is_empty() {
+                        none()
+                    } else {
+                        d.description.clone()
+                    },
+                ),
+                (
+                    text::incident_starts().to_owned(),
+                    d.starts_at.map_or_else(none, core::date_time),
+                ),
+                (
+                    text::incident_ends().to_owned(),
+                    d.ends_at.map_or_else(none, core::date_time),
+                ),
+                (
+                    text::strength_detailed_short().to_owned(),
+                    if d.strength_detailed {
+                        text::yes()
+                    } else {
+                        text::no()
+                    }
+                    .to_owned(),
+                ),
+            ];
+            view! { <crate::shell::ui::KeyValues items /> }
+        })
     };
     view! {
         <section aria-labelledby="incident-title" class="card">
@@ -279,7 +319,26 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
         <section aria-labelledby="incident-details-title" class="card">
-            <h2 id="incident-details-title">{text::incident_details()}</h2>
+            <div class="section-head">
+                <h2 id="incident-details-title" class="section-head__title">{text::incident_details()}</h2>
+                <Show when=move || manage.get()>
+                    <div class="section-head__action">
+                        <crate::shell::ui::IconButton icon="pencil" word=text::card_edit() id="incident-details-open"
+                            label=text::incident_details_edit()
+                            on_click=Callback::new(move |()| {
+                                details_status.set(None);
+                                editing.set(true);
+                            }) />
+                    </div>
+                </Show>
+            </div>
+            {read}
+            // After saving; while the dialog is open, its own line says what went wrong.
+            <p role="status">{move || details_status.get().filter(|_| !editing.get())}</p>
+            <crate::shell::ui::EditDialog id="incident-details" open=Signal::derive(move || editing.get())
+                on_close=Callback::new(move |()| editing.set(false))
+                title=Signal::derive(|| text::incident_details().to_owned())
+                back=Signal::derive(|| "incident-details-open".to_owned())>
             <form class="form" novalidate on:submit=save_details>
                 <div class="field">
                     <label for="incident-description">{text::incident_description()}</label>
@@ -313,8 +372,9 @@ pub fn IncidentPage(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         <button type="submit" class="button">{text::incident_details_save()}</button>
                     </div>
                 </Show>
-                <p role="status">{move || details_status.get()}</p>
+                <p role="alert" class="error">{move || details_status.get().filter(|_| editing.get())}</p>
             </form>
+            </crate::shell::ui::EditDialog>
         </section>
     }
 }

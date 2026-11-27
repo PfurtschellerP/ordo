@@ -1168,3 +1168,47 @@ pub fn EmptyState(
         </p>
     }
 }
+
+// [impl->dsn~building-blocks~1]
+/// The dialog of a [`CreateButton`]: a form inside closes it once it saved (a context).
+#[derive(Clone, Copy)]
+pub struct CreateOpen(pub RwSignal<bool>);
+
+impl CreateOpen {
+    /// Closes the dialog after a successful save, where there is one.
+    pub fn done(this: Option<Self>) {
+        if let Some(Self(open)) = this {
+            open.set(false);
+        }
+    }
+}
+
+// [impl->dsn~building-blocks~1]
+/// "+ Neu" at a list's head: its form opens in the edit dialog, nothing to create stands
+/// open on the page (ADR-0102). The form calls [`CreateOpen::done`] when it saved.
+#[component]
+pub fn CreateButton(
+    /// The dialog's ID; the button's is `{id}-open`.
+    #[prop(into)]
+    id: String,
+    /// The button's word, e.g. "Einsatzmittel".
+    #[prop(into)]
+    word: String,
+    /// The dialog's heading, e.g. "Einsatzmittel hinzufügen".
+    #[prop(into)]
+    title: String,
+    children: ChildrenFn,
+) -> impl IntoView {
+    let open = RwSignal::new(false);
+    provide_context(CreateOpen(open));
+    let back = format!("{id}-open");
+    view! {
+        <button id=back.clone() type="button" class="button button--small" on:click=move |_| open.set(true)>
+            <Icon name="plus" />{word}
+        </button>
+        <EditDialog id=id open=Signal::derive(move || open.get()) on_close=Callback::new(move |()| open.set(false))
+            title=Signal::derive(move || title.clone()) back=Signal::derive(move || back.clone())>
+            {children()}
+        </EditDialog>
+    }
+}

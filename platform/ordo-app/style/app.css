@@ -1465,6 +1465,9 @@
   .profile-part__group { border: 0; padding: 0; margin: 0; min-width: 0; }
   .profile-part__sign-out { display: grid; gap: var(--ordo-space-2); justify-items: start; padding-block-start: var(--ordo-space-3); border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
   .appearance-chips { margin-block: var(--ordo-space-2); }
+  .map-region__new > summary { cursor: pointer; }
+  .map-region__new > summary h3 { display: inline; }
+  .map-region__new[open] > summary { margin-block-end: var(--ordo-space-3); }
   .places__totals { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2) var(--ordo-space-5); font-weight: var(--ordo-font-weight-bold); }
   .places__lage { grid-column: 1 / -1; display: grid; gap: var(--ordo-space-2); }
   .places__requests { margin: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }

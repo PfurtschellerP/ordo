@@ -1019,7 +1019,17 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     });
     view! {
         <section aria-labelledby="units-title" class="card">
-            <h2 id="units-title">{text::units_title()}</h2>
+            <div class="section-head">
+                <h2 id="units-title" class="section-head__title">{text::units_title()}</h2>
+                // [impl->dsn~building-blocks~1]
+                <Show when=move || can_edit.get()>
+                    <div class="section-head__action">
+                        <crate::shell::ui::CreateButton id="add-unit" word=text::unit_new() title=text::unit_submit()>
+                            <AddUnitForm core revision />
+                        </crate::shell::ui::CreateButton>
+                    </div>
+                </Show>
+            </div>
             {move || {
                 register
                     .get()
@@ -1103,9 +1113,6 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     }}
                 </ul>
             </details>
-            <Show when=move || can_edit.get()>
-                <AddUnitForm core revision />
-            </Show>
         </section>
         <crate::med::uhs::UhsResources core revision />
     }
@@ -1115,6 +1122,7 @@ pub fn ResourcesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
 /// offered as choices; anything can be entered.
 #[component]
 fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let created = use_context::<crate::shell::ui::CreateOpen>();
     let call_sign = RwSignal::new(String::new());
     let unit_type = RwSignal::new(String::new());
     let organisation = RwSignal::new(String::new());
@@ -1185,11 +1193,11 @@ fn AddUnitForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }
             strength.clear();
             error.set(None);
+            crate::shell::ui::CreateOpen::done(created);
         }
     };
     view! {
         <form on:submit=submit class="form add-unit" novalidate>
-            <h3>{text::unit_submit()}</h3>
             <div class="form--inline">
                 <div class="field">
                     <label for="unit-call-sign">{text::unit_call_sign()}</label>

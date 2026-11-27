@@ -573,3 +573,5 @@ staff-go-send = Envoyer du personnel
 staff-go-send-label = { staff-go-send } : { $uhs }
 # The triage aid on the profile page (PAT-11, ADR-0100).
 profile-triage = Triage sur cet appareil
+# The "+" button that opens the form to add one (ADR-0102).
+uhs-new-word = PMA

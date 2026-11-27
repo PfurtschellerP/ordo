@@ -602,3 +602,11 @@ map-set-word = Situar
 leader-set-label = Asignar el mando: { $title }
 position-sub-label = Añadir una subfunción: { $title }
 uhs-assign-label = Asignar un PMA: { $title }
+# The "+" button that opens the form to add one (ADR-0102).
+unit-new = Unidad
+# The incident's details, read compactly; ✎ opens the form (ADR-0102).
+incident-details-edit = Editar los datos
+not-set = sin indicar
+strength-detailed-short = Efectivo detallado
+yes = sí
+no = no

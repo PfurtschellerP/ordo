@@ -602,3 +602,11 @@ map-set-word = Place
 leader-set-label = Set the lead: { $title }
 position-sub-label = Add a sub-position: { $title }
 uhs-assign-label = Assign a care unit: { $title }
+# The "+" button that opens the form to add one (ADR-0102).
+unit-new = Unit
+# The incident's details, read compactly; ✎ opens the form (ADR-0102).
+incident-details-edit = Edit the details
+not-set = not given
+strength-detailed-short = Detailed strength
+yes = yes
+no = no
