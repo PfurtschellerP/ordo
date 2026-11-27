@@ -182,7 +182,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~workspaces-by-phase~5]
     // ADR-0067: the overview is a grid of tiles: map, Disposition, Personal, UHS, transports
     // waiting for a unit (feedback of 2026-11-22), quick links.
-    await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(6);
+    await expect(dora.locator(".bento > .tile"), "the command opens on its overview of tiles").toHaveCount(7);
     await expect(dora.locator("[aria-labelledby=tile-transports]"), "no transport waits yet").toContainText("Keine Transportanforderung wartet.");
     await expect(dora.locator("#overview-state"), "with the incident's state").toHaveText("Geplant");
     await expect(dora.locator("#overview-persons"), "counts only").toHaveText("0");
@@ -350,7 +350,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await anna.locator("#working-uhs").selectOption({ label: "Alle UHS" });
     await expect(anna.locator("#uhs option"), "UHS-10: she registers only where she is on the staff list").toHaveText(["UHS wählen", "UHS Eingang"]);
     await register(anna, "DE-0044", 1, "UHS Eingang");
-    // [itest->dsn~page-tabs~4]
+    // [itest->dsn~page-tabs~5]
     // The list, registering and staff requests are tabs; registering stays on its tab, for
     // the next patient.
     await expect.poll(() => anna.locator(".master .parts").getByRole("tab").allInnerTexts(), { message: "separate tasks, the list first; short labels in the narrow list column" }).toEqual(["Patienten", "Registrieren", "Personal"]);
@@ -1154,7 +1154,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".roster__entry", { hasText: "anna@localhost" }).locator("img.avatar"), "others see Anna's picture").toBeVisible();
     await expect(ben.locator(".roster__entry", { hasText: "dora@localhost" }).locator(".avatar--initials"), "without a picture: initials").toHaveText("D");
     // [itest->dsn~incident-devices~1]
-    // [itest->dsn~page-tabs~4]
+    // [itest->dsn~page-tabs~5]
     await expect(ben.getByRole("tab"), "Helfende and Geräte; the command structure is on Führung & Raum").toHaveText(["Helfende", "Geräte"]);
     await pageTab(ben, "Geräte");
     // The incident command sees the devices of the incident's people, and blocks one of
@@ -1243,7 +1243,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#profile-button"), "focus returns to the person's button").toBeFocused();
 
     // The overview counts the patients; the situation map shows them per UHS.
-    // [itest->dsn~command-treatment-places~1]
+    // [itest->dsn~command-treatment-places~2]
     // [itest->dsn~server-derived-connectors~2]
     // UHS-16: the free places per category, from the patient counts alone.
     const placesTile = ben.locator(".tile--uhs");
@@ -1251,31 +1251,41 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(placesTile.locator(".places__all .places__waiting")).toHaveText("3 ohne Platz");
     await expect(placesTile.locator(".places__unit", { hasText: "UHS Eingang" }).locator(".places__box--taken"), "the taken place, not who lies there").toHaveCount(1);
     await shot(ben, "command-places");
-    await openView(ben, "Lagekarte");
+    // [itest->dsn~command-lage~1]
+    // [itest->dsn~page-tabs~5]
+    // ADR-0099: Lage holds the map, the units and the treatment places; tabs where narrow.
+    await openView(ben, "Lage");
+    await expect.poll(() => ben.locator("#main .parts").getByRole("tab").allInnerTexts(), { message: "map, units and places" }).toEqual([
+      "Karte",
+      "Einsatzmittel",
+      "Behandlungsplätze",
+    ]);
+    await expect(ben.locator("#situation-title"), "the map first").toBeVisible();
+    await ben.locator("#main .parts").getByRole("tab", { name: "Behandlungsplätze" }).click();
+    const lagePlaces = ben.locator(".lage-places");
+    await expect(ben.locator("#situation-title"), "one part at a time where narrow").toBeHidden();
+    // [itest->dsn~command-treatment-places~2]
+    // UHS-16: the free and all places per category, and more per UHS, without patient data.
     // DE-0044 was re-triaged to SK III from the palette; DE-0045 moved to Bühne Nord.
-    const cards = () =>
-      ben.locator(".count-card").evaluateAll((list) =>
-        list.map((c) =>
-          [
-            (c.querySelector("h3") as HTMLElement).innerText,
-            ...[...c.querySelectorAll(".count-card__n")].map((n) => (n as HTMLElement).innerText),
-            (c.querySelector("p") as HTMLElement).innerText,
-          ].join(" "),
-        ),
-      );
-    await expect.poll(cards, { message: "command sees counts and load per UHS" }).toEqual([
-      "UHS Bühne Nord 1 1 1 0 0 0 Gesamt: 3 · Belegung: 3 / 10 · Entlassen: 0",
-      "UHS Eingang 0 0 1 0 0 0 Gesamt: 1 · Belegung: 1 / 5 · Entlassen: 0",
+    await expect(lagePlaces.locator(".places__totals li"), "those without a place, waiting and registered").toHaveText([
+      "3 ohne Platz",
+      /^Warten auf Transport: \d+$/,
+      "Registriert 4 · hier jetzt 4 · entlassen 0",
     ]);
+    const lageEingang = lagePlaces.locator(".places__unit", { hasText: "UHS Eingang" });
+    await expect(lageEingang.locator(".places__strip .places__free"), "free of all places").toHaveText("4 / 5 frei");
+    await expect(lageEingang.locator(".places__staff"), "its staff").toContainText("Personal: 1 Person");
+    await expect(lageEingang.locator(".places__more")).toContainText("0 entlassen");
+    await expect(lageEingang.getByRole("link", { name: "Transporte" }), "the way to its transports").toBeVisible();
+    await expect(ben.locator(".count-card, .table--counts"), "the table Patienten je UHS is gone").toHaveCount(0);
+    await audit(ben, "Lage – treatment places");
     await ben.setViewportSize({ width: 1700, height: 1000 });
-    const table = () =>
-      ben.locator("#main tbody tr").evaluateAll((rows) =>
-        rows.filter((r) => (r as HTMLElement).offsetParent).map((r) => [...(r as HTMLTableRowElement).cells].map((c) => c.innerText.split("\n")[0]).join(" ")),
-      );
-    await expect.poll(table, { message: "where there is room, the counts are a table" }).toEqual([
-      "UHS Bühne Nord 1 1 1 0 0 0 3 3 / 10 0",
-      "UHS Eingang 0 0 1 0 0 0 1 1 / 5 0",
+    await expect.poll(() => ben.locator("#main .parts").getByRole("tab").allInnerTexts(), { message: "where wide, the map stands beside the lists" }).toEqual([
+      "Einsatzmittel",
+      "Behandlungsplätze",
     ]);
+    await expect(ben.locator("#situation-title"), "the map beside the places").toBeVisible();
+    await expect(lagePlaces).toBeVisible();
     await audit(ben, "Command workspace (wide)", [1700]);
     const received = Buffer.concat(benFrames.received);
     expect(received.length).toBeGreaterThan(0);
@@ -1409,6 +1419,37 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator(".released-list summary")).toHaveText("Entlassene Einsatzmittel (1)");
     await ben.getByRole("button", { name: "RTW 83/1 wieder im Einsatz" }).click();
     await expect(card, "back in the incident, with its status").toContainText("4 – Am Einsatzort");
+    // [itest->dsn~unit-overview~1]
+    // UNIT-10: the overview counts the units by group and type; Lage lists them by group.
+    await openWorkspace(ben, "Führung");
+    const unitsTile = ben.locator(".tile--units");
+    await expect(unitsTile.locator(".tile__figure"), "none free: RTW 83/1 is on scene").toHaveText("0 von 1 einsatzbereit");
+    await expect(unitsTile.locator(".tile__groups li"), "every group with its word and number").toHaveText([
+      "Einsatzbereit0",
+      "Im Auftrag1",
+      "Transport0",
+      "Nicht einsatzbereit0",
+    ]);
+    await expect(unitsTile.locator(".tile__types tbody tr")).toHaveText(["RTW01"]);
+    await unitsTile.getByRole("link", { name: "Zur Lage" }).click();
+    const lageUnits = ben.locator(".lage-units");
+    await expect(lageUnits, "the tile opens the tab of the units").toBeVisible();
+    const onTask = lageUnits.locator(".unit-group[data-group=task]");
+    await expect(onTask.locator(".unit-group__title")).toHaveText("Im Auftrag 1");
+    const rtw = onTask.locator(".unit-glance__item[data-unit='RTW 83/1']");
+    await expect(rtw.locator(".unit-glance__status"), "its status since when").toContainText("4 – Am Einsatzort, seit");
+    await expect(rtw.locator(".unit-glance__crew"), "strength and qualifications in short").toContainText("Stärke 0/1/1/2");
+    await expect(rtw.locator(".unit-glance__crew abbr")).toHaveText("NotSan 1");
+    await expect(lageUnits.locator(".unit-group[data-group=uhs] .unit-glance__item"), "the UHS count as units").toHaveCount(2);
+    await rtw.getByRole("button", { name: "Details: RTW 83/1" }).click();
+    await expect(rtw.getByLabel("Status von RTW 83/1 setzen"), "the status is set here too").toBeVisible();
+    await expect(rtw.getByRole("link", { name: "Auftrag geben: RTW 83/1" })).toBeVisible();
+    await audit(ben, "Lage – units");
+    await lageUnits.getByLabel("Nur einsatzbereite").check();
+    await expect(lageUnits.locator(".hint"), "nothing free").toHaveText("Kein Einsatzmittel passt zur Auswahl.");
+    await lageUnits.getByLabel("Nur einsatzbereite").uncheck();
+    await openWorkspace(ben, "Vorbereitung");
+    await openView(ben, "Einsatzmittel");
     // [itest->dsn~uhs-resources~2]
     // UHS-11: the UHS are resources too; the command assigns their staff.
     const uhsCard = ben.locator(".uhs-card[data-uhs]", { hasText: "UHS Eingang" });
@@ -1745,7 +1786,7 @@ test("ORDO in the browser", async ({ browser }) => {
   // [itest->dsn~situation-map~5]
   await test.step("situation map: read in Führung, edited in Vorbereitung, kept offline by itself", async () => {
     await openWorkspace(ben, "Führung");
-    await openView(ben, "Lagekarte");
+    await openView(ben, "Lage");
     const state = ben.locator(".situation__state");
     await expect(state, "the map loads").not.toHaveText("Karte wird geladen …", { timeout: 30_000 });
     const map = await ben.locator(".situation__map").getAttribute("data-map");
@@ -1941,7 +1982,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.goForward();
     await expect(ben.locator("#map-editor-title")).toHaveText("Lagekarte bearbeiten");
     await openWorkspace(ben, "Führung");
-    await openView(ben, "Lagekarte");
+    await openView(ben, "Lage");
     await expect(ben.locator("#situation-title")).toHaveText("Lagekarte");
     await expect(ben.locator(".situation__map"), "the situation map loads again").toHaveAttribute("data-map", "ready", { timeout: 30_000 });
     await expect(objects.filter({ hasText: "Festgelände" }), "what was drawn is on the situation map").toHaveCount(1);
@@ -1965,7 +2006,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect.poll(() => title(ben), { message: "the pencil leads to the unit in Vorbereitung" }).toContain("Vorbereitung");
     await expect(ben.locator(".unit-card[data-unit='RTW 83/1']").first(), "already in view and focused").toBeFocused();
     await openWorkspace(ben, "Führung");
-    await openView(ben, "Lagekarte");
+    await openView(ben, "Lage");
     await audit(ben, "Situation map");
     await shot(ben, "situation-map");
   });
@@ -1973,7 +2014,7 @@ test("ORDO in the browser", async ({ browser }) => {
   await test.step("transport: the UHS requests, the command assigns a unit and follows it", async () => {
     // [itest->dsn~transport-request~3]
     await openView(ben, "Transporte");
-    // [itest->dsn~page-tabs~4]
+    // [itest->dsn~page-tabs~5]
     // Used together: columns where the page is at least 60rem wide, tabs where narrower.
     await expect(ben.locator("#page-transports-tab-requests"), "no tabs where both fit").toBeHidden();
     const [requestsBox, freeBox] = [await ben.locator("#transports-title").boundingBox(), await ben.locator("#free-units-title").boundingBox()];
@@ -2008,7 +2049,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(board.getByRole("button", { name: "Klinik hinzufügen" }), "no adding in Führung").toHaveCount(0);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
-    // [itest->dsn~page-tabs~4]
+    // [itest->dsn~page-tabs~5]
     await expect(ben.getByRole("tab"), "the units and the hospitals in tabs").toHaveText(["Einsatzmittel", "Kliniken"]);
     await pageTab(ben, "Kliniken");
     const hospitals = ben.locator("[aria-labelledby=hospitals-setup-title]");
@@ -2151,10 +2192,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await audit(medic, "Patients with discharged");
     await medic.context().close();
 
-    await openView(ben, "Lagekarte");
-    await expect
-      .poll(() => ben.locator(".count-card", { hasText: "UHS Eingang" }).locator("p").textContent(), { message: "command sees the load without the discharged patient, against its whole capacity" })
-      .toBe("Gesamt: 0 · Belegung: 0 / 5 · Entlassen: 1");
+    await openView(ben, "Lage");
+    const eingangPlaces = ben.locator(".lage-places .places__unit", { hasText: "UHS Eingang" });
+    await expect(eingangPlaces.locator(".places__box--taken"), "command sees the place free again").toHaveCount(0);
+    await expect(eingangPlaces.locator(".places__more"), "and the discharged patient, as a number").toContainText("1 entlassen");
     expect(Buffer.concat(benFrames.received).includes("DE-0044"), "but not who left").toBe(false);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
@@ -2246,7 +2287,7 @@ test("ORDO in the browser", async ({ browser }) => {
     }
     await audit(ben, "Aufträge");
     if (placed) {
-      await openView(ben, "Lagekarte");
+      await openView(ben, "Lage");
       const pin = ben.locator(".map-object", { hasText: "Patient: Bühne Nord, links · Auftrag" });
       await expect(pin.locator(".map-object__symbol"), "with the sign for an injured person").toHaveAttribute("data-symbol", "injured-person");
       await openView(ben, "Disposition");
@@ -2370,7 +2411,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await report.getByRole("button", { name: `Erledigt: ${second} – Patient: Bühne Nord, links` }).click();
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (0)");
     if (placed) {
-      await openView(ben, "Lagekarte");
+      await openView(ben, "Lage");
       await expect(ben.locator(".map-object", { hasText: "Patient: Bühne Nord, links" }), "the pin of a finished Auftrag leaves the map").toHaveCount(0);
     }
     await openWorkspace(ben, "Einsatztagebuch");

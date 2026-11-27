@@ -68,7 +68,7 @@ pub fn page(args: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
     sections
 }
 
-// [impl->dsn~page-tabs~4]
+// [impl->dsn~page-tabs~5]
 /// The tab of `tabs` a section at `place` belongs to: the last one starting at or before.
 pub fn tab_of(tabs: &[crate::shell::nav::PageTab], place: u8) -> Option<&'static str> {
     tabs.iter()

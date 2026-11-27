@@ -233,6 +233,48 @@ pub(crate) fn StrengthFields(
     }
 }
 
+/// Each qualification once, with how many have it, in the profile's order: short form,
+/// label, number.
+pub(crate) fn qualification_counts<'a>(
+    ids: impl IntoIterator<Item = &'a str>,
+) -> Vec<(String, String, usize)> {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for id in ids {
+        *counts.entry(id).or_default() += 1;
+    }
+    let catalogue = &CATALOGUE.qualifications;
+    catalogue
+        .iter()
+        .filter_map(|q| {
+            counts.get(q.id.as_str()).map(|n| {
+                (
+                    UnitCatalogue::short(catalogue, &q.id).to_owned(),
+                    q.label.clone(),
+                    *n,
+                )
+            })
+        })
+        .collect()
+}
+
+/// Qualifications in short with their number, "NotSan 2", the full term as tooltip and for
+/// screen readers (the icon rules); nothing without any.
+#[component]
+pub(crate) fn QualificationChips(chips: Vec<(String, String, usize)>) -> impl IntoView {
+    (!chips.is_empty()).then(|| {
+        view! {
+            <ul class="object-card__chips" aria-label=text::qualifications_short()>
+                {chips.into_iter().map(|(short, label, n)| view! {
+                    <li class="tag">
+                        <abbr title=label.clone() aria-hidden="true">{short} " " {n}</abbr>
+                        <span class="visually-hidden">{text::qualification_count(&label, n)}</span>
+                    </li>
+                }).collect_view()}
+            </ul>
+        }
+    })
+}
+
 /// Type, organisation and service of a unit as one line.
 pub(crate) fn details(u: &Unit) -> String {
     let service = u

@@ -68,7 +68,6 @@ incident-prepare = Vorbereiten: Lagekarte, Einsatzmittel und Personal mit Rollen
 open-map = Lagekarte öffnen
 open-dispatch = Zur Disposition
 open-units = Zu den Einsatzmitteln
-open-counts = Patienten je UHS
 open-label = offen
 no-open-tasks = Keine offenen Aufträge.
 persons-on-scene = Einsatzkräfte vor Ort
@@ -575,3 +574,23 @@ diet-counts-line = Ernährung (ohne beendeten Dienst): { $list }
 diet-count = { $n } × { $diet }
 # Starts with the button's visible text, so its name matches what is seen.
 helper-edit-of = { $edit }: { $name }
+
+## Führung – Lage (ADR-0099): the map beside the units and the treatment places.
+lage = Lage
+# The groups the command sees its units in (UNIT-10); the profile gives each status its group.
+group-available = Einsatzbereit
+group-task = Im Auftrag
+group-transport = Transport
+group-unavailable = Nicht einsatzbereit
+group-none = Ohne Status
+# The first of the type filter's chips: "Alle 14".
+filter-all = Alle
+units-filter = Typ
+units-only-available = Nur einsatzbereite
+units-glance-empty = Kein Einsatzmittel passt zur Auswahl.
+open-lage = Zur Lage
+# "4 von 14 einsatzbereit", the first number large.
+units-available-of = von { $total } einsatzbereit
+col-type = Typ
+col-free = frei
+col-all = gesamt

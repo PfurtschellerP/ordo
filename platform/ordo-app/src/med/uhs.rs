@@ -9,7 +9,7 @@ use ordo_med_patients::{self as med, UhsCreated};
 
 use crate::core::{self, Handle};
 use crate::med::text;
-use crate::med::triage::{CATEGORIES, TriageBadge};
+use crate::med::triage::CATEGORIES;
 use crate::shell::views::follow_route;
 
 /// The on-site care units of the incident (from the shared compartment).
@@ -705,110 +705,5 @@ fn NewUhsForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             <button type="submit" class="button">{text::uhs_submit()}</button>
         </form>
         <p role="alert" class="error">{move || error.get()}</p>
-    }
-}
-
-/// One on-site care unit's patients per triage category, their total against its
-/// capacity, and how many were discharged; `children` add more lines (UHS-8).
-#[component]
-pub fn CountCard(
-    name: String,
-    capacity: u32,
-    counts: ordo_contracts::PatientCountsV1,
-    /// Capacity per triage category, shown next to the count (UHS-13).
-    #[prop(optional)]
-    capacities: std::collections::BTreeMap<TriageCategory, u32>,
-    #[prop(optional)] children: Option<Children>,
-) -> impl IntoView {
-    let c = counts;
-    let total: u32 = CATEGORIES.iter().map(|k| c.get(*k)).sum();
-    view! {
-        <li class="count-card">
-            <h3>{name}</h3>
-            <ul class="count-card__counts">
-                {CATEGORIES
-                    .into_iter()
-                    .map(|k| {
-                        // [impl->dsn~uhs-capacity-by-category~2]
-                        let of = capacities.get(&k).map(|n| format!(" / {n}"));
-                        view! { <li><TriageBadge category=k /> <span class="count-card__n">{c.get(k)}{of}</span></li> }
-                    })
-                    .collect_view()}
-            </ul>
-            <p>
-                {text::col_total()} ": " <strong>{total}</strong> " · " {text::col_load()} ": " {text::load(total, capacity)}
-                " · " {text::col_discharged()} ": " {c.discharged}
-            </p>
-            {children.map(|c| c())}
-        </li>
-    }
-}
-
-#[component]
-pub(crate) fn UhsCounts(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
-    let rows = Memo::new(move |_| {
-        revision.track();
-        let list = uhs_list(core);
-        let counts = core.with_value(|c| {
-            let events = c.events("incident");
-            med::latest_counts(&events)
-        });
-        list.into_iter()
-            .map(|u| {
-                (
-                    u.name,
-                    u.capacity,
-                    counts.get(&u.id).cloned().unwrap_or_default(),
-                )
-            })
-            .collect::<Vec<_>>()
-    });
-    view! {
-        <section aria-labelledby="counts-title" class="card">
-            <h2 id="counts-title">{text::counts_title()}</h2>
-            {move || {
-                let rows = rows.get();
-                if rows.is_empty() {
-                    return view! { <p>{text::counts_empty()}</p> }.into_any();
-                }
-                // Narrow screens: one block per UHS instead of a wide table (reflow).
-                let list = rows
-                    .iter()
-                    .map(|(name, capacity, c)| view! { <CountCard name=name.clone() capacity=*capacity counts=c.clone() /> })
-                    .collect_view();
-                view! {
-                    <ul class="count-list only-narrow">{list}</ul>
-                    <table class="table table--counts only-wide">
-                        <thead>
-                            <tr>
-                                <th scope="col">{text::col_uhs()}</th>
-                                {CATEGORIES.into_iter().map(|c| view! { <th scope="col" class="number"><TriageBadge category=c /></th> }).collect_view()}
-                                <th scope="col" class="number">{text::col_total()}</th>
-                                <th scope="col" class="number">{text::col_load()}</th>
-                                <th scope="col" class="number">{text::col_discharged()}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows
-                                .into_iter()
-                                .map(|(name, capacity, c)| {
-                                    let total: u32 = CATEGORIES.iter().map(|k| c.get(*k)).sum();
-                                    view! {
-                                        <tr>
-                                            <th scope="row">{name}</th>
-                                            {CATEGORIES.into_iter().map(|k| view! { <td class="number">{c.get(k)}</td> }).collect_view()}
-                                            <td class="number total">{total}</td>
-                                            <td class="number">{text::load(total, capacity)}</td>
-                                            <td class="number">{c.discharged}</td>
-                                        </tr>
-                                    }
-                                })
-                                .collect_view()}
-                        </tbody>
-                    </table>
-                }
-                .into_any()
-            }}
-        </section>
     }
 }

@@ -1464,14 +1464,14 @@ and devices; units planned with their crews, which are incident data, with no
 organisation-wide vehicle master data; *Führung & Raum*, the command structure with the
 situation map's editor and region,
 [ADR-0095](../adr/0095-command-and-space-on-one-page.md); a view may have a short label for
-the phone's bottom bar, "Struktur" for this one), *Führung*, the running incident (overview, situation map to read, dispatch
+the phone's bottom bar, "Struktur" for this one), *Führung*, the running incident (overview, *Lage* with the situation map to read beside the units and the treatment places, [ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md), dispatch
 with the open reports, the orders and the units on scene, whose status is set there,
 transports; reports in [chapter 5](05-building-block-view.md#reports)), and the incident
 log, which everyone in the incident opens. The overview, the first view of *Führung*, is a
 grid of tiles under the incident's name and state: the map (shown, not editable),
 *Disposition* (open orders, follow-ups due, the next three), *Personal* (persons and units
-on scene, strength), the UHS (load against capacity, patients per triage category, open
-transports, the total) and quick links. Each tile links to its page; on phones the tiles
+on scene, strength), the UHS (free and all places per triage category, open transports,
+the total), *Einsatzmittel* (units per group, free units per type) and quick links. Each tile links to its page; on phones the tiles
 stack. Every main function is so at most two taps from it (UX-1).
 
 *Administration* is apart from the incident: its workspace *Zugriff* (accounts,
@@ -1627,7 +1627,7 @@ them:
   arrow that is not read).
 - **Pages:** a page's parts sit at its top; short pages and tabs do not stretch to fill
   the screen.
-- **Tabs** break up a page in two cases (feedback of 2026-11-22; [Page tabs](05-building-block-view.md#page-tabs)):
+- **Tabs** break up a page in three cases (feedback of 2026-11-22 and 2026-11-27; [Page tabs](05-building-block-view.md#page-tabs)):
   1. *Separate tasks*, used one at a time: tabs on every screen. *Personal* (Helfende ·
      Geräte), *Einsatzmittel* (Einsatzmittel · Kliniken), the patient list (Patienten ·
      Registrieren · Personal), the record.
@@ -1635,6 +1635,9 @@ them:
      side by side where the page is wide enough (60rem; 84rem where a part needs 40rem,
      like the org chart), tabs where it is narrower. *Führung & Raum* (Struktur · Karte ·
      Grundlage), *Transporte* (Transporte · Freie Mittel · Kliniken).
+  3. *A map beside lists*, each list a task of its own: the map stays beside the chosen
+     list where the page is 84rem wide, all are tabs where it is narrower. *Lage* (Karte ·
+     Einsatzmittel · Behandlungsplätze).
 
   Not for one list or one form, however long (use filters and disclosures), nor for steps
   of one process, nor for a part shorter than a screen on its own. What needs attention

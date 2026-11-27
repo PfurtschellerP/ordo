@@ -213,6 +213,29 @@ pub fn patient_transports(core: Handle, tag: &str) -> Vec<Transport> {
     })
 }
 
+// [impl->dsn~unit-overview~1]
+/// Each unit's open transport in words, from which UHS to which destination, without
+/// patient data (*Lage*, UNIT-10): by call sign, the latest transport of a unit.
+pub fn unit_transports(core: Handle) -> std::collections::BTreeMap<String, String> {
+    let board =
+        core.with_value(|c| TransportBoard::from_events(&c.events(med::transport::COMPARTMENT)));
+    let mut open: Vec<&Transport> = board
+        .transports
+        .values()
+        .filter(|t| t.status.is_open() && t.unit.is_some())
+        .collect();
+    open.sort_by_key(|t| t.requested_at());
+    open.into_iter()
+        .filter_map(|t| {
+            let line = text::transport_of_unit(
+                core::uhs_name(core, &t.request.uhs),
+                t.destination.as_deref().unwrap_or(text::destination_open()),
+            );
+            Some((t.unit.clone()?, line))
+        })
+        .collect()
+}
+
 /// Type, unit and destination of a transport, e.g. "RTW · RTW 83/1 → Klinikum Mitte".
 pub fn transport_line(t: &Transport) -> String {
     let kind = label(&CATALOGUE.types, &t.request.transport_type);

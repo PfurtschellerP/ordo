@@ -783,7 +783,7 @@ mod tests {
             Err(CatalogueError::Duplicate("step", _))
         ));
         let statuses: StatusCatalogue = toml::from_str(
-            "[[status]]\ncode = \"3\"\nlabel = \"Einsatz übernommen\"\nname = \"en route\"\n",
+            "[[status]]\ncode = \"3\"\nlabel = \"Einsatz übernommen\"\nname = \"en route\"\ngroup = \"task\"\n",
         )
         .unwrap();
         assert!(matches!(
@@ -1012,7 +1012,11 @@ mod tests {
                     code: c.into(),
                     label: c.into(),
                     name: c.into(),
-                    available: c != "6",
+                    group: if c == "6" {
+                        ordo_units::StatusGroup::Unavailable
+                    } else {
+                        ordo_units::StatusGroup::Available
+                    },
                 })
                 .into(),
         };

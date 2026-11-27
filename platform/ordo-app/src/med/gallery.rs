@@ -2,7 +2,7 @@
 //! sample patients only.
 
 use leptos::prelude::*;
-use ordo_contracts::{PatientCountsV1, TriageCategory};
+use ordo_contracts::TriageCategory;
 use ordo_med_patients::overview::{Occupancy, PlaceGroup};
 
 use crate::med::flow::{Edge, FlowChart, Kind, State, Station};
@@ -35,17 +35,9 @@ pub(crate) const PARTS: &[Part] = &[Part {
             id: "treatment-places",
             name: "Treatment places",
             code: "med::places::TreatmentPlaces",
-            usage: "Free and taken places per UHS and category: on Führung, in the UHS module and for crews. Numbers only, never who lies where.",
-            access: "Each strip has a text alternative (\"SK I: 1 von 2 frei\"); a full category is hatched, outlined and says \"voll\".",
+            usage: "Free and taken places per UHS and category, \"2 / 4 frei\": on Führung (overview tile and Lage, with staff, transports and requests there), in the UHS module and for crews. Numbers only, never who lies where.",
+            access: "Each strip has a text alternative (\"SK I: 1 von 2 frei\"); a full category is hatched, outlined and adds the tag \"voll\". The badge stays on one line.",
             show: places,
-        },
-        Example {
-            id: "counts",
-            name: "Patient counts",
-            code: "med::uhs::CountCard",
-            usage: "Patients per category of one UHS, on narrow screens instead of the table.",
-            access: "A list with each category's badge and number, then the total in words.",
-            show: counts,
         },
         Example {
             id: "patient-flow",
@@ -90,6 +82,7 @@ fn places() -> AnyView {
             }),
             load: (6, 10),
             more: Some("1 Transport offen".into()),
+            lage: None,
         },
         PlaceRow {
             id: "gallery-eingang".into(),
@@ -100,26 +93,10 @@ fn places() -> AnyView {
             }),
             load: (1, 4),
             more: None,
+            lage: None,
         },
     ];
     view! { <TreatmentPlaces rows=Signal::stored(rows) level=Level::H4 /> }.into_any()
-}
-
-fn counts() -> AnyView {
-    let counts = PatientCountsV1 {
-        uhs: "nord".into(),
-        immediate: 1,
-        urgent: 2,
-        minor: 3,
-        discharged: 4,
-        ..PatientCountsV1::default()
-    };
-    view! {
-        <ul class="count-list">
-            <crate::med::uhs::CountCard name="UHS Bühne Nord".to_owned() capacity=10 counts />
-        </ul>
-    }
-    .into_any()
 }
 
 fn flow() -> AnyView {

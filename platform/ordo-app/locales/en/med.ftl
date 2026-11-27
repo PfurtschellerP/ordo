@@ -20,22 +20,15 @@ register-category = Triage category
 register-uhs = Patient at
 register-submit = Register
 board-empty = No patients registered yet.
-col-uhs = Care unit
 col-retriage = Re-triage
 not-sent = not sent yet
 sent-label = sent
-counts-title = Patients per care unit
-counts-empty = No patient counts yet.
-col-total = Total
-col-discharged = Discharged
 uhs-empty = No care unit set up yet. The incident command sets them up under Preparation – Units.
 uhs-name = Name of the care unit
 uhs-capacity = Capacity (patients)
 uhs-submit = Set up care unit
 uhs-new = New care unit
 no-uhs = No care unit yet where you may document. The incident command sets up care units and assigns their staff.
-col-load = Occupancy
-load = { $patients } / { $capacity }
 
 ## Patient list and record
 # The workspace of one UHS in the launcher.
@@ -563,3 +556,18 @@ log-transport-requested = Transport requested: { $transport }
 log-transport-updated-by = Transport { $transport }: { $status } ({ $unit })
 log-transport-updated-to = Transport { $transport }: { $status }
 log-order-updated = { $tag }: order { $status }
+
+## Führung – Lage (ADR-0099): more of each UHS, without patient data.
+# Variables: $uhs, $destination
+transport-of-unit = Transport from { $uhs } → { $destination }
+staff-requested-tag = Staff requested: { $need }
+waiting-transport-n = { $n ->
+    [one] 1 waiting for transport
+   *[other] { $n } waiting for transport
+}
+waiting-no-unit = { $n } without a unit
+waiting-transport-total = Waiting for transport: { $n }
+# Variables: $all, $here, $discharged
+registered-here-discharged = Registered { $all } · here now { $here } · discharged { $discharged }
+staff-go-send = Send staff
+staff-go-send-label = { staff-go-send }: { $uhs }

@@ -711,9 +711,35 @@ pub struct StatusCode {
     pub label: String,
     /// English name for search, e.g. "available station".
     pub name: String,
-    /// Whether a unit in this status is available for a new task.
-    #[serde(default)]
-    pub available: bool,
+    /// What the incident command needs to know of a unit in this status (UNIT-10); a unit
+    /// in the group [`StatusGroup::Available`] is free for a new task.
+    pub group: StatusGroup,
+}
+
+// [impl->dsn~unit-overview~1]
+/// The groups the incident command sees its units in (UNIT-10, ADR-0099), in the order it
+/// sees them. The profile gives each status code its group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StatusGroup {
+    /// Free for a new task (*einsatzbereit*).
+    Available,
+    /// Working an Auftrag (*im Auftrag*).
+    Task,
+    /// Carrying a patient (*Transport*).
+    Transport,
+    /// Out of service (*nicht einsatzbereit*).
+    Unavailable,
+}
+
+impl StatusGroup {
+    /// Every group, in the order shown.
+    pub const ALL: [Self; 4] = [
+        Self::Available,
+        Self::Task,
+        Self::Transport,
+        Self::Unavailable,
+    ];
 }
 
 impl StatusCatalogue {
@@ -736,7 +762,13 @@ impl StatusCatalogue {
 
     /// Whether a unit with this status is available (unknown codes are not).
     pub fn is_available(&self, code: &str) -> bool {
-        self.get(code).is_some_and(|c| c.available)
+        self.group(code) == Some(StatusGroup::Available)
+    }
+
+    // [impl->dsn~unit-overview~1]
+    /// The group of a status code; none for codes the profile does not have.
+    pub fn group(&self, code: &str) -> Option<StatusGroup> {
+        self.get(code).map(|c| c.group)
     }
 }
 
@@ -1193,21 +1225,42 @@ mod tests {
 
     #[test]
     fn status_codes_are_unique_and_unknown_ones_are_not_available() {
-        let code = |code: &str, available| StatusCode {
+        let code = |code: &str, group| StatusCode {
             code: code.into(),
             label: code.into(),
             name: code.into(),
-            available,
+            group,
         };
         let mut catalogue = StatusCatalogue {
-            codes: vec![code("2", true), code("3", false)],
+            codes: vec![
+                code("2", StatusGroup::Available),
+                code("3", StatusGroup::Task),
+            ],
         };
         assert!(catalogue.check().is_ok());
         assert!(catalogue.is_available("2"));
         assert!(!catalogue.is_available("3"));
         assert!(!catalogue.is_available("9"));
-        catalogue.codes.push(code("2", false));
+        catalogue.codes.push(code("2", StatusGroup::Unavailable));
         assert!(catalogue.check().is_err());
         assert!(StatusCatalogue::default().check().is_err());
+    }
+
+    // [utest->dsn~unit-overview~1]
+    #[test]
+    fn the_german_profile_groups_its_status_codes_as_the_command_needs() {
+        let de: StatusCatalogue =
+            toml::from_str(include_str!("../../../profiles/de/units/status-codes.toml"))
+                .expect("valid status codes");
+        let group = |code: &str| de.group(code);
+        assert_eq!(group("1"), Some(StatusGroup::Available));
+        assert_eq!(group("2"), Some(StatusGroup::Available));
+        assert_eq!(group("3"), Some(StatusGroup::Task));
+        assert_eq!(group("4"), Some(StatusGroup::Task));
+        assert_eq!(group("6"), Some(StatusGroup::Unavailable));
+        assert_eq!(group("7"), Some(StatusGroup::Transport));
+        assert_eq!(group("8"), Some(StatusGroup::Transport));
+        assert_eq!(group("9"), None);
+        assert!(de.is_available("2") && !de.is_available("8"));
     }
 }

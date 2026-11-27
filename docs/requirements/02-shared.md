@@ -161,6 +161,23 @@ Tags: should, shared, m57
 
 Needs: dsn
 
+#### UNIT-10 — Units at a glance for the incident command
+`req~unit-10~1`
+
+While an incident runs, ORDO shall show the incident command every unit of the incident,
+UHS included, grouped by whether it is available, on an Auftrag, transporting or not
+available, as the profile assigns its status codes to these groups. Each unit shall show
+its status and since when, its current Auftrag or transport without patient data, and its
+strength and qualifications. The overview shall give the number of units per group and the
+free units per type.
+
+Rationale: the command leads the units from *Führung*; editing them stays in
+*Vorbereitung* ([ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md)).
+
+Tags: should, shared, m74
+
+Needs: dsn
+
 #### UNIT-6 — Release units
 `req~unit-6~1`
 

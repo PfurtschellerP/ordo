@@ -108,10 +108,16 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
             view! { <patients::PatientsView core revision nav record=Signal::from(record) /> }
                 .into_any(),
         )],
-        // In the incident command's views: the counts per UHS under the map, the staff
+        // In the incident command's views: the treatment places beside the map, the staff
         // requests above the Aufträge, and the transport board.
+        // [impl->dsn~command-lage~1]
+        // [impl->dsn~command-treatment-places~2]
         ("command.lead", "map") => {
-            vec![(20, view! { <uhs::UhsCounts core revision /> }.into_any())]
+            crate::shared::situation::map_asks();
+            vec![(
+                30,
+                view! { <places::PlacesAtGlance core revision /> }.into_any(),
+            )]
         }
         // [impl->dsn~reports~3]
         ("command.lead", "dispatch") => {
@@ -128,7 +134,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 view! { <transports::HospitalsSetup core revision /> }.into_any(),
             )]
         }
-        // [impl->dsn~page-tabs~4]
+        // [impl->dsn~page-tabs~5]
         ("command.lead", "transports") => transports::transport_sections(core, revision),
         _ => Vec::new(),
     }

@@ -34,6 +34,7 @@ pub fn CrewPlaces(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     occupancy: occupancies.remove(&u.id),
                     load: (CATEGORIES.iter().map(|k| c.get(*k)).sum(), u.capacity),
                     more: None,
+                    lage: None,
                     id: u.id,
                     name: u.name,
                 }
@@ -70,6 +71,7 @@ pub fn OverviewView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                         text::transports_count(s.transports_open, s.transports_planned)
                     )),
                     occupancy: s.occupancy,
+                    lage: None,
                     load: (patients, u.capacity),
                     id: u.id,
                     name: u.name,

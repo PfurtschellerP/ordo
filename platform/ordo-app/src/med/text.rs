@@ -208,6 +208,19 @@ pub fn log_transport_updated(transport: &str, status: &str, unit: Option<&str>) 
     }
 }
 
+/// "2 warten auf Transport (1 ohne Einsatzmittel)" (*Lage*, UHS-16).
+pub fn waiting_transport(n: usize, without_unit: usize) -> String {
+    if without_unit == 0 {
+        waiting_transport_n(n)
+    } else {
+        format!(
+            "{} ({})",
+            waiting_transport_n(n),
+            waiting_no_unit(without_unit)
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // [utest->dsn~ui-texts~2]

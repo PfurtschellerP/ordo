@@ -20,22 +20,15 @@ register-category = Catégorie de tri
 register-uhs = Patient à
 register-submit = Enregistrer
 board-empty = Aucun patient enregistré pour l'instant.
-col-uhs = PMA
 col-retriage = Retri
 not-sent = pas encore envoyé
 sent-label = envoyé
-counts-title = Patients par PMA
-counts-empty = Pas encore de nombres de patients.
-col-total = Total
-col-discharged = Sortis
 uhs-empty = Aucun PMA pour l'instant. Le commandement les crée sous Préparation – Moyens.
 uhs-name = Nom du PMA
 uhs-capacity = Capacité (patients)
 uhs-submit = Créer le PMA
 uhs-new = Nouveau PMA
 no-uhs = Pas encore de PMA où vous pouvez documenter. Le commandement crée les PMA et affecte leur personnel.
-col-load = Occupation
-load = { $patients } / { $capacity }
 
 ## Patient list and record
 # The workspace of one UHS in the launcher.
@@ -563,3 +556,18 @@ log-transport-requested = Transport demandé : { $transport }
 log-transport-updated-by = Transport { $transport } : { $status } ({ $unit })
 log-transport-updated-to = Transport { $transport } : { $status }
 log-order-updated = { $tag } : prescription { $status }
+
+## Führung – Lage (ADR-0099): more of each UHS, without patient data.
+# Variables: $uhs, $destination
+transport-of-unit = Transport depuis { $uhs } → { $destination }
+staff-requested-tag = Personnel demandé : { $need }
+waiting-transport-n = { $n ->
+    [one] 1 attend un transport
+   *[other] { $n } attendent un transport
+}
+waiting-no-unit = { $n } sans moyen
+waiting-transport-total = Attendent un transport : { $n }
+# Variables: $all, $here, $discharged
+registered-here-discharged = Enregistrés { $all } · ici maintenant { $here } · sortis { $discharged }
+staff-go-send = Envoyer du personnel
+staff-go-send-label = { staff-go-send } : { $uhs }

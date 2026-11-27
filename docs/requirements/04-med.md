@@ -275,14 +275,16 @@ Tags: should, med, m62
 Needs: dsn
 
 #### UHS-16 — Free treatment places for the incident command
-`req~uhs-16~1`
+`req~uhs-16~2`
 
 While an incident has on-site care units with treatment places, ORDO shall show the
 incident command, per unit and in total, the free and all treatment places per triage
 category they are kept for, and the number of patients without a place, from the
-patient-count connector and without clinical data.
+patient-count connector and without clinical data. Per unit, ORDO shall also show the
+patients waiting for a transport, its staff by qualification, its open staff requests and
+its discharged patients.
 
-Tags: should, med, m66
+Tags: should, med, m66, m74
 
 Needs: dsn
 

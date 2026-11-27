@@ -67,7 +67,7 @@ impl Occupancy {
     }
 }
 
-// [impl->dsn~command-treatment-places~1]
+// [impl->dsn~command-treatment-places~2]
 // [impl->dsn~uhs-overview~3]
 /// The occupancy of a unit's `places`, given which of them are `taken` (place IDs, from the
 /// clinical register or from the patient counts) and its patients `without_place`. A taken
@@ -396,7 +396,7 @@ mod tests {
         );
     }
 
-    // [utest->dsn~command-treatment-places~1]
+    // [utest->dsn~command-treatment-places~2]
     #[test]
     fn the_command_sees_free_places_per_category_from_the_counts_alone() {
         let place = |id: &str, category| Place {

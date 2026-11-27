@@ -24,6 +24,28 @@ pub struct PlaceRow {
     pub load: (u32, u32),
     /// A further line, e.g. its open orders and transports.
     pub more: Option<String>,
+    /// What *Führung – Lage* shows more (UHS-16); none elsewhere.
+    pub lage: Option<UhsMore>,
+}
+
+// [impl->dsn~command-treatment-places~2]
+/// What the tab *Behandlungsplätze* of *Lage* shows more of a UHS (UHS-16, ADR-0099), from
+/// the shared compartment only.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UhsMore {
+    /// Patients waiting for a transport: open, not yet on their way.
+    pub waiting: usize,
+    /// Of them, those without a unit yet.
+    pub waiting_no_unit: usize,
+    /// Its staff by qualification (short, label, number), in the profile's order.
+    pub staff: Vec<(String, String, usize)>,
+    /// Everyone on its staff list.
+    pub staff_total: usize,
+    /// Whom it asks for in open staff requests.
+    pub requests: Vec<&'static str>,
+    pub discharged: u32,
+    /// Whether it is on the situation map.
+    pub placed: bool,
 }
 
 /// Heading levels: the tile on *Führung* sits under a tile heading (h3), the UHS module's
@@ -34,7 +56,7 @@ pub enum Level {
     H4,
 }
 
-// [impl->dsn~command-treatment-places~1]
+// [impl->dsn~command-treatment-places~2]
 // [impl->dsn~uhs-overview~3]
 /// All units added up first (when there are several), then one row per unit.
 #[component]
@@ -81,16 +103,18 @@ fn GroupBadge(group: PlaceGroup) -> impl IntoView {
     }
 }
 
-/// How many are free, or "voll" (hatched and outlined, never colour alone).
+// [impl->dsn~command-treatment-places~2]
+/// How many of all are free, "2 / 4 frei"; a full category adds "voll" (hatched and
+/// outlined, never colour alone).
 #[component]
 fn FreeOrFull(group: PlaceGroup) -> impl IntoView {
-    if group.free() == 0 {
-        view! { <span class="places__full">{text::places_full()}</span> }.into_any()
-    } else {
-        view! {
-            <span class="places__free"><strong>{group.free()}</strong> " " {text::place_free()}</span>
-        }
-        .into_any()
+    view! {
+        <span class="places__free-or-full">
+            <span class="places__free">
+                <strong>{group.free()}</strong> " / " {group.total} " " {text::place_free()}
+            </span>
+            {(group.free() == 0).then(|| view! { <span class="places__full">{text::places_full()}</span> })}
+        </span>
     }
 }
 
@@ -178,6 +202,9 @@ fn UnitRow(row: PlaceRow, level: Level) -> impl IntoView {
         .into_any(),
         None => view! { <p class="hint places__strips">{text::places_none()}</p> }.into_any(),
     };
+    let lage = row
+        .lage
+        .map(|more| view! { <UhsMoreView id=row.id.clone() name=row.name.clone() more /> });
     view! {
         <li class="places__unit" data-uhs=row.id>
             <div class="places__head">
@@ -186,7 +213,217 @@ fn UnitRow(row: PlaceRow, level: Level) -> impl IntoView {
                 {row.more.map(|m| view! { <p class="hint places__more">{m}</p> })}
             </div>
             {strips}
+            {lage}
         </li>
+    }
+}
+
+// [impl->dsn~command-treatment-places~2]
+/// The more of a UHS on *Lage*: open staff requests, those waiting for a transport, its
+/// staff by qualification, its discharged patients, and the ways on.
+#[component]
+fn UhsMoreView(id: String, name: String, more: UhsMore) -> impl IntoView {
+    let transports = crate::shell::nav::Route::view("command.lead", "transports");
+    let dispatch = crate::shell::nav::Route::view("command.lead", "dispatch");
+    let requests = (!more.requests.is_empty()).then(|| {
+        view! {
+            <p class="places__requests">
+                {more.requests.iter().map(|need| view! {
+                    <span class="tag tag--warning">{text::staff_requested_tag(*need)}</span>
+                }).collect_view()}
+            </p>
+        }
+    });
+    let line = [
+        (more.waiting > 0).then(|| text::waiting_transport(more.waiting, more.waiting_no_unit)),
+        Some(crate::shared::text::discharged_count(more.discharged)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" · ");
+    view! {
+        <div class="places__lage">
+            {requests}
+            <p class="places__more">{line}</p>
+            <div class="places__staff">
+                <span>{text::uhs_staff_count(more.staff_total)}</span>
+                <crate::shared::units::QualificationChips chips=more.staff />
+            </div>
+            <div class="row places__actions">
+                {more.placed.then(|| view! {
+                    <crate::shared::situation::ShowOnMap object=ordo_map::ObjectKind::Uhs.object_id(&id) name=name.clone() />
+                })}
+                <a class="button button--small" href=transports.to_path()
+                    on:click=crate::shell::views::follow_route(transports.clone())>{crate::shared::text::transports()}</a>
+                {(!more.requests.is_empty()).then(|| view! {
+                    <a class="button button--small" href=dispatch.to_path()
+                        aria-label=text::staff_go_send_label(&name)
+                        on:click=crate::shell::views::follow_route(dispatch.clone())>{text::staff_go_send()}</a>
+                })}
+            </div>
+        </div>
+    }
+}
+
+// [impl->dsn~command-treatment-places~2]
+/// The UHS as the command sees them, from the shared compartment only: places, counts, the
+/// open transports from each, and, for *Lage*, the rest of [`UhsMore`].
+pub fn place_rows(core: crate::core::Handle, lage: bool) -> Vec<PlaceRow> {
+    use ordo_med_patients as med;
+    use ordo_med_patients::transport::{TransportBoard, TransportStatus};
+    let (counts, mut occupancies, details, requests, board) = core.with_value(|c| {
+        let incident = c.events(med::UHS_COMPARTMENT);
+        (
+            med::latest_counts(&incident),
+            med::overview::occupancies(&incident),
+            med::uhs_details(&incident),
+            med::staffing::StaffRequests::from_events(&c.events(med::staffing::COMPARTMENT)),
+            TransportBoard::from_events(&c.events(med::transport::COMPARTMENT)),
+        )
+    });
+    let placed = if lage {
+        crate::shared::situation::placed_objects(core)
+    } else {
+        Default::default()
+    };
+    let helpers = lage
+        .then(|| crate::shared::helpers::register(core))
+        .flatten();
+    crate::med::uhs::uhs_list(core)
+        .into_iter()
+        .map(|u| {
+            let c = counts.get(&u.id).cloned().unwrap_or_default();
+            let from_here: Vec<_> = board
+                .transports
+                .values()
+                .filter(|t| t.status.is_open() && t.request.uhs == u.id)
+                .collect();
+            let more = if lage {
+                None
+            } else {
+                let mut more = crate::shared::text::transports_open(from_here.len());
+                if c.discharged > 0 {
+                    more = format!(
+                        "{more} · {}",
+                        crate::shared::text::discharged_count(c.discharged)
+                    );
+                }
+                Some(more)
+            };
+            let extra = lage.then(|| {
+                let waiting: Vec<_> = from_here
+                    .iter()
+                    .filter(|t| t.status <= TransportStatus::Loading && t.request.planned.is_none())
+                    .collect();
+                let staff = details
+                    .get(&u.id)
+                    .map(|d| d.staff.clone())
+                    .unwrap_or_default();
+                let qualifications: Vec<String> = staff
+                    .iter()
+                    .filter_map(|entry| helpers.as_ref()?.of_account(entry))
+                    .flat_map(|h| h.fields.qualifications.clone().unwrap_or_default())
+                    .collect();
+                UhsMore {
+                    waiting: waiting.len(),
+                    waiting_no_unit: waiting
+                        .iter()
+                        .filter(|t| t.status == TransportStatus::Requested)
+                        .count(),
+                    staff: crate::shared::units::qualification_counts(
+                        qualifications.iter().map(String::as_str),
+                    ),
+                    staff_total: staff.len(),
+                    requests: requests
+                        .open()
+                        .into_iter()
+                        .filter(|r| r.requested.uhs == u.id)
+                        .map(|r| text::staff_need(r.requested.need))
+                        .collect(),
+                    discharged: c.discharged,
+                    placed: placed.contains(&ordo_map::ObjectKind::Uhs.object_id(&u.id)),
+                }
+            });
+            PlaceRow {
+                occupancy: occupancies.remove(&u.id),
+                load: (
+                    crate::med::triage::CATEGORIES
+                        .iter()
+                        .map(|k| c.get(*k))
+                        .sum(),
+                    u.capacity,
+                ),
+                more,
+                lage: extra,
+                id: u.id,
+                name: u.name,
+            }
+        })
+        .collect()
+}
+
+// [impl->dsn~unit-overview~1]
+/// The UHS for the tab *Einsatzmittel* of *Lage*: ID, name, free places of all (or the
+/// load where it has no places), and how many are on its staff list.
+pub fn uhs_glance(core: crate::core::Handle) -> Vec<(String, String, String, usize)> {
+    place_rows(core, true)
+        .into_iter()
+        .map(|r| {
+            let places = match &r.occupancy {
+                Some(o) => text::places_free(o.free(), o.total()),
+                None => text::uhs_load(r.load.0, r.load.1),
+            };
+            let staff = r.lage.map_or(0, |m| m.staff_total);
+            (r.id, r.name, places, staff)
+        })
+        .collect()
+}
+
+// [impl->dsn~command-treatment-places~2]
+// [impl->dsn~command-lage~1]
+/// The tab *Behandlungsplätze* of *Führung – Lage* (ADR-0099): the free places of all UHS,
+/// those waiting for a place or a transport and those registered, then one card per UHS.
+/// It replaces the table *Patienten je UHS*.
+#[component]
+pub fn PlacesAtGlance(core: crate::core::Handle, revision: RwSignal<u64>) -> impl IntoView {
+    let rows = Memo::new(move |_| {
+        revision.track();
+        place_rows(core, true)
+    });
+    let totals = move || {
+        rows.with(|rows| {
+            let waiting: usize = rows
+                .iter()
+                .filter_map(|r| r.lage.as_ref())
+                .map(|m| m.waiting)
+                .sum();
+            let here: u32 = rows.iter().map(|r| r.load.0).sum();
+            let discharged: u32 = rows
+                .iter()
+                .filter_map(|r| r.lage.as_ref())
+                .map(|m| m.discharged)
+                .sum();
+            let without: u32 = rows
+                .iter()
+                .filter_map(|r| r.occupancy.as_ref())
+                .map(|o| o.without_place)
+                .sum();
+            (!rows.is_empty()).then(|| view! {
+                <ul class="places__totals">
+                    <li>{text::without_place(without)}</li>
+                    <li>{text::waiting_transport_total(waiting)}</li>
+                    <li>{text::registered_here_discharged(here + discharged, here, discharged)}</li>
+                </ul>
+            })
+        })
+    };
+    view! {
+        <section class="card lage-places" aria-labelledby="lage-places-title">
+            <h2 id="lage-places-title">{crate::shared::text::places()}</h2>
+            {totals}
+            <TreatmentPlaces rows=Signal::from(rows) level=Level::H3 />
+        </section>
     }
 }
 

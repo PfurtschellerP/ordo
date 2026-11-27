@@ -553,8 +553,9 @@ export function centre(handle) {
   return [c.lng, c.lat];
 }
 
-/** Moves the map to a point. */
+/** Moves the map to a point; its size first, as it may have been in a hidden tab. */
 export function flyTo(handle, lng, lat) {
+  handle.map.resize();
   handle.map.flyTo({ center: [lng, lat], zoom: Math.max(handle.map.getZoom(), 15) });
 }
 

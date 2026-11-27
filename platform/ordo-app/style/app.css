@@ -1122,7 +1122,12 @@
   .tile--dispatch, .tile--people { grid-column: span 5; }
   /* The treatment places across the width (UHS-16); the quick links below. */
   .tile--uhs { grid-column: 1 / -1; }
-  .tile--transports, .tile--quick { grid-column: span 6; }
+  .tile--units, .tile--transports, .tile--quick { grid-column: span 4; }
+  /* The units by group (UNIT-10): icon and word with the number, never the icon alone. */
+  .tile__groups { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-1); }
+  .tile__groups > li { display: flex; align-items: center; justify-content: space-between; gap: var(--ordo-space-3); }
+  .tile__count { font-weight: var(--ordo-font-weight-bold); font-variant-numeric: tabular-nums; }
+  .tile__types { margin: 0; }
   .tile--quick .quick-links { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
   .tile__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-3); }
   .tile__icon {
@@ -1185,6 +1190,7 @@
   .places__box--minor { background: var(--ordo-component-triage-badge-minor-background); border-color: var(--ordo-component-triage-badge-minor-border); }
   .places__box--expectant { background: var(--ordo-component-triage-badge-expectant-background); border-color: var(--ordo-component-triage-badge-expectant-border); }
   .places__box--uninjured, .places__box--deceased, .places__box--any { background: var(--ordo-color-text-secondary); border-color: var(--ordo-color-text-secondary); }
+  .places__free-or-full { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
   .places__free { white-space: nowrap; }
   .places__free strong { font-size: var(--ordo-font-size-4); }
   .places__full {
@@ -1220,12 +1226,12 @@
   }
   .quick-link--primary { background: var(--ordo-color-action-primary-background); color: var(--ordo-color-action-primary-text); border-color: var(--ordo-color-action-primary-background); }
   @media (max-width: 72rem) {
-    .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; }
     .bento > .tile { grid-column: 1 / -1; grid-row: auto; }
-    .bento > .tile--people, .bento > .tile--quick { grid-column: span 1; }
+    .bento > .tile--people, .bento > .tile--units, .bento > .tile--quick { grid-column: span 1; }
   }
   @media (max-width: 40rem) {
-    .bento > .tile, .bento > .tile--people, .bento > .tile--quick, .bento > .tile--transports { grid-column: 1 / -1; }
+    .bento > .tile, .bento > .tile--people, .bento > .tile--units, .bento > .tile--quick, .bento > .tile--transports { grid-column: 1 / -1; }
   }
   @media (forced-colors: active) {
     .tile, .tag, .quick-link, .places__box, .places__bar-fill { forced-color-adjust: auto; }
@@ -1338,6 +1344,17 @@
     .parts--from-84 .parts__column { display: grid; gap: var(--ordo-space-5); align-content: start; min-width: 0; }
     .parts--from-84 .parts__grid > .parts__part { grid-column: 1 / -1; }
   }
+  /* Beside (ADR-0099): from 84rem the end's parts (the map) always show beside the chosen
+     part at the start; narrower, every part is a tab. */
+  @container (max-width: 83.99rem) {
+    .parts--beside .parts__part:not(.parts__part--chosen) { display: none; }
+  }
+  @container (min-width: 84rem) {
+    .parts--beside > .parts__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .parts--beside .parts__column { display: grid; gap: var(--ordo-space-5); align-content: start; min-width: 0; }
+    .parts--beside .parts__column:first-child > .parts__part:not(.parts__part--chosen) { display: none; }
+    .parts--beside .parts__grid > .parts__part { grid-column: 1 / -1; }
+  }
   .map-tools { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
   .map-tool {
     display: inline-flex; align-items: center; gap: var(--ordo-space-2);
@@ -1364,6 +1381,30 @@
   @media (forced-colors: active) {
     .map-tool[aria-pressed="true"] { outline: 3px solid Highlight; }
   }
+  /* Lage (ADR-0099): the units by group beside the map, the treatment places' more. */
+  .lage-units__filters { display: grid; gap: var(--ordo-space-2); }
+  .status-group { display: inline-flex; align-items: center; gap: var(--ordo-space-2); white-space: nowrap; }
+  .unit-group { display: grid; gap: var(--ordo-space-2); }
+  .unit-group__title { margin: var(--ordo-space-3) 0 0; display: flex; align-items: center; gap: var(--ordo-space-2); font-size: var(--ordo-font-size-4); }
+  .unit-group__n { font-variant-numeric: tabular-nums; }
+  .unit-glance { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .unit-glance__item {
+    display: grid; gap: var(--ordo-space-1); overflow-wrap: anywhere;
+    padding: var(--ordo-space-3); border-radius: var(--ordo-radius-medium);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+  }
+  .unit-glance__item p { margin: 0; }
+  .unit-glance__row { display: flex; align-items: center; gap: var(--ordo-space-2); }
+  .unit-glance__name { flex: 1 1 auto; min-inline-size: 0; }
+  .unit-glance__actions { display: flex; flex: none; gap: var(--ordo-space-1); }
+  .unit-glance__crew { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
+  .unit-glance__crew .object-card__chips { margin: 0; }
+  .unit-glance__details { display: grid; gap: var(--ordo-space-2); justify-items: start; padding-block-start: var(--ordo-space-2); }
+  .places__totals { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2) var(--ordo-space-5); font-weight: var(--ordo-font-weight-bold); }
+  .places__lage { grid-column: 1 / -1; display: grid; gap: var(--ordo-space-2); }
+  .places__requests { margin: 0; display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .places__staff { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-2); }
+  .places__staff .object-card__chips { margin: 0; }
   .map-objects { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
   .map-object { display: grid; gap: var(--ordo-space-2); overflow-wrap: anywhere; container: map-object / inline-size; }
   .map-object__row { display: flex; align-items: center; gap: var(--ordo-space-2); }

@@ -341,6 +341,39 @@ Needs: impl, utest, itest
 
 Tags: must, m29
 
+#### Units at a glance
+`dsn~unit-overview~1`
+
+The tab *Einsatzmittel* of *Führung – Lage* ([Lage](#lage),
+[ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md)) lists the units present
+and the UHS, which count as units ([UHS as a unit](#uhs-as-a-unit)).
+
+* **Groups:** each status code of the profile names its group (`group` in
+  `units/status-codes.toml`: `available`, `task`, `transport`, `unavailable`; DE: 1 and 2,
+  3 and 4, 7 and 8, 6). Whether a unit is free for a new task follows from the group
+  (TRANS-4). The list shows the groups in this order, each with its icon, its word and its
+  number (`shared::units::GroupLabel`, never the icon alone); units without a status
+  follow, then the UHS.
+* **A unit's entry:** call sign, type, organisation; its status and since when; its
+  current Auftrag ([Tasks](#tasks)) or open transport (from which UHS to which
+  destination, no patient data); strength and the crew's qualifications in short. Its
+  actions: *Auf der Karte* where it is placed, *Details* with the status select, *Auftrag
+  geben* (opens *Disposition*) and the crew's names, for those who may edit units.
+* **A UHS's entry:** name, free places of all, staff count; *Auf der Karte*.
+* **Filters:** the unit types present, each with its number (radio chips, *Alle* first),
+  and *Nur einsatzbereit*. Released units are not listed.
+
+The overview gets the tile *Einsatzmittel* beside *Personal*: the units per group with the
+same icons and words, and per type the free and all units. It links to the tab.
+
+Covers:
+
+* [req~unit-10~1](../requirements/02-shared.md#unit-10--units-at-a-glance-for-the-incident-command)
+
+Needs: impl, utest, itest
+
+Tags: should, m74
+
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
@@ -495,8 +528,8 @@ geometry (RFC 7946: point, line or area, longitude first); `map.objectRemoved` t
 off. The latest event of an object counts (hybrid logical clock). Drawn objects (lines and
 areas, MAP-4) use the same events with their own IDs.
 
-The view *Führung – Lagekarte* shows the map with the objects and, below it, the list of
-objects (A11Y-5); it does not edit. The overview's map tile shows the same map; within
+The view *Führung – Lage* shows, in its tab *Karte* ([Lage](#lage)), the map with the
+objects and, below it, the list of objects (A11Y-5); it does not edit. The overview's map tile shows the same map; within
 the page it moves with two fingers, or Ctrl (⌘) and the wheel, and says so when tried with
 one, so one finger and the wheel scroll the page (MapLibre's cooperative gestures).
 Those who may edit prepare the map on *Vorbereitung – Führung & Raum*
@@ -538,7 +571,7 @@ Tags: must, m33, m54, m55, m56
 #### Map object cards
 `dsn~map-object-cards~4`
 
-*Führung – Lagekarte* tells what each object is, without leaving the map (MAP-11,
+*Führung – Lage* tells what each object is, without leaving the map (MAP-11,
 proposal agreed with the product owner on 2026-11-18, card at the object since the demo
 feedback of the same day). The card hangs at its object like a pin, with an arrow
 pointing there (feedback of 2026-11-20): above it, else below, right or left of it. Where
@@ -607,6 +640,33 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: should, m55
+
+#### Lage
+`dsn~command-lage~1`
+
+*Führung – Lage* (`command.lead/map`, formerly *Lagekarte*,
+[ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md)) has three tabs: *Karte*
+(the [Situation map](#situation-map) with its list), *Einsatzmittel*
+([Units at a glance](#units-at-a-glance)) and *Behandlungsplätze*
+([Treatment places for the command](#treatment-places-for-the-command), Med package,
+place 30). From 84rem the map stands beside the chosen list and the tab list offers only
+the lists ([Page tabs](#page-tabs), mode *beside*); narrower, the three are tabs.
+
+*Auf der Karte* at a unit or a UHS (context `shared::situation::MapAsks`, as on *Führung & Raum*) shows the tab
+*Karte* where the map is not beside the list, centres the map on the object and opens its
+card ([Map object cards](#map-object-cards)). The overview's tiles link to the tabs: a
+page with tabs opened with a tab's key as its record starts on that tab
+(`/command.lead/map/units`). Editing stays in *Vorbereitung*.
+
+Covers:
+
+* [req~unit-10~1](../requirements/02-shared.md#unit-10--units-at-a-glance-for-the-incident-command)
+* [req~uhs-16~2](../requirements/04-med.md#uhs-16--free-treatment-places-for-the-incident-command)
+* [req~ux-16~2](../requirements/07-quality.md#ux-16--pages-in-parts)
+
+Needs: impl, itest
+
+Tags: should, m74
 
 #### Drawing on the map
 `dsn~map-drawing~2`
@@ -1178,15 +1238,15 @@ Needs: impl, utest, itest
 Tags: should, m22
 
 #### Treatment places for the command
-`dsn~command-treatment-places~1`
+`dsn~command-treatment-places~2`
 
 *Führung – Übersicht* shows the tile *Behandlungsplätze* across the width: first all
 units added up, then one row per unit with places. A row names the unit and its free and
 all places in large figures ("7 frei von 15") and the patients without a place. Then comes
 one strip per triage category the places are kept for, places without one last. A strip
-starts with the category's badge (shape and text, never colour alone) and has one box per
-place: filled when taken, dashed when free. The free count follows; a full category says
-"voll", hatched and outlined. Each strip is an image with a text alternative ("SK II:
+starts with the category's badge (shape and text, never colour alone, on one line) and has
+one box per place: filled when taken, dashed when free. The free and all places follow
+("2 / 4 frei"); a full category adds the tag "voll" and is hatched and outlined. Each strip is an image with a text alternative ("SK II:
 4 von 4 belegt, voll"). On phones the boxes wrap under the badge. A unit without places
 shows its load against its capacity instead.
 
@@ -1197,13 +1257,22 @@ unit, which names its taken places and its patients without a place
 computes the strips (`occupancy`) for the command and for the Med workspace alike, so both
 show the same numbers.
 
+The tab *Behandlungsplätze* of *Führung – Lage* ([Lage](#lage)) shows the same component
+with more per unit: the patients waiting for a transport (and how many of them have no
+unit yet, from the transport board), its staff by qualification (the staff list, with the
+qualifications of the helpers' register), its open staff requests, and its discharged
+patients. Above the units: the patients without a place, those waiting for a transport,
+and those registered today (here now and discharged). Each unit offers *Auf der Karte*
+where it is placed, *Transporte*, and, with an open request, *Personal schicken*
+(*Disposition*). It replaces the table *Patienten je UHS*.
+
 Covers:
 
-* [req~uhs-16~1](../requirements/04-med.md#uhs-16--free-treatment-places-for-the-incident-command)
+* [req~uhs-16~2](../requirements/04-med.md#uhs-16--free-treatment-places-for-the-incident-command)
 
 Needs: impl, utest, itest
 
-Tags: should, m66
+Tags: should, m66, m74
 
 #### Patient triage history
 `dsn~patient-triage-history~1`
@@ -1842,14 +1911,18 @@ Needs: impl, utest, itest
 Tags: should, m69
 
 #### Page tabs
-`dsn~page-tabs~4`
+`dsn~page-tabs~5`
 
 One component, `shell::ui::Parts`, shows a page's parts in tabs (WAI-ARIA tabs,
 `shell::ui::TabList`: arrow keys, Home and End; the vim keys `gt` and `gT` switch the first
-row of tabs on the page). It has two modes, after the rules in chapter 8.6.5 (*Tabs*):
-*always* tabs, or *columns from* 60 or 84rem, where the parts stand side by side (each
+row of tabs on the page). It has three modes, after the rules in chapter 8.6.5 (*Tabs*):
+*always* tabs; *columns from* 60 or 84rem, where the parts stand side by side (each
 part at the start, at the end, or below both) and become tabs where the container is
-narrower (container query). Hidden parts stay in the page (`display: none`), so their
+narrower (container query); and *beside from 84rem*, where the parts at the end (the map)
+always show beside the chosen part at the start, the tab list offers only the start's
+parts, and all are tabs where the container is narrower. In that mode a chosen end part
+falls back to the start part chosen last once the container is wide (a `ResizeObserver`
+measures it). Hidden parts stay in the page (`display: none`), so their
 input survives. A tab may name a short label for where the tabs share a phone's width.
 
 A view declares its tabs as data (`nav::View::tabs`, `nav::View::columns`): a key, a
@@ -1865,6 +1938,7 @@ patient list does.
 | *Vorbereitung – Personal* | always | Helfende · Geräte (admin package, place 30) |
 | *Vorbereitung – Einsatzmittel* | always | Einsatzmittel · Kliniken (Med package, place 40) |
 | *Vorbereitung – Führung & Raum* | columns from 84rem | Führungsstruktur (start) · Lagekarte (end) · Kartengrundlage (below) |
+| *Führung – Lage* | beside from 84rem | Karte (end) · Einsatzmittel · Behandlungsplätze (Med package, place 30) |
 | *Führung – Transporte* | columns from 60rem | Transporte (start) · Freie Transportmittel · Kliniken (end) |
 | *Sanität – Patienten*, *Besatzung – Patienten* (list column) | always | Patienten · Registrieren · Personal anfordern (UHS only) |
 | Patient record | always | its own tabs ([Record overview](#record-overview)) |

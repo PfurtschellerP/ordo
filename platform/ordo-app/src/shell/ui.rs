@@ -28,9 +28,11 @@ icons!(
     "ambulance",
     "app-window",
     "arrow-right-left",
+    "ban",
     "bell",
     "camera",
     "chart-column",
+    "circle-check",
     "clipboard-list",
     "cloud-check",
     "cloud-off",
@@ -488,6 +490,9 @@ pub fn TabList(
     /// Each tab, in order.
     tabs: Vec<Tab>,
     chosen: RwSignal<&'static str>,
+    /// Tabs not offered now (their parts show anyway), skipped by the arrow keys.
+    #[prop(optional, into)]
+    hidden: Signal<Vec<&'static str>>,
 ) -> impl IntoView {
     let keys: Vec<&'static str> = tabs.iter().map(|(k, ..)| *k).collect();
     let tab_id = {
@@ -497,6 +502,9 @@ pub fn TabList(
     let keydown = {
         let (keys, tab_id) = (keys.clone(), tab_id.clone());
         move |ev: leptos::ev::KeyboardEvent| {
+            let skip = hidden.get_untracked();
+            let keys: Vec<&'static str> =
+                keys.iter().copied().filter(|k| !skip.contains(k)).collect();
             let Some(at) = keys.iter().position(|k| *k == chosen.get_untracked()) else {
                 return;
             };
@@ -527,6 +535,7 @@ pub fn TabList(
                     };
                     view! {
                         <button type="button" role="tab" class="tabs__tab" id=tab_id(key)
+                            hidden=move || hidden.with(|h| h.contains(&key))
                             aria-selected=move || on().to_string()
                             aria-controls=format!("{id}-panel-{key}")
                             tabindex=move || if on() { "0" } else { "-1" }
@@ -561,6 +570,26 @@ pub enum TabsMode {
     ColumnsFrom60,
     /// Columns from 84rem (a part needs 40rem, e.g. the org chart), else tabs.
     ColumnsFrom84,
+    /// From 84rem the parts at the end (a map) beside the chosen part at the start, whose
+    /// tabs alone are offered; else tabs (*Lage*, ADR-0099).
+    BesideFrom84,
+}
+
+/// The width in rem from which [`TabsMode::BesideFrom84`] puts its parts side by side, as
+/// the container query in `app.css` does.
+const BESIDE_FROM_REM: f64 = 84.0;
+
+/// Whether `element` is at least `rem` wide, in the root's font size.
+fn wide_enough(element: &web_sys::Element, rem: f64) -> bool {
+    let root = web_sys::window()
+        .and_then(|w| {
+            let html = w.document()?.document_element()?;
+            w.get_computed_style(&html).ok().flatten()
+        })
+        .and_then(|style| style.get_property_value("font-size").ok())
+        .and_then(|size| size.trim_end_matches("px").parse::<f64>().ok())
+        .unwrap_or(16.0);
+    f64::from(element.client_width()) >= rem * root
 }
 
 /// One part of [`Parts`]: its key, label, short label, column and content.
@@ -584,7 +613,7 @@ impl PageTabs {
     }
 }
 
-// [impl->dsn~page-tabs~4]
+// [impl->dsn~page-tabs~5]
 /// A page's parts in tabs, or side by side where `mode` allows and there is room (chapter
 /// 8.6.5, *Tabs*). Hidden parts stay in the page, so their input survives; the tab list is
 /// [`TabList`] (WAI-ARIA tabs).
@@ -606,7 +635,64 @@ pub fn Parts(
         TabsMode::Always => "parts parts--always",
         TabsMode::ColumnsFrom60 => "parts parts--columns parts--from-60",
         TabsMode::ColumnsFrom84 => "parts parts--columns parts--from-84",
+        TabsMode::BesideFrom84 => "parts parts--beside",
     };
+    // [impl->dsn~page-tabs~5]
+    // Beside: where the page is wide, the end's parts always show and are no tabs; one of
+    // them chosen gives way to the start's part chosen last.
+    let node = NodeRef::<leptos::html::Div>::new();
+    let wide = RwSignal::new(false);
+    let ends: Vec<&'static str> = parts
+        .iter()
+        .filter(|p| p.column == Column::End)
+        .map(|p| p.key)
+        .collect();
+    let starts: Vec<&'static str> = parts
+        .iter()
+        .filter(|p| p.column != Column::End)
+        .map(|p| p.key)
+        .collect();
+    let hidden = Signal::derive({
+        let ends = ends.clone();
+        move || if wide.get() { ends.clone() } else { Vec::new() }
+    });
+    if mode == TabsMode::BesideFrom84 && !starts.is_empty() {
+        let last_start = StoredValue::new(starts[0]);
+        Effect::new(move || {
+            let key = chosen.get();
+            if starts.contains(&key) {
+                last_start.set_value(key);
+            } else if wide.get() {
+                chosen.set(last_start.get_value());
+            }
+        });
+        let observer = StoredValue::new_local(
+            None::<(
+                web_sys::ResizeObserver,
+                wasm_bindgen::closure::Closure<dyn FnMut()>,
+            )>,
+        );
+        Effect::new(move || {
+            let Some(element) = node.get() else { return };
+            let measured: web_sys::Element = element.clone().into();
+            let measure = move || wide.set(wide_enough(&measured, BESIDE_FROM_REM));
+            measure();
+            let on_resize = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(measure);
+            if let Ok(o) = web_sys::ResizeObserver::new(wasm_bindgen::JsCast::unchecked_ref(
+                on_resize.as_ref(),
+            )) {
+                o.observe(&element);
+                observer.set_value(Some((o, on_resize)));
+            }
+        });
+        on_cleanup(move || {
+            let _ = observer.try_with_value(|o| {
+                if let Some((o, _)) = o {
+                    o.disconnect();
+                }
+            });
+        });
+    }
     let panel = {
         let id = id.clone();
         move |part: Part| {
@@ -630,8 +716,8 @@ pub fn Parts(
     }
     let [start, end, below] = columns;
     view! {
-        <div class=class>
-            <TabList id=id.clone() label tabs chosen />
+        <div class=class node_ref=node>
+            <TabList id=id.clone() label tabs chosen hidden />
             <div class="parts__grid">
                 <div class="parts__column">{start}</div>
                 <div class="parts__column">{end}</div>

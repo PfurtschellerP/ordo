@@ -227,7 +227,7 @@ pub fn PatientsView(
                 })
             })
     });
-    // [impl->dsn~page-tabs~4]
+    // [impl->dsn~page-tabs~5]
     // The list, registering and staff requests are separate tasks: tabs (feedback of
     // 2026-11-22), the list first.
     let part = RwSignal::new(LIST_PART);

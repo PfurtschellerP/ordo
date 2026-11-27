@@ -20,22 +20,15 @@ register-category = Sichtungskategorie
 register-uhs = Patient bei
 register-submit = Registrieren
 board-empty = Noch keine Patienten registriert.
-col-uhs = UHS
 col-retriage = Nachsichtung
 not-sent = noch nicht gesendet
 sent-label = gesendet
-counts-title = Patienten je UHS
-counts-empty = Noch keine Patientenzahlen.
-col-total = Gesamt
-col-discharged = Entlassen
 uhs-empty = Noch keine UHS angelegt. Die Einsatzleitung legt sie unter Vorbereitung – Einsatzmittel an.
 uhs-name = Name der UHS
 uhs-capacity = Kapazität (Patienten)
 uhs-submit = UHS anlegen
 uhs-new = Neue UHS
 no-uhs = Noch keine UHS, in der Sie dokumentieren dürfen. Die Einsatzleitung legt UHS an und teilt ihr Personal ein.
-col-load = Belegung
-load = { $patients } / { $capacity }
 
 ## Patient list and record
 # The workspace of one UHS in the launcher.
@@ -563,3 +556,18 @@ log-transport-requested = Transport angefordert: { $transport }
 log-transport-updated-by = Transport { $transport }: { $status } ({ $unit })
 log-transport-updated-to = Transport { $transport }: { $status }
 log-order-updated = { $tag }: Anordnung { $status }
+
+## Führung – Lage (ADR-0099): more of each UHS, without patient data.
+# Variables: $uhs, $destination
+transport-of-unit = Transport von { $uhs } → { $destination }
+staff-requested-tag = Personal angefordert: { $need }
+waiting-transport-n = { $n ->
+    [one] 1 wartet auf Transport
+   *[other] { $n } warten auf Transport
+}
+waiting-no-unit = { $n } ohne Einsatzmittel
+waiting-transport-total = Warten auf Transport: { $n }
+# Variables: $all, $here, $discharged
+registered-here-discharged = Registriert { $all } · hier jetzt { $here } · entlassen { $discharged }
+staff-go-send = Personal schicken
+staff-go-send-label = { staff-go-send }: { $uhs }

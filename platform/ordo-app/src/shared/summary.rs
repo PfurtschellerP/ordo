@@ -45,6 +45,8 @@ struct Overview {
     uhs: Vec<PlaceRow>,
     /// The patients with units' crews, in words, if any (ADR-0087).
     with_units: Option<String>,
+    /// The units by group and type (UNIT-10).
+    unit_counts: crate::shared::lage::UnitCounts,
 }
 
 fn overview(core: Handle) -> Overview {
@@ -81,18 +83,9 @@ fn overview(core: Handle) -> Overview {
             }
         })
         .collect();
-    let transports = core.with_value(|c| {
-        med::transport::TransportBoard::from_events(&c.events(med::transport::COMPARTMENT))
-    });
-    // [impl->dsn~command-treatment-places~1]
+    // [impl->dsn~command-treatment-places~2]
     // From the shared compartment only: the places and the patient counts (UHS-16).
-    let (counts, mut occupancies) = core.with_value(|c| {
-        let incident = c.events(med::UHS_COMPARTMENT);
-        (
-            med::latest_counts(&incident),
-            med::overview::occupancies(&incident),
-        )
-    });
+    let counts = core.with_value(|c| med::latest_counts(&c.events(med::UHS_COMPARTMENT)));
     // [impl->dsn~patient-holder~1]
     // Patients with units' crews count under an empty UHS, without naming the units.
     let with_units = counts.get("").and_then(|c| {
@@ -100,28 +93,7 @@ fn overview(core: Handle) -> Overview {
         let total: u32 = by.iter().map(|(_, n)| n).sum();
         (total > 0).then(|| text::with_units(total, &by))
     });
-    let uhs = crate::med::uhs::uhs_list(core)
-        .into_iter()
-        .map(|u| {
-            let c = counts.get(&u.id).cloned().unwrap_or_default();
-            let open = transports
-                .transports
-                .values()
-                .filter(|t| t.status.is_open() && t.request.uhs == u.id)
-                .count();
-            let mut more = text::transports_open(open);
-            if c.discharged > 0 {
-                more = format!("{more} · {}", text::discharged_count(c.discharged));
-            }
-            PlaceRow {
-                occupancy: occupancies.remove(&u.id),
-                load: (CATEGORIES.iter().map(|k| c.get(*k)).sum(), u.capacity),
-                more: Some(more),
-                id: u.id,
-                name: u.name,
-            }
-        })
-        .collect();
+    let uhs = crate::med::places::place_rows(core, false);
     let details = info.as_ref().map(|i| i.details.clone()).unwrap_or_default();
     Overview {
         name: info.as_ref().map(|i| i.name.clone()).unwrap_or_default(),
@@ -145,6 +117,7 @@ fn overview(core: Handle) -> Overview {
         several: crate::shared::units::several_labels(&on_scene.people.several()),
         uhs,
         with_units,
+        unit_counts: crate::shared::lage::UnitCounts::of(&crate::shared::lage::present(core)),
     }
 }
 
@@ -190,7 +163,10 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let dispatch = Route::view("command.lead", "dispatch");
     let transports = Route::view("command.lead", "transports");
     let units = Route::view("command.prepare", "units");
-    let uhs = Route::view("command.lead", "map");
+    // [impl->dsn~command-lage~1]
+    // The tiles open their tab of *Lage* (ADR-0099).
+    let uhs = Route::record("command.lead", "map", "places");
+    let lage_units = Route::record("command.lead", "map", "units");
     let log = Route::view("incident.log", "log");
     // The command structure is on Führung & Raum (ADR-0095).
     let structure = Route::view("command.prepare", "map");
@@ -304,11 +280,50 @@ pub fn CommandOverview(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     }))}
                 </section>
 
-                // [impl->dsn~command-treatment-places~1]
+                // [impl->dsn~command-treatment-places~2]
                 <section class="tile tile--uhs" aria-labelledby="tile-uhs">
-                    <TileHead id="tile-uhs" icon="tent" title=text::places() route=uhs link=text::open_counts() />
+                    <TileHead id="tile-uhs" icon="tent" title=text::places() route=uhs link=text::open_lage() />
                     <TreatmentPlaces rows=Signal::derive(move || o.with(|o| o.uhs.clone())) level=Level::H4 />
                     {move || o.with(|o| o.with_units.clone()).map(|t| view! { <p class="tile__with-units">{t}</p> })}
+                </section>
+
+                // [impl->dsn~unit-overview~1]
+                // Units by group, free per type (UNIT-10), beside the places and the people.
+                <section class="tile tile--units" aria-labelledby="tile-units">
+                    <TileHead id="tile-units" icon="truck" title=text::units_title() route=lage_units link=text::open_lage() />
+                    {move || {
+                        let c = o.with(|o| o.unit_counts.clone());
+                        view! {
+                            <p class="tile__figure">
+                                <span id="overview-available" class="tile__number">{c.groups[0]}</span>
+                                " " {text::units_available_of(c.total)}
+                            </p>
+                            <ul class="tile__groups">
+                                {ordo_units::StatusGroup::ALL.iter().zip(c.groups).map(|(g, n)| view! {
+                                    <li data-group=format!("{g:?}").to_lowercase()>
+                                        <crate::shared::lage::GroupLabel group=Some(*g) />
+                                        <span class="tile__count">{n}</span>
+                                    </li>
+                                }).collect_view()}
+                            </ul>
+                            {(!c.types.is_empty()).then(|| view! {
+                                <table class="table tile__types">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">{text::col_type()}</th>
+                                            <th scope="col" class="number">{text::col_free()}</th>
+                                            <th scope="col" class="number">{text::col_all()}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {c.types.into_iter().map(|(t, free, all)| view! {
+                                            <tr><th scope="row">{t}</th><td class="number">{free}</td><td class="number">{all}</td></tr>
+                                        }).collect_view()}
+                                    </tbody>
+                                </table>
+                            })}
+                        }
+                    }}
                 </section>
 
                 // [impl->dsn~tasks~8]

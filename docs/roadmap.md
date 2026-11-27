@@ -414,7 +414,17 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
        "at least a big part of the West covered"), and the language can be chosen per
        device in the menu, for shared tablets. Next: labels from the profile in the
        person's language (hospital departments, services, qualifications), then the
-       profile page and the Führung view *Lage* (concept of 2026-11-27).
+       profile page (concept of 2026-11-27).
+   10. *Lage* (m74). Done 2026-11-27: *Führung – Lagekarte* became *Lage*, the map beside
+       the units or the treatment places where the page is wide, tabs where narrow
+       ([ADR-0099](adr/0099-units-and-treatment-places-in-lage.md)). The units by group
+       (einsatzbereit, im Auftrag, Transport, nicht einsatzbereit; the group of each
+       status code from the profile) with status since when, Auftrag or transport,
+       strength and qualifications (UNIT-10); the UHS with their free places of all, those
+       waiting for a transport, staff by qualification, open requests and discharged
+       patients (UHS-16), replacing *Patienten je UHS*; an overview tile *Einsatzmittel*.
+       Next: "entlassen, davon transportiert" needs the counts by outcome (a new version of
+       the counts event).
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.

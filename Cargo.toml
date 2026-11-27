@@ -117,7 +117,7 @@ web-sys = { version = "0.3", features = [
   "NodeList", "DomTokenList",
   "File", "FileList", "FocusOptions", "History", "HtmlCanvasElement", "HtmlDialogElement", "HtmlElement",
   "Headers", "HtmlInputElement", "ImageBitmap", "ImageData", "Location", "MessageEvent", "Navigator", "Request",
-  "RequestInit", "Response", "ScrollIntoViewOptions",
+  "RequestInit", "ResizeObserver", "ResizeObserverEntry", "Response", "ScrollIntoViewOptions",
   "ScrollLogicalPosition", "Storage", "SubtleCrypto", "Url", "UrlSearchParams", "HtmlAnchorElement", "WebSocket", "Window",
   "Worker", "WorkerOptions", "WorkerType",
 ] }

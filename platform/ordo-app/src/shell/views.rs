@@ -502,7 +502,7 @@ pub(crate) fn apply_keymap(keymap: &str) {
     apply_setting("data-keymap", crate::shell::keys::KEYMAP_KEY, keymap);
 }
 
-// [impl->dsn~page-tabs~4]
+// [impl->dsn~page-tabs~5]
 /// A page in tabs: the tab list, then a panel per tab with its sections.
 fn page_with_tabs(
     view: &'static str,
@@ -1134,9 +1134,17 @@ fn Workspace(
                     let declared = nav::workspace(workspace)
                         .and_then(|w| w.views.iter().find(|v| v.id == view));
                     let tabs = declared.map_or(&[][..], |v| v.tabs);
-                    // [impl->dsn~page-tabs~4]
+                    // [impl->dsn~page-tabs~5]
                     // The chosen part, for the sections to show another one (a context).
-                    let chosen = RwSignal::new(tabs.first().map_or("", |t| t.key));
+                    // [impl->dsn~command-lage~1]
+                    // A page opened with a tab's key as its record starts on that tab.
+                    let asked = record.get_untracked();
+                    let start = tabs
+                        .iter()
+                        .find(|t| asked.as_deref() == Some(t.key))
+                        .or(tabs.first())
+                        .map_or("", |t| t.key);
+                    let chosen = RwSignal::new(start);
                     provide_context(crate::shell::ui::PageTabs(chosen));
                     let page = crate::shell::registry::page(&args, workspace, view);
                     if page.is_empty() {
@@ -1177,7 +1185,7 @@ fn when_shown(id: &str, f: impl Fn(web_sys::HtmlElement) + 'static) {
     };
     let Some(el) = find() else { return };
     // [impl->dsn~record-overview~3]
-    // [impl->dsn~page-tabs~4]
+    // [impl->dsn~page-tabs~5]
     // Inside a hidden part (a tab not chosen): that tab shows first.
     let hidden = el.offset_parent().is_none();
     let tab = el

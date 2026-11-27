@@ -7,6 +7,7 @@ pub(crate) mod crew;
 pub(crate) mod gallery;
 pub(crate) mod helpers;
 pub(crate) mod incidents;
+pub(crate) mod lage;
 pub(crate) mod log;
 pub(crate) mod map_region;
 pub(crate) mod object_card;
@@ -73,7 +74,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "incident description date time start pause resume close",
                 "flag",
             ),
-            // [impl->dsn~page-tabs~4]
+            // [impl->dsn~page-tabs~5]
             // Two parts in tabs (feedback of 2026-11-21): the helpers and taking people in,
             // the devices (admin package, place 30). The command structure is on
             // Führung & Raum (ADR-0095).
@@ -89,7 +90,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                     "id-card",
                 )
             },
-            // [impl->dsn~page-tabs~4]
+            // [impl->dsn~page-tabs~5]
             // Two parts in tabs (feedback of 2026-11-22): the units and UHS, and the hospital
             // list the Med package keeps there (place 40).
             nav::View {
@@ -110,7 +111,7 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
             // page, its region last.
             // "Struktur" in the phone's bar, where the name takes two lines (product owner,
             // 2026-11-22; the name is to be revisited).
-            // [impl->dsn~page-tabs~4]
+            // [impl->dsn~page-tabs~5]
             // The structure beside the map where both fit, tabs where narrower (ADR-0097).
             nav::View {
                 short: Some(|| crate::shared::text::command_space_short()),
@@ -157,19 +158,34 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "overview summary",
                 "layout-grid",
             ),
-            nav::view(
-                "map",
-                crate::shared::text::map_title,
-                "situation map",
-                "map",
-            ),
+            // [impl->dsn~command-lage~1]
+            // [impl->dsn~page-tabs~5]
+            // *Lage* (ADR-0099): the map beside the units or the treatment places (Med
+            // package, place 30) where both fit; tabs where narrower. Its address stays.
+            nav::View {
+                tabs: &[
+                    nav::PageTab {
+                        column: crate::shell::ui::Column::End,
+                        ..nav::tab("map", crate::shared::text::map_short, 10)
+                    },
+                    nav::tab("units", crate::shared::text::tab_resources, 20),
+                    nav::tab("places", crate::shared::text::places, 30),
+                ],
+                columns: crate::shell::ui::TabsMode::BesideFrom84,
+                ..nav::view(
+                    "map",
+                    crate::shared::text::lage,
+                    "situation map units treatment places",
+                    "map",
+                )
+            },
             nav::view(
                 "dispatch",
                 crate::shared::text::dispatch,
                 "dispatch tasks orders",
                 "clipboard-list",
             ),
-            // [impl->dsn~page-tabs~4]
+            // [impl->dsn~page-tabs~5]
             // The transports beside the free units and hospitals they are assigned to, where
             // both fit; tabs where narrower (feedback of 2026-11-22). Filled by the Med
             // package.
@@ -248,10 +264,21 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         ("units.crew", _) => one(view! { <crew::CrewTasks core revision /> }.into_any()),
         // [impl->dsn~workspaces-by-phase~5]
         // [impl->dsn~map-drawing~2]
-        ("command.lead", "map") => vec![(
-            10,
-            view! { <situation::SituationView core revision /> }.into_any(),
-        )],
+        // [impl->dsn~command-lage~1]
+        // *Lage*: the map, and the units (ADR-0099).
+        ("command.lead", "map") => {
+            situation::map_asks();
+            vec![
+                (
+                    10,
+                    view! { <situation::SituationView core revision /> }.into_any(),
+                ),
+                (
+                    20,
+                    view! { <lage::UnitsAtGlance core revision /> }.into_any(),
+                ),
+            ]
+        }
         // [impl->dsn~reports~3]
         ("command.lead", "dispatch") => {
             one(view! { <tasks::OpenTasks core revision /> }.into_any())

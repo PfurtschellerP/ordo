@@ -3,12 +3,11 @@
 //! lead to the object's place in another view, which shows it once it has opened.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 use leptos::prelude::*;
 use ordo_map::{ObjectKind, SituationMap};
 use ordo_tasks::Phase;
-use ordo_units::{UnitCatalogue, UnitRegister};
+use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::shared::text;
@@ -211,26 +210,11 @@ fn UnitPart(core: Handle, revision: RwSignal<u64>, unit: String, editable: bool)
         .map(|t| crate::shared::tasks::label(t));
     let detailed = crate::shared::units::detailed(core);
     let special = u.special.clone();
-    // Each qualification once, with how many of the crew have it, in the profile's order.
-    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    for m in &u.crew {
-        for q in &m.qualifications {
-            *counts.entry(q.as_str()).or_default() += 1;
-        }
-    }
-    let catalogue = &crate::shared::units::CATALOGUE.qualifications;
-    let chips: Vec<(String, String, usize)> = catalogue
-        .iter()
-        .filter_map(|q| {
-            counts.get(q.id.as_str()).map(|n| {
-                (
-                    UnitCatalogue::short(catalogue, &q.id).to_owned(),
-                    q.label.clone(),
-                    *n,
-                )
-            })
-        })
-        .collect();
+    let chips = crate::shared::units::qualification_counts(
+        u.crew
+            .iter()
+            .flat_map(|m| m.qualifications.iter().map(String::as_str)),
+    );
     let names: Vec<String> = u
         .crew
         .iter()
@@ -253,16 +237,7 @@ fn UnitPart(core: Handle, revision: RwSignal<u64>, unit: String, editable: bool)
         <p>{text::col_status()} ": " <strong>{status}</strong></p>
         {current.map(|c| view! { <p>{text::card_current_task()} ": " {c}</p> })}
         {u.strength.map(|s| view! { <p>{text::strength()} ": " <crate::shared::units::StrengthText strength=s special detailed /></p> })}
-        {(!chips.is_empty()).then(|| view! {
-            <ul class="object-card__chips" aria-label=text::qualifications_short()>
-                {chips.into_iter().map(|(short, label, n)| view! {
-                    <li class="tag">
-                        <abbr title=label.clone() aria-hidden="true">{short} " " {n}</abbr>
-                        <span class="visually-hidden">{text::qualification_count(&label, n)}</span>
-                    </li>
-                }).collect_view()}
-            </ul>
-        })}
+        <crate::shared::units::QualificationChips chips />
         {(!names.is_empty()).then(|| view! {
             <details class="object-card__names">
                 <summary>{text::crew_names(names.len())}</summary>

@@ -68,7 +68,6 @@ incident-prepare = Preparar: mapa de situación, unidades y personal con roles y
 open-map = Abrir mapa de situación
 open-dispatch = Al despacho
 open-units = A las unidades
-open-counts = Pacientes por PMA
 open-label = abiertas
 no-open-tasks = No hay misiones abiertas.
 persons-on-scene = Intervinientes en el lugar
@@ -575,3 +574,23 @@ diet-counts-line = Dieta (sin turnos terminados): { $list }
 diet-count = { $n } × { $diet }
 # Starts with the button's visible text, so its name matches what is seen.
 helper-edit-of = { $edit }: { $name }
+
+## Führung – Lage (ADR-0099): the map beside the units and the treatment places.
+lage = Situación
+# The groups the command sees its units in (UNIT-10); the profile gives each status its group.
+group-available = Disponible
+group-task = En misión
+group-transport = En traslado
+group-unavailable = No disponible
+group-none = Sin estado
+# The first of the type filter's chips: "Alle 14".
+filter-all = Todas
+units-filter = Tipo
+units-only-available = Solo disponibles
+units-glance-empty = Ninguna unidad coincide con la selección.
+open-lage = Ir a la situación
+# "4 von 14 einsatzbereit", the first number large.
+units-available-of = de { $total } disponibles
+col-type = Tipo
+col-free = libres
+col-all = total

@@ -641,6 +641,35 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         s.map
             .with(|m| m.objects.get(id).and_then(|o| o.placed.geometry.anchor()))
     };
+    // [impl->dsn~command-lage~1]
+    // *Auf der Karte* in the lists of *Lage*: once the map shows, it centres on the object
+    // and opens its card, and comes into view.
+    let frame = NodeRef::<leptos::html::Section>::new();
+    if let Some(asks) = use_context::<MapAsks>() {
+        Effect::new(move |seen: Option<Option<u32>>| {
+            let current = asks.0.get();
+            let number = current.as_ref().map(|(n, _)| *n);
+            // Not on the first run: only an ask made while the page is open.
+            if seen.is_none() || number == seen.flatten() {
+                return number;
+            }
+            if let Some((_, MapAsk::Show(id))) = current {
+                request_animation_frame(move || {
+                    if let Some(at) = anchor(&id) {
+                        show_at(handle, at);
+                    }
+                    hovered.set(None);
+                    chosen.set(Some(id));
+                    if let Some(el) = frame.get_untracked() {
+                        let options = web_sys::ScrollIntoViewOptions::new();
+                        options.set_block(web_sys::ScrollLogicalPosition::Nearest);
+                        el.scroll_into_view_with_scroll_into_view_options(&options);
+                    }
+                });
+            }
+            number
+        });
+    }
     // A ring marks the object whose card shows.
     Effect::new(move || {
         let ready = matches!(state.get(), MapState::Ready(_));
@@ -677,7 +706,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         }
     });
     view! {
-        <section class="card situation" aria-labelledby="situation-title">
+        <section class="card situation" aria-labelledby="situation-title" node_ref=frame>
             <h2 id="situation-title">{text::map_title()}</h2>
             <MapStateLine state />
             <div class="situation__stage">
@@ -854,8 +883,34 @@ impl MapAsks {
     }
 }
 
-/// The map's part of *Führung & Raum* (`nav::View::tabs`).
+/// The map's part of *Führung & Raum* and of *Lage* (`nav::View::tabs`).
 const MAP_TAB: &str = "map";
+
+// [impl->dsn~command-lage~1]
+/// The [`MapAsks`] of this page: the one there is, or a new one, for the lists of *Lage*
+/// to show a unit or a UHS on its map (ADR-0099). Each package's sections may ask first.
+pub fn map_asks() -> MapAsks {
+    use_context::<MapAsks>().unwrap_or_else(|| {
+        let asks = MapAsks(
+            RwSignal::new(None),
+            use_context::<crate::shell::ui::PageTabs>(),
+        );
+        provide_context(asks);
+        asks
+    })
+}
+
+/// *Auf der Karte* for the object `object` (a map object ID, e.g. `unit:RTW 1`) of
+/// `name`, where it is placed; for the lists of *Lage*.
+#[component]
+pub fn ShowOnMap(object: String, #[prop(into)] name: String) -> impl IntoView {
+    let asks = map_asks();
+    view! {
+        <crate::shell::ui::IconButton icon="map-pin" word=text::map_show()
+            label=text::map_show_label(&name)
+            on_click=Callback::new(move |()| asks.ask(MapAsk::Show(object.clone()))) />
+    }
+}
 
 /// The IDs of the objects on the incident's map.
 pub fn placed_objects(core: Handle) -> std::collections::BTreeSet<String> {

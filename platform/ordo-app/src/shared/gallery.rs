@@ -29,8 +29,30 @@ pub(crate) const PARTS: &[Part] = &[Part {
             access: "Plain text and numbers, read as written.",
             show: strength,
         },
+        // [impl->dsn~unit-overview~1]
+        Example {
+            id: "status-group",
+            name: "Status group",
+            code: "shared::lage::GroupLabel",
+            usage: "What the command needs to know of a unit (UNIT-10): einsatzbereit, im Auftrag, Transport, nicht einsatzbereit, from the profile's status codes. On Lage and the overview's tile Einsatzmittel. Icons support the word, never stand alone; shapes stay with the triage categories.",
+            access: "The word is the text; the icon is hidden from screen readers.",
+            show: status_groups,
+        },
     ],
 }];
+
+fn status_groups() -> AnyView {
+    use crate::shared::lage::GroupLabel;
+    view! {
+        <ul class="tile__groups">
+            {ordo_units::StatusGroup::ALL.into_iter().map(|g| view! {
+                <li><GroupLabel group=Some(g) /></li>
+            }).collect_view()}
+            <li><GroupLabel group=None /></li>
+        </ul>
+    }
+    .into_any()
+}
 
 fn tile() -> AnyView {
     view! {

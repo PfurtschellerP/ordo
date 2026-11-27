@@ -42,7 +42,7 @@ pub struct View {
     pub columns: crate::shell::ui::TabsMode,
 }
 
-// [impl->dsn~page-tabs~4]
+// [impl->dsn~page-tabs~5]
 /// A tab of a page: its key, its label, and the first place of the sections it holds.
 pub struct PageTab {
     /// Stable key, e.g. `helpers`.
