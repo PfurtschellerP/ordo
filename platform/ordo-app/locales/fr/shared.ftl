@@ -36,8 +36,6 @@ col-status = Statut
 col-set-status = Définir le statut
 no-status = –
 set-status-label = Définir le statut de { $unit }
-unit-status-title = Moyens : statut et missions
-unit-status-empty = Pas encore de moyens dans l'intervention. Ils sont ajoutés en Préparation.
 # Starts with the button's visible text, so its name matches what is seen.
 task-give-label = { task-give } : { $unit }
 move-here = Déplacer ici
@@ -162,7 +160,6 @@ task-kind-label = Type
 task-kind-other = Autre mission
 task-kind-missing = Veuillez choisir le type.
 task-unit-later = Attribuer plus tard
-task-unit-only = Choisir un moyen
 task-unit-hint = Facultatif pour un patient ou un événement : le moyen peut aussi être attribué plus tard.
 task-place = Lieu
 task-what = Que se passe-t-il ?
@@ -173,15 +170,8 @@ task-text-missing = Veuillez décrire brièvement de quoi il s'agit.
 task-place-missing = Veuillez indiquer le lieu.
 task-too-long = Le lieu ou la description est trop long.
 task-time-invalid = Veuillez indiquer une heure, p. ex. 14:05.
-task-assign-to = Attribuer à
 task-assign = Attribuer
-task-unit-missing = Veuillez choisir un moyen.
 task-send-further = Envoyer un autre moyen
-task-send-to = Envoyer aussi
-task-send = Envoyer
-# Opens a small map centred on the Auftrag's pin.
-pin-show = Afficher le repère
-pin-show-label = Afficher le repère : { $task }
 my-tasks = Mes missions
 pin-title = Repère sur la carte (facultatif)
 pin-hint = Recherchez une adresse ou touchez la carte. Au clavier : déplacez la carte avec les flèches, puis « Placer le repère au centre de la carte ».
@@ -189,8 +179,14 @@ pin-at-centre = Placer le repère au centre de la carte
 pin-clear = Retirer le repère
 pin-none = Aucun repère placé.
 pin-set = Placer le repère
-pin-move = Déplacer le repère
 pin-save = Enregistrer le repère
+## The Auftrag card (ADR-0104): chips, dialogs, the "⋯" menu, Disposition's tabs.
+pin-on-map = Sur la carte
+pin-dialog-title = Repère : { $task }
+task-more-label = Autres étapes : { $task }
+task-no-units = Aucun autre moyen sur place.
+tab-tasks = Missions
+tab-staff-requests = Demander du personnel
 
 ## Map object cards (MAP-11).
 map-details = Détails
@@ -449,12 +445,6 @@ task-follow-up-number = Veuillez indiquer les minutes en nombre entier.
 log-pause-ended = Pause terminée
 draw-hint = Touchez chaque coin – ou déplacez la carte pour que le coin soit sous le réticule (aussi avec les flèches), et placez-le. Puis « Terminé ».
 helper-duty-start = Début du service
-# "no open tasks", "1 open task", "3 open tasks"
-open-tasks-of = { $n ->
-    [0] aucune mission ouverte
-    [one] 1 mission ouverte
-   *[other] { $n } missions ouvertes
-}
 # People on more than one crew or staff list (UNIT-8), e.g. "Ben (RTW 1, care unit south)".
 double-booked-people = Affectés plusieurs fois, peut-être comptés deux fois : { $people }
 # The person being added is on other crews or staff lists already (UNIT-8).
@@ -504,8 +494,6 @@ units-count = { $n ->
 log-report-line = Signalement reçu : { $kind }, { $received } – { $place } – { $text }
 # "Role Physician withdrawn from Anna Schmidt."
 role-removed-from = Rôle { $role } retiré à { $who }.
-# Variables: $action, $task
-pin-edit-of = { $action } : { $task }
 task-kind-event = Événement
 task-kind-patient = Patient
 # "Patient: Stage north"

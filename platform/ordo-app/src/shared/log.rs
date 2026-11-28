@@ -221,7 +221,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
             text::log_crew(&p.unit, p.members.len()).into()
         })
     }),
-    // [impl->dsn~reports~3]
+    // [impl->dsn~reports~4]
     (ordo_tasks::GIVEN, |e, c, name| {
         Some({
             let p = decode::<ordo_tasks::TaskGiven>(e)?;
@@ -257,7 +257,7 @@ const DESCRIBE: &[(&str, Describe)] = &[
             text::log_report_patient(c.get("task", &p.task), &p.unit).into()
         })
     }),
-    // [impl->dsn~reports~3]
+    // [impl->dsn~reports~4]
     (ordo_reports::RECORDED, |e, _, _| {
         Some({
             let p = decode::<ordo_reports::Recorded>(e)?;

@@ -165,6 +165,7 @@ the build fails.
 | 76 — Access by assignment | `m76` | Patient data and the crew workspace follow where a person works (crew, UHS staff), not the role alone; role Einsatzkraft (UNIT-9, UNIT-11, ADR-0101) |
 | 77 — Calm pages | `m77` | One slim header with ORDO's mark, an icon rail, shared building blocks (section head, item row, status tag, key-value grid, empty state), forms in dialogs (UX-11, UX-18, ADR-0102) |
 | 78 — Navigation and names | `m78` | One name per view in bar and header, no two views named alike, no rail for a single view (UX-12, ADR-0103) |
+| 79 — The Auftrag card | `m79` | Objects as chips with dialogs, one next step and a floating "⋯" menu; Disposition in tabs (UX-18, REP-4, ADR-0104) |
 
 To add a requirement to the current milestone, add the milestone tag to it **and** to
 the design items that cover it. Requirements and design items must always carry at
@@ -173,5 +174,5 @@ least a priority tag, so that items outside the milestone are not traced by acci
 Run locally (needs Java 17 or newer):
 
 ```sh
-java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67,m68,m69,m70,m71,m72,m73,m74,m75,m76,m77,m78 docs platform modules packages tests
+java -jar openfasttrace-4.11.0.jar trace -t _,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31,m32,m33,m34,m35,m36,m37,m38,m39,m40,m41,m42,m43,m44,m45,m46,m47,m48,m49,m50,m51,m52,m53,m54,m55,m56,m57,m58,m59,m60,m61,m62,m63,m64,m65,m66,m67,m68,m69,m70,m71,m72,m73,m74,m75,m76,m77,m78,m79 docs platform modules packages tests
 ```

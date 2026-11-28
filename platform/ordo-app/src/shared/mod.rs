@@ -178,12 +178,21 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                     "map",
                 )
             },
-            nav::view(
-                "dispatch",
-                crate::shared::text::dispatch,
-                "dispatch tasks orders",
-                "clipboard-list",
-            ),
+            // [impl->dsn~auftrag-card~1]
+            // The Aufträge, and the staff the UHS ask for (Med package, place 30), as tabs
+            // (ADR-0104); the units' status is set in *Lage*.
+            nav::View {
+                tabs: &[
+                    nav::tab("tasks", crate::shared::text::tab_tasks, 0),
+                    nav::tab("staff", crate::shared::text::tab_staff_requests, 30),
+                ],
+                ..nav::view(
+                    "dispatch",
+                    crate::shared::text::dispatch,
+                    "dispatch tasks orders staff requests",
+                    "clipboard-list",
+                )
+            },
             // [impl->dsn~page-tabs~5]
             // The transports beside the free units and hospitals they are assigned to, where
             // both fit; tabs where narrower (feedback of 2026-11-22). Filled by the Med
@@ -278,7 +287,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 ),
             ]
         }
-        // [impl->dsn~reports~3]
+        // [impl->dsn~reports~4]
         ("command.lead", "dispatch") => {
             one(view! { <tasks::OpenTasks core revision /> }.into_any())
         }

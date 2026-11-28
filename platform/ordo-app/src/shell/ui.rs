@@ -32,6 +32,7 @@ icons!(
     "bell",
     "camera",
     "chart-column",
+    "chevron-right",
     "circle-check",
     "clipboard-list",
     "cloud-check",
@@ -41,6 +42,7 @@ icons!(
     "ellipsis",
     "file-down",
     "flag",
+    "hospital",
     "id-card",
     "info",
     "keyboard",
@@ -1219,25 +1221,118 @@ pub fn CreateButton(
 }
 
 // [impl->dsn~building-blocks~1]
-/// One action at hand, the rest behind "⋯" (ADR-0102): the first action shows as a button,
-/// the others open from the menu button, named for its item (`label`, e.g. "Weitere
-/// Schritte: RTW für UHS Eingang").
+// [impl->dsn~auftrag-card~1]
+/// One action at hand, the rest behind "⋯" (ADR-0102, ADR-0104): the first action shows as a
+/// button; the others open in a menu over the page from the menu button, named for its item
+/// (`label`, e.g. "Weitere Schritte: RTW für UHS Eingang"). The menu is a popover: it never
+/// pushes the card, no card clips it, a click outside or Escape closes it, and choosing an
+/// item closes it. Actions that end something (`quiet`) come last, set apart. On phones it
+/// opens as a sheet at the bottom.
 #[component]
-pub fn MoreActions(#[prop(into)] label: String, actions: Vec<Action>) -> impl IntoView {
+pub fn MoreActions(
+    /// Unique on the page; the menu's ID is `{id}-menu`.
+    #[prop(into)]
+    id: String,
+    #[prop(into)] label: String,
+    actions: Vec<Action>,
+) -> impl IntoView {
+    use wasm_bindgen::JsCast;
     let mut actions = actions.into_iter();
     let first: Vec<Action> = actions.by_ref().take(1).collect();
-    let rest: Vec<Action> = actions.collect();
+    let (ending, rest): (Vec<Action>, Vec<Action>) = actions.partition(|a| a.quiet);
+    let menu_id = format!("{id}-menu");
+    let button = NodeRef::<leptos::html::Button>::new();
+    // Where the menu stands on wide screens: under its button, its right edge at the
+    // button's, or above it where there is no room below.
+    let (top, right) = (RwSignal::new(None::<f64>), RwSignal::new(None::<f64>));
+    let place = move |ev: leptos::ev::Event| {
+        let Some(menu) = ev
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return;
+        };
+        let (Some(b), Some(w)) = (button.get_untracked(), web_sys::window()) else {
+            return;
+        };
+        let width = w.inner_width().ok().and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let height = w
+            .inner_height()
+            .ok()
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        if !menu.matches(":popover-open").unwrap_or(false) || width <= 640.0 {
+            top.set(None);
+            right.set(None);
+            return;
+        }
+        let r = b.get_bounding_client_rect();
+        let own = f64::from(menu.offset_height());
+        let below = r.bottom() + 4.0;
+        top.set(Some(if below + own > height && r.top() - 4.0 - own > 0.0 {
+            r.top() - 4.0 - own
+        } else {
+            below
+        }));
+        right.set(Some((width - r.right()).max(0.0)));
+    };
+    let item = move |a: Action, end: bool, menu: String| {
+        let run = a.run;
+        view! {
+            <li>
+                <button type="button" class="more-actions__item" class:more-actions__item--end=end
+                    aria-label=a.label popovertarget=menu popovertargetaction="hide"
+                    on:click=move |_| run.run(())>
+                    {a.text}
+                </button>
+            </li>
+        }
+    };
+    let has_menu = !rest.is_empty() || !ending.is_empty();
     view! {
         <div class="more-actions">
             <Actions actions=first />
-            {(!rest.is_empty()).then(|| view! {
-                <details class="more-actions__menu">
-                    <summary class="button button--small icon-button" aria-label=label.clone() data-tip=label>
+            {has_menu.then(|| {
+                let (m1, m2, m3) = (menu_id.clone(), menu_id.clone(), menu_id.clone());
+                view! {
+                    <button type="button" node_ref=button id=format!("{id}-button") class="button button--small icon-button"
+                        popovertarget=m1 aria-label=label.clone() data-tip=label>
                         <Icon name="ellipsis" />
-                    </summary>
-                    <div class="more-actions__panel"><Actions actions=rest /></div>
-                </details>
+                    </button>
+                    <div id=menu_id.clone() popover="auto" class="more-actions__panel" on:toggle=place
+                        style:top=move || top.get().map(|t| format!("{t}px"))
+                        style:right=move || right.get().map(|r| format!("{r}px"))>
+                        <ul class="more-actions__list">
+                            {rest.into_iter().map(|a| item(a, false, m2.clone())).collect_view()}
+                            {ending.into_iter().map(|a| item(a, true, m3.clone())).collect_view()}
+                        </ul>
+                    </div>
+                }
             })}
         </div>
+    }
+}
+
+// [impl->dsn~auftrag-card~1]
+/// One object of an item as a chip (ADR-0104): its icon and value, e.g. 📍 "Bühne Nord";
+/// a tap opens its dialog. With nothing set, it is dashed and says what to set ("Ort
+/// setzen"). `label` names the action with its item; the chip's name adds its value.
+#[component]
+pub fn ObjectChip(
+    icon: &'static str,
+    #[prop(into)] value: String,
+    #[prop(into)] label: String,
+    #[prop(optional)] empty: bool,
+    #[prop(optional, into)] id: Option<String>,
+    on_click: Callback<()>,
+) -> impl IntoView {
+    // The name holds what the chip shows (WCAG 2.5.3): "Pin: Patient: Bühne Nord – Auf der Karte".
+    let name = format!("{label} – {value}");
+    view! {
+        <button type="button" id=id class="object-chip" class:object-chip--empty=empty
+            aria-haspopup="dialog" aria-label=name on:click=move |_| on_click.run(())>
+            <Icon name=icon /><span class="object-chip__value">{value}</span>
+            {(!empty).then(|| view! { <Icon name="chevron-right" /> })}
+        </button>
     }
 }

@@ -44,7 +44,7 @@ fn events(world: &mut World, name: &str, compartment: &str) -> Vec<ordo_sync::Ap
         .unwrap_or_default()
 }
 
-// [itest->dsn~reports~3]
+// [itest->dsn~reports~4]
 #[test]
 fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
     let mut world = World::new();
@@ -174,7 +174,7 @@ fn a_patient_auftrag_becomes_a_patient_without_telling_the_command_who() {
     assert_eq!(list.tasks[&id].phase(), Phase::Done);
 }
 
-// [itest->dsn~reports~3]
+// [itest->dsn~reports~4]
 #[test]
 fn reports_of_an_older_incident_are_still_read() {
     let mut world = World::new();

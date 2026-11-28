@@ -119,10 +119,10 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
                 view! { <places::PlacesAtGlance core revision /> }.into_any(),
             )]
         }
-        // [impl->dsn~reports~3]
+        // [impl->dsn~reports~4]
         ("command.lead", "dispatch") => {
             vec![(
-                10,
+                30,
                 view! { <staffing::StaffRequestsBoard core revision /> }.into_any(),
             )]
         }

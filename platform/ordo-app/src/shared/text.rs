@@ -112,10 +112,6 @@ pub fn role_removed(role: &str, who: &str) -> String {
     role_removed_from(role_label(role), who)
 }
 
-pub fn pin_edit_label(placed: bool, task: &str) -> String {
-    pin_edit_of(if placed { pin_move() } else { pin_set() }, task)
-}
-
 pub fn task_kind(kind: ordo_tasks::TaskKind) -> &'static str {
     match kind {
         ordo_tasks::TaskKind::Event => task_kind_event(),
@@ -305,9 +301,8 @@ mod tests {
     #[test]
     fn texts_by_hand_read_as_before() {
         use super::*;
-        assert_eq!(open_tasks_of(0usize), "keine offenen Aufträge");
-        assert_eq!(open_tasks_of(1usize), "1 offener Auftrag");
-        assert_eq!(open_tasks_of(3usize), "3 offene Aufträge");
+        assert_eq!(units_count(1usize), "1 Einsatzmittel");
+        assert_eq!(units_count(3usize), "3 Einsatzmittel");
         assert_eq!(follow_ups_due(2usize), "2 Nachfragen fällig");
         assert_eq!(
             unreported_strength(0u32),

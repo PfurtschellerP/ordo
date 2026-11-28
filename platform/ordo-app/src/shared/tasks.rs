@@ -15,7 +15,7 @@ use ordo_units::UnitRegister;
 
 use crate::core::{self, Handle};
 use crate::shared::text;
-use crate::shell::ui::{Action, Actions, Disclosure, Icon};
+use crate::shell::ui::{Action, Actions, Icon, MoreActions};
 
 /// Task templates from the profile (`tasks/templates.toml`, checked at build time).
 pub static TEMPLATES: LazyLock<TemplateCatalogue> = LazyLock::new(|| {
@@ -29,7 +29,7 @@ const LATER_MS: u64 = 10 * 60 * 1000;
 /// The ID prefix of an open report (ADR-0075) that no task names yet, shown as received.
 const LEGACY: &str = "report:";
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// The incident's Aufträge, computed from the shared events, with the reports of an
 /// incident recorded before ADR-0081: a task naming a report shows the report's kind, place
 /// and description, and an open report without a task shows as received.
@@ -92,7 +92,7 @@ fn is_legacy(task: &Task) -> bool {
     task.given.task.starts_with(LEGACY)
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// The map object of an Auftrag's pin: the first one's of a linked group, or the report's
 /// of an incident recorded before ADR-0081.
 pub fn pin_object(task: &Task) -> String {
@@ -102,7 +102,7 @@ pub fn pin_object(task: &Task) -> String {
     }
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// The situation map without the pins no open Auftrag needs (REP-5): the map events stay,
 /// and the log shows them.
 pub fn needed_pins(core: Handle, mut map: ordo_map::SituationMap) -> ordo_map::SituationMap {
@@ -241,8 +241,8 @@ fn TaskHead(task: Task, assignee: String) -> impl IntoView {
     }
 }
 
-// [impl->dsn~tasks~8]
-// [impl->dsn~reports~3]
+// [impl->dsn~tasks~9]
+// [impl->dsn~reports~4]
 /// One open Auftrag as a card: what, where, for whom, its state, the follow-up, patients
 /// taken over, and the next steps. For the command: assign it, send a further unit, set or
 /// move its pin, move each unit's part on, cancel it and ask again later. For the crew
@@ -335,9 +335,30 @@ pub(crate) fn TaskItem(
             .collect_view();
         view! { <ul class="task-card__units" aria-label=text::task_units()>{rows}</ul> }
     });
+    // [impl->dsn~auftrag-card~1]
+    // One next step at hand, the rest behind "⋯" (ADR-0104): for the command, assigning a
+    // received Auftrag or the step of its one part, then sending a further unit and asking
+    // again later; cancelling last. The crew moves its own part on.
+    let dialogs = use_context::<TaskDialogs>();
+    let reported = task.given.kind.is_some();
     let actions = editable.then(|| {
         let id = task.given.task.clone();
         let mut list: Vec<Action> = Vec::new();
+        if !crew
+            && phase == Phase::Received
+            && let Some(d) = dialogs
+        {
+            let ask = AssignAsk {
+                task: task.clone(),
+                further: false,
+            };
+            list.push(Action {
+                text: text::task_assign(),
+                label: text::task_step_label(text::task_assign(), &name),
+                quiet: false,
+                run: Callback::new(move |()| d.assign.set(Some(ask.clone()))),
+            });
+        }
         if legacy {
             // An open report without a task (ADR-0075): cancelling closes it.
             let report = task.given.report.clone().unwrap_or_default();
@@ -365,32 +386,47 @@ pub(crate) fn TaskItem(
                 &name,
             ));
         }
-        // Only the command cancels the whole Auftrag, and can ask again later.
+        // Only the command sends more, cancels the whole Auftrag, and can ask again later.
         if !crew {
-            let cancel = id.clone();
+            if reported
+                && phase != Phase::Received
+                && let Some(d) = dialogs
+            {
+                let ask = AssignAsk {
+                    task: task.clone(),
+                    further: true,
+                };
+                list.push(Action {
+                    text: text::task_send_further(),
+                    label: text::task_step_label(text::task_send_further(), &name),
+                    quiet: false,
+                    run: Callback::new(move |()| d.assign.set(Some(ask.clone()))),
+                });
+            }
+            let later = id.clone();
             list.push(Action {
-                text: text::task_step(TaskStatus::Cancelled),
-                label: text::task_step_label(text::task_step(TaskStatus::Cancelled), &name),
-                quiet: true,
+                text: text::follow_up_later(),
+                label: text::task_step_label(text::follow_up_later(), &name),
+                quiet: false,
                 run: Callback::new(move |()| {
                     let update = TaskUpdated {
-                        task: cancel.clone(),
-                        status: Some(TaskStatus::Cancelled),
-                        follow_up: None,
+                        task: later.clone(),
+                        status: None,
+                        follow_up: Some(core::now_ms() + LATER_MS),
                         unit: None,
                     };
                     let _ = core::update_task(core, revision, &update);
                 }),
             });
             list.push(Action {
-                text: text::follow_up_later(),
-                label: text::task_step_label(text::follow_up_later(), &name),
+                text: text::task_step(TaskStatus::Cancelled),
+                label: text::task_step_label(text::task_step(TaskStatus::Cancelled), &name),
                 quiet: true,
                 run: Callback::new(move |()| {
                     let update = TaskUpdated {
                         task: id.clone(),
-                        status: None,
-                        follow_up: Some(core::now_ms() + LATER_MS),
+                        status: Some(TaskStatus::Cancelled),
+                        follow_up: None,
                         unit: None,
                     };
                     let _ = core::update_task(core, revision, &update);
@@ -400,7 +436,6 @@ pub(crate) fn TaskItem(
         list
     });
     let command = editable && !crew;
-    let reported = task.given.kind.is_some();
     let status_line = if who.is_empty() {
         view! { <strong>{text::task_phase(phase)}</strong> " · " {by} }.into_any()
     } else {
@@ -411,28 +446,32 @@ pub(crate) fn TaskItem(
         let unit = unit.clone();
         view! { <CrewPart core revision task=task.clone() placed unit /> }
     });
-    let command_part = command.then(|| {
-        let assign = (phase == Phase::Received)
-            .then(|| view! { <AssignForm core revision task=task.clone() further=false /> });
-        let further = (reported && phase != Phase::Received && !legacy).then(|| {
-            let open = RwSignal::new(false);
-            let id = format!("further-{}", core::slug(&task.given.task));
-            let task = task.clone();
-            view! {
-                <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
-                    panel_class="task-card__panel"
-                    button=Box::new(|| view! { <Icon name="plus" />{text::task_send_further()} }.into_any())>
-                    <AssignForm core revision task further=true />
-                </Disclosure>
-            }
-        });
+    // [impl->dsn~auftrag-card~1]
+    // Its pin as a chip (ADR-0104): it opens the one dialog that shows the pin and moves it.
+    let slug = core::slug(&task.given.task);
+    let chips = command.then_some(dialogs).flatten().map(|d| {
+        let chip = format!("pin-{slug}");
+        let ask = PinAsk {
+            object: pin.clone(),
+            label: name.clone(),
+            placed,
+            back: chip.clone(),
+        };
+        let value = if placed.is_some() {
+            text::pin_on_map()
+        } else {
+            text::pin_set()
+        };
         view! {
-            {placed.is_some().then(|| view! { <PinShown core revision object=pin.clone() label=name.clone() /> })}
-            {assign}
-            <PinEditor core revision object=pin.clone() label=name.clone() placed />
-            {further}
+            <div class="object-chips">
+                <crate::shell::ui::ObjectChip icon="map-pin" value=value empty=placed.is_none() id=chip
+                    label=text::pin_dialog_title(&name)
+                    on_click=Callback::new(move |()| d.pin.set(Some(ask.clone()))) />
+            </div>
         }
     });
+    let more = format!("task-{slug}");
+    let more_label = text::task_more_label(&name);
     view! {
         <li class="task-card" class:task-card--due=due class:task-card--patient=task.given.kind == Some(TaskKind::Patient)
             data-task=task.given.task.clone() data-phase=text::task_phase(phase)>
@@ -444,8 +483,10 @@ pub(crate) fn TaskItem(
             })}
             {taken.into_iter().map(|t| view! { <p class="task-card__taken">{t}</p> }).collect_view()}
             {crew_part}
-            {command_part}
-            {actions.map(|actions| view! { <Actions actions /> })}
+            {chips}
+            {actions.map(|actions| view! {
+                <div class="task-card__foot"><MoreActions id=more label=more_label actions /></div>
+            })}
         </li>
     }
 }
@@ -504,154 +545,174 @@ fn CrewPart(
     }
 }
 
-// [impl->dsn~reports~3]
-/// Assigning a received Auftrag to a unit (REP-2), or with `further` sending a further unit
-/// to it (ADR-0085); only units not on it yet are offered.
-#[component]
-fn AssignForm(core: Handle, revision: RwSignal<u64>, task: Task, further: bool) -> impl IntoView {
-    let unit = RwSignal::new(String::new());
-    let error = RwSignal::new(None::<&'static str>);
-    let on_it: Vec<String> = task.units.iter().map(|p| p.unit.clone()).collect();
-    let units = Memo::new(move |_| {
-        revision.track();
-        let mut units = present_units(core);
-        units.retain(|u| !on_it.contains(u));
-        units
-    });
-    let field = format!(
-        "{}-{}",
-        if further { "further" } else { "assign" },
-        core::slug(&task.given.task)
-    );
-    let task = StoredValue::new(task);
-    let submit = move |ev: leptos::ev::SubmitEvent| {
-        ev.prevent_default();
-        let chosen = unit.get_untracked();
-        if chosen.is_empty() {
-            error.set(Some(text::task_unit_missing()));
-            return;
-        }
-        let t = task.get_value();
-        let done = if is_legacy(&t) {
-            // An open report without a task (ADR-0075): an Auftrag naming it.
-            let given = TaskGiven {
-                task: String::new(),
-                unit: Some(chosen),
-                report: t.given.report.clone(),
-                follow_up: None,
-                template: None,
-                sector: None,
-                person: None,
-                ..t.given.clone()
-            };
-            core::give_task(core, revision, given).is_ok()
-        } else {
-            let assigned = TaskAssigned {
-                task: t.given.task.clone(),
-                unit: chosen,
-            };
-            core::assign_task(core, revision, &assigned).is_ok()
-        };
-        if done {
-            unit.set(String::new());
-            error.set(None);
-        }
-    };
-    let label = if further {
-        text::task_send_to()
-    } else {
-        text::task_assign_to()
-    };
-    view! {
-        <form class="form--inline task-card__assign" novalidate on:submit=submit>
-            <div class="field">
-                <label for=field.clone()>{label}</label>
-                <select id=field prop:value=move || unit.get() on:change=move |ev| unit.set(event_target_value(&ev))>
-                    <option value="" disabled selected>{text::task_unit_only()}</option>
-                    {move || units.get().into_iter().map(|u| view! { <option value=u.clone()>{u.clone()}</option> }).collect_view()}
-                </select>
-            </div>
-            <button type="submit" class="button button--small">
-                {if further { text::task_send() } else { text::task_assign() }}
-            </button>
-            <p role="alert" class="error">{move || error.get()}</p>
-        </form>
-    }
-}
-
-// [impl->dsn~reports~3]
-/// An Auftrag's pin for the incident command (REP-4): "Pin zeigen" opens the small map
-/// centred on it. The map is made only when opened; a list of cards stays light.
-#[component]
-fn PinShown(core: Handle, revision: RwSignal<u64>, object: String, label: String) -> impl IntoView {
-    let open = RwSignal::new(false);
-    let id = format!("pin-shown-{}", core::slug(&object));
-    let object = StoredValue::new(object);
-    view! {
-        <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
-            panel_class="task-card__panel"
-            label=Some(Signal::derive(move || text::pin_show_label(&label)))
-            button=Box::new(|| view! { <Icon name="map-pin" />{text::pin_show()} }.into_any())>
-            <Show when=move || open.get()>
-                <crate::shared::situation::PlaceMap core revision object=object.get_value() locate=false />
-            </Show>
-        </Disclosure>
-    }
-}
-
-// [impl->dsn~reports~3]
-/// Setting or moving the pin of an Auftrag in place (REP-4): the small map of the form,
-/// then "Pin speichern"; "Pin entfernen" takes it off the map.
-#[component]
-fn PinEditor(
-    core: Handle,
-    revision: RwSignal<u64>,
+// [impl->dsn~auftrag-card~1]
+/// Moving an Auftrag's pin: the card's chip asks, the list's one dialog answers (ADR-0104).
+#[derive(Clone)]
+struct PinAsk {
     object: String,
     label: String,
     placed: Option<[f64; 2]>,
-) -> impl IntoView {
-    let open = RwSignal::new(false);
-    let pin = RwSignal::new(placed);
-    let id = format!("pin-{}", core::slug(&object));
-    let object = StoredValue::new(object);
-    let label = StoredValue::new(label);
-    let save = move |_| {
-        let done = match pin.get_untracked() {
-            Some(at) => crate::shared::situation::set_pin(
-                core,
-                revision,
-                &object.get_value(),
-                &label.get_value(),
-                at,
-            ),
-            None => {
-                crate::shared::situation::remove_pin(core, revision, &object.get_value());
-                true
-            }
+    /// The chip that asked, for the focus.
+    back: String,
+}
+
+/// Assigning an Auftrag (REP-2), or with `further` sending a further unit (ADR-0085).
+#[derive(Clone)]
+struct AssignAsk {
+    task: Task,
+    further: bool,
+}
+
+/// The dialogs of the Aufträge list, one each for all its cards (ADR-0104).
+#[derive(Clone, Copy)]
+struct TaskDialogs {
+    pin: RwSignal<Option<PinAsk>>,
+    assign: RwSignal<Option<AssignAsk>>,
+}
+
+// [impl->dsn~reports~4]
+/// Assigns `unit` to `task`; an open report without a task (ADR-0075) gets an Auftrag
+/// naming it. Whether it was recorded.
+fn assign(core: Handle, revision: RwSignal<u64>, task: &Task, unit: String) -> bool {
+    if is_legacy(task) {
+        let given = TaskGiven {
+            task: String::new(),
+            unit: Some(unit),
+            report: task.given.report.clone(),
+            follow_up: None,
+            template: None,
+            sector: None,
+            person: None,
+            ..task.given.clone()
         };
-        if done {
-            open.set(false);
-        }
-    };
-    let picker = id.clone();
-    view! {
-        <Disclosure id open class="task-card__more" button_class="button button--small button--quiet"
-            panel_class="task-card__panel"
-            label=Some(Signal::derive(move || text::pin_edit_label(placed.is_some(), &label.get_value())))
-            button=Box::new(move || view! {
-                <Icon name="map-pin" />{if placed.is_some() { text::pin_move() } else { text::pin_set() }}
-            }.into_any())>
-            <Show when=move || open.get()>
-                <crate::shared::situation::PinPicker core revision id=picker.clone() pin />
-                <div class="row">
-                    <button type="button" class="button button--small" on:click=save>{text::pin_save()}</button>
-                </div>
-            </Show>
-        </Disclosure>
+        core::give_task(core, revision, given).is_ok()
+    } else {
+        let assigned = TaskAssigned {
+            task: task.given.task.clone(),
+            unit,
+        };
+        core::assign_task(core, revision, &assigned).is_ok()
     }
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~auftrag-card~1]
+// [impl->dsn~reports~4]
+/// The pin of an Auftrag in a dialog (REP-4, ADR-0104): the small map shows it and moves it
+/// (a tap, an address, or "Pin in Kartenmitte setzen"); "Pin speichern" keeps the change,
+/// "Pin entfernen" and saving take it off the map. The map is made when the dialog opens.
+#[component]
+fn PinDialog(
+    core: Handle,
+    revision: RwSignal<u64>,
+    asked: RwSignal<Option<PinAsk>>,
+) -> impl IntoView {
+    let close = Callback::new(move |()| asked.set(None));
+    view! {
+        <crate::shell::ui::EditDialog id="task-pin" open=Signal::derive(move || asked.with(Option::is_some))
+            on_close=close
+            title=Signal::derive(move || asked.with(|a| a.as_ref().map(|a| text::pin_dialog_title(&a.label)).unwrap_or_default()))
+            back=Signal::derive(move || asked.with(|a| a.as_ref().map(|a| a.back.clone()).unwrap_or_default()))>
+            {move || asked.get().map(|ask| {
+                let pin = RwSignal::new(ask.placed);
+                let save = move |_| {
+                    let done = match pin.get_untracked() {
+                        Some(at) => crate::shared::situation::set_pin(core, revision, &ask.object, &ask.label, at),
+                        None => {
+                            crate::shared::situation::remove_pin(core, revision, &ask.object);
+                            true
+                        }
+                    };
+                    if done {
+                        asked.set(None);
+                    }
+                };
+                view! {
+                    <div class="edit-dialog__part">
+                        <crate::shared::situation::PinPicker core revision id="task-pin" pin />
+                        <div class="row">
+                            <button type="button" class="button button--primary" on:click=save>{text::pin_save()}</button>
+                        </div>
+                    </div>
+                }
+            })}
+        </crate::shell::ui::EditDialog>
+    }
+}
+
+// [impl->dsn~auftrag-card~1]
+// [impl->dsn~reports~4]
+/// Assigning in a dialog (REP-2, ADR-0085, ADR-0104): the units present that are not on the
+/// Auftrag yet, the available first, each one button with its status; one tap assigns.
+#[component]
+fn AssignDialog(
+    core: Handle,
+    revision: RwSignal<u64>,
+    asked: RwSignal<Option<AssignAsk>>,
+) -> impl IntoView {
+    let close = Callback::new(move |()| asked.set(None));
+    let title = move || {
+        asked.with(|a| {
+            a.as_ref()
+                .map(|a| {
+                    let action = if a.further {
+                        text::task_send_further()
+                    } else {
+                        text::task_assign()
+                    };
+                    text::task_step_label(action, label(&a.task))
+                })
+                .unwrap_or_default()
+        })
+    };
+    view! {
+        <crate::shell::ui::EditDialog id="task-assign" open=Signal::derive(move || asked.with(Option::is_some))
+            on_close=close title=Signal::derive(title) back=Signal::derive(|| "tasks-title".to_owned())>
+            {move || asked.get().map(|ask| {
+                let on_it: Vec<String> = ask.task.units.iter().map(|p| p.unit.clone()).collect();
+                let mut units: Vec<ordo_units::Unit> = crate::shared::lage::present(core)
+                    .into_iter()
+                    .filter(|u| !on_it.contains(&u.unit))
+                    .collect();
+                // The available first, then the others, those without a status last.
+                units.sort_by_key(|u| {
+                    let group = crate::shared::lage::group_of(u);
+                    (group.map_or(9, |g| g as u8), u.unit.clone())
+                });
+                if units.is_empty() {
+                    return view! { <p>{text::task_no_units()}</p> }.into_any();
+                }
+                let task = StoredValue::new(ask.task.clone());
+                view! {
+                    <ul class="assign-list">
+                        {units.into_iter().map(|u| {
+                            let status = crate::shared::units::status_shown(&u);
+                            let unit = u.unit.clone();
+                            let group = crate::shared::lage::group_of(&u);
+                            view! {
+                                <li>
+                                    // Named by what it shows; the dialog's title names the Auftrag.
+                                    <button type="button" class="assign-list__unit"
+                                        on:click=move |_| {
+                                            if task.with_value(|t| assign(core, revision, t, unit.clone())) {
+                                                asked.set(None);
+                                            }
+                                        }>
+                                        <crate::shared::lage::GroupLabel group />
+                                        <strong>{u.unit.clone()}</strong>
+                                        <span class="assign-list__status">{status}</span>
+                                    </button>
+                                </li>
+                            }
+                        }).collect_view()}
+                    </ul>
+                }
+                .into_any()
+            })}
+        </crate::shell::ui::EditDialog>
+    }
+}
+
+// [impl->dsn~tasks~9]
 /// When the incident command asks the unit again: the time and the minutes and seconds
 /// left, counted down every second. Not announced each second (no live region); when it
 /// reaches zero, the views recompute and the task shows as due.
@@ -678,7 +739,7 @@ fn FollowUpCountdown(at: u64, clock: String, revision: RwSignal<u64>) -> impl In
     }
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~tasks~9]
 /// The shared modules' items for the bell (TASK-3): for the incident command the follow-ups
 /// that are due and the Aufträge without anyone, linking to *Disposition*; for everyone else
 /// the Aufträge given to them or their unit that nobody has started yet.
@@ -735,8 +796,8 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
     items
 }
 
-// [impl->dsn~tasks~8]
-// [impl->dsn~reports~3]
+// [impl->dsn~tasks~9]
+// [impl->dsn~reports~4]
 /// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; "+ Auftrag"
 /// opens the form "Neuer Auftrag" for reports and tasks in a dialog; below, the units with their status, set here
 /// (ADR-0070).
@@ -757,6 +818,11 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         )
     });
     let giving = RwSignal::new(false);
+    let dialogs = TaskDialogs {
+        pin: RwSignal::new(None),
+        assign: RwSignal::new(None),
+    };
+    provide_context(dialogs);
     // Whom the next task is for, also chosen from a unit's "Auftrag geben".
     let chosen = RwSignal::new(String::new());
     let kind = RwSignal::new(None::<NewKind>);
@@ -779,7 +845,7 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             // "+ Auftrag" at the card's head, the form in the dialog (ADR-0102, feedback of
             // 2026-11-28); a unit's "Auftrag geben" opens the same dialog.
             <div class="section-head">
-                <h2 id="tasks-title" class="section-head__title">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>
+                <h2 id="tasks-title" class="section-head__title" tabindex="-1">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>
                 <Show when=move || editable.get()>
                     <div class="section-head__action">
                         <crate::shell::ui::CreateButton id="give-task" word=text::task_new_word() title=text::task_new() open=giving>
@@ -803,8 +869,9 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 .into_any()
             }}
+            <PinDialog core revision asked=dialogs.pin />
+            <AssignDialog core revision asked=dialogs.assign />
         </section>
-        <crate::shared::units::UnitStatusBoard core revision editable give />
     }
 }
 
@@ -841,8 +908,8 @@ impl NewKind {
     }
 }
 
-// [impl->dsn~tasks~8]
-// [impl->dsn~reports~3]
+// [impl->dsn~tasks~9]
+// [impl->dsn~reports~4]
 /// "Neuer Auftrag" (TASK-1, REP-1): the kind; for a report the place, what is going on and
 /// when it came in, the unit optional; for another task whom it is for and a template; a
 /// time to follow up (TASK-4); and for a report a pin, by address or on a small map, on the

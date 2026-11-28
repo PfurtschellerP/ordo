@@ -1,5 +1,5 @@
 // Helpers that drive the ORDO app like a user.
-import { expect, Page } from "@playwright/test";
+import { expect, Locator, Page } from "@playwright/test";
 import type { DeviceKey, OrdoServer } from "./server";
 
 /** The connection state, as the connection button names it ("Verbindung: Verbunden. Alles gesendet"). */
@@ -121,6 +121,27 @@ export async function openProfile(page: Page, part: "Ich" | "Dieses Gerät" = "I
   const tab = page.locator("#main [role=tablist]").first().getByRole("tab", { name: part, exact: true });
   if (await tab.isVisible()) await tab.click();
   await expect(page.locator(part === "Ich" ? "#profile-me-title" : "#profile-device-title")).toBeVisible();
+}
+
+/** Chooses a step behind an item's "⋯" (ADR-0104): opens its menu, then the step. */
+export async function moreStep(item: Locator, name: string | RegExp): Promise<void> {
+  await item.locator(".more-actions > .icon-button").click();
+  await item.locator(".more-actions__panel").getByRole("button", { name }).click();
+}
+
+/** Sets a unit's status in *Führung – Lage* (ADR-0104), from the workspace *Führung*; gives
+ * the unit's item there. */
+export async function setUnitStatus(page: Page, unit: string, status: string): Promise<Locator> {
+  await openView(page, "Lage");
+  const tab = page.locator("#main [role=tablist]").first().getByRole("tab", { name: "Einsatzmittel", exact: true });
+  if (await tab.isVisible()) await tab.click();
+  const only = page.getByLabel("Nur einsatzbereite");
+  if (await only.isChecked()) await only.uncheck();
+  const item = page.locator(`.unit-glance__item[data-unit='${unit}']`);
+  const select = item.getByLabel(`Status von ${unit} setzen`);
+  if (!(await select.isVisible())) await item.getByRole("button", { name: `Details: ${unit}` }).click();
+  await select.selectOption({ label: status });
+  return item;
 }
 
 export async function openView(page: Page, label: string): Promise<void> {

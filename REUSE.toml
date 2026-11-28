@@ -49,6 +49,7 @@ SPDX-License-Identifier = "ISC"
 path = [
   "design/assets/icons/lucide/ban.svg",
   "design/assets/icons/lucide/camera.svg",
+  "design/assets/icons/lucide/chevron-right.svg",
   "design/assets/icons/lucide/crosshair.svg",
   "design/assets/icons/lucide/info.svg",
   "design/assets/icons/lucide/log-in.svg",

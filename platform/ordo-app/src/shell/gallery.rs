@@ -10,9 +10,9 @@ use std::collections::BTreeSet;
 use leptos::prelude::*;
 
 use crate::shell::ui::{
-    Actions, Ago, CheckChips, Disclosure, EditButton, EditDialog, EmptyState, History, ICONS, Icon,
-    IconButton, ItemRow, KeyValues, RadioChips, SectionHead, StatusTag, Suggestions, Tone, UndoBar,
-    UndoSlot, offer_undo,
+    Action, Actions, Ago, CheckChips, Disclosure, EditButton, EditDialog, EmptyState, History,
+    ICONS, Icon, IconButton, ItemRow, KeyValues, MoreActions, ObjectChip, RadioChips, SectionHead,
+    StatusTag, Suggestions, Tone, UndoBar, UndoSlot, offer_undo,
 };
 use crate::shell::views::{Nav, show_theme, stored_theme};
 use crate::text;
@@ -243,6 +243,14 @@ const SHELL: &[Part] = &[
                 usage: "The head of each part of a page: icon, title, number, one action at the right (\"+ Neu\"). Close to its rows, apart from the section above (space and a thin line). Replaces a large heading inside each card (ADR-0102).",
                 access: "A real heading; the number is text; the action names its section.",
                 show: section_head,
+            },
+            Example {
+                id: "object-chips",
+                name: "Object chips and the \"⋯\" menu",
+                code: "shell::ui::ObjectChip, shell::ui::MoreActions",
+                usage: "An item's objects (its pin, its destination) as chips that open their dialog; dashed while not set. One next step at hand, the others in a menu over the page; ending steps last, set apart. Nothing opens inside the card (ADR-0104).",
+                access: "Chips are buttons named with the item and say they open a dialog; the menu is a popover that Escape and a click outside close.",
+                show: object_chips,
             },
             Example {
                 id: "item-row",
@@ -483,6 +491,7 @@ pub(crate) fn icon_meaning(name: &str) -> &'static str {
         "bell" => "what needs attention",
         "camera" => "take a photo",
         "chart-column" => "figures, reports",
+        "chevron-right" => "opens its dialog (an object chip)",
         "circle-check" => "a unit available",
         "clipboard-list" => "Aufträge, Disposition",
         "cloud-check" => "connected and sent",
@@ -492,6 +501,7 @@ pub(crate) fn icon_meaning(name: &str) -> &'static str {
         "ellipsis" => "more actions",
         "file-down" => "download a document",
         "flag" => "the incident",
+        "hospital" => "a hospital, a transport's destination",
         "id-card" => "people (Personal)",
         "info" => "details",
         "keyboard" => "keyboard shortcuts",
@@ -807,6 +817,28 @@ fn section_head() -> AnyView {
             <SectionHead id="gallery-sh-vitals" title="Vitalwerte" />
             <p class="hint">"Ein Eintrag …"</p>
         </section>
+    }
+    .into_any()
+}
+
+fn object_chips() -> AnyView {
+    let none = || Callback::new(|()| {});
+    let step = |text: &'static str, quiet: bool| Action {
+        text,
+        label: format!("{text}: Patient: Bühne Nord"),
+        quiet,
+        run: Callback::new(|()| {}),
+    };
+    view! {
+        <div class="task-card">
+            <p class="task-card__what"><strong>"Bühne Nord"</strong> " – Person liegt am Boden"</p>
+            <div class="object-chips">
+                <ObjectChip icon="map-pin" value="Auf der Karte" label="Pin: Patient: Bühne Nord" on_click=none() />
+                <ObjectChip icon="hospital" value="Ziel setzen" empty=true label="Ziel: RTW für UHS Eingang" on_click=none() />
+            </div>
+            <MoreActions id="gallery-more" label="Weitere Schritte: Patient: Bühne Nord"
+                actions=vec![step("In Arbeit", false), step("Erledigt", false), step("In 10 Minuten nachfragen", false), step("Abbrechen", true)] />
+        </div>
     }
     .into_any()
 }

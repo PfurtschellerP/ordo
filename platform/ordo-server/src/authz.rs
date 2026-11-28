@@ -742,7 +742,7 @@ mod tests {
             "hospitals.set",
             &commander
         ));
-        // [utest->dsn~tasks~8]
+        // [utest->dsn~tasks~9]
         assert!(
             !p.can_write(&erik, &incident, &shared, "tasks", "tasks.given", &medic),
             "tasks are the command's"
@@ -810,7 +810,7 @@ mod tests {
             "reports.patientRegistered",
             &medic
         ));
-        // [utest->dsn~reports~3]
+        // [utest->dsn~reports~4]
         for event in ["reports.recorded", "reports.closed"] {
             assert!(
                 !p.can_write(&erik, &incident, &shared, "reports", event, &medic),

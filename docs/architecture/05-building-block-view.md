@@ -409,7 +409,7 @@ Tags: should, m74
 ### 5.5.1a Shared module `tasks`
 
 #### Tasks
-`dsn~tasks~8`
+`dsn~tasks~9`
 
 Crate `ordo-tasks`, module `tasks`, in the shared `incident` compartment
 ([ADR-0081](../adr/0081-one-einsatzauftrag.md)). `tasks.given` (schema version 3) gives
@@ -435,8 +435,10 @@ announced to screen readers each second).
 Only the incident command gives, assigns and cancels Aufträge (Cedar: medical roles write
 only `tasks.updated` and `tasks.patientRegistered`). The page *Disposition*
 (*Einsatzleitung – Führung*) lists the open Aufträge, due follow-ups first, then by age,
-one card each with kind, place, description, unit, state and next steps, and has one form
-"Neuer Auftrag" for reports and tasks alike. The overview's
+one card each with kind, place, description, unit, state and next steps
+([Auftrag card](#auftrag-card)), and has one form "Neuer Auftrag" for reports and tasks
+alike, from "+ Auftrag"; the staff the UHS ask for are on a tab of their own. The units'
+status is set in *Führung – Lage*, where each unit shows its Auftrag. The overview's
 *Disposition* tile shows them in short (TASK-3); the other pages carry no extra line about
 them (feedback of 2026-11-14 and 2026-11-17). On every page, everyone in an incident has a
 bell in the header (since 2026-11-18 for every role). For the command (`view_situation`)
@@ -448,8 +450,7 @@ priority, with the open transports under way. For everyone else it counts the
 Aufträge given to them, or whose part for a unit whose crew names them has not started,
 each linked to *Sanität – Besatzung*. Its number is text, its name says it
 ("Hinweise: 2"), and its panel lists each item.
-Each unit card lists its open tasks. "Due" is shown in words and with an icon, not by
-colour alone.
+"Due" is shown in words and with an icon, not by colour alone.
 
 Covers:
 
@@ -461,6 +462,34 @@ Covers:
 Needs: impl, utest, itest
 
 Tags: must, m31
+
+#### Auftrag card
+`dsn~auftrag-card~1`
+
+Every Auftrag and transport is shown as one card of the same anatomy
+([ADR-0104](../adr/0104-the-auftrag-card.md)): the head (kind icon and what, the state at
+the right), one line of facts (since when, the follow-up), its objects as chips, and the
+foot. A chip (`shell::ui::ObjectChip`) shows an object's value with its icon, 📍 the pin,
+🏥 the destination, and a tap opens its dialog; with nothing set it is dashed and says
+what to set. The foot holds the one next step as a button and the others in the "⋯" menu
+(`shell::ui::MoreActions`): a popover over the page, under its button on wide screens and a
+sheet at the bottom on phones, closed by Escape, a click outside or a choice; steps that
+end something come last, set apart. Nothing opens inside a card: each list has one dialog
+per kind of object (the pin, the units to assign), so the list may update under it. The
+pin's dialog shows it on a small map made when the dialog opens and moves or removes it;
+the assigning dialog lists the units present that are not on the Auftrag, the available
+first, one button each. The crew keeps the small map on its own card, with the link to the
+maps app. *Disposition* has the tabs *Aufträge* and *Personal anfordern*; the units' status
+is set in *Lage*.
+
+Covers:
+
+* [req~ux-18~1](../requirements/07-quality.md#ux-18--calm-pages)
+* [req~rep-4~3](../requirements/02-shared.md#rep-4--place-on-the-map)
+
+Needs: impl, itest
+
+Tags: should, m79
 
 ### 5.5.1b Shared module `command`
 
@@ -975,7 +1004,7 @@ Tags: should, m59
 ### 5.5.1e Shared module `reports`
 
 #### Reports
-`dsn~reports~3`
+`dsn~reports~4`
 
 Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
 [ADR-0081](../adr/0081-one-einsatzauftrag.md)). No clinical data.
@@ -987,10 +1016,11 @@ Reports are Aufträge of the module `tasks` ([Tasks](#tasks),
   sets it, "Pin in Kartenmitte setzen" sets it from the keyboard, and it can be removed
   before saving.
 * **Pin:** a map object of the kind `task` (`map.objectPlaced`, schema version 4,
-  `reference` the Auftrag's ID). The card shows it on a small map (*Pin zeigen*, made
-  only when opened) and moves it in place, with the same small map.
-  "Weiteres Einsatzmittel schicken" adds a unit to the Auftrag (ADR-0085), offering only
-  units not on it yet; a linked Auftrag of an older incident (`follows`) uses the first
+  `reference` the Auftrag's ID). The card's pin chip opens one dialog that shows the pin
+  on a small map, made when it opens, and moves or removes it
+  ([Auftrag card](#auftrag-card)). "Zuweisen" and "Weiteres Einsatzmittel schicken" open
+  the units present in a dialog; the latter adds a unit to the Auftrag (ADR-0085), offering
+  only units not on it yet; a linked Auftrag of an older incident (`follows`) uses the first
   one's pin. The situation map shows a pin while one of its Aufträge is open; the map
   event stays.
 * **Patient from a patient Auftrag** (`tasks.patientRegistered`: Auftrag and unit):

@@ -720,7 +720,7 @@ fn schedule_reconnect(core: Handle, revision: RwSignal<u64>) {
     }
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// Registers a patient: stored locally at once, sent when connected. From a patient
 /// Auftrag (`case`: the Auftrag and the unit whose crew takes the patient over, REP-3) the
 /// record names it, and the incident command learns that it has a patient, without tag or
@@ -1116,7 +1116,7 @@ pub fn map_event(
     )
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~tasks~9]
 /// Gives a task or records a report as an Auftrag (TASK-1, REP-1): a new ID, then the event
 /// in the shared incident compartment. Returns the ID.
 pub fn give_task(
@@ -1146,7 +1146,7 @@ pub fn give_task(
     Ok(id)
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~tasks~9]
 /// Adds a unit to an open Auftrag (REP-2, ADR-0085).
 pub fn assign_task(
     core: Handle,

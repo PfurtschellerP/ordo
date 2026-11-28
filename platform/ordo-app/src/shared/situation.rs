@@ -740,7 +740,7 @@ pub fn SituationView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// A small map of the incident, centred on one object: an Auftrag's pin for the crew sent
 /// there (REP-4), or for the incident command on its card. It moves with two fingers, so
 /// one finger scrolls the page.
@@ -1725,7 +1725,7 @@ pub fn placed_at(core: Handle, object: &str) -> Option<[f64; 2]> {
     })
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// Puts the pin of an Auftrag on the map, or moves it (REP-4): `object` is its map object
 /// ([`crate::shared::tasks::pin_object`]).
 pub fn set_pin(
@@ -1758,7 +1758,7 @@ pub fn remove_pin(core: Handle, revision: RwSignal<u64>, object: &str) {
     remove(core, revision, object);
 }
 
-// [impl->dsn~reports~3]
+// [impl->dsn~reports~4]
 /// Sets a pin on the same form (REP-1): an address search, then a small map where a tap
 /// sets the pin and "Pin in Kartenmitte setzen" sets it from the keyboard. The map moves
 /// with two fingers, so one finger scrolls the page. `id` prefixes the element IDs.

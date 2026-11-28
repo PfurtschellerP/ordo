@@ -36,8 +36,6 @@ col-status = Estado
 col-set-status = Fijar estado
 no-status = –
 set-status-label = Fijar estado de { $unit }
-unit-status-title = Unidades: estado y misiones
-unit-status-empty = Aún no hay unidades en el incidente. Se añaden en Preparación.
 # Starts with the button's visible text, so its name matches what is seen.
 task-give-label = { task-give }: { $unit }
 move-here = Mover aquí
@@ -162,7 +160,6 @@ task-kind-label = Tipo
 task-kind-other = Otra misión
 task-kind-missing = Elija el tipo.
 task-unit-later = Asignar más tarde
-task-unit-only = Elegir unidad
 task-unit-hint = Opcional para un paciente o un suceso: la unidad también puede asignarse más tarde.
 task-place = Lugar
 task-what = ¿Qué ocurre?
@@ -173,15 +170,8 @@ task-text-missing = Describa brevemente de qué se trata.
 task-place-missing = Indique el lugar.
 task-too-long = El lugar o la descripción es demasiado largo.
 task-time-invalid = Indique una hora, p. ej. 14:05.
-task-assign-to = Asignar a
 task-assign = Asignar
-task-unit-missing = Elija una unidad.
 task-send-further = Enviar otra unidad
-task-send-to = Enviar también
-task-send = Enviar
-# Opens a small map centred on the Auftrag's pin.
-pin-show = Mostrar marcador
-pin-show-label = Mostrar marcador: { $task }
 my-tasks = Mis misiones
 pin-title = Marcador en el mapa (opcional)
 pin-hint = Busque una dirección o toque el mapa. Con el teclado: mueva el mapa con las flechas y luego «Colocar marcador en el centro del mapa».
@@ -189,8 +179,14 @@ pin-at-centre = Colocar marcador en el centro del mapa
 pin-clear = Quitar marcador
 pin-none = No hay marcador colocado.
 pin-set = Colocar marcador
-pin-move = Mover marcador
 pin-save = Guardar marcador
+## The Auftrag card (ADR-0104): chips, dialogs, the "⋯" menu, Disposition's tabs.
+pin-on-map = En el mapa
+pin-dialog-title = Marcador: { $task }
+task-more-label = Más pasos: { $task }
+task-no-units = Ninguna otra unidad en el lugar.
+tab-tasks = Misiones
+tab-staff-requests = Solicitar personal
 
 ## Map object cards (MAP-11).
 map-details = Detalles
@@ -449,12 +445,6 @@ task-follow-up-number = Indique los minutos como número entero.
 log-pause-ended = Pausa terminada
 draw-hint = Toque cada esquina, o mueva el mapa para que la esquina quede bajo la cruz (también con las flechas), y colóquela. Luego «Hecho».
 helper-duty-start = Inicio del turno
-# "no open tasks", "1 open task", "3 open tasks"
-open-tasks-of = { $n ->
-    [0] ninguna misión abierta
-    [one] 1 misión abierta
-   *[other] { $n } misiones abiertas
-}
 # People on more than one crew or staff list (UNIT-8), e.g. "Ben (RTW 1, care unit south)".
 double-booked-people = Asignados más de una vez, quizá contados dos veces: { $people }
 # The person being added is on other crews or staff lists already (UNIT-8).
@@ -504,8 +494,6 @@ units-count = { $n ->
 log-report-line = Aviso recibido: { $kind }, { $received } – { $place } – { $text }
 # "Role Physician withdrawn from Anna Schmidt."
 role-removed-from = Rol { $role } retirado a { $who }.
-# Variables: $action, $task
-pin-edit-of = { $action }: { $task }
 task-kind-event = Suceso
 task-kind-patient = Paciente
 # "Patient: Stage north"

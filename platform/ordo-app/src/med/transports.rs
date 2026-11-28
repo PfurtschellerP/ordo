@@ -90,7 +90,7 @@ fn waiting(core: Handle) -> Vec<Transport> {
         .collect()
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~tasks~9]
 /// The bell's items for the incident command: each transport waiting for a unit, linked to
 /// *Transporte* (feedback of 2026-11-22: what is important and time-critical).
 pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
@@ -112,7 +112,7 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
         .collect()
 }
 
-// [impl->dsn~tasks~8]
+// [impl->dsn~tasks~9]
 /// The overview's tile *Transporte*: the requests waiting for a unit (the first three, by
 /// priority) and how many are under way.
 #[component]
@@ -300,6 +300,9 @@ pub(crate) fn StepButtons(
     core: Handle,
     revision: RwSignal<u64>,
     transport: Transport,
+    /// A step before the others, e.g. the command's "Zuweisen" (ADR-0104).
+    #[prop(default = None)]
+    first: Option<Action>,
 ) -> impl IntoView {
     let name = summary(core, &transport);
     let request = transport.request.request.clone();
@@ -366,9 +369,13 @@ pub(crate) fn StepButtons(
             run: update(TransportStatus::Cancelled),
         });
     }
+    if let Some(first) = first {
+        actions.insert(0, first);
+    }
     // [impl->dsn~building-blocks~1]
-    // The next step at hand, the others and cancelling behind "⋯" (ADR-0102).
-    view! { <crate::shell::ui::MoreActions label=text::transport_more_label(&name) actions /> }
+    // [impl->dsn~auftrag-card~1]
+    // The next step at hand, the others and cancelling behind "⋯" (ADR-0102, ADR-0104).
+    view! { <crate::shell::ui::MoreActions id=format!("more-{}", core::slug(&transport.request.request)) label=text::transport_more_label(&name) actions /> }
 }
 
 // [impl->dsn~transport-request~3]
@@ -543,9 +550,15 @@ fn RequestList(
     title: &'static str,
     empty: &'static str,
 ) -> impl IntoView {
+    // [impl->dsn~auftrag-card~1]
+    // One dialog for the list (ADR-0104): assigning a unit, or setting or changing the
+    // destination ("Ziel" chip), with the hospitals' reported free places beside.
+    let asked = RwSignal::new(None::<(Transport, bool, String)>);
+    let close = Callback::new(move |()| asked.set(None));
+    let dialog = format!("{id}-assign");
     view! {
         <section aria-labelledby=id class="card">
-            <h2 id=id>{title}</h2>
+            <h2 id=id tabindex="-1">{title}</h2>
             {move || {
                 let list = list.get();
                 if list.is_empty() {
@@ -555,42 +568,91 @@ fn RequestList(
                     <ul class="transport-list" data-keys="list">
                         {list
                             .into_iter()
-                            .map(|t| view! {
-                                <li class="transport-card" data-request=t.request.request.clone()>
-                                    <h3>{summary(core, &t)}</h3>
-                                    <TransportDetails core transport=t.clone() show_uhs=true />
-                                    {(t.status == TransportStatus::Requested)
-                                        .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals /> })}
-                                    // [impl->dsn~transport-request~3]
-                                    // Sent without a destination: it is set here, until the unit is there.
-                                    {(t.unit.is_some() && t.destination.is_none() && t.status.is_open() && t.status < TransportStatus::Arrived)
-                                        .then(|| view! { <AssignForm core revision transport=t.clone() units hospitals destination_only=true /> })}
-                                    // Changed on the way, e.g. when a hospital stops admitting.
-                                    {(t.unit.is_some() && t.destination.is_some() && t.status.is_open() && t.status < TransportStatus::Arrived)
-                                        .then(|| {
-                                            // Closed once saved: the card is updated in place.
-                                            let details = NodeRef::<leptos::html::Details>::new();
-                                            let saved = Callback::new(move |()| {
-                                                if let Some(d) = details.get_untracked() {
-                                                    d.set_open(false);
-                                                }
-                                            });
-                                            view! {
-                                                <details class="transport-change" node_ref=details>
-                                                    <summary>{text::destination_change()}</summary>
-                                                    <AssignForm core revision transport=t.clone() units hospitals destination_only=true on_saved=saved />
-                                                </details>
-                                            }
-                                        })}
-                                    <StepButtons core revision transport=t.clone() />
-                                </li>
+                            .map(|t| {
+                                let name = summary(core, &t);
+                                let slug = core::slug(&t.request.request);
+                                // Assigning is the command's first step while requested.
+                                let first = (t.status == TransportStatus::Requested).then(|| {
+                                    let ask = (t.clone(), false, id.to_owned());
+                                    Action {
+                                        text: text::transport_assign(),
+                                        label: text::transport_step_label(text::transport_assign(), &name),
+                                        quiet: false,
+                                        run: Callback::new(move |()| asked.set(Some(ask.clone()))),
+                                    }
+                                });
+                                // [impl->dsn~transport-request~3]
+                                // The destination, set or changed until the unit is there.
+                                let destination = (t.unit.is_some() && t.status.is_open() && t.status < TransportStatus::Arrived).then(|| {
+                                    let chip = format!("destination-chip-{slug}");
+                                    let ask = (t.clone(), true, chip.clone());
+                                    let (value, empty) = match &t.destination {
+                                        Some(d) => (d.clone(), false),
+                                        None => (text::destination_set_label().to_owned(), true),
+                                    };
+                                    view! {
+                                        <div class="object-chips">
+                                            <crate::shell::ui::ObjectChip icon="hospital" value empty id=chip
+                                                label=text::transport_step_label(text::destination(), &name)
+                                                on_click=Callback::new(move |()| asked.set(Some(ask.clone()))) />
+                                        </div>
+                                    }
+                                });
+                                view! {
+                                    <li class="transport-card" data-request=t.request.request.clone()>
+                                        <h3>{summary(core, &t)}</h3>
+                                        <TransportDetails core transport=t.clone() show_uhs=true />
+                                        {destination}
+                                        <StepButtons core revision transport=t.clone() first=first />
+                                    </li>
+                                }
                             })
                             .collect_view()}
                     </ul>
                 }
                 .into_any()
             }}
+            <crate::shell::ui::EditDialog id=dialog open=Signal::derive(move || asked.with(Option::is_some))
+                on_close=close
+                title=Signal::derive(move || asked.with(|a| a.as_ref().map(|(t, only, _)| {
+                    let word = if !only { text::transport_assign() } else if t.destination.is_some() { text::destination_change() } else { text::destination_set_label() };
+                    text::transport_step_label(word, summary(core, t))
+                }).unwrap_or_default()))
+                back=Signal::derive(move || asked.with(|a| a.as_ref().map(|(_, _, back)| back.clone()).unwrap_or_default()))>
+                {move || asked.get().map(|(transport, destination_only, _)| view! {
+                    <div class="edit-dialog__part">
+                        <AssignForm core revision transport units hospitals destination_only on_saved=close />
+                    </div>
+                    <div class="edit-dialog__part">
+                        <h3>{text::hospitals_title()}</h3>
+                        <HospitalCapacities core hospitals />
+                    </div>
+                })}
+            </crate::shell::ui::EditDialog>
         </section>
+    }
+}
+
+// [impl->dsn~auftrag-card~1]
+/// The hospitals with their reported free places, beside the choice of a destination
+/// (ADR-0104). ORDO shows what was reported; it never suggests a hospital.
+#[component]
+fn HospitalCapacities(core: Handle, hospitals: Memo<HospitalList>) -> impl IntoView {
+    view! {
+        {move || {
+            let list: Vec<(String, String)> = hospitals.with(|h| {
+                h.by_name().iter().map(|h| (h.entry.name.clone(), capacity_line(core, h))).collect()
+            });
+            if list.is_empty() {
+                return view! { <p class="hint">{text::hospitals_empty()}</p> }.into_any();
+            }
+            view! {
+                <dl class="hospital-capacities">
+                    {list.into_iter().map(|(name, line)| view! { <div><dt>{name}</dt><dd>{line}</dd></div> }).collect_view()}
+                </dl>
+            }
+            .into_any()
+        }}
     }
 }
 

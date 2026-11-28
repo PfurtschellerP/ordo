@@ -699,7 +699,10 @@
   .order-form { display: grid; gap: var(--ordo-space-2); }
   .history-list ol { margin: var(--ordo-space-2) 0 0; padding-inline-start: var(--ordo-space-5); }
   .transport-assign { display: grid; gap: var(--ordo-space-2); grid-template-columns: minmax(0, 1fr); }
-  .transport-change > .transport-assign { margin-block-start: var(--ordo-space-2); }
+  /* Beside a destination's choice: each hospital with its reported free places (ADR-0104). */
+  .hospital-capacities { display: grid; gap: var(--ordo-space-2); margin: 0; }
+  .hospital-capacities dt { font-weight: var(--ordo-font-weight-bold); }
+  .hospital-capacities dd { margin: 0; color: var(--ordo-color-text-secondary); font-size: var(--ordo-font-size-2); }
   .incident-card h2 { margin: 0; font-size: var(--ordo-font-size-4); }
   .incident-card p { margin: 0; }
   .incident-card .button { justify-self: start; }
@@ -1059,7 +1062,6 @@
   .strength-on-scene__mark { font-weight: var(--ordo-font-weight-bold); padding-inline-start: var(--ordo-space-1); }
   .assigned-elsewhere { display: grid; gap: var(--ordo-space-2); }
   .assigned-elsewhere p { margin: 0; }
-  .unit-status__item .button { justify-self: start; }
   .add-unit { margin-block-start: var(--ordo-space-4); }
   .load-list__details, .load-list__location, .load-list__staff { grid-column: 1 / -1; }
   /* Tasks (TASK-1…4): due follow-ups say so in words and with a sign, not by colour alone. */
@@ -1079,12 +1081,10 @@
     padding-block: var(--ordo-space-1); border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
   }
   .task-card__unit > span { flex: 1 1 10rem; }
-  .task-card__assign { align-items: end; }
   /* Received and follow-up side by side: labels, inputs and hints each on one line. */
   .task-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); column-gap: var(--ordo-space-3); }
   .task-times > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--ordo-space-1); align-content: start; }
   .task-times > .field > * { margin: 0; }
-  .task-card__panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
   .new-task { display: grid; gap: var(--ordo-space-3); }
   /* "Für" with its hint and "Vorlage" start on one line; the form's gap is the only space
      above them (feedback of 2026-11-27). */
@@ -1096,6 +1096,19 @@
   .new-task__pin legend { font-weight: var(--ordo-font-weight-bold); padding-inline: var(--ordo-space-1); max-inline-size: 100cqi; }
   .pin-picker { display: grid; gap: var(--ordo-space-2); }
   .pin-picker__state { margin: 0; font-family: var(--ordo-font-family-mono); }
+  /* The Auftrag card's foot (ADR-0104): the next step at the start, "⋯" beside it. */
+  .task-card__foot { padding-block-start: var(--ordo-space-1); }
+  .task-card .object-chips { padding-block-start: var(--ordo-space-1); }
+  /* Assigning: the units as one button each, the available first (ADR-0104). */
+  .assign-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ordo-space-2); }
+  .assign-list__unit {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--ordo-space-1) var(--ordo-space-3);
+    inline-size: 100%; min-block-size: var(--ordo-size-touch-target); padding: var(--ordo-space-2) var(--ordo-space-3);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+    background: var(--ordo-color-surface-default); color: var(--ordo-color-text-primary); font: inherit; text-align: start; cursor: pointer;
+  }
+  .assign-list__unit:hover { border-color: var(--ordo-color-text-link); }
+  .assign-list__status { color: var(--ordo-color-text-secondary); }
   .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
   /* Reports (REP-1…5): open ones in Disposition, patient cases for the crews. */
   .report-list { display: grid; gap: var(--ordo-space-3); margin: 0 0 var(--ordo-space-4); padding: 0; list-style: none; }
@@ -1423,16 +1436,55 @@
   .section-head__action { flex: none; display: flex; gap: var(--ordo-space-2); }
   .item-rows { list-style: none; margin: 0; padding: 0; }
   .more-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--ordo-space-2); }
-  .more-actions__menu { position: relative; }
-  .more-actions__menu > summary { list-style: none; cursor: pointer; }
-  .more-actions__menu > summary::-webkit-details-marker { display: none; }
+  /* The "⋯" menu (ADR-0104): a popover in the top layer, so no card clips it and nothing
+     moves; under its button on wide screens (placed by the app), a sheet at the bottom on
+     phones. Ending actions last, set apart. */
   .more-actions__panel {
-    margin-block-start: var(--ordo-space-2); padding: var(--ordo-space-2);
-    background: var(--ordo-color-surface-raised); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    position: fixed; inset: auto; margin: 0; padding: var(--ordo-space-1) 0;
+    min-inline-size: 14rem; max-inline-size: min(22rem, calc(100vw - 2 * var(--ordo-space-4)));
+    background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
     border-radius: var(--ordo-radius-medium);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.25);
   }
+  .more-actions__list { list-style: none; margin: 0; padding: 0; }
+  .more-actions__item {
+    display: flex; align-items: center; inline-size: 100%; min-block-size: var(--ordo-size-touch-target);
+    padding: 0 var(--ordo-space-4); border: 0; background: none; color: inherit; text-align: start;
+    font: inherit; cursor: pointer;
+  }
+  .more-actions__item:hover, .more-actions__item:focus-visible { background: var(--ordo-color-surface-sunken); }
+  li:has(> .more-actions__item--end):not(li:has(> .more-actions__item--end) ~ li) {
+    border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong);
+    margin-block-start: var(--ordo-space-1); padding-block-start: var(--ordo-space-1);
+  }
+  li:first-child:has(> .more-actions__item--end) { border: 0; margin: 0; padding: 0; }
+  .more-actions__item--end { color: var(--ordo-color-feedback-error-text); }
+  @media (max-width: 40rem) {
+    .more-actions__panel {
+      inset: auto 0 0 0; max-inline-size: none; inline-size: 100%;
+      border-radius: var(--ordo-radius-large) var(--ordo-radius-large) 0 0;
+      padding-block-end: calc(var(--ordo-space-2) + env(safe-area-inset-bottom));
+    }
+  }
+  .more-actions__panel::backdrop { background: transparent; }
+  /* An item's objects as chips (ADR-0104): icon and value; a tap opens its dialog. */
+  .object-chips { display: flex; flex-wrap: wrap; gap: var(--ordo-space-2); }
+  .object-chip {
+    display: inline-flex; align-items: center; gap: var(--ordo-space-1); max-inline-size: 100%;
+    min-block-size: var(--ordo-size-touch-target); padding: 0 var(--ordo-space-3);
+    border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium);
+    background: var(--ordo-color-surface-default); color: var(--ordo-color-text-primary);
+    font: inherit; cursor: pointer; text-align: start;
+  }
+  .object-chip__value { min-inline-size: 0; overflow-wrap: anywhere; font-weight: var(--ordo-font-weight-bold); }
+  .object-chip > .icon:last-child { color: var(--ordo-color-text-link); }
+  .object-chip:hover { border-color: var(--ordo-color-text-link); }
+  .object-chip--empty { border-style: dashed; color: var(--ordo-color-text-link); }
+  .object-chip--empty .object-chip__value { font-weight: var(--ordo-font-weight-bold); }
   .hospital-card__edit > summary { list-style: none; cursor: pointer; display: inline-flex; }
   .hospital-card__edit > summary::-webkit-details-marker { display: none; }
+  .hospital-card__edit > summary::marker { content: ""; }
   .hospital-card__edit[open] > summary { margin-block-end: var(--ordo-space-2); }
   .item-row {
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;

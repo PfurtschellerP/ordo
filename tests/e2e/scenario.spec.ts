@@ -38,6 +38,8 @@ import {
   storedItem,
   title,
   openProfile,
+  moreStep,
+  setUnitStatus,
 } from "./support/app";
 import { DEX_URL, ORDO_PORT, startDex, UPSTREAM } from "./support/dex";
 import { PLACE, startGeocoder } from "./support/geocoder";
@@ -1387,7 +1389,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#crew-dialog .crew-list"), "a crew member with qualifications; the panel stays open").toContainText("Ben Weber · Notfallsanitäter/in");
     await ben.keyboard.press("Escape");
 
-    // [itest->dsn~tasks~8]
+    // [itest->dsn~tasks~9]
     const strip = ben.locator(".tasks-strip");
     const bell = ben.locator("#attention-button");
     // A transport waiting for a unit rings the bell for the command and shows on the overview
@@ -1403,12 +1405,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(strip, "no extra line about tasks on the pages of Führung").toHaveCount(0);
     await openView(ben, "Disposition");
     await expect(ben.locator("#tasks-title"), "the page of all tasks").toHaveText("Offene Aufträge (0)");
-    // ADR-0070: the units' status is set and their orders given in Führung – Disposition.
-    const board = ben.locator(".unit-status__item[data-unit='RTW 83/1']");
-    await board.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "3 – Einsatz übernommen" });
-    await expect(board, "the status is set on Disposition").toContainText("Status: 3 – Einsatz übernommen");
-    await expect(board.locator(".unit-status__tasks")).toHaveText("keine offenen Aufträge");
-    await board.getByRole("button", { name: "Auftrag geben: RTW 83/1" }).click();
+    // [itest->dsn~auftrag-card~1]
+    // ADR-0104: Disposition holds the Aufträge and the staff requests, as tabs; the units'
+    // status is set, and an Auftrag given to one, in Führung – Lage.
+    await expect(ben.locator("#main [role=tablist]").first().getByRole("tab"), "Aufträge first").toHaveText(["Aufträge", "Personal anfordern"]);
+    await expect(ben.locator(".unit-status__item"), "no unit list on Disposition").toHaveCount(0);
+    const glance = await setUnitStatus(ben, "RTW 83/1", "3 – Einsatz übernommen");
+    await expect(glance.locator(".unit-glance__status"), "the status is set in Lage").toContainText("3 – Einsatz übernommen");
+    await glance.getByRole("link", { name: "Auftrag geben: RTW 83/1" }).click();
     await expect(ben.locator("#task-unit"), "the form opens for the unit").toHaveValue("unit:RTW 83/1");
     await ben.locator("#task-template").selectOption({ label: "Lagemeldung" });
     await expect(ben.locator("#task-text"), "a template fills in the text").toHaveValue("Lagemeldung abgeben");
@@ -1421,8 +1425,9 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#give-task-dialog"), "the form closes once the Auftrag is created").toBeHidden();
     await expect(ben.locator("#give-task-open"), "the focus goes back to its button").toBeFocused();
     await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
-    await expect(board.locator(".unit-status__tasks"), "the unit shows its task").toHaveText("1 offener Auftrag: Lagemeldung abgeben");
-    await audit(ben, "Units on Disposition");
+    await audit(ben, "Aufträge with a due follow-up");
+    await openView(ben, "Lage");
+    await expect(glance, "the unit shows its Auftrag").toContainText("Lagemeldung abgeben");
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Einsatzmittel");
     await expect(card, "the status set in Führung shows where units are planned").toContainText("Status: 3 – Einsatz übernommen");
@@ -1437,7 +1442,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (1)");
     await task.getByRole("button", { name: "In Arbeit: Lagemeldung abgeben" }).click();
     await expect(task.locator(".task-card__status")).toContainText("In Arbeit");
-    await task.getByRole("button", { name: /^In 10 Minuten nachfragen/ }).click();
+    await moreStep(task, /^In 10 Minuten nachfragen/);
     await expect(task.locator(".task-card__follow-up"), "postponed").toContainText("Nachfragen um");
     await expect(task.locator(".task-card__countdown"), "with the time left, counted down").toHaveText(/^noch (9:[0-5]\d|10:00) min$/);
     await audit(ben, "Tasks");
@@ -1847,7 +1852,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.locator("#task-text").fill("Lage der UHS melden");
     await ben.getByRole("button", { name: "Auftrag anlegen" }).click();
     await expect(ben.locator(".task-card"), "a task to a position").toContainText("Sanitätseinsatzleitung SanEL – Lage der UHS melden");
-    await ben.locator(".task-card").getByRole("button", { name: /^Erledigt/ }).click();
+    await moreStep(ben.locator(".task-card"), /^Erledigt/);
     await openWorkspace(ben, "Vorbereitung");
     await openView(ben, "Struktur");
     await expect(sanel.locator(":scope > .position-tree > .position--member[data-member='unit']"), "units under a position, chosen in two taps, as the next level").toHaveText("RTW 83/1Einsatzmittel");
@@ -2122,8 +2127,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-board~1]
     const free = ben.locator("[aria-labelledby=free-units-title]");
     await expect(free, "RTW 83/1 is on scene, not free").toContainText("Keine freien Transportmittel.");
-    await openView(ben, "Disposition");
-    await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "2 – Einsatzbereit auf Wache" });
+    await setUnitStatus(ben, "RTW 83/1", "2 – Einsatzbereit auf Wache");
     await openView(ben, "Transporte");
     await expect(free.locator("li"), "a transport unit in an available status is free").toHaveText("RTW 83/1 · RTW · 2 – Einsatzbereit auf Wache");
 
@@ -2181,47 +2185,60 @@ test("ORDO in the browser", async ({ browser }) => {
     // [itest->dsn~transport-request~3]
     // ADR-0098: the vehicle is sent before the destination is decided, and the transport
     // follows the unit's status.
-    await request.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
+    // [itest->dsn~auftrag-card~1]
+    // ADR-0104: assigning opens the list's dialog, with the hospitals' free places beside.
     await request.getByRole("button", { name: /^Zuweisen: / }).click();
+    const assignTransport = ben.locator("#transports-title-assign-dialog");
+    await expect(assignTransport.locator(".hospital-capacities"), "the reported free places beside").toContainText("Klinikum Mitte");
+    await assignTransport.getByLabel("Einsatzmittel", { exact: true }).selectOption("RTW 83/1");
+    await assignTransport.getByRole("button", { name: /^Zuweisen: / }).click();
+    await expect(assignTransport, "saved: the dialog closes").toBeHidden();
     const transportStatus = request.locator(".transport-card__status");
     await expect(transportStatus, "a unit, the destination still open").toHaveText("Zugewiesen · RTW 83/1 → Ziel offen");
     // [itest->dsn~building-blocks~1]
     // ADR-0102: the next step at hand, the others behind "⋯".
     await expect(request.getByRole("button", { name: /^\d – / }), "the next step at hand").toHaveText(["3 – Einsatz übernommen"]);
+    // ADR-0104: the menu floats over the page.
     const moreSteps = async () => {
-      const menu = request.locator(".more-actions__menu");
-      if ((await menu.count()) && !(await menu.evaluate((d) => (d as HTMLDetailsElement).open))) await menu.locator("summary").click();
+      const menu = request.locator(".more-actions__panel");
+      if ((await menu.count()) && !(await menu.evaluate((d) => d.matches(":popover-open")))) await request.locator(".more-actions > .icon-button").click();
     };
     await moreSteps();
     await expect(request.getByRole("button", { name: /^\d – / }), "the unit's statuses are the steps").toHaveText([
       "3 – Einsatz übernommen", "4 – Am Einsatzort", "7 – Patient aufgenommen", "8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache",
     ]);
+    await ben.keyboard.press("Escape");
+    await expect(request.locator(".more-actions__panel"), "Escape closes the menu").toBeHidden();
     await request.getByRole("button", { name: /^3 – Einsatz übernommen: / }).click();
     await expect(transportStatus).toHaveText("3 – Einsatz übernommen · RTW 83/1 → Ziel offen");
-    await request.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
-    await request.getByRole("button", { name: /^Ziel festlegen: / }).click();
+    const destinationChip = request.getByRole("button", { name: /^Ziel: / });
+    await expect(destinationChip, "the destination as a chip, dashed while open").toHaveClass(/object-chip--empty/);
+    await destinationChip.click();
+    await assignTransport.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
+    await assignTransport.getByRole("button", { name: /^Ziel festlegen: / }).click();
+    await expect(destinationChip, "the chip shows it").toContainText("Klinikum Mitte");
     await expect(transportStatus, "the destination set on the way").toHaveText("3 – Einsatz übernommen · RTW 83/1 → Klinikum Mitte");
     await expect(request.getByRole("button", { name: /^Ziel festlegen: / }), "set once").toHaveCount(0);
-    // The unit's status set on Disposition moves its transport too.
-    await openView(ben, "Disposition");
-    await ben.getByLabel("Status von RTW 83/1 setzen").selectOption({ label: "7 – Patient aufgenommen" });
+    // The unit's status set in Lage moves its transport too.
+    await setUnitStatus(ben, "RTW 83/1", "7 – Patient aufgenommen");
     await openView(ben, "Transporte");
     await expect(transportStatus, "the status moves on, also skipping a step").toHaveText("7 – Patient aufgenommen · RTW 83/1 → Klinikum Mitte");
     await moreSteps();
     await expect(request.getByRole("button", { name: /^\d – / }), "only later steps").toHaveText(["8 – Am Transportziel", "1 – Einsatzbereit über Funk", "2 – Einsatzbereit auf Wache"]);
+    await ben.keyboard.press("Escape");
     await expect(free, "a unit on a transport is not free").toContainText("Keine freien Transportmittel.");
     await expect(hospital.locator(".hospital-card__sent"), "the board counts the patient sent").toHaveText("Transportiert: 1");
     await expect(request.getByRole("button", { name: /^Stornieren: / }), "no cancelling on the road").toHaveCount(0);
     // The destination changes on the way (a hospital stops admitting), and back again.
-    const change = request.locator(".transport-change");
-    await change.locator("summary").click();
+    const change = assignTransport;
+    await destinationChip.click();
     await expect(change.getByLabel("Ziel", { exact: true }), "the destination so far is chosen").toHaveValue(/.+/);
     await change.getByLabel("Ziel", { exact: true }).selectOption({ label: "Anderes Ziel (Freitext)" });
     await change.getByLabel("Anderes Ziel", { exact: true }).fill("Kreiskrankenhaus Nord");
     await change.getByRole("button", { name: /^Ziel ändern: / }).click();
     await expect(transportStatus, "the new destination").toHaveText("7 – Patient aufgenommen · RTW 83/1 → Kreiskrankenhaus Nord");
     await expect(hospital.locator(".hospital-card__sent"), "the count follows the destination").toHaveText("Transportiert: 0");
-    await change.locator("summary").click();
+    await destinationChip.click();
     await expect(change.getByLabel("Anderes Ziel", { exact: true }), "free text is kept for a change").toHaveValue("Kreiskrankenhaus Nord");
     await change.getByLabel("Ziel", { exact: true }).selectOption({ label: "Klinikum Mitte" });
     await change.getByRole("button", { name: /^Ziel ändern: / }).click();
@@ -2305,7 +2322,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openView(ben, "Einsatzmittel"); // the next step checks that units disappear when locked
   });
 
-  // [itest->dsn~reports~3]
+  // [itest->dsn~reports~4]
   await test.step("reports: a patient case is assigned, placed on the map and taken over by the crew", async () => {
     // A medical team with Petra, a physician, on its crew: she moves there from the UHS.
     // Physicians work at every UHS (ADR-0056), so she registers the patient she takes over;
@@ -2356,39 +2373,48 @@ test("ORDO in the browser", async ({ browser }) => {
     const report = ben.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(report, "with kind and time it came in").toContainText(/Patient · Eingang \d\d:\d\d/);
     await expect(report.locator(".task-card__status"), "received, nobody on it yet").toContainText("Eingegangen");
-    // [itest->dsn~tasks~8]
+    // [itest->dsn~tasks~9]
     // An Auftrag no unit works on rings the bell until it is assigned.
     await expect(ben.locator("#attention-button")).toHaveAccessibleName("Hinweise: 1");
     await ben.locator("#attention-button").click();
     await expect(ben.locator("#attention-panel")).toContainText("Auftrag ohne Einsatzmittel: Patient: Bühne Nord, links");
     await ben.keyboard.press("Escape");
-    await report.getByLabel("Zuweisen an").selectOption("SanTrp 1");
-    await report.getByRole("button", { name: "Zuweisen", exact: true }).click();
+    // [itest->dsn~auftrag-card~1]
+    // ADR-0104: "Zuweisen" opens the units in a dialog, the available first; one tap assigns.
+    await report.getByRole("button", { name: "Zuweisen: Patient: Bühne Nord, links" }).click();
+    const assignDialog = ben.locator("#task-assign-dialog");
+    await expect(assignDialog.getByRole("heading"), "named for the Auftrag").toHaveText("Zuweisen: Patient: Bühne Nord, links");
+    await audit(ben, "Assign dialog");
+    await assignDialog.locator(".assign-list__unit", { hasText: "SanTrp 1" }).click();
+    await expect(assignDialog, "one tap assigns").toBeHidden();
     await expect(ben.locator("#attention-button"), "assigned: nothing left").toHaveAccessibleName("Hinweise: keine");
     await expect(report.locator(".task-card__status"), "one card, one state, its one unit").toContainText("Zugewiesen · SanTrp 1");
     await expect(ben.locator(".task-card"), "one card for the report and its unit").toHaveCount(1);
     // ADR-0085: a further unit joins the same Auftrag; a unit on it is not offered again.
-    await expect(report.getByLabel("Zusätzlich schicken"), "only after asking for it").toBeHidden();
-    await report.getByRole("button", { name: "Weiteres Einsatzmittel schicken" }).click();
-    const further = report.getByLabel("Zusätzlich schicken");
-    await expect(further.locator("option", { hasText: "SanTrp 1" }), "a unit on it is not offered again").toHaveCount(0);
-    const second = (await further.locator("option:not([disabled])").first().textContent())!.trim();
-    await further.selectOption(second);
-    await report.getByRole("button", { name: "Schicken", exact: true }).click();
+    await moreStep(report, "Weiteres Einsatzmittel schicken: Patient: Bühne Nord, links");
+    await expect(assignDialog.locator(".assign-list__unit", { hasText: "SanTrp 1" }), "a unit on it is not offered again").toHaveCount(0);
+    const second = (await assignDialog.locator(".assign-list__unit strong").first().textContent())!.trim();
+    await assignDialog.locator(".assign-list__unit", { hasText: second }).click();
+    await expect(assignDialog).toBeHidden();
     await expect(ben.locator(".task-card"), "still one card").toHaveCount(1);
     await expect(report.locator(".task-card__unit > span"), "each unit with its state").toHaveText([
       "SanTrp 1 · Zugewiesen",
       `${second} · Zugewiesen`,
     ]);
     if (placed) {
-      // REP-4: the command sees the pin on the card, on a small map made when opened.
-      const shown = report.getByRole("button", { name: "Pin zeigen: Patient: Bühne Nord, links" });
-      await expect(report.locator(".place-map"), "no map until asked for").toHaveCount(0);
-      await shown.click();
-      await expect(report.locator(".place-map .situation__map"), "the small map").toBeVisible();
-      await expect(report.getByRole("button", { name: /Standort/ }), "no own position on the command's card").toHaveCount(0);
-      await shown.click();
-      await expect(report.getByRole("button", { name: "Pin verschieben: Patient: Bühne Nord, links" }), "and moves in place").toHaveCount(1);
+      // REP-4, ADR-0104: the pin is a chip; its dialog shows it on a small map and moves it.
+      const chip = report.getByRole("button", { name: "Pin: Patient: Bühne Nord, links" });
+      await expect(chip).toContainText("Auf der Karte");
+      await expect(report.locator(".place-map"), "no map in the card").toHaveCount(0);
+      await chip.click();
+      const pinDialog = ben.locator("#task-pin-dialog");
+      await expect(pinDialog.locator(".place-map .situation__map"), "the small map").toBeVisible();
+      await expect(pinDialog.locator(".pin-picker__state"), "the pin as it is").toContainText("Pin:");
+      await expect(pinDialog.getByRole("button", { name: /Standort/ }), "no own position for the command").toHaveCount(0);
+      await audit(ben, "Pin dialog");
+      await ben.keyboard.press("Escape");
+      await expect(pinDialog, "Escape closes it, nothing changed").toBeHidden();
+      await expect(chip, "the focus returns to the chip").toBeFocused();
     }
     await audit(ben, "Aufträge");
     if (placed) {
@@ -2414,7 +2440,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(crewUnit.getByLabel("Status von SanTrp 1 setzen").locator("option[value='']"), "the prompt is no status").toHaveCount(0);
     const crewTask = crewUnit.locator(".task-card", { hasText: "Bühne Nord, links" });
     await expect(crewTask.locator("button", { hasText: /Abbrechen|nachfragen/ }), "cancelling and asking again are the command's").toHaveCount(0);
-    // [itest->dsn~tasks~8]
+    // [itest->dsn~tasks~9]
     // TASK-3: the crew's bell counts the Auftrag not started yet, and leads to it.
     await expect(medic.locator("#attention-button"), "a bell for every role").toHaveAccessibleName(/^Hinweise: [1-9]/);
     await medic.locator("#attention-button").click();
@@ -2511,7 +2537,7 @@ test("ORDO in the browser", async ({ browser }) => {
     // The other unit still works on it; when it is done too, by radio, the Auftrag ends.
     await expect(report.locator(".task-card__unit > span")).toHaveText(["SanTrp 1 · Erledigt", `${second} · Zugewiesen`]);
     await expect(report.locator(".task-card__status"), "open while one unit works").toContainText("In Arbeit");
-    if (placed) await expect(report.getByRole("button", { name: "Pin zeigen: Patient: Bühne Nord, links" }), "its pin stays").toHaveCount(1);
+    if (placed) await expect(report.getByRole("button", { name: "Pin: Patient: Bühne Nord, links" }), "its pin stays").toHaveCount(1);
     await expect(report.getByRole("button", { name: /^Erledigt/ }), "its steps once, in its row").toHaveCount(1);
     await report.getByRole("button", { name: `Erledigt: ${second} – Patient: Bühne Nord, links` }).click();
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (0)");
@@ -2562,11 +2588,13 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(ben, "Führung");
     await openView(ben, "Disposition");
     await expect(ben.locator("#attention-button"), "the bell rings").toHaveAccessibleName(/^Hinweise: [1-9]/);
+    await pageTab(ben, "Personal anfordern"); // a tab of its own (ADR-0104)
     const board = ben.locator("[aria-labelledby=staff-board-title]");
     const request = board.locator(".report-card", { hasText: "UHS Eingang fordert Notfallsanitäter/in an" });
     await request.getByLabel("Wer kommt?").fill("petra@localhost");
     await request.getByRole("button", { name: "Zuweisen" }).click();
     await expect(board, "met: no open requests left").toHaveCount(0);
+    await pageTab(ben, "Aufträge");
     const sent = ben.locator(".task-card", { hasText: "Als Notfallsanitäter/in zu UHS Eingang" });
     await expect(sent.locator(".task-card__status"), "an Auftrag for the person sent").toContainText("Zugewiesen · Dr. Petra Lang");
     // … the UHS learns who comes, and Petra sees her Auftrag.
@@ -2575,7 +2603,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(medic, "Besatzung");
     const mine = medic.locator("[aria-labelledby=crew-mine-title] .task-card", { hasText: "Als Notfallsanitäter/in zu UHS Eingang" });
     await expect(mine.locator("strong").first(), "where to go").toHaveText("UHS Eingang");
-    await mine.getByRole("button", { name: /^Erledigt/ }).click();
+    await moreStep(mine, /^Erledigt/);
     await expect(mine, "done when she is there").toHaveCount(0);
     await expect.poll(() => status(medic), { message: "sent" }).toContain("Alles gesendet");
     await medic.context().close();

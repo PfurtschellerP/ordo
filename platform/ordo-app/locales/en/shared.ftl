@@ -36,8 +36,6 @@ col-status = Status
 col-set-status = Set status
 no-status = –
 set-status-label = Set status of { $unit }
-unit-status-title = Units: status and tasks
-unit-status-empty = No units in the incident yet. They are added in Preparation.
 # Starts with the button's visible text, so its name matches what is seen.
 task-give-label = { task-give }: { $unit }
 move-here = Move here
@@ -162,7 +160,6 @@ task-kind-label = Kind
 task-kind-other = Other task
 task-kind-missing = Please choose the kind.
 task-unit-later = Assign later
-task-unit-only = Choose unit
 task-unit-hint = Optional for a patient or an event: the unit can also be assigned later.
 task-place = Place
 task-what = What is going on?
@@ -173,15 +170,8 @@ task-text-missing = Please describe briefly what it is about.
 task-place-missing = Please give the place.
 task-too-long = Place or description is too long.
 task-time-invalid = Please give a time, e.g. 14:05.
-task-assign-to = Assign to
 task-assign = Assign
-task-unit-missing = Please choose a unit.
 task-send-further = Send another unit
-task-send-to = Also send
-task-send = Send
-# Opens a small map centred on the Auftrag's pin.
-pin-show = Show pin
-pin-show-label = Show pin: { $task }
 my-tasks = My tasks
 pin-title = Pin on the map (optional)
 pin-hint = Search an address or tap into the map. With the keyboard: move the map with the arrow keys, then “Set pin at map centre”.
@@ -189,8 +179,14 @@ pin-at-centre = Set pin at map centre
 pin-clear = Remove pin
 pin-none = No pin set.
 pin-set = Set pin
-pin-move = Move pin
 pin-save = Save pin
+## The Auftrag card (ADR-0104): chips, dialogs, the "⋯" menu, Disposition's tabs.
+pin-on-map = On the map
+pin-dialog-title = Pin: { $task }
+task-more-label = More steps: { $task }
+task-no-units = No other unit on scene.
+tab-tasks = Tasks
+tab-staff-requests = Request staff
 
 ## Map object cards (MAP-11).
 map-details = Details
@@ -449,12 +445,6 @@ task-follow-up-number = Please give the minutes as a whole number.
 log-pause-ended = Pause ended
 draw-hint = Tap each corner – or move the map so the corner lies under the crosshair (also with the arrow keys), and set it. Then “Done”.
 helper-duty-start = Start of duty
-# "no open tasks", "1 open task", "3 open tasks"
-open-tasks-of = { $n ->
-    [0] no open tasks
-    [one] 1 open task
-   *[other] { $n } open tasks
-}
 # People on more than one crew or staff list (UNIT-8), e.g. "Ben (RTW 1, care unit south)".
 double-booked-people = Assigned more than once, perhaps counted twice: { $people }
 # The person being added is on other crews or staff lists already (UNIT-8).
@@ -504,8 +494,6 @@ units-count = { $n ->
 log-report-line = Report taken: { $kind }, { $received } – { $place } – { $text }
 # "Role Physician withdrawn from Anna Schmidt."
 role-removed-from = Role { $role } withdrawn from { $who }.
-# Variables: $action, $task
-pin-edit-of = { $action }: { $task }
 task-kind-event = Event
 task-kind-patient = Patient
 # "Patient: Stage north"

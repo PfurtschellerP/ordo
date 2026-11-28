@@ -200,7 +200,7 @@ pub fn PatientsView(
         core::incident_people(core)
     });
     provide_context(IncidentPeople(people.into(), core));
-    // [impl->dsn~reports~3]
+    // [impl->dsn~reports~4]
     // A patient case the registration fills in (REP-3).
     let pending = crate::shared::reports::take_pending_case();
     if pending.is_some() {
@@ -490,7 +490,7 @@ fn RegisterForm(
             }
         });
     }
-    // [impl->dsn~reports~3]
+    // [impl->dsn~reports~4]
     // From a patient case: the crew's own unit, which then hands the patient over
     // (ADR-0087); else the unit's UHS, where the command structure names one.
     let case = use_context::<crate::shared::reports::ActiveCase>().map(|c| c.0);

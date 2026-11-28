@@ -1327,7 +1327,7 @@ fn units_with_strength_crew_and_release_reach_every_device() {
     );
 }
 
-// [itest->dsn~tasks~8]
+// [itest->dsn~tasks~9]
 /// A task given by the command reaches every device; its status moves on and a due
 /// follow-up comes first in the open list.
 #[test]

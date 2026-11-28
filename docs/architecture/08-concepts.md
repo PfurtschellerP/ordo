@@ -1021,7 +1021,8 @@ destination (a hospital of the list or free text, see [Hospital list](#hospital-
 come with it or later, until the unit reaches it, so a vehicle can be sent to the UHS
 before the destination is decided
 ([ADR-0098](../adr/0098-transports-follow-the-unit-status.md)). Until then it may also be
-changed, e.g. when a hospital stops admitting (card: *Ziel ändern*): the latest destination
+changed, e.g. when a hospital stops admitting (the card's destination chip, its dialog
+with the hospitals' reported free places, [ADR-0104](../adr/0104-the-auftrag-card.md)): the latest destination
 counts, also for the patients per hospital. Such an update carries no status code and never
 moves the transport's status back, so a step recorded on another device while it was
 offline is kept. The transport then follows
