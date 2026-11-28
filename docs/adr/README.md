@@ -107,5 +107,6 @@ A decision is never edited to mean something else: it is superseded by a new ADR
 | [0100](0100-profile-page-and-language-per-person.md) | A profile page, and the language per person | accepted | 2026-11-27 |
 | [0101](0101-access-by-role-and-assignment.md) | Access by role and assignment | accepted | 2026-11-27 |
 | [0102](0102-building-blocks-screen-space-and-calm-pages.md) | Building blocks, screen space and calm pages | accepted | 2026-11-27 |
+| [0103](0103-one-name-per-view-and-navigation-rules.md) | One name per view, and rules for the navigation | accepted | 2026-11-28 |
 
 To add a decision, copy the newest ADR, take the next number and set `status: proposed`.

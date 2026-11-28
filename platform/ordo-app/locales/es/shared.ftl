@@ -9,15 +9,15 @@ crew-transports = Transportes para su unidad
 crew-none-here = No forma parte de ninguna dotación en este incidente. El mando del incidente le añade en Preparación – Unidades.
 dispatch = Despacho
 people = Personal
-crew-patients = Pacientes
+crew-patients = Mis pacientes
+crew-transports-view = Mis transportes
 tab-helpers = Intervinientes
 tab-devices = Dispositivos
 incident-page = Incidente
 
 ## The command structure and the map on one page (ADR-0095).
-command-space = Mando y espacio
+command-space = Estructura
 # Its label in the phone's bottom bar.
-command-space-short = Estructura
 tab-resources = Unidades
 tab-hospitals = Hospitales
 tab-free-units = Unidades de transporte libres
@@ -596,7 +596,7 @@ col-type = Tipo
 col-free = libres
 col-all = total
 
-## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+## Struktur: actions at each position (ADR-0102), forms in a dialog.
 position-new = Función
 lead-word = Mando
 sub-position-word = Subfunción

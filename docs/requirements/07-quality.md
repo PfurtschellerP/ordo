@@ -106,11 +106,14 @@ Tags: should, quality, m16, m55, m77
 Needs: dsn
 
 #### UX-12 — Compact navigation on phones
-`req~ux-12~2`
+`req~ux-12~3`
 
-ORDO shall show every view with an icon and a short label, the same in the rail and in the bottom bar, and at most four views plus the menu in the bottom bar; on every screen ORDO shall show the connection state as an icon whose shape tells the state and whose colour repeats it, with the number of unsent inputs, and the full state when the person opens it; errors stay visible.
+ORDO shall show every view with an icon and its one name, the same in the rail, the bottom bar and the header, no two views with the same name, and at most four views plus the menu in the bottom bar; where a workspace has one view, ORDO shall show no list of views; on every screen ORDO shall show the connection state as an icon whose shape tells the state and whose colour repeats it, with the number of unsent inputs, and the full state when the person opens it; errors stay visible.
 
-Tags: should, quality, m16
+Rationale: a short label in the bar beside a longer name in the header confused
+([ADR-0103](../adr/0103-one-name-per-view-and-navigation-rules.md)).
+
+Tags: should, quality, m16, m78
 
 Needs: dsn
 

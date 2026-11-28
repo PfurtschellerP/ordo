@@ -520,10 +520,10 @@ Needs: impl, itest
 
 Tags: must, m57
 
-#### Führung & Raum
+#### Struktur (command structure and space)
 `dsn~command-and-space~2`
 
-*Vorbereitung – Führung & Raum* (`command.prepare/map`; `command.prepare/structure` lands
+*Vorbereitung – Struktur* (`command.prepare/map`; `command.prepare/structure` lands
 there too) holds the command structure with its forms, then the map editor, then the map
 region ([ADR-0095](../adr/0095-command-and-space-on-one-page.md)). A grid of two columns
 where the page is at least 84rem wide (container query), the region below them; narrower,
@@ -564,7 +564,7 @@ The view *Führung – Lage* shows, in its tab *Karte* ([Lage](#lage)), the map 
 objects and, below it, the list of objects (A11Y-5); it does not edit. The overview's map tile shows the same map; within
 the page it moves with two fingers, or Ctrl (⌘) and the wheel, and says so when tried with
 one, so one finger and the wheel scroll the page (MapLibre's cooperative gestures).
-Those who may edit prepare the map on *Vorbereitung – Führung & Raum*
+Those who may edit prepare the map on *Vorbereitung – Struktur*
 (`command.prepare/map`, [ADR-0095](../adr/0095-command-and-space-on-one-page.md)), with
 the command structure, in the editor ([ADR-0064](../adr/0064-map-editor-with-terra-draw.md)),
 the map region last: the map
@@ -684,7 +684,7 @@ Tags: should, m55
 place 30). From 84rem the map stands beside the chosen list and the tab list offers only
 the lists ([Page tabs](#page-tabs), mode *beside*); narrower, the three are tabs.
 
-*Auf der Karte* at a unit or a UHS (context `shared::situation::MapAsks`, as on *Führung & Raum*) shows the tab
+*Auf der Karte* at a unit or a UHS (context `shared::situation::MapAsks`, as on *Struktur*) shows the tab
 *Karte* where the map is not beside the list, centres the map on the object and opens its
 card ([Map object cards](#map-object-cards)). The overview's tiles link to the tabs: a
 page with tabs opened with a tab's key as its record starts on that tab
@@ -1926,13 +1926,17 @@ Needs: impl, itest
 Tags: should, m77
 
 #### Compact navigation
-`dsn~compact-navigation~2`
+`dsn~compact-navigation~3`
 
-Every view has an icon (Lucide, `design/assets/icons/lucide`, ISC) next to its label in the
-rail and above a short label in the bottom bar, as on the platforms people know (Material
-navigation bar and rail, iOS tab bar): the same icon in both places, never an icon alone.
-A workspace has at most four views, so the bar holds five places with the menu; a unit
-test checks every workspace. On every screen the connection state is a disclosure button:
+Every view has an icon (Lucide, `design/assets/icons/lucide`, ISC) above its name in the
+rail and the bottom bar, as on the platforms people know (Material navigation bar and
+rail, iOS tab bar): the same icon in both places, never an icon alone. A view has one name,
+the same in the rail, the bar, the header's path and the palette; no two views share one
+in any language, so the crew's views are *Meine Transporte* and *Meine Patienten*
+([ADR-0103](../adr/0103-one-name-per-view-and-navigation-rules.md)). A workspace with one
+view shows no list of views: the page takes the rail's width, the phone's bar keeps the
+menu. A workspace has at most four views, so the bar holds five places with the menu; unit
+tests check every workspace and every name. On every screen the connection state is a disclosure button:
 an icon whose shape differs per state and whose colour repeats it — connected and all
 sent (green), sending or connecting (blue), offline (amber: inputs are kept, not lost) —
 and the number of unsent inputs; it opens the full state. The colours are the feedback
@@ -1943,11 +1947,11 @@ do icons, history lists, action buttons and choice chips.
 
 Covers:
 
-* [req~ux-12~2](../requirements/07-quality.md#ux-12--compact-navigation-on-phones)
+* [req~ux-12~3](../requirements/07-quality.md#ux-12--compact-navigation-on-phones)
 
 Needs: impl, utest, itest
 
-Tags: should, m16
+Tags: should, m16, m78
 
 #### Person suggestions
 `dsn~person-suggestions~1`
@@ -2051,7 +2055,7 @@ patient list does.
 |---|---|---|
 | *Vorbereitung – Personal* | always | Helfende · Geräte (admin package, place 30) |
 | *Vorbereitung – Einsatzmittel* | always | Einsatzmittel · Kliniken (Med package, place 40) |
-| *Vorbereitung – Führung & Raum* | columns from 84rem | Führungsstruktur (start) · Lagekarte (end) · Kartengrundlage (below) |
+| *Vorbereitung – Struktur* | columns from 84rem | Führungsstruktur (start) · Lagekarte (end) · Kartengrundlage (below) |
 | *Führung – Lage* | beside from 84rem | Karte (end) · Einsatzmittel · Behandlungsplätze (Med package, place 30) |
 | *Führung – Transporte* | columns from 60rem | Transporte (start) · Freie Transportmittel · Kliniken (end) |
 | *Sanität – Patienten*, *Besatzung – Patienten* (list column) | always | Patienten · Registrieren · Personal anfordern (UHS only) |

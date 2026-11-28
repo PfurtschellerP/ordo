@@ -1452,7 +1452,7 @@ Needs: impl, utest, itest
 Tags: must, m11
 
 #### Workspaces by phase
-`dsn~workspaces-by-phase~5`
+`dsn~workspaces-by-phase~6`
 
 The incident command's pages are grouped by phase in the package *Einsatzleitung*
 ([ADR-0061](../adr/0061-workspaces-by-phase-and-administration-apart.md),
@@ -1461,10 +1461,10 @@ The incident command's pages are grouped by phase in the package *Einsatzleitung
 the work (product owner, 2026-11-17): *Vorbereitung*, what is set up before and adjusted
 during it (the incident with its details, start, pause and close; people with their roles
 and devices; units planned with their crews, which are incident data, with no
-organisation-wide vehicle master data; *Führung & Raum*, the command structure with the
+organisation-wide vehicle master data; *Struktur*, the command structure with the
 situation map's editor and region,
-[ADR-0095](../adr/0095-command-and-space-on-one-page.md); a view may have a short label for
-the phone's bottom bar, "Struktur" for this one), *Führung*, the running incident (overview, *Lage* with the situation map to read beside the units and the treatment places, [ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md), dispatch
+[ADR-0095](../adr/0095-command-and-space-on-one-page.md), named so by
+[ADR-0103](../adr/0103-one-name-per-view-and-navigation-rules.md)), *Führung*, the running incident (overview, *Lage* with the situation map to read beside the units and the treatment places, [ADR-0099](../adr/0099-units-and-treatment-places-in-lage.md), dispatch
 with the open reports, the orders and the units on scene, whose status is set there,
 transports; reports in [chapter 5](05-building-block-view.md#reports)), and the incident
 log, which everyone in the incident opens. The overview, the first view of *Führung*, is a
@@ -1633,7 +1633,7 @@ them:
      Registrieren · Personal), the record.
   2. *Parts used together*, such as a list and what its items are assigned to: columns
      side by side where the page is wide enough (60rem; 84rem where a part needs 40rem,
-     like the org chart), tabs where it is narrower. *Führung & Raum* (Struktur · Karte ·
+     like the org chart), tabs where it is narrower. *Struktur* (Struktur · Karte ·
      Grundlage), *Transporte* (Transporte · Freie Mittel · Kliniken).
   3. *A map beside lists*, each list a task of its own: the map stays beside the chosen
      list where the page is 84rem wide, all are tabs where it is narrower. *Lage* (Karte ·

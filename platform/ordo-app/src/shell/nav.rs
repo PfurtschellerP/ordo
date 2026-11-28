@@ -18,11 +18,9 @@ pub type Label = fn() -> &'static str;
 pub struct View {
     /// Stable ID, e.g. `patients`.
     pub id: &'static str,
-    /// Label.
+    /// Its one name: in the rail, the bottom bar, the header and the palette alike (feedback
+    /// of 2026-11-28, ADR-0103).
     pub label: Label,
-    /// A shorter label for the phone's bottom bar, where a long one would take two lines
-    /// (feedback of 2026-11-22).
-    pub short: Option<Label>,
     /// English name, found by the command palette in every language (ADR-0036).
     pub name: &'static str,
     /// Icon (Lucide name), shown with the label in the rail and the bottom bar.
@@ -99,7 +97,6 @@ pub(crate) const fn view(
     View {
         id,
         label,
-        short: None,
         name,
         icon,
         permission: None,
@@ -239,7 +236,7 @@ mod tests {
     /// bottom bar on phones (ADR-0049).
     const MAX_VIEWS: usize = 4;
 
-    // [utest->dsn~compact-navigation~2]
+    // [utest->dsn~compact-navigation~3]
     #[test]
     fn every_workspace_fits_the_bottom_bar_and_every_view_has_an_icon() {
         for w in workspaces() {
@@ -283,6 +280,26 @@ mod tests {
         assert_eq!(Route::from_path("/med.uhs"), None);
         assert_eq!(Route::from_path("/a/b/c/d"), None);
         assert_eq!(Route::from_path("/a/b/%FF"), None);
+    }
+
+    // [utest->dsn~compact-navigation~3]
+    /// One name, one view (ADR-0103): no two views share a name in any language, so "Transporte"
+    /// never means two places.
+    #[test]
+    fn no_two_views_share_a_name() {
+        for language in crate::i18n::languages() {
+            crate::i18n::choose(&[language.to_owned()]);
+            let mut seen = std::collections::BTreeMap::new();
+            for w in workspaces() {
+                for v in w.views {
+                    let name = (v.label)();
+                    if let Some(other) = seen.insert(name, (w.id, v.id)) {
+                        panic!("{language}: \"{name}\" is {other:?} and {}/{}", w.id, v.id);
+                    }
+                }
+            }
+        }
+        crate::i18n::choose(&[]);
     }
 
     #[test]

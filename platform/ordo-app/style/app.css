@@ -457,12 +457,6 @@
     border-radius: var(--ordo-radius-small); background: var(--ordo-color-surface-raised); color: var(--ordo-color-text-primary);
   }
 
-  .views__label--short { display: inline; }
-  /* Hidden from sight, not from screen readers: the full name stays the link's name. */
-  .views__label--long {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-  }
   .launcher { position: relative; }
   .launcher__button[aria-expanded="true"] { outline: var(--ordo-component-focus-ring-width) solid var(--ordo-component-focus-ring-color); }
   .launcher__panel {
@@ -501,6 +495,13 @@
 
   /* ADR-0102: an icon rail, the short label under each icon, as the bottom bar. */
   .layout { display: grid; grid-template-columns: 6rem minmax(0, 1fr); min-height: calc(100vh - 3.5rem); }
+  /* One view: no rail; the bar on phones keeps the menu (ADR-0103). The rail's column
+     closes but stays, as it holds the menu's panel. */
+  .layout--single .views { display: none; }
+  @media (min-width: 48.0625rem) {
+    .layout--single { grid-template-columns: 0 minmax(0, 1fr); }
+    .layout--single > .navigation { border-right: 0; }
+  }
   .navigation {
     z-index: 10;
     background: var(--ordo-color-surface-raised);
@@ -558,7 +559,6 @@
       padding: var(--ordo-space-1); font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2;
     }
     .views__item { flex: 1 1 0; text-align: center; min-width: 0; padding-inline: 0; hyphens: auto; overflow-wrap: break-word; }
-    /* A view's short label where it has one (the long one would take two lines). */
 
     .launcher { order: 2; flex: none; position: static; }
     /* Left-handed use (ADR-0049): the menu at the start of the bar. */

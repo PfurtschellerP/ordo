@@ -442,12 +442,22 @@ From a practitioner's test of the same version (2026-11-11), before the map edit
         as the menu button, the path and icons; the rail is icons with short labels; the
         building blocks (section head, item row, status tag, key-value grid, empty state)
         are in the gallery ([ADR-0102](adr/0102-building-blocks-screen-space-and-calm-pages.md)).
-        Next: the pages move to them, the record and *Führung & Raum* first.
+        Done 2026-11-28: the record, *Struktur*, *Einsatz*, *Einsatzmittel*, *Transporte*;
+        every "+" at its card's head with the form in a dialog.
+    14. *Struktur, Mittel, Auftrag* with the rest of *Order and calm*, decided 2026-11-28,
+        in this order: (1) one name per view and the navigation rules (m78, done
+        2026-11-28: *Führung & Raum* is *Struktur*, *Meine Transporte*, *Meine
+        Patienten*, no rail for one view,
+        [ADR-0103](adr/0103-one-name-per-view-and-navigation-rules.md)); (2) the Auftrag
+        card with object chips and dialogs, Disposition in tabs without the unit list;
+        (3) the UHS in the Einsatzmittel list; (4) the command structure from left to
+        right; (5) the record's sections as a segmented switch, declared tabs on UHS –
+        Patienten; (6) the remaining calm pages and the incident's name in the phone's
+        menu; (7) the notification centre, steps 1 to 3; (8) accents per package after a
+        mock-up of two pages.
 
 Backlog (product owner, 2026-11-17): an incident role for crew members without a medical
 role (e.g. drivers), to get the crew workspace; push notifications for the bell's items.
-Backlog (product owner, 2026-11-22): revisit the name *Führung & Raum*; the phone's bottom
-bar shows "Struktur" until then, since the name takes two lines there.
 Backlog (product owner, 2026-11-27): review the open Dependabot pull requests (five since
 2026-11-21: the cargo group, the storage worker's group, Playwright 1.65.1, the Caddy
 image, Rust 1.100 in the container) and merge or close each, with the dependency analysis

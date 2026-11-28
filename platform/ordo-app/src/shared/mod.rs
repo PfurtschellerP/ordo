@@ -39,9 +39,11 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                 "crew tasks status patient cases",
                 "clipboard-list",
             ),
+            // [impl->dsn~compact-navigation~3]
+            // "Meine …" where Führung has the same noun (ADR-0103).
             nav::view(
                 "transports",
-                crate::shared::text::transports,
+                crate::shared::text::crew_transports_view,
                 "crew transports",
                 "ambulance",
             ),
@@ -105,16 +107,13 @@ pub(crate) const WORKSPACES: &[nav::Workspace] = &[
                     "truck",
                 )
             },
-            // [impl->dsn~workspaces-by-phase~5]
+            // [impl->dsn~workspaces-by-phase~6]
             // [impl->dsn~command-and-space~2]
-            // Führung & Raum (ADR-0095): the command structure and the map prepared on one
-            // page, its region last.
-            // "Struktur" in the phone's bar, where the name takes two lines (product owner,
-            // 2026-11-22; the name is to be revisited).
+            // *Struktur* (ADR-0095, named so by ADR-0103): the command structure and the map
+            // prepared on one page, its region last.
             // [impl->dsn~page-tabs~5]
             // The structure beside the map where both fit, tabs where narrower (ADR-0097).
             nav::View {
-                short: Some(|| crate::shared::text::command_space_short()),
                 tabs: &[
                     nav::PageTab {
                         short: Some(|| crate::shared::text::structure_short()),
@@ -262,7 +261,7 @@ fn sections(a: &PageArgs, workspace: &str, view: &str) -> Vec<Section> {
         // The crew's patients come from the Med package (ADR-0093).
         ("units.crew", "patients") => Vec::new(),
         ("units.crew", _) => one(view! { <crew::CrewTasks core revision /> }.into_any()),
-        // [impl->dsn~workspaces-by-phase~5]
+        // [impl->dsn~workspaces-by-phase~6]
         // [impl->dsn~map-drawing~2]
         // [impl->dsn~command-lage~1]
         // *Lage*: the map, and the units (ADR-0099).

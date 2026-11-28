@@ -9,15 +9,15 @@ crew-transports = Transports for your unit
 crew-none-here = You are on no crew in this incident. The incident command adds you under Preparation – Units.
 dispatch = Dispatch
 people = Staff
-crew-patients = Patients
+crew-patients = My patients
+crew-transports-view = My transports
 tab-helpers = Helpers
 tab-devices = Devices
 incident-page = Incident
 
 ## The command structure and the map on one page (ADR-0095).
-command-space = Command & space
+command-space = Structure
 # Its label in the phone's bottom bar.
-command-space-short = Structure
 tab-resources = Units
 tab-hospitals = Hospitals
 tab-free-units = Free transport units
@@ -596,7 +596,7 @@ col-type = Type
 col-free = free
 col-all = all
 
-## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+## Struktur: actions at each position (ADR-0102), forms in a dialog.
 position-new = Position
 lead-word = Lead
 sub-position-word = Sub-position

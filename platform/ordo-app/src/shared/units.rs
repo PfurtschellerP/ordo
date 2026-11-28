@@ -886,7 +886,7 @@ pub(crate) fn StatusSelect(
     }
 }
 
-// [impl->dsn~workspaces-by-phase~5]
+// [impl->dsn~workspaces-by-phase~6]
 // [impl->dsn~tasks~8]
 /// The units on scene in *Führung – Disposition* (ADR-0070): status since when, set here, and
 /// their open tasks, each with a way to give one (UNIT-3, TASK-3).
@@ -968,7 +968,7 @@ pub fn UnitStatusBoard(
 
 // [impl->dsn~unit-register~3]
 // [impl->dsn~views-by-role~1]
-// [impl->dsn~workspaces-by-phase~5]
+// [impl->dsn~workspaces-by-phase~6]
 /// The incident's units as planned in *Vorbereitung* (UNIT-1…6, ADR-0070): strength on
 /// scene, every unit with its crew, position and release; released units apart; adding
 /// units. Adding units: incident command only (`edit_units`).

@@ -1059,7 +1059,13 @@ fn Workspace(
                 </Disclosure>
             </div>
         </header>
-        <div class="layout">
+        // [impl->dsn~compact-navigation~3]
+        // A workspace with one view has no list of views (ADR-0103): the page takes the
+        // rail's width; on phones the bar keeps the menu.
+        <div class="layout" class:layout--single=move || {
+            revision.track();
+            current.get().and_then(nav::workspace).is_some_and(|w| allowed_views(core, w).len() <= 1)
+        }>
             <div class="navigation">
               <div class="navigation__inner">
                 // [impl->dsn~record-overview~3]
@@ -1136,12 +1142,9 @@ fn Workspace(
                                                 title=(v.label)()
                                             >
                                                 <Icon name=v.icon />
-                                                // [impl->dsn~workspaces-by-phase~5]
-                                                // The bar shows the short label where there is one.
-                                                // The full name is the link's name and tooltip; a short
-                                                // one is only what shows (ADR-0102).
-                                                <span class="views__label" class:views__label--long=v.short.is_some()>{(v.label)()}</span>
-                                                {v.short.map(|short| view! { <span class="views__label views__label--short" aria-hidden="true">{short()}</span> })}
+                                                // [impl->dsn~compact-navigation~3]
+                                                // One name, as in the header (ADR-0103).
+                                                <span class="views__label">{(v.label)()}</span>
                                             </a>
                                         }
                                     })
@@ -1311,7 +1314,7 @@ pub(crate) fn click(id: &str) {
 }
 
 /// Connection and outbox state, as text (OFF-5).
-// [impl->dsn~compact-navigation~2]
+// [impl->dsn~compact-navigation~3]
 // [impl->dsn~ui-texts~3]
 /// The person's language (I18N-1, ADR-0100): "Automatisch" follows the browser; a choice
 /// follows the person to every device. Each language is named in itself. The page reloads

@@ -9,15 +9,15 @@ crew-transports = Transporte für Ihr Einsatzmittel
 crew-none-here = Sie sind in diesem Einsatz in keiner Besatzung eingetragen. Die Einsatzleitung trägt Sie unter Vorbereitung – Einsatzmittel ein.
 dispatch = Disposition
 people = Personal
-crew-patients = Patienten
+crew-patients = Meine Patienten
+crew-transports-view = Meine Transporte
 tab-helpers = Helfende
 tab-devices = Geräte
 incident-page = Einsatz
 
 ## The command structure and the map on one page (ADR-0095).
-command-space = Führung & Raum
+command-space = Struktur
 # Its label in the phone's bottom bar.
-command-space-short = Struktur
 tab-resources = Einsatzmittel
 tab-hospitals = Kliniken
 tab-free-units = Freie Transportmittel
@@ -596,7 +596,7 @@ col-type = Typ
 col-free = frei
 col-all = gesamt
 
-## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+## Struktur: actions at each position (ADR-0102), forms in a dialog.
 position-new = Funktion
 lead-word = Leitung
 sub-position-word = Unterfunktion

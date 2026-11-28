@@ -73,7 +73,7 @@ icons!(
     "zap",
 );
 
-// [impl->dsn~compact-navigation~2]
+// [impl->dsn~compact-navigation~3]
 /// A decorative icon: the text next to it carries the meaning (never an icon alone).
 #[component]
 pub fn Icon(name: &'static str) -> impl IntoView {

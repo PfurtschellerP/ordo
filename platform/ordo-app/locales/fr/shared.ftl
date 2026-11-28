@@ -9,15 +9,15 @@ crew-transports = Transports pour votre moyen
 crew-none-here = Vous ne faites partie d'aucun équipage dans cette intervention. Le commandement vous ajoute sous Préparation – Moyens.
 dispatch = Engagement
 people = Personnel
-crew-patients = Patients
+crew-patients = Mes patients
+crew-transports-view = Mes transports
 tab-helpers = Intervenants
 tab-devices = Appareils
 incident-page = Intervention
 
 ## The command structure and the map on one page (ADR-0095).
-command-space = Commandement & espace
+command-space = Structure
 # Its label in the phone's bottom bar.
-command-space-short = Structure
 tab-resources = Moyens
 tab-hospitals = Hôpitaux
 tab-free-units = Moyens de transport libres
@@ -596,7 +596,7 @@ col-type = Type
 col-free = libres
 col-all = total
 
-## Führung & Raum: actions at each position (ADR-0102), forms in a dialog.
+## Struktur: actions at each position (ADR-0102), forms in a dialog.
 position-new = Fonction
 lead-word = Direction
 sub-position-word = Sous-fonction
