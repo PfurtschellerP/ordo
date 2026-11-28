@@ -737,8 +737,8 @@ pub(crate) fn bell(core: Handle) -> Vec<(String, crate::shell::nav::Route)> {
 
 // [impl->dsn~tasks~8]
 // [impl->dsn~reports~3]
-/// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; the form
-/// "Neuer Auftrag" for reports and tasks; below, the units with their status, set here
+/// The page *Disposition*: all open Aufträge, due follow-ups first, one card each; "+ Auftrag"
+/// opens the form "Neuer Auftrag" for reports and tasks in a dialog; below, the units with their status, set here
 /// (ADR-0070).
 #[component]
 pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
@@ -763,11 +763,8 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let give = Callback::new(move |unit: String| {
         chosen.set(format!("unit:{unit}"));
         kind.set(Some(NewKind::Other));
-        // Opened after this click, which would otherwise close it as a click outside.
-        request_animation_frame(move || {
-            giving.set(true);
-            request_animation_frame(|| crate::shell::views::focus("task-template"));
-        });
+        giving.set(true);
+        request_animation_frame(|| crate::shell::views::focus("task-template"));
     });
     // [impl->dsn~map-object-cards~4]
     // Opened from a card on the map: the Auftrag comes into view, or the form opens for the
@@ -778,7 +775,19 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     }
     view! {
         <section class="card tasks-panel" aria-labelledby="tasks-title">
-            <h2 id="tasks-title">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>
+            // [impl->dsn~building-blocks~1]
+            // "+ Auftrag" at the card's head, the form in the dialog (ADR-0102, feedback of
+            // 2026-11-28); a unit's "Auftrag geben" opens the same dialog.
+            <div class="section-head">
+                <h2 id="tasks-title" class="section-head__title">{move || text::tasks_title(open.with(|(_, t)| t.len()))}</h2>
+                <Show when=move || editable.get()>
+                    <div class="section-head__action">
+                        <crate::shell::ui::CreateButton id="give-task" word=text::task_new_word() title=text::task_new() open=giving>
+                            <NewTask core revision unit=chosen kind open=giving />
+                        </crate::shell::ui::CreateButton>
+                    </div>
+                </Show>
+            </div>
             {move || {
                 let (now, list) = open.get();
                 if list.is_empty() {
@@ -794,18 +803,6 @@ pub fn OpenTasks(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                 }
                 .into_any()
             }}
-            <Show when=move || editable.get()>
-                <Disclosure
-                    id="give-task"
-                    open=giving
-                    class="tasks-panel__give"
-                    button_class="button button--small"
-                    panel_class="tasks-panel__form"
-                    button=Box::new(|| view! { <Icon name="plus" />{text::task_new()} }.into_any())
-                >
-                    <NewTask core revision unit=chosen kind open=giving />
-                </Disclosure>
-            </Show>
         </section>
         <crate::shared::units::UnitStatusBoard core revision editable give />
     }
@@ -856,7 +853,7 @@ fn NewTask(
     revision: RwSignal<u64>,
     unit: RwSignal<String>,
     kind: RwSignal<Option<NewKind>>,
-    /// The form's disclosure: closed once the Auftrag is created.
+    /// The form's dialog: closed once the Auftrag is created.
     open: RwSignal<bool>,
 ) -> impl IntoView {
     let template = RwSignal::new(String::new());
@@ -961,7 +958,7 @@ fn NewTask(
         error.set(None);
         // The new Auftrag stands in the list; the focus goes back to the button.
         open.set(false);
-        crate::shell::views::focus("give-task-button");
+        crate::shell::views::focus("give-task-open");
     };
     view! {
         <div class="new-task">

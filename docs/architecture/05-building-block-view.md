@@ -1897,7 +1897,8 @@ chapter 8.6.5) are built from a few components in `shell::ui`, each in the galle
 every theme:
 
 * `SectionHead`: icon, title, number, one action at the right. It stands close to its own
-  rows and apart from the section above (space and a thin divider).
+  rows and apart from the section above (space and a thin divider). A card's own head is
+  one too, its title as large as every card's title.
 * `ItemRow`: time and text at the left, the text taking the free width and wrapping where
   narrow; then the status tag and the icon actions at the right, in fixed columns, the
   actions at the section head's edge. Items of a section are rows with a line between
@@ -1909,7 +1910,11 @@ every theme:
 * `EmptyState`: icon, one sentence, the way on.
 
 Forms that create or change something open in the edit dialog from a "+ Neu" or ✎; hints
-take one line, longer ones open from an ⓘ. Pages move to these blocks one by one, the
+take one line, longer ones open from an ⓘ. Creating is always the "+" at the head of the
+card that lists what is created (`CreateButton`, its word the thing, its name the action,
+e.g. "+ Auftrag" named "Neuer Auftrag"); no page keeps a form for something new standing
+open below a list. A task done in steps on its own page (registering a patient, preparing a
+login provider) is not an addition to a list and keeps its form. Pages move to these blocks one by one, the
 record and *Führung & Raum* first.
 
 Covers:

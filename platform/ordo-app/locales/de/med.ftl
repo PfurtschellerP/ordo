@@ -228,6 +228,7 @@ hospital-name = Name der Klinik
 hospital-departments = Fachabteilungen
 hospital-capabilities = Versorgungsangebote
 hospital-add = Klinik hinzufügen
+hospital-new-word = Klinik
 hospital-save = Klinik speichern
 hospital-edit = Bearbeiten
 hospital-name-missing = Bitte den Namen der Klinik angeben.

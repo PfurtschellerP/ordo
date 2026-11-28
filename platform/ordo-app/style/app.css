@@ -162,6 +162,9 @@
   }
   /* A link that looks like a button, e.g. "Karte bearbeiten": text and icon on one line. */
   a.button { display: inline-flex; align-items: center; gap: var(--ordo-space-2); text-decoration: none; }
+  /* A button with an icon: the icon centred on the text's line, a small gap to the word
+     (feedback of 2026-11-28: the "+" sat too high). */
+  .button:has(> .icon) { display: inline-flex; align-items: center; justify-content: center; gap: var(--ordo-space-1); }
 
 
   .status { display: grid; gap: var(--ordo-space-1); margin: 0; }
@@ -497,7 +500,7 @@
   .launcher__user { margin: 0 0 var(--ordo-space-2); overflow-wrap: anywhere; }
 
   /* ADR-0102: an icon rail, the short label under each icon, as the bottom bar. */
-  .layout { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); min-height: calc(100vh - 3.5rem); }
+  .layout { display: grid; grid-template-columns: 6rem minmax(0, 1fr); min-height: calc(100vh - 3.5rem); }
   .navigation {
     z-index: 10;
     background: var(--ordo-color-surface-raised);
@@ -511,8 +514,10 @@
   .views { display: flex; flex-direction: column; gap: var(--ordo-space-2); }
   .views__item {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ordo-space-1);
-    min-height: var(--ordo-component-button-min-height); padding: var(--ordo-space-2) var(--ordo-space-1);
+    min-height: var(--ordo-component-button-min-height); padding: var(--ordo-space-2) 0;
     font-size: var(--ordo-component-navigation-bar-label-size); line-height: 1.2; text-align: center;
+    /* Room for whole words ("Einsatzmit-tel", feedback of 2026-11-28); only a word longer
+       than the rail is still hyphenated. */
     hyphens: auto; overflow-wrap: break-word;
     color: var(--ordo-color-text-primary); text-decoration: none;
     border: var(--ordo-size-border-thick) solid transparent; border-radius: var(--ordo-radius-small);
@@ -954,6 +959,8 @@
     /* A 16px gutter: "← Alle Patienten" and the record keep off the screen's edge. */
     :root:has(#main .record) .page { padding: var(--ordo-space-4); }
     .card.record { border: 0; padding: 0; background: none; box-shadow: none; }
+    /* Without the card's padding, the header's own background would end at its text. */
+    .record__header { background: none; }
     .record__header { gap: var(--ordo-space-1); padding-block-end: 0; }
     .record__facts, .record__where { gap: 0 var(--ordo-space-3); font-size: var(--ordo-font-size-2); }
     .record__where .record__when { display: none; }
@@ -1073,13 +1080,11 @@
   }
   .task-card__unit > span { flex: 1 1 10rem; }
   .task-card__assign { align-items: end; }
-  .task-card__more > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   /* Received and follow-up side by side: labels, inputs and hints each on one line. */
   .task-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); column-gap: var(--ordo-space-3); }
   .task-times > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--ordo-space-1); align-content: start; }
   .task-times > .field > * { margin: 0; }
   .task-card__panel { display: grid; gap: var(--ordo-space-2); padding-block: var(--ordo-space-2); }
-  .tasks-panel__give > .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .new-task { display: grid; gap: var(--ordo-space-3); }
   /* "Für" with its hint and "Vorlage" start on one line; the form's gap is the only space
      above them (feedback of 2026-11-27). */
@@ -1091,9 +1096,7 @@
   .new-task__pin legend { font-weight: var(--ordo-font-weight-bold); padding-inline: var(--ordo-space-1); max-inline-size: 100cqi; }
   .pin-picker { display: grid; gap: var(--ordo-space-2); }
   .pin-picker__state { margin: 0; font-family: var(--ordo-font-family-mono); }
-  .pin-picker .button { display: inline-flex; align-items: center; gap: var(--ordo-space-1); }
   .task-card--due .task-card__follow-up { font-weight: var(--ordo-font-weight-bold); color: var(--ordo-color-feedback-warning-text); }
-  .tasks-panel__form[hidden] { display: none; }
   /* Reports (REP-1…5): open ones in Disposition, patient cases for the crews. */
   .report-list { display: grid; gap: var(--ordo-space-3); margin: 0 0 var(--ordo-space-4); padding: 0; list-style: none; }
   .report-card { display: grid; gap: var(--ordo-space-2); padding: var(--ordo-space-3); border: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); border-radius: var(--ordo-radius-medium); background: var(--ordo-color-surface-default); }
@@ -1412,6 +1415,10 @@
     background: var(--ordo-color-feedback-info-surface); color: var(--ordo-color-feedback-info-text);
   }
   .section-head__title { flex: 1 1 8rem; min-width: 0; margin: 0; font-size: var(--ordo-font-size-4); overflow-wrap: anywhere; }
+  /* A card's head (its title an h2) looks like every other card's title (feedback of
+     2026-11-28), with its distance to the content. */
+  h2.section-head__title { font-size: var(--ordo-font-size-5); }
+  .section-head:has(> h2) { margin-block-end: var(--ordo-space-4); }
   .section-head__count { color: var(--ordo-color-text-secondary); font-variant-numeric: tabular-nums; font-weight: var(--ordo-font-weight-regular); }
   .section-head__action { flex: none; display: flex; gap: var(--ordo-space-2); }
   .item-rows { list-style: none; margin: 0; padding: 0; }
@@ -1690,6 +1697,11 @@
   .edit-dialog__header { justify-content: space-between; border-block-end: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
   .edit-dialog__footer { justify-content: flex-end; border-block-start: var(--ordo-size-border-thin) solid var(--ordo-color-border-strong); }
   .edit-dialog__title { margin: 0; font-size: var(--ordo-font-size-4); }
+  /* The header's tooltips open below, inside the dialog: above, its edge (or the screen's
+     on a phone) would cut them off (feedback of 2026-11-28). */
+  .edit-dialog__header .icon-button[data-tip]:is(:hover, :focus-visible)::after {
+    inset-block-end: auto; inset-block-start: calc(100% + var(--ordo-space-1));
+  }
   .edit-dialog__body {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
     display: grid; gap: var(--ordo-space-5); align-content: start;

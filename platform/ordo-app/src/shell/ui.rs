@@ -1194,16 +1194,21 @@ pub fn CreateButton(
     /// The button's word, e.g. "Einsatzmittel".
     #[prop(into)]
     word: String,
-    /// The dialog's heading, e.g. "Einsatzmittel hinzufügen".
+    /// The dialog's heading, e.g. "Einsatzmittel hinzufügen", and the button's name.
     #[prop(into)]
     title: String,
+    /// Whether the dialog is open, where something else opens it too (e.g. a unit's
+    /// "Auftrag geben").
+    #[prop(optional)]
+    open: Option<RwSignal<bool>>,
     children: ChildrenFn,
 ) -> impl IntoView {
-    let open = RwSignal::new(false);
+    let open = open.unwrap_or_else(|| RwSignal::new(false));
     provide_context(CreateOpen(open));
     let back = format!("{id}-open");
     view! {
-        <button id=back.clone() type="button" class="button button--small" on:click=move |_| open.set(true)>
+        <button id=back.clone() type="button" class="button button--small" aria-label=title.clone()
+            on:click=move |_| open.set(true)>
             <Icon name="plus" />{word}
         </button>
         <EditDialog id=id open=Signal::derive(move || open.get()) on_close=Callback::new(move |()| open.set(false))

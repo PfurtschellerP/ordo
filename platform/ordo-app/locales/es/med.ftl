@@ -228,6 +228,7 @@ hospital-name = Nombre del hospital
 hospital-departments = Servicios
 hospital-capabilities = Prestaciones
 hospital-add = Añadir hospital
+hospital-new-word = Hospital
 hospital-save = Guardar hospital
 hospital-edit = Editar
 hospital-name-missing = Indique el nombre del hospital.

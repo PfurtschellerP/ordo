@@ -228,6 +228,7 @@ hospital-name = Name of the hospital
 hospital-departments = Departments
 hospital-capabilities = Services offered
 hospital-add = Add hospital
+hospital-new-word = Hospital
 hospital-save = Save hospital
 hospital-edit = Edit
 hospital-name-missing = Please give the name of the hospital.

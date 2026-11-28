@@ -36,7 +36,16 @@ pub fn RolesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let me = core.with_value(|c| c.replica.user().clone());
     view! {
         <section aria-labelledby="org-roles-title" class="card">
-            <h2 id="org-roles-title" tabindex="-1">{text::org_roles_title()}</h2>
+            // [impl->dsn~building-blocks~1]
+            // "+ Rolle" at the card's head, the form in the dialog (ADR-0102).
+            <div class="section-head">
+                <h2 id="org-roles-title" class="section-head__title" tabindex="-1">{text::org_roles_title()}</h2>
+                <div class="section-head__action">
+                    <crate::shell::ui::CreateButton id="org-role-new" word=text::org_role_new_word() title=text::org_role_grant_title()>
+                        <div class="edit-dialog__part"><GrantForm core revision /></div>
+                    </crate::shell::ui::CreateButton>
+                </div>
+            </div>
             <p>{text::org_roles_intro()}</p>
             {move || {
                 if !ready.get() {
@@ -48,7 +57,6 @@ pub fn RolesView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     Some(list) => view! { <RoleList core list me=me.clone() /> }.into_any(),
                 }
             }}
-            <GrantForm core revision />
         </section>
     }
 }
@@ -143,6 +151,7 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let role = RwSignal::new(ORGANISATION_ROLES[1].to_owned());
     let until = RwSignal::new(String::new());
     let error = RwSignal::new(None::<&'static str>);
+    let created = use_context::<crate::shell::ui::CreateOpen>();
     let people = Signal::derive(move || {
         revision.track();
         core.with_value(|c| c.people.iter().map(ToString::to_string).collect::<Vec<_>>())
@@ -179,10 +188,10 @@ fn GrantForm(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         );
         person.set(String::new());
         until.set(String::new());
+        crate::shell::ui::CreateOpen::done(created);
     };
     view! {
-        <form class="form" novalidate on:submit=submit aria-labelledby="org-role-grant-title">
-            <h3 id="org-role-grant-title">{text::org_role_grant_title()}</h3>
+        <form class="form" novalidate on:submit=submit aria-labelledby="org-role-new-title">
             <div class="form--inline">
                 <div class="field">
                     <label for="org-role-person">{text::org_role_person()}</label>

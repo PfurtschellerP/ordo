@@ -169,6 +169,16 @@ fn people(core: Handle, register: Option<&HelperRegister>) -> Vec<Person> {
     list
 }
 
+/// The heading of the person's dialog: adding someone, or editing or completing `person`.
+fn form_title(core: Handle, person: Option<&Person>, readable: bool) -> String {
+    match person {
+        Some(p) if p.helper.is_some() => text::helper_edit_title(shown_name(core, p)),
+        Some(p) => text::helper_complete_title(shown_name(core, p)),
+        None if readable => text::helper_add_title().to_owned(),
+        None => text::role_add_title().to_owned(),
+    }
+}
+
 /// The name a person is shown by: the register's, unless it is only the account; then
 /// the account's display name (ORG-7).
 fn shown_name(core: Handle, p: &Person) -> String {
@@ -209,6 +219,8 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         helpers.with(|h| people(core, h.as_ref()))
     });
     let editing = RwSignal::new(None::<Person>);
+    // "+ Person" at the list's head; the form opens in the dialog, as for editing one.
+    let adding = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);
     // [impl->dsn~guest-access~4]
     // The server's answer to a guest code asked on this device (ADR-0077): the role chosen
@@ -252,7 +264,24 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
         // Who is there, then the form to take someone in: two sections (feedback of
         // 2026-11-14), each person a card of short lines.
         <section aria-labelledby="helpers-title" class="card helpers">
-            <h2 id="helpers-title" tabindex="-1">{text::helpers_title()}</h2>
+            // [impl->dsn~building-blocks~1]
+            // "+ Person" at the card's head; adding and editing in the dialog (ADR-0102,
+            // feedback of 2026-11-28).
+            <div class="section-head">
+                <h2 id="helpers-title" class="section-head__title" tabindex="-1">{text::helpers_title()}</h2>
+                <Show when=move || manage.get() || readable.get()>
+                    <div class="section-head__action">
+                        <button id="helper-new-open" type="button" class="button button--small"
+                            aria-label=move || if readable.get() { text::helper_add_title() } else { text::role_add_title() }
+                            on:click=move |_| {
+                                editing.set(None);
+                                adding.set(true);
+                            }>
+                            <crate::shell::ui::Icon name="plus" />{move || if readable.get() { text::helper_new_word() } else { text::role_new_word() }}
+                        </button>
+                    </div>
+                </Show>
+            </div>
             <p class="hint">{move || if readable.get() { text::helpers_intro() } else { text::helpers_intro_roles() }}</p>
             {move || {
                 let now = core::now_ms();
@@ -275,16 +304,28 @@ pub fn HelpersView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
             }}
             <p role="alert" class="error">{move || error.get()}</p>
         </section>
-        <Show when=move || manage.get() || readable.get()>
-            <section aria-labelledby="helper-form-title" class="card helper-form-section">
-                {move || shown_pass.get().map(|(pass, name)| view! { <GuestPassView pass name shown=shown_pass /> })}
-                {move || {
-                    // A new form for each person edited, filled with them.
-                    let person = editing.get();
-                    view! { <HelperForm core revision editing person readable=readable.get() manage=manage.get() /> }
-                }}
+        {move || shown_pass.get().map(|(pass, name)| view! {
+            <section aria-labelledby="guest-pass-title" class="card helper-form-section">
+                <GuestPassView pass name shown=shown_pass />
             </section>
-        </Show>
+        })}
+        <crate::shell::ui::EditDialog id="helper" open=Signal::derive(move || adding.get() || editing.with(Option::is_some))
+            on_close=Callback::new(move |()| {
+                adding.set(false);
+                editing.set(None);
+            })
+            title=Signal::derive(move || form_title(core, editing.get().as_ref(), readable.get()))
+            back=Signal::derive(move || if editing.with(Option::is_some) { "helpers-title" } else { "helper-new-open" }.to_owned())>
+            {move || {
+                // A new form for each person edited, filled with them.
+                let person = editing.get();
+                view! {
+                    <div class="edit-dialog__part">
+                        <HelperForm core revision editing adding person readable=readable.get() manage=manage.get() />
+                    </div>
+                }
+            }}
+        </crate::shell::ui::EditDialog>
     }
 }
 
@@ -622,6 +663,8 @@ fn HelperForm(
     core: Handle,
     revision: RwSignal<u64>,
     editing: RwSignal<Option<Person>>,
+    /// Whether the dialog is open for a new person.
+    adding: RwSignal<bool>,
     person: Option<Person>,
     /// Whether this device may read and write the register.
     readable: bool,
@@ -680,12 +723,6 @@ fn HelperForm(
         people
     });
     let id = helper.as_ref().map(|h| h.id.clone());
-    let title = match (&person, &helper) {
-        (Some(p), Some(_)) => text::helper_edit_title(shown_name(core, p)),
-        (Some(p), None) => text::helper_complete_title(shown_name(core, p)),
-        (None, _) if readable => text::helper_add_title().to_owned(),
-        (None, _) => text::role_add_title().to_owned(),
-    };
     let editing_one = person.is_some();
     // Choosing an account fills in the name, unless one was typed.
     let account_chosen = move |value: String| {
@@ -801,8 +838,10 @@ fn HelperForm(
             return;
         }
         error.set(None);
+        // Saved: the dialog closes; the next one starts with an empty form.
+        adding.set(false);
         if editing_one {
-            editing.set(None); // a fresh form for the next one
+            editing.set(None);
         } else {
             for s in [
                 name,
@@ -822,7 +861,6 @@ fn HelperForm(
             }
             qualifications.set(BTreeSet::new());
             roles.set(BTreeSet::new());
-            crate::shell::views::focus("helper-account");
         }
     };
     // [impl->dsn~registration-card~2]
@@ -964,8 +1002,7 @@ fn HelperForm(
     // In the order of use: an account or a Meldekarte to start from, then what they did not
     // bring, then the role.
     view! {
-        <form class="form helper-form" novalidate on:submit=submit aria-labelledby="helper-form-title">
-            <h2 id="helper-form-title">{title}</h2>
+        <form class="form helper-form" novalidate on:submit=submit aria-labelledby="helper-title">
             <div class="form--inline helper-form__start">
                 <div class="field">
                     <label for="helper-account">{text::helper_account_label()}</label>
@@ -1008,9 +1045,10 @@ fn HelperForm(
                         (_, false) => text::grant(),
                     }}
                 </button>
-                {editing_one.then(|| view! {
-                    <button type="button" class="button" on:click=move |_| editing.set(None)>{text::cancel()}</button>
-                })}
+                <button type="button" class="button" on:click=move |_| {
+                    adding.set(false);
+                    editing.set(None);
+                }>{text::cancel()}</button>
             </div>
         </form>
     }

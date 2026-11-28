@@ -1418,8 +1418,8 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByRole("button", { name: "Auftrag anlegen" }).click();
     const task = ben.locator(".task-card");
     await expect(task).toContainText("RTW 83/1 – Lagemeldung abgeben");
-    await expect(ben.locator("#give-task-panel"), "the form closes once the Auftrag is created").toBeHidden();
-    await expect(ben.locator("#give-task-button"), "the focus goes back to its button").toBeFocused();
+    await expect(ben.locator("#give-task-dialog"), "the form closes once the Auftrag is created").toBeHidden();
+    await expect(ben.locator("#give-task-open"), "the focus goes back to its button").toBeFocused();
     await expect(task.locator(".task-card__follow-up"), "a due follow-up says so").toContainText("Fällig: nachfragen seit");
     await expect(board.locator(".unit-status__tasks"), "the unit shows its task").toHaveText("1 offener Auftrag: Lagemeldung abgeben");
     await audit(ben, "Units on Disposition");
@@ -1659,6 +1659,10 @@ test("ORDO in the browser", async ({ browser }) => {
     await form.getByRole("group", { name: "Rollen im Einsatz" }).getByLabel("Notfallsanitäter/in").check();
     await form.getByRole("button", { name: "Speichern", exact: true }).click();
     await expect(petra.locator(".roster__role", { hasText: "Notfallsanitäter/in" }), "and granted again by ticking").toHaveCount(1);
+    // [itest->dsn~building-blocks~1]
+    // "+ Person" at the list's head opens the form in a dialog (ADR-0102).
+    await ben.locator("#helper-new-open").click();
+    await expect(ben.getByRole("dialog", { name: "Person aufnehmen" })).toBeVisible();
     await form.getByRole("button", { name: "Aufnehmen", exact: true }).click();
     await expect(form.locator("[role=alert]"), "a name is needed").toHaveText("Bitte einen Namen angeben.");
     await ben.locator("#helper-name").fill("Lena Berger");
@@ -1700,13 +1704,14 @@ test("ORDO in the browser", async ({ browser }) => {
     await expect(ben.locator("#helper-diet-other")).toHaveValue("halal");
     await ben.locator("#helper-phone").fill("0170 1111111");
     await form.getByRole("button", { name: "Speichern", exact: true }).click();
-    await expect(ben.locator("#helper-form-title"), "the form is new again").toHaveText("Person aufnehmen");
+    await expect(ben.locator("#helper-dialog"), "saving closes the dialog").toBeHidden();
     await lena.getByRole("button", { name: "Bearbeiten: Lena Berger" }).click();
     await expect(ben.locator("#helper-phone"), "changed").toHaveValue("+491701111111");
     await form.getByRole("button", { name: "Abbrechen" }).click();
     // [itest->dsn~registration-card~2]
     // HELP-5: a photo of a Meldekarte fills the form; the command checks and saves. The card
     // is photographed on a screen, with its pixel grid and moiré (ADR-0073).
+    await ben.locator("#helper-new-open").click();
     const photo = ben.locator("#helper-card-photo");
     const card = await screenPhoto(ben, fs.readFileSync(path.join(__dirname, "fixtures", "registration-card.png")));
     await photo.setInputFiles({ name: "karte.jpg", mimeType: "image/jpeg", buffer: card });
@@ -1766,10 +1771,12 @@ test("ORDO in the browser", async ({ browser }) => {
       await expect(device.getByRole("heading", { name: /Zugang beendet/ }), "the guest's devices lock").toBeVisible({ timeout: 20_000 });
       await device.context().close();
     }
+    await ben.locator("#helper-new-open").click();
     await photo.setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: patientPhoto });
     await expect(form.locator(".helper-card [role=status]"), "a photo without a card").toHaveText(/^Keine Karte erkannt\./);
     await expect(ben.locator("#helper-name"), "the form stays as it was").toHaveValue("");
     await audit(ben, "Helper register");
+    await ben.keyboard.press("Escape");
     await expect.poll(() => status(ben), { message: "the register is sent" }).toContain("Alles gesendet");
     expect(
       Buffer.concat(annaFrames.received).includes("Lena Berger") || Buffer.concat(annaFrames.received).includes("+491701111111"),
@@ -1834,7 +1841,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await ben.getByLabel("Funktion von RTW 83/1").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
     await openWorkspace(ben, "Führung");
     await openView(ben, "Disposition");
-    await ben.locator("#give-task-button").click();
+    await ben.locator("#give-task-open").click();
     await ben.locator(".new-task__form").getByLabel("Sonstiger Auftrag").check();
     await ben.locator("#task-unit").selectOption({ label: "Sanitätseinsatzleitung SanEL" });
     await ben.locator("#task-text").fill("Lage der UHS melden");
@@ -2131,12 +2138,17 @@ test("ORDO in the browser", async ({ browser }) => {
     await pageTab(ben, "Kliniken");
     const hospitals = ben.locator("[aria-labelledby=hospitals-setup-title]");
     await expect(hospitals).toContainText("Noch keine Kliniken erfasst.");
-    await hospitals.getByRole("button", { name: "Klinik hinzufügen" }).click();
-    await expect(hospitals.locator("[role=alert]").last(), "a hospital needs a name").toHaveText("Bitte den Namen der Klinik angeben.");
+    // [itest->dsn~building-blocks~1]
+    // "+ Klinik" at the card's head opens the form in a dialog (ADR-0102).
+    await hospitals.locator("#hospital-new-open").click();
+    const newHospital = ben.locator("#hospital-new-dialog");
+    await newHospital.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    await expect(newHospital.locator("[role=alert]").last(), "a hospital needs a name").toHaveText("Bitte den Namen der Klinik angeben.");
     await ben.locator("#hospital-name-new").fill("Klinikum Mitte");
-    await hospitals.getByLabel("Unfallchirurgie").check();
-    await hospitals.getByLabel(/^Schockraum/).check();
-    await hospitals.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    await newHospital.getByLabel("Unfallchirurgie").check();
+    await newHospital.getByLabel(/^Schockraum/).check();
+    await newHospital.getByRole("button", { name: "Klinik hinzufügen" }).click();
+    await expect(newHospital, "adding closes the dialog").toBeHidden();
     const entry = hospitals.locator(".hospital-card");
     await expect(entry.locator("h3")).toHaveText("Klinikum Mitte");
     await expect(entry).toContainText("Unfallchirurgie · Schockraum");
@@ -2318,7 +2330,7 @@ test("ORDO in the browser", async ({ browser }) => {
     await openWorkspace(ben, "Führung");
     await openView(ben, "Disposition");
     await expect(ben.locator("#tasks-title")).toHaveText("Offene Aufträge (0)");
-    await ben.locator("#give-task-button").click();
+    await ben.locator("#give-task-open").click();
     const form = ben.locator(".new-task");
     await form.getByRole("button", { name: "Auftrag anlegen" }).click();
     await expect(form.locator("[role=alert]"), "the kind is chosen, never assumed").toHaveText("Bitte die Art wählen.");
@@ -2611,10 +2623,14 @@ test("ORDO in the browser", async ({ browser }) => {
     // A planner for the season: until the end of tomorrow.
     const tomorrow = new Date(Date.now() + 24 * 3600_000);
     const day = (n: number) => String(n).padStart(2, "0");
-    await dora.getByLabel("Person (Benutzerkennung)").fill("ben@localhost");
-    await dora.getByLabel("Rolle", { exact: true }).selectOption({ label: "Einsatzplanung (alle Einsätze)" });
-    await dora.getByLabel("Gültig bis (optional)").fill(`${tomorrow.getFullYear()}-${day(tomorrow.getMonth() + 1)}-${day(tomorrow.getDate())}`);
-    await dora.getByRole("button", { name: "Vergeben" }).click();
+    // "+ Rolle" at the list's head opens the form in a dialog (ADR-0102).
+    await dora.locator("#org-role-new-open").click();
+    const grant = dora.locator("#org-role-new-dialog");
+    await grant.getByLabel("Person (Benutzerkennung)").fill("ben@localhost");
+    await grant.getByLabel("Rolle", { exact: true }).selectOption({ label: "Einsatzplanung (alle Einsätze)" });
+    await grant.getByLabel("Gültig bis (optional)").fill(`${tomorrow.getFullYear()}-${day(tomorrow.getMonth() + 1)}-${day(tomorrow.getDate())}`);
+    await grant.getByRole("button", { name: "Vergeben" }).click();
+    await expect(grant, "granting closes the dialog").toBeHidden();
     const benPlanner = dora.locator(".role-list [data-user='ben@localhost'] [data-role='planner']");
     await expect(benPlanner.locator("span").first(), "granted, with its end, shown by name").toHaveText(`Einsatzplanung (alle Einsätze) · bis ${day(tomorrow.getDate())}.${day(tomorrow.getMonth() + 1)}.${tomorrow.getFullYear()}`);
     await expect(dora.locator(".role-list [data-user='ben@localhost'] .roster__person")).toHaveText("Ben Weber");
@@ -2690,14 +2706,17 @@ test("ORDO in the browser", async ({ browser }) => {
     const accounts = dora.locator(".account-list");
     await expect(accounts.locator("[data-account='anna@example.org'] .roster__person"), "Dex's accounts, by name").toHaveText("Anna Schmidt");
 
-    // A helper joins on scene: an account with a first password.
-    await dora.getByLabel("E-Mail-Adresse (Anmeldename)").fill("eva@example.org");
-    await dora.getByLabel("Name", { exact: true }).fill("Eva Becker");
-    await dora.getByLabel("Erstes Passwort").fill("kurz");
-    await dora.getByRole("button", { name: "Konto anlegen" }).click();
-    await expect(dora.locator("form [role=alert]").last(), "too short a password is not sent").toHaveText(/mindestens 12 Zeichen/);
-    await dora.getByLabel("Erstes Passwort").fill("Helferin-am-Stadtfest");
-    await dora.getByRole("button", { name: "Konto anlegen" }).click();
+    // A helper joins on scene: an account with a first password, from "+ Konto" (ADR-0102).
+    await dora.locator("#account-new-open").click();
+    const newAccount = dora.locator("#account-new-dialog");
+    await newAccount.getByLabel("E-Mail-Adresse (Anmeldename)").fill("eva@example.org");
+    await newAccount.getByLabel("Name", { exact: true }).fill("Eva Becker");
+    await newAccount.getByLabel("Erstes Passwort").fill("kurz");
+    await newAccount.getByRole("button", { name: "Konto anlegen" }).click();
+    await expect(newAccount.locator("form [role=alert]").last(), "too short a password is not sent").toHaveText(/mindestens 12 Zeichen/);
+    await newAccount.getByLabel("Erstes Passwort").fill("Helferin-am-Stadtfest");
+    await newAccount.getByRole("button", { name: "Konto anlegen" }).click();
+    await expect(newAccount, "sending closes the dialog").toBeHidden();
     const eva = accounts.locator("[data-account='eva@example.org']");
     await expect(eva.locator(".roster__person"), "created in Dex").toHaveText("Eva Becker");
     await expect(dora.getByLabel("E-Mail-Adresse (Anmeldename)"), "the form is emptied").toHaveValue("");

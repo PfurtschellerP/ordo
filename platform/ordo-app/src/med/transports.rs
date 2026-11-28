@@ -700,7 +700,16 @@ pub fn HospitalsSetup(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let close = Callback::new(move |()| editing.set(None));
     view! {
         <section aria-labelledby="hospitals-setup-title" class="card">
-            <h2 id="hospitals-setup-title">{text::hospitals_title()}</h2>
+            // [impl->dsn~building-blocks~1]
+            // "+ Klinik" at the card's head, the form in the dialog (ADR-0102).
+            <div class="section-head">
+                <h2 id="hospitals-setup-title" class="section-head__title">{text::hospitals_title()}</h2>
+                <div class="section-head__action">
+                    <crate::shell::ui::CreateButton id="hospital-new" word=text::hospital_new_word() title=text::hospital_add()>
+                        <div class="edit-dialog__part"><HospitalForm core revision /></div>
+                    </crate::shell::ui::CreateButton>
+                </div>
+            </div>
             {move || {
                 let list: Vec<Hospital> = hospitals.with(|h| h.by_name().into_iter().cloned().collect());
                 if list.is_empty() {
@@ -725,8 +734,6 @@ pub fn HospitalsSetup(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     </div>
                 })}
             </crate::shell::ui::EditDialog>
-            <h3>{text::hospital_add()}</h3>
-            <HospitalForm core revision />
         </section>
     }
 }
@@ -914,6 +921,7 @@ fn HospitalForm(
     done: Option<Callback<()>>,
 ) -> impl IntoView {
     let existing = entry.as_ref().map(|e| e.hospital.clone());
+    let created = use_context::<crate::shell::ui::CreateOpen>();
     let field = format!("hospital-name-{}", existing.as_deref().unwrap_or("new"));
     let name = RwSignal::new(entry.as_ref().map(|e| e.name.clone()).unwrap_or_default());
     let set =
@@ -946,15 +954,19 @@ fn HospitalForm(
                 name.set(String::new());
                 departments.set(BTreeSet::new());
                 capabilities.set(BTreeSet::new());
+                crate::shell::ui::CreateOpen::done(created);
             }
             true
         })
     };
     // [impl->dsn~edit-dialog~3]
-    // In the edit dialog, closing it saves what was changed.
-    crate::shell::ui::PendingSaves::register(Callback::new(move |()| {
-        !changed.get_untracked() || save.run(())
-    }));
+    // In the edit dialog, closing it saves what was changed; a new one is only added by its
+    // button.
+    if entry.is_some() {
+        crate::shell::ui::PendingSaves::register(Callback::new(move |()| {
+            !changed.get_untracked() || save.run(())
+        }));
+    }
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         if save.run(())

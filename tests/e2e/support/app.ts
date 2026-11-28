@@ -95,6 +95,7 @@ export async function openIncident(page: Page, name: string): Promise<void> {
 /** Takes a person into the incident with a role (ADR-0076): their account, which fills in
  * the name, and the role; with access to the register, they are registered as a helper too. */
 export async function grantRole(page: Page, user: string, role: string): Promise<void> {
+  await page.locator("#helper-new-open").click(); // the form opens in a dialog (ADR-0102)
   const form = page.locator("form.helper-form");
   await form.locator("#helper-account").fill(user);
   await form.locator("#helper-account").blur();

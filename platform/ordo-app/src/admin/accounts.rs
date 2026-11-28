@@ -92,7 +92,18 @@ pub fn AccountsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
     let deleting = RwSignal::new(None::<String>);
     view! {
         <section aria-labelledby="accounts-title" class="card">
-            <h2 id="accounts-title" tabindex="-1">{text::accounts_title()}</h2>
+            // [impl->dsn~building-blocks~1]
+            // "+ Konto" at the card's head, the form in the dialog (ADR-0102).
+            <div class="section-head">
+                <h2 id="accounts-title" class="section-head__title" tabindex="-1">{text::accounts_title()}</h2>
+                <Show when=move || accounts.get().is_some_and(|a| a.managed)>
+                    <div class="section-head__action">
+                        <crate::shell::ui::CreateButton id="account-new" word=text::account_new_word() title=text::account_create_title()>
+                            <div class="edit-dialog__part"><CreateForm core pending /></div>
+                        </crate::shell::ui::CreateButton>
+                    </div>
+                </Show>
+            </div>
             <p>{text::accounts_intro()}</p>
             <p role="status" class="notice" hidden=move || failed.get() || outcome.get().is_none()>
                 {move || outcome.get().filter(|_| !failed.get())}
@@ -117,9 +128,6 @@ pub fn AccountsView(core: Handle, revision: RwSignal<u64>) -> impl IntoView {
                     .into_any(),
                 }
             }}
-            <Show when=move || accounts.get().is_some_and(|a| a.managed)>
-                <CreateForm core pending />
-            </Show>
         </section>
     }
 }
@@ -275,6 +283,7 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
     let name = RwSignal::new(String::new());
     let password = RwSignal::new(String::new());
     let error = RwSignal::new(None::<&'static str>);
+    let created = use_context::<crate::shell::ui::CreateOpen>();
     let submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         let (e, n, p) = (
@@ -297,6 +306,9 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
             return;
         }
         error.set(None);
+        // The server's answer shows on the page, at the list; what was typed stays in the
+        // form until the account is made.
+        crate::shell::ui::CreateOpen::done(created);
         pending.send(
             core,
             AccountChange::Create {
@@ -312,8 +324,7 @@ fn CreateForm(core: Handle, pending: Pending) -> impl IntoView {
         );
     };
     view! {
-        <form class="form" novalidate on:submit=submit aria-labelledby="account-create-title">
-            <h3 id="account-create-title">{text::account_create_title()}</h3>
+        <form class="form" novalidate on:submit=submit aria-labelledby="account-new-title">
             <div class="form--inline">
                 <div class="field">
                     <label for="account-email">{text::account_email()}</label>
